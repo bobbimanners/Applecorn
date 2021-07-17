@@ -203,6 +203,8 @@ RESET       TSX
             RTS
 
 * ProDOS file handling for MOS OSFILE LOAD call
+* Return A=0 if file not found
+*        A=1 if file found
 LOADFILE    LDX   $0100                      ; Recover SP
             TXS
             LDA   $C081                      ; Gimme the ROM!
@@ -214,12 +216,12 @@ LOADFILE    LDX   $0100                      ; Recover SP
             LDA   #>MOSFILE
             STA   OPENPL+2
             JSR   OPENFILE
-            BCS   :NOTFOUND
+            BCS   :NOTFOUND                  ; File not found error
 
 :L1         LDA   OPENPL+5                   ; File ref number
             STA   READPL+1
             JSR   RDBLK
-            BCS   :EOF
+            BCS   :EOF                       ; Assume only poss error is EOF
 
             LDA   #<RDBUF
             STA   A1L
@@ -250,9 +252,9 @@ LOADFILE    LDX   $0100                      ; Recover SP
             BRA   :L1
 
 :NOTFOUND
-            JSR   BELL
-            JSR   BELL
             LDA   #$00                       ; Nothing found
+            PHA
+            BRA   :EXIT
 :EOF
             LDA   #$01                       ; File found
             PHA
@@ -273,6 +275,9 @@ LOADFILE    LDX   $0100                      ; Recover SP
             JMP   XFER
 
 * ProDOS file handling for MOS OSFILE SAVE call
+* Return A=0 if successful
+*        A=1 if unable to create/open
+*        A=2 if error during save
 SAVEFILE    LDX   $0100                      ; Recover SP
             TXS
             LDA   $C081                      ; Gimme the ROM!
@@ -305,7 +310,7 @@ SAVEFILE    LDX   $0100                      ; Recover SP
             STA   CREATEPL+11
             JSR   CRTFILE
             JSR   OPENFILE
-            BCS   :FWD1                      ; :CANTOPEN
+            BCS   :FWD1                      ; :CANTOPEN error
 
             SEC                              ; Compute file length
             LDA   FBEND
@@ -369,7 +374,7 @@ SAVEFILE    LDX   $0100                      ; Recover SP
             LDA   OPENPL+5                   ; File ref number
             STA   WRITEPL+1
             JSR   WRTBLK
-            BCS   :NORMALEND                 ; TODO: ERROR HANDLING
+            BCS   :WRITEERR
 
             BRA   :UPDLEN
 
@@ -387,14 +392,20 @@ SAVEFILE    LDX   $0100                      ; Recover SP
             BRA   :ENDLOOP
 
 :CANTOPEN
-            JSR   BELL
-            LDA   #$00                       ; Nothing found
+            LDA   #$01                       ; Can't open/create
+            BRA   :EXIT
+:WRITEERR
+            LDA   OPENPL+1                   ; File ref num
+            STA   CLSPL+5
+            JSR   CLSFILE
+:WERR2      LDA   #$02                       ; Write error
             BRA   :EXIT
 :NORMALEND
             LDA   OPENPL+1                   ; File ref num
             STA   CLSPL+5
             JSR   CLSFILE
-            LDA   #$01                       ; File found
+            BCS   :WERR2                     ; Catch error during close
+            LDA   #$00                       ; Success!
 :EXIT       PHA
             LDA   $C08B                      ; R/W RAM, bank 1
             LDA   $C08B
@@ -502,10 +513,10 @@ ZP1         EQU   $90                        ; $90-$9f are Econet space
                                              ; so safe to use
 ZP2         EQU   $92
 
-ROW         EQU   $94
-COL         EQU   $95
-FAULT       EQU   $FD
-ESCFLAG     EQU   $FF
+ROW         EQU   $94                        ; Cursor row
+COL         EQU   $95                        ; Cursor column
+FAULT       EQU   $FD                        ; Error message pointer
+ESCFLAG     EQU   $FF                        ; Escape status
 BRKV        EQU   $202                       ; BRK vector
 CLIV        EQU   $208                       ; OSCLI vector
 BYTEV       EQU   $20A                       ; OSBYTE vector
@@ -604,9 +615,9 @@ MOSINIT
 
             STZ   ESCFLAG
 
-            LDA   #<DEFBRKHDLR
+            LDA   #<MOSBRKHDLR
             STA   BRKV
-            LDA   #>DEFBRKHDLR
+            LDA   #>MOSBRKHDLR
             STA   BRKV+1
 
             LDA   #<OSCLI                    ; Initialize MOS vectors
@@ -895,10 +906,36 @@ OSFILERET
             LDA   TEMP2
             STA   STRTH
             PLA                              ; Return value
-            PLY                              ; Discard other copy of A
-            PLY
+            PLY                              ; Value of A on entry
+
+            CPY   #$FF                       ; LOAD
+            BNE   :S4
+            CMP   #$00                       ; No file found
+            BNE   :EXIT
+            BRK
+            DB    $D6                        ; Error number
+            ASC   'File not found'
+            BRK
+            BRA   :EXIT
+
+:S4         CPY   #$00                       ; SAVE
+            BNE   :EXIT
+            CMP   #$01                       ; Unable to create or open
+            BNE   :S5
+            BRK
+            DB    $D5                        ; Error number ?? TBD
+            ASC   'Create error'
+            BRK
+            BRA   :S6
+:S5         CMP   #$02                       ; Unable to write
+            BNE   :S6
+            BRK
+            DB    $D5                        ; Error number ?? TBD
+            ASC   'Write error'
+            BRK
+:S6         LDA   #$00
+:EXIT       PLY
             PLX
-            LDA   #$00                       ; File not found
             RTS
 OSFILEM     ASC   'OSFILE($'
             DB    $00
@@ -1182,58 +1219,83 @@ OSWORDM2    STR   ')'
 
 OSBYTE      PHX
             PHY
-:S1         CMP   #$7E                       ; $7E = ack detection of ESC
+:S1         CMP   $7C                        ; $7C = clear escape condition
             BNE   :S2
+            PHA
+            LDA   ESCFLAG
+            AND   #$7F                       ; Clear MSB
+            STA   ESCFLAG
+            PLA
+            PLY
+            PLX
+            RTS
+:S2         CMP   $7D                        ; $7D = set escape condition
+            BNE   :S3
+            PHA
+            LDA   ESCFLAG
+            ORA   #$80                       ; Set MSB
+            STA   ESCFLAG
+            PLA
+            PLY
+            PLX
+            RTS
+:S3         CMP   #$7E                       ; $7E = ack detection of ESC
+            BNE   :S4
+            PHA
+            LDA   ESCFLAG
+            AND   #$7F                       ; Clear MSB
+            STA   ESCFLAG
+            PLA
             PLY
             PLX
             LDX   #$FF                       ; Means ESC condition cleared
             RTS
-:S2         CMP   #$81                       ; $81 = Read key with time lim
-            BNE   :S3
+:S4         CMP   #$81                       ; $81 = Read key with time lim
+            BNE   :S5
             PLY
             PLX
             JMP   GETKEY
-:S3         CMP   #$82                       ; $82 = read high order address
-            BNE   :S4
+:S5         CMP   #$82                       ; $82 = read high order address
+            BNE   :S6
             PLY
             PLX
             LDY   #$FF                       ; $FFFF for I/O processor
             LDX   #$FF
             RTS
-:S4         CMP   #$83                       ; $83 = read bottom of user mem
-            BNE   :S5
+:S6         CMP   #$83                       ; $83 = read bottom of user mem
+            BNE   :S7
             PLY
             PLX
             LDY   #$0E                       ; $0E00
             LDX   #$00
             RTS
-:S5         CMP   #$84                       ; $84 = read top of user mem
-            BNE   :S6
-            PLY
-            PLX
-            LDY   #$80
-            LDX   #$00
-            RTS
-:S6         CMP   #$85                       ; $85 = top user mem for mode
-            BNE   :S7
-            PLY
-            PLX
-            LDY   #$80
-            LDX   #$00
-            RTS
-:S7         CMP   #$86                       ; $86 = read cursor pos
+:S7         CMP   #$84                       ; $84 = read top of user mem
             BNE   :S8
+            PLY
+            PLX
+            LDY   #$80
+            LDX   #$00
+            RTS
+:S8         CMP   #$85                       ; $85 = top user mem for mode
+            BNE   :S9
+            PLY
+            PLX
+            LDY   #$80
+            LDX   #$00
+            RTS
+:S9         CMP   #$86                       ; $86 = read cursor pos
+            BNE   :S10
             PLY
             PLX
             LDY   ROW
             LDX   COL
             RTS
-:S8         CMP   #$DA                       ; $DA = clear VDU queue
-            BNE   :S9
+:S10        CMP   #$DA                       ; $DA = clear VDU queue
+            BNE   :S11
             PLY
             PLX
             RTS
-:S9         PHA
+:S11        PHA
             LDA   #<OSBYTEM
             LDY   #>OSBYTEM
             JSR   PRSTR
@@ -1347,6 +1409,20 @@ BRKHDLR     PHA
             PLA
             TAX
             PLA
+            RTS
+
+PRERR       INY
+            LDA   (FAULT),Y
+            JSR   $FFE3                      ; OSASCI
+            TAX
+            BNE   PRERR
+            RTS
+
+MOSBRKHDLR
+            LDY   #$00
+            JSR   PRERR
+            JSR   $FFE7                      ; OSNEWL
+            JSR   $FFE7
             RTS
 
 DEFBRKHDLR

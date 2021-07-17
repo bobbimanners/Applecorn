@@ -1,0 +1,5 @@
+#!/bin/sh
+cadius extractfile applecorn.po /APPLECORN/APPLECORN.S .
+rm _FileInformation.txt
+cadius clearhighbit APPLECORN.S\#040000
+cadius indentfile APPLECORN.S\#040000
