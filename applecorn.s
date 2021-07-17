@@ -190,12 +190,14 @@ SETPRFX     LDA   GPFXCMD
 :S1         RTS
 
 * Reset handler
-* XFER to AUXMOS1 in aux, AuxZP on
+* XFER to AUXMOS ($C000) in aux, AuxZP on, LC on
 RESET       TSX
             STX   $0100
-            LDA   #<AUXMOS1
+            LDA   $C08B                      ; Rd/Wt LC, bank one
+            LDA   $C08B
+            LDA   #<AUXMOS
             STA   STRTL
-            LDA   #>AUXMOS1
+            LDA   #>AUXMOS
             STA   STRTH
             SEC
             BIT   $FF58
@@ -518,6 +520,7 @@ ZP2         EQU   $92
 
 ROW         EQU   $94                        ; Cursor row
 COL         EQU   $95                        ; Cursor column
+WARMSTRT    EQU   $9F                        ; Cold or warm start
 FAULT       EQU   $FD                        ; Error message pointer
 ESCFLAG     EQU   $FF                        ; Escape status
 BRKV        EQU   $202                       ; BRK vector
@@ -532,6 +535,8 @@ BGETV       EQU   $216                       ; OSBGET vector
 BPUTV       EQU   $218                       ; OSBPUT vector
 GBPBV       EQU   $21A                       ; OSGBPB vector
 FINDV       EQU   $21C                       ; OSFIND vector
+
+MAGIC       EQU   $BC                        ; Arbitrary value
 
 MOSSHIM
             ORG   AUXMOS                     ; MOS shim implementation
@@ -549,6 +554,10 @@ MOSINIT
 
             LDA   $C08B                      ; LC RAM Rd/Wt, 1st 4K bank
             LDA   $C08B
+
+            LDA   WARMSTRT                   ; Don't relocate on restart
+            CMP   #MAGIC
+            BEQ   :NORELOC
 
             LDA   #<AUXMOS1                  ; Relocate MOS shim
             STA   A1L
@@ -608,6 +617,7 @@ MOSINIT
             INC   A4H
 :S7         BRA   :L2
 
+:NORELOC
 :S8         STA   $C00D                      ; 80 col on
             STA   $C003                      ; Alt charset off
             STA   $C055                      ; PAGE2
@@ -668,18 +678,27 @@ MOSINIT
             LDA   #>OSFIND
             STA   FINDV+1
 
-            LDA   #<HELLO2
-            LDY   #>HELLO2
+            LDA   #<:HELLO
+            LDY   #>:HELLO
             JSR   PRSTR
+
+            LDA   WARMSTRT
+            CMP   #MAGIC
+            BNE   :S9
+            LDA   #<:OLDM
+            LDY   #>:OLDM
+            JSR   PRSTR
+
+:S9         LDA   #MAGIC                     ; So we do not reloc again
+            STA   WARMSTRT
 
             LDA   #$01
             JMP   AUXADDR                    ; Start Acorn ROM
 * No return
-HELLO2      ASC   'AppleMOS v0.01'
-            DB    $0D,$0A
-            ASC   '=============='
-            DB    $0D,$0A,$00
-
+:HELLO      ASC   'AppleMOS v0.01'
+            DB    $0D,$0A,$0D,$0A,$00
+:OLDM       ASC   '(Use OLD to recover any program)'
+            DB    $0D,$0A,$0D,$0A,$00
 * Clear to EOL
 CLREOL      LDA   ROW
             ASL
