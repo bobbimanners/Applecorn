@@ -203,8 +203,9 @@ RESET       TSX
             RTS
 
 * ProDOS file handling for MOS OSFILE LOAD call
-* Return A=0 if file not found
-*        A=1 if file found
+* Return A=0 if successful
+*        A=1 if file not found
+*        A=2 if read error
 LOADFILE    LDX   $0100                      ; Recover SP
             TXS
             LDA   $C081                      ; Gimme the ROM!
@@ -216,14 +217,16 @@ LOADFILE    LDX   $0100                      ; Recover SP
             LDA   #>MOSFILE
             STA   OPENPL+2
             JSR   OPENFILE
-            BCS   :NOTFOUND                  ; File not found error
-
+            BCS   :NOTFND                    ; File not found
 :L1         LDA   OPENPL+5                   ; File ref number
             STA   READPL+1
             JSR   RDBLK
-            BCS   :EOF                       ; Assume only poss error is EOF
+            BCC   :S1
+            CMP   #$4C                       ; EOF
+            BEQ   :EOF
+            BRA   :READERR
 
-            LDA   #<RDBUF
+:S1         LDA   #<RDBUF
             STA   A1L
             LDA   #>RDBUF
             STA   A1H
@@ -238,12 +241,12 @@ LOADFILE    LDX   $0100                      ; Recover SP
             LDA   FBEXEC+1
             LDX   BLOCKS
 :L2         CPX   #$00
-            BEQ   :S1
+            BEQ   :S2
             INC
             INC
             DEX
             BRA   :L2
-:S1         STA   A4H
+:S2         STA   A4H
 
             SEC                              ; Main -> AUX
             JSR   AUXMOVE
@@ -251,18 +254,17 @@ LOADFILE    LDX   $0100                      ; Recover SP
             INC   BLOCKS
             BRA   :L1
 
-:NOTFOUND
-            LDA   #$00                       ; Nothing found
+:NOTFND     LDA   #$01                       ; Nothing found
             PHA
             BRA   :EXIT
-:EOF
-            LDA   #$01                       ; File found
+:READERR    LDA   #$02                       ; Read error
             PHA
-
-            LDA   OPENPL+1                   ; File ref num
+            BRA   :EOF2
+:EOF        LDA   #$00                       ; Success
+            PHA
+:EOF2       LDA   OPENPL+1                   ; File ref num
             STA   CLSPL+5
             JSR   CLSFILE
-
 :EXIT       LDA   $C08B                      ; R/W RAM, bank 1
             LDA   $C08B
             LDA   #<OSFILERET                ; Return to caller in aux
@@ -315,10 +317,10 @@ SAVEFILE    LDX   $0100                      ; Recover SP
             SEC                              ; Compute file length
             LDA   FBEND
             SBC   FBSTRT
-            STA   LEN
+            STA   :LEN
             LDA   FBEND+1
             SBC   FBSTRT+1
-            STA   LEN+1
+            STA   :LEN+1
 
 :L1         LDA   FBSTRT                     ; Setup for first block
             STA   A1L
@@ -344,13 +346,13 @@ SAVEFILE    LDX   $0100                      ; Recover SP
 
 :FWD1       BRA   :CANTOPEN                  ; Forwarding call from above
 
-:S1         LDA   LEN+1                      ; MSB of length remaining
+:S1         LDA   :LEN+1                     ; MSB of length remaining
             CMP   #$02
             BCS   :S2                        ; MSB of len >= 2 (not last)
 
             CMP   #$00                       ; If no bytes left ...
             BNE   :S3
-            LDA   LEN
+            LDA   :LEN
             BNE   :S3
             BRA   :NORMALEND
 
@@ -358,9 +360,9 @@ SAVEFILE    LDX   $0100                      ; Recover SP
             STA   A2L
             LDA   FBEND+1
             STA   A2H
-            LDA   LEN
+            LDA   :LEN
             STA   WRITEPL+4                  ; Remaining bytes to write
-            LDA   LEN+1
+            LDA   :LEN+1
             STA   WRITEPL+5
 
 :S2         LDA   #<RDBUF
@@ -383,12 +385,12 @@ SAVEFILE    LDX   $0100                      ; Recover SP
 
 :UPDLEN
             SEC                              ; Update length remaining
-            LDA   LEN
+            LDA   :LEN
             SBC   WRITEPL+4
-            STA   LEN
-            LDA   LEN+1
+            STA   :LEN
+            LDA   :LEN+1
             SBC   WRITEPL+5
-            STA   LEN+1
+            STA   :LEN+1
             BRA   :ENDLOOP
 
 :CANTOPEN
@@ -398,14 +400,15 @@ SAVEFILE    LDX   $0100                      ; Recover SP
             LDA   OPENPL+1                   ; File ref num
             STA   CLSPL+5
             JSR   CLSFILE
-:WERR2      LDA   #$02                       ; Write error
+            LDA   #$02                       ; Write error
             BRA   :EXIT
 :NORMALEND
             LDA   OPENPL+1                   ; File ref num
             STA   CLSPL+5
             JSR   CLSFILE
-            BCS   :WERR2                     ; Catch error during close
             LDA   #$00                       ; Success!
+            BCC   :EXIT                      ; If close OK
+            LDA   #$02                       ; Write error
 :EXIT       PHA
             LDA   $C08B                      ; R/W RAM, bank 1
             LDA   $C08B
@@ -417,7 +420,7 @@ SAVEFILE    LDX   $0100                      ; Recover SP
             SEC
             BIT   $FF58
             JMP   XFER
-LEN         DW    $0000
+:LEN        DW    $0000
 
 * Create disk file
 CRTFILE     JSR   MLI
@@ -910,24 +913,35 @@ OSFILERET
 
             CPY   #$FF                       ; LOAD
             BNE   :S4
-            CMP   #$00                       ; No file found
-            BNE   :EXIT
+            CMP   #$01                       ; No file found
+            BNE   :SL1
             BRK
-            DB    $D6                        ; Error number
+            DB    $D6                        ; Error number ?? TBD
             ASC   'File not found'
             BRK
+            LDA   #$00                       ; Return code - no file
+            BRA   :EXIT
+:SL1        CMP   #$02                       ; Read error
+            BNE   :SL2
+            BRK
+            DB    $D6                        ; Error number
+            ASC   'Read error'
+            BRK
+            LDA   #$01                       ; Return code - file found
+            BRA   :EXIT
+:SL2        LDA   #$01                       ; Return code - file found
             BRA   :EXIT
 
 :S4         CPY   #$00                       ; SAVE
-            BNE   :EXIT
+            BNE   :S6
             CMP   #$01                       ; Unable to create or open
-            BNE   :S5
+            BNE   :SS1
             BRK
             DB    $D5                        ; Error number ?? TBD
             ASC   'Create error'
             BRK
             BRA   :S6
-:S5         CMP   #$02                       ; Unable to write
+:SS1        CMP   #$02                       ; Unable to write
             BNE   :S6
             BRK
             DB    $D5                        ; Error number ?? TBD
