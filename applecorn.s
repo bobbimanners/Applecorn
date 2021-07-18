@@ -32,6 +32,7 @@ RSTV        EQU   $3F2
 MLI         EQU   $BF00
 
 * ProDOS MLI command numbers
+QUITCMD     EQU   $65
 GTIMECMD    EQU   $82
 CREATCMD    EQU   $C0
 ONLNCMD     EQU   $C5
@@ -68,6 +69,11 @@ START       STZ   BLOCKS
             BRA   :L1
 :S1         JSR   CROUT
             JSR   SETPRFX
+
+            STA   $C009                      ; Alt ZP on
+            STZ   $9F                        ; WARMSTRT - set cold!
+            STA   $C008                      ; Alt ZP off
+
             LDA   #<ROMFILE
             STA   OPENPL+1
             LDA   #>ROMFILE
@@ -424,6 +430,14 @@ SAVEFILE    LDX   $0100                      ; Recover SP
             JMP   XFER
 :LEN        DW    $0000
 
+* Quit to ProDOS
+QUIT        INC   $3F4                       ; Invalidate powerup byte
+            STA   $C054                      ; PAGE2 off
+            JSR   MLI
+            DB    QUITCMD
+            DW    QUITPL
+            RTS
+
 * Create disk file
 CRTFILE     JSR   MLI
             DB    CREATCMD
@@ -496,6 +510,12 @@ ONLPL       HEX   02                         ; Number of parameters
 
 GPFXPL      HEX   01                         ; Number of parameters
             DW    $300                       ; Buffer
+
+QUITPL      HEX   04                         ; Number of parameters
+            DB    $00
+            DW    $0000
+            DB    $00
+            DW    $0000
 
 * Buffer for Acorn MOS filename
 MOSFILE     DS    20                         ; 20 bytes ought to be enough
@@ -1010,6 +1030,11 @@ OSRDCH      PHX
             STA   $C010                      ; Clear strobe
             PLY
             PLX
+            CMP   #$1B                       ; Escape pressed?
+            BEQ   :S5
+            CLC
+            RTS
+:S5         SEC
             RTS
 CURS        DW    $0000                      ; Counter
 CSTATE      DB    $00                        ; Cursor on or off
@@ -1265,9 +1290,7 @@ OSBYTE      PHX
 :S2         CMP   $7D                        ; $7D = set escape condition
             BNE   :S3
             PHA
-            LDA   ESCFLAG
-            ORA   #$80                       ; Set MSB
-            STA   ESCFLAG
+            ROR   ESCFLAG
             PLA
             PLY
             PLX
@@ -1347,12 +1370,79 @@ OSBYTEM     ASC   'OSBYTE($'
 OSBM2       ASC   ').'
             DB    $00
 
-OSCLI       LDA   #<OSCLIM
-            LDY   #>OSCLIM
+OSCLI       PHX
+            PHY
+            STX   ZP1                        ; Pointer to CLI
+            STY   ZP1+1
+            LDA   #<:QUIT
+            STA   ZP2
+            LDA   #>:QUIT
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :S1
+            JSR   STARQUIT
+            BRA   :EXIT
+:S1         LDA   #<:CAT
+            STA   ZP2
+            LDA   #>:CAT
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :S2
+            JSR   CATALOG
+            BRA   :EXIT
+:S2         LDA   #<:CAT2
+            STA   ZP2
+            LDA   #>:CAT2
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :UNSUPP
+            JSR   CATALOG
+            BRA   :EXIT
+:UNSUPP     LDA   #<:OSCLIM
+            LDY   #>:OSCLIM
+            JSR   PRSTR
+:EXIT       PLY
+            PLX
+            RTS
+:QUIT       ASC   '*QUIT'
+            DB    $0D
+:CAT        ASC   '*CAT'
+            DB    $0D
+:CAT2       ASC   '*.'
+            DB    $0D
+:OSCLIM     ASC   'OSCLI.'
+            DB    $00
+
+* String comparison for OSCLI
+* Compares CR-terminated strings in ZP1,ZP2
+* Clear carry if match, set carry otherwise
+STRCMP      LDY   #$00
+:L1         LDA   (ZP1),Y
+            CMP   (ZP2),Y
+            BNE   :MISMTCH
+            CMP   #$0D                       ; Carriage return
+            BEQ   :MATCH
+            INY
+            BRA   :L1
+:MATCH      CLC
+            RTS
+:MISMTCH    SEC
+            RTS
+
+STARQUIT    LDA   #<QUIT
+            STA   STRTL
+            LDA   #>QUIT
+            STA   STRTH
+            CLC                              ; Main memory
+            CLV                              ; Main ZP & LC
+            JMP   XFER
+
+CATALOG     LDA   #<:MSG
+            LDY   #>:MSG
             JSR   PRSTR
             RTS
-OSCLIM      ASC   'OSCLI.'
-            DB    $00
+:MSG        ASC   'Catalog'
+            DB    $0A,$0D,$00
 
 * Performs OSBYTE $81 INKEY$ function
 * X,Y has time limit
