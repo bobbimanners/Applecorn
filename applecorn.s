@@ -210,6 +210,37 @@ RESET       TSX
             JMP   XFER
             RTS
 
+* Copy 512 bytes from RDBUF to AUXBLK in aux LC
+COPYAUXBLK
+            LDA   $C08B                      ; R/W LC RAM, bank 1
+            LDA   $C08B
+            STA   $C009                      ; Alt ZP (and Alt LC) on
+
+            LDY   #$00
+:L1         LDA   RDBUF,Y
+            STA   $C005                      ; Write aux mem
+            STA   AUXBLK,Y
+            STA   $C004                      ; Write main mem
+            CPY   #$FF
+            BEQ   :S1
+            INY
+            BRA   :L1
+
+:S1         LDY   #$00
+:L2         LDA   RDBUF+$100,Y
+            STA   $C005                      ; Write aux mem
+            STA   AUXBLK+$100,Y
+            STA   $C004                      ; Write main mem
+            CPY   #$FF
+            BEQ   :S2
+            INY
+            BRA   :L2
+
+:S2         STA   $C008                      ; Alt ZP off
+            LDA   $C081                      ; Bank the ROM back in
+            LDA   $C081
+            RTS
+
 * ProDOS file handling for MOS OSFILE LOAD call
 * Return A=0 if successful
 *        A=1 if file not found
@@ -465,23 +496,7 @@ CATREENTRY
             BEQ   :EOF
             BRA   :READERR
 
-:S1         LDA   #<RDBUF
-            STA   A1L
-            LDA   #>RDBUF
-            STA   A1H
-
-            LDA   #<RDBUFEND
-            STA   A2L
-            LDA   #>RDBUFEND
-            STA   A2H
-
-            LDA   #<AUXBLK
-            STA   A4L
-            LDA   #>AUXBLK
-            STA   A4H
-
-            SEC                              ; Main -> AUX
-            JSR   AUXMOVE
+:S1         JSR   COPYAUXBLK
 
             LDA   $C08B                      ; R/W RAM, bank 1
             LDA   $C08B
@@ -610,9 +625,6 @@ FBSTRT      DW    $0000                      ; Start address for SAVE
             DW    $0000
 FBEND       DW    $0000                      ; End address for SAVE
             DW    $0000
-
-* Disk block buffer
-AUXBLK      DS    $200                       ; 512 bytes
 
 **********************************************************
 * Everything below here is the BBC Micro 'virtual machine'
@@ -1795,4 +1807,7 @@ MOSVEC
             NOP                              ; FFFD
             DW    BRKHDLR                    ; FFFE
 MOSVEND
+
+* Buffer for one 512 byte disk block in aux mem
+AUXBLK      DS    $200
 
