@@ -177,20 +177,20 @@ SETPRFX     LDA   GPFXCMD
 :L1         JSR   MLI
 :OPC7       DB    $00
             DW    GPFXPL
-            LDX   $0300
+            LDX   RDBUF
             BNE   :S1
             LDA   $BF30
             STA   ONLPL+1                    ; Device number
             JSR   MLI
             DB    ONLNCMD
             DW    ONLPL
-            LDA   $0301
+            LDA   RDBUF+1
             AND   #$0F
             TAX
             INX
-            STX   $0300
+            STX   RDBUF
             LDA   #$2F
-            STA   $0301
+            STA   RDBUF+1
             DEC   :OPC7
             BNE   :L1
 :S1         RTS
@@ -244,9 +244,9 @@ LOADFILE    LDX   $0100                      ; Recover SP
             LDA   #>RDBUFEND
             STA   A2H
 
-            LDA   FBEXEC
+            LDA   FBLOAD
             STA   A4L
-            LDA   FBEXEC+1
+            LDA   FBLOAD+1
             LDX   BLOCKS
 :L2         CPX   #$00
             BEQ   :S2
@@ -270,8 +270,8 @@ LOADFILE    LDX   $0100                      ; Recover SP
             BRA   :EOF2
 :EOF        LDA   #$00                       ; Success
             PHA
-:EOF2       LDA   OPENPL+1                   ; File ref num
-            STA   CLSPL+5
+:EOF2       LDA   OPENPL+5                   ; File ref num
+            STA   CLSPL+1
             JSR   CLSFILE
 :EXIT       LDA   $C08B                      ; R/W RAM, bank 1
             LDA   $C08B
@@ -405,14 +405,14 @@ SAVEFILE    LDX   $0100                      ; Recover SP
             LDA   #$01                       ; Can't open/create
             BRA   :EXIT
 :WRITEERR
-            LDA   OPENPL+1                   ; File ref num
-            STA   CLSPL+5
+            LDA   OPENPL+5                   ; File ref num
+            STA   CLSPL+1
             JSR   CLSFILE
             LDA   #$02                       ; Write error
             BRA   :EXIT
 :NORMALEND
-            LDA   OPENPL+1                   ; File ref num
-            STA   CLSPL+5
+            LDA   OPENPL+5                   ; File ref num
+            STA   CLSPL+1
             JSR   CLSFILE
             LDA   #$00                       ; Success!
             BCC   :EXIT                      ; If close OK
@@ -437,6 +437,85 @@ QUIT        INC   $3F4                       ; Invalidate powerup byte
             DB    QUITCMD
             DW    QUITPL
             RTS
+
+* Obtain catalog of current PREFIX dir
+CATALOG     LDX   $0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; Select ROM
+            LDA   $C081
+
+            JSR   MLI                        ; Fetch prefix into RDBUF
+            DB    GPFXCMD
+            DW    GPFXPL
+            BNE   CATEXIT                    ; If prefix not set
+
+            LDA   #<RDBUF
+            STA   OPENPL+1
+            LDA   #>RDBUF
+            STA   OPENPL+2
+            JSR   OPENFILE
+            BCS   CATEXIT                    ; Can't open dir
+
+CATREENTRY
+            LDA   OPENPL+5                   ; File ref num
+            STA   READPL+1
+            JSR   RDBLK
+            BCC   :S1
+            CMP   #$4C                       ; EOF
+            BEQ   :EOF
+            BRA   :READERR
+
+:S1         LDA   #<RDBUF
+            STA   A1L
+            LDA   #>RDBUF
+            STA   A1H
+
+            LDA   #<RDBUFEND
+            STA   A2L
+            LDA   #>RDBUFEND
+            STA   A2H
+
+            LDA   #<AUXBLK
+            STA   A4L
+            LDA   #>AUXBLK
+            STA   A4H
+
+            SEC                              ; Main -> AUX
+            JSR   AUXMOVE
+
+            LDA   $C08B                      ; R/W RAM, bank 1
+            LDA   $C08B
+            LDA   #<PRONEBLK
+            STA   STRTL
+            LDA   #>PRONEBLK
+            STA   STRTH
+            SEC
+            BIT   $FF58
+            JMP   XFER
+
+:READERR
+:EOF        LDA   OPENPL+5                   ; File ref num
+            STA   CLSPL+1
+            JSR   CLSFILE
+
+CATEXIT     LDA   $C08B                      ; R/W LC RAM, bank 1
+            LDA   $C08B
+            LDA   #<STARCATRET
+            STA   STRTL
+            LDA   #>STARCATRET
+            STA   STRTH
+            PLA
+            SEC
+            BIT   $FF58
+            JMP   XFER
+
+* PRONEBLK call returns here ...
+CATALOGRET
+            LDX   #0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; ROM please
+            LDA   $C081
+            BRA   CATREENTRY
 
 * Create disk file
 CRTFILE     JSR   MLI
@@ -506,10 +585,10 @@ CLSPL       HEX   01                         ; Number of parameters
 
 ONLPL       HEX   02                         ; Number of parameters
             DB    $00                        ; Unit num
-            DW    $301                       ; Buffer
+            DW    RDBUF+1                    ; Buffer
 
 GPFXPL      HEX   01                         ; Number of parameters
-            DW    $300                       ; Buffer
+            DW    RDBUF                      ; Buffer
 
 QUITPL      HEX   04                         ; Number of parameters
             DB    $00
@@ -532,14 +611,22 @@ FBSTRT      DW    $0000                      ; Start address for SAVE
 FBEND       DW    $0000                      ; End address for SAVE
             DW    $0000
 
-*********************************************************
+* Disk block buffer
+AUXBLK      DS    $200                       ; 512 bytes
+
+**********************************************************
+* Everything below here is the BBC Micro 'virtual machine'
+* in Apple //e Auxiliary memory
+**********************************************************
 
 ZP1         EQU   $90                        ; $90-$9f are Econet space
                                              ; so safe to use
 ZP2         EQU   $92
 
-ROW         EQU   $94                        ; Cursor row
-COL         EQU   $95                        ; Cursor column
+ZP3         EQU   $94
+
+ROW         EQU   $96                        ; Cursor row
+COL         EQU   $97                        ; Cursor column
 WARMSTRT    EQU   $9F                        ; Cold or warm start
 FAULT       EQU   $FD                        ; Error message pointer
 ESCFLAG     EQU   $FF                        ; Escape status
@@ -1388,15 +1475,23 @@ OSCLI       PHX
             STA   ZP2+1
             JSR   STRCMP
             BCS   :S2
-            JSR   CATALOG
+            JSR   STARCAT
             BRA   :EXIT
 :S2         LDA   #<:CAT2
             STA   ZP2
             LDA   #>:CAT2
             STA   ZP2+1
             JSR   STRCMP
+            BCS   :S3
+            JSR   STARCAT
+            BRA   :EXIT
+:S3         LDA   #<:DIR
+            STA   ZP2
+            LDA   #>:DIR
+            STA   ZP2+1
+            JSR   STRCMP
             BCS   :UNSUPP
-            JSR   CATALOG
+            JSR   STARDIR
             BRA   :EXIT
 :UNSUPP     LDA   #<:OSCLIM
             LDY   #>:OSCLIM
@@ -1409,6 +1504,8 @@ OSCLI       PHX
 :CAT        ASC   '*CAT'
             DB    $0D
 :CAT2       ASC   '*.'
+            DB    $0D
+:DIR        ASC   '*DIR'
             DB    $0D
 :OSCLIM     ASC   'OSCLI.'
             DB    $00
@@ -1437,11 +1534,104 @@ STARQUIT    LDA   #<QUIT
             CLV                              ; Main ZP & LC
             JMP   XFER
 
-CATALOG     LDA   #<:MSG
+STARCAT     LDA   STRTL
+            STA   TEMP1
+            LDA   STRTH
+            STA   TEMP2
+            TSX
+            STX   $0101                      ; Stash alt SP
+            LDA   #<CATALOG
+            STA   STRTL
+            LDA   #>CATALOG
+            STA   STRTH
+            CLC                              ; Main memory
+            CLV                              ; Main ZP & LC
+            JMP   XFER
+STARCATRET
+            LDX   $0101                      ; Recover alt SP
+            TXS
+            LDA   TEMP1
+            STA   STRTL
+            LDA   TEMP2
+            STA   STRTH
+            RTS
+
+* Print one block of a catalog. Called by CATALOG
+* Block is in AUXBLK
+PRONEBLK    LDX   $0101                      ; Recover alt SP
+            TXS
+
+            LDA   AUXBLK+4                   ; Get storage type
+            AND   #$E0                       ; Mask 3 MSBs
+            CMP   #$E0
+            BNE   :NOTKEY                    ; Not a key block
+            LDA   #<:DIRM
+            LDY   #>:DIRM
+            JSR   PRSTR
+:NOTKEY     LDA   #$00
+:L1         PHA
+            JSR   PRONEENT
+            PLA
+            INC
+            CMP   #13                        ; Number of dirents in block
+            BNE   :L1
+            BRA   :END
+
+:END        LDA   STRTL
+            STA   TEMP1
+            LDA   STRTH
+            STA   TEMP2
+
+            LDA   #<CATALOGRET
+            STA   STRTL
+            LDA   #>CATALOGRET
+            STA   STRTH
+            CLC                              ; Main memory
+            CLV                              ; Main ZP & LC
+            JMP   XFER
+:DIRM       ASC   'Directory: '
+            DB    $00
+
+* Print a single directory entry
+* On entry: A = dirent index in AUXBLK
+PRONEENT    TAX
+            LDA   #<AUXBLK+4                 ; Skip pointers
+            STA   ZP3
+            LDA   #>AUXBLK+4
+            STA   ZP3+1
+:L1         CPX   #$00
+            BEQ   :S1
+            CLC
+            LDA   #$27                       ; Size of dirent
+            ADC   ZP3
+            STA   ZP3
+            LDA   #$00
+            ADC   ZP3+1
+            STA   ZP3+1
+            DEX
+            BRA   :L1
+:S1         LDY   #$00
+            LDA   (ZP3),Y
+            BEQ   :EXIT                      ; Inactive entry
+            AND   #$0F                       ; Len of filename
+            TAX
+            LDY   #$01
+:L2         CPX   #$00
+            BEQ   :S2
+            LDA   (ZP3),Y
+            JSR   $FFEE                      ; OSWRCH
+            DEX
+            INY
+            BRA   :L2
+:S2         JSR   $FFE7                      ; OSNEWL
+:EXIT       RTS
+
+* Command line is in ZP1
+STARDIR     LDA   #<:MSG
             LDY   #>:MSG
             JSR   PRSTR
             RTS
-:MSG        ASC   'Catalog'
+:MSG        ASC   'Dir:'
             DB    $0A,$0D,$00
 
 * Performs OSBYTE $81 INKEY$ function
