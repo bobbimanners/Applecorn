@@ -36,6 +36,7 @@ QUITCMD     EQU   $65
 GTIMECMD    EQU   $82
 CREATCMD    EQU   $C0
 ONLNCMD     EQU   $C5
+SPFXCMD     EQU   $C6
 GPFXCMD     EQU   $C7
 OPENCMD     EQU   $C8
 READCMD     EQU   $CA
@@ -532,6 +533,27 @@ CATALOGRET
             LDA   $C081
             BRA   CATREENTRY
 
+* Set the prefix
+SETPFX      LDX   $0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; ROM, ta!
+            LDA   $C081
+            JSR   MLI
+            DB    SPFXCMD
+            DW    SPFXPL
+            BCC   :S1
+            JSR   BELL                       ; Beep on error
+
+:S1         LDA   $C08B                      ; R/W LC RAM, bank 1
+            LDA   $C08B
+            LDA   #<STARDIRRET
+            STA   STRTL
+            LDA   #>STARDIRRET
+            STA   STRTH
+            SEC
+            BIT   $FF58
+            JMP   XFER
+
 * Create disk file
 CRTFILE     JSR   MLI
             DB    CREATCMD
@@ -605,6 +627,9 @@ ONLPL       HEX   02                         ; Number of parameters
 GPFXPL      HEX   01                         ; Number of parameters
             DW    RDBUF                      ; Buffer
 
+SPFXPL      HEX   01                         ; Number of parameters
+            DW    MOSFILE                    ; Buffer
+
 QUITPL      HEX   04                         ; Number of parameters
             DB    $00
             DW    $0000
@@ -612,7 +637,7 @@ QUITPL      HEX   04                         ; Number of parameters
             DW    $0000
 
 * Buffer for Acorn MOS filename
-MOSFILE     DS    20                         ; 20 bytes ought to be enough
+MOSFILE     DS    64                         ; 64 bytes max prefix/file len
 
 * Acorn MOS format OSFILE param list
 FILEBLK
@@ -801,6 +826,12 @@ MOSINIT
             LDY   #>:HELLO
             JSR   PRSTR
 
+            LDA   #$09                       ; Print language name at $8009
+            LDY   #$80
+            JSR   PRSTR
+            JSR   $FFE7                      ; OSNEWL
+            JSR   $FFE7
+
             LDA   WARMSTRT
             CMP   #MAGIC
             BNE   :S9
@@ -814,10 +845,11 @@ MOSINIT
             LDA   #$01
             JMP   AUXADDR                    ; Start Acorn ROM
 * No return
-:HELLO      ASC   'AppleMOS v0.01'
+:HELLO      ASC   'Applecorn MOS v0.01'
             DB    $0D,$0A,$0D,$0A,$00
 :OLDM       ASC   '(Use OLD to recover any program)'
             DB    $0D,$0A,$0D,$0A,$00
+
 * Clear to EOL
 CLREOL      LDA   ROW
             ASL
@@ -859,14 +891,14 @@ CLEAR       STZ   ROW
             RTS
 
 * Print string pointed to by A,Y to the screen
-PRSTR       STA   ZP2                        ;  String in A,Y
-            STY   ZP2+1
-:L1         LDA   (ZP2)                      ; Ptr to string in ZP1
+PRSTR       STA   ZP3                        ;  String in A,Y
+            STY   ZP3+1
+:L1         LDA   (ZP3)                      ; Ptr to string in ZP3
             BEQ   :S1
             JSR   $FFEE                      ; OSWRCH
-            INC   ZP2
+            INC   ZP3
             BNE   :L1
-            INC   ZP2+1
+            INC   ZP3+1
             BRA   :L1
 :S1         RTS
 
@@ -1219,11 +1251,11 @@ OSWRCH      PHA
 
             CMP   #$00                       ; NULL
             BNE   :T1
-            BRA   :DONE
+            BRA   :IDONE
 :T1         CMP   #$07                       ; BELL
             BNE   :T2
             JSR   BEEP
-            BRA   :DONE
+            BRA   :IDONE
 :T2         CMP   #$08                       ; Backspace
             BNE   :T3
             JSR   NDBSPC
@@ -1238,7 +1270,8 @@ OSWRCH      PHA
             CMP   #23
             BEQ   :SCROLL
             INC   ROW
-            BRA   :DONE
+            JSR   CLREOL
+:IDONE      BRA   :DONE
 :T5         CMP   #$0B                       ; Cursor up
             BNE   :T6
             LDA   ROW
@@ -1502,8 +1535,16 @@ OSCLI       PHX
             LDA   #>:DIR
             STA   ZP2+1
             JSR   STRCMP
-            BCS   :UNSUPP
+            BCS   :S4
             JSR   STARDIR
+            BRA   :EXIT
+:S4         LDA   #<:HELP
+            STA   ZP2
+            LDA   #>:HELP
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :UNSUPP
+            JSR   STARHELP
             BRA   :EXIT
 :UNSUPP     LDA   #<:OSCLIM
             LDY   #>:OSCLIM
@@ -1512,31 +1553,55 @@ OSCLI       PHX
             PLX
             RTS
 :QUIT       ASC   '*QUIT'
-            DB    $0D
+            DB    $00
 :CAT        ASC   '*CAT'
-            DB    $0D
+            DB    $00
 :CAT2       ASC   '*.'
-            DB    $0D
+            DB    $00
 :DIR        ASC   '*DIR'
-            DB    $0D
+            DB    $00
+:HELP       ASC   '*HELP'
+            DB    $00
 :OSCLIM     ASC   'OSCLI.'
             DB    $00
 
 * String comparison for OSCLI
-* Compares CR-terminated strings in ZP1,ZP2
+* Compares str in ZP1 with null-terminated str in ZP2
 * Clear carry if match, set carry otherwise
+* Leaves (ZP1),Y pointing to char after verb
 STRCMP      LDY   #$00
-:L1         LDA   (ZP1),Y
-            CMP   (ZP2),Y
+:L1         LDA   (ZP2),Y
+            BEQ   :PMATCH
+            CMP   (ZP1),Y
             BNE   :MISMTCH
-            CMP   #$0D                       ; Carriage return
-            BEQ   :MATCH
             INY
             BRA   :L1
+:PMATCH     LDA   (ZP1),Y
+            CMP   #$0D
+            BEQ   :MATCH
+            CMP   #' '
+            BEQ   :MATCH
+            BRA   :MISMTCH
 :MATCH      CLC
             RTS
 :MISMTCH    SEC
             RTS
+
+* Print *HELP test
+STARHELP    LDA   #<:MSG
+            LDY   #>:MSG
+            JSR   PRSTR
+            LDA   #$09                       ; Language name
+            LDY   #$80
+            JSR   PRSTR
+            LDA   #<:MSG2
+            LDY   #>:MSG2
+            JSR   PRSTR
+            RTS
+:MSG        DB    $0A,$0D
+            ASC   'Applecorn MOS v0.01'
+            DB    $0A,$0D,$0A,$0D,$00
+:MSG2       DB    $0A,$0D,$0A,$0D,$00
 
 STARQUIT    LDA   #<QUIT
             STA   STRTL
@@ -1638,13 +1703,64 @@ PRONEENT    TAX
 :S2         JSR   $FFE7                      ; OSNEWL
 :EXIT       RTS
 
-* Command line is in ZP1
-STARDIR     LDA   #<:MSG
-            LDY   #>:MSG
-            JSR   PRSTR
+* On entry, command line is in ZP1
+STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
+            STA   ZP3
+            LDA   ZP1+1
+            STA   ZP3+1
+            LDX   #$01
+            LDY   #$00
+:L1         LDA   (ZP3),Y
+            CMP   #' '
+            BEQ   :L2
+            CMP   #$0D                       ; Carriage return
+            BEQ   :S2                        ; No space in cmdline
+            INY
+            BRA   :L1
+:S2         RTS                              ; No argument
+:L2         LDA   (ZP3),Y
+            CMP   #$0D
+            BEQ   :S2                        ; Hit EOL before arg
+            CMP   #' '
+            BNE   :L3
+            INY
+            BRA   :L2
+:L3         LDA   (ZP3),Y
+            CMP   #$0D
+            BEQ   :S3
+            STA   $C004                      ; Write main
+            STA   MOSFILE,X
+            STA   $C005                      ; Write aux
+            JSR   $FFEE                      ; OSWRCH
+            INY
+            INX
+            BRA   :L3
+:S3         DEX
+            STA   $C004                      ; Write main
+            STX   MOSFILE                    ; Length byte
+            STA   $C005                      ; Write aux
+
+            LDA   STRTL
+            STA   TEMP1
+            LDA   STRTH
+            STA   TEMP2
+            TSX
+            STX   $0101                      ; Stash alt SP
+            LDA   #<SETPFX
+            STA   STRTL
+            LDA   #>SETPFX
+            STA   STRTH
+            CLC                              ; Main memory
+            CLV                              ; Main ZP & LC
+            JMP   XFER
+STARDIRRET
+            LDX   $0101                      ; Recover Alt SP
+            TXS
+            LDA   TEMP1
+            STA   STRTL
+            LDA   TEMP2
+            STA   STRTH
             RTS
-:MSG        ASC   'Dir:'
-            DB    $0A,$0D,$00
 
 * Performs OSBYTE $81 INKEY$ function
 * X,Y has time limit
