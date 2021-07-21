@@ -1,5 +1,7 @@
 # Applecorn
 
+<img src="applecorn_v8.png" alt="Applecorn Logo" height="200px"/>
+
 Applecorn is a ProDOS application for the Apple //e Enhanced which provides
 an environment for Acorn BBC Microcomputer language ROMs to run.  This
 allows BBC BASIC and other Acorn languages to run on the Apple //e.
