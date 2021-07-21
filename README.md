@@ -209,6 +209,7 @@ AUX BANK:
   - BBC BASIC
   - Acornsoft COMAL
   - Acornsoft FORTH
+  - Acornsoft MicroProlog
 
 ## Limitations
 
