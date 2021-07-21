@@ -4,6 +4,9 @@ Applecorn is a ProDOS application for the Apple //e Enhanced which provides
 an environment for Acorn BBC Microcomputer language ROMs to run.  This
 allows BBC BASIC and other Acorn languages to run on the Apple //e.
 
+The language ROMs run as-is, without any modification required.
+
+
 ## Hardware Requirements
 
 Enhanced (65C02) Apple //e with 128KB of memory.
@@ -27,6 +30,11 @@ see the `>` prompt of BBC BASIC.
 
 32 Kilobytes of space is available for your programs and variables. `PAGE`
 is set to `&0E0`.
+
+## How to Build
+
+Applecorn is built natively on the Apple //e using the Merlin 8 assembler
+v2.58.
 
 ## Theory of Operation
 
@@ -61,7 +69,7 @@ On the BBC Micro, the 64K address space looks like this:
                  +----------------------+ $0000
 ```
 The hatched area at the bottom represents reserved space such as zero page,
-the stack and pages 2 through 7 which are used by the language ROM for
+the stack and pages two through seven which are used by the language ROM for
 various purposes.
 
 Display memory on the BBC Micro is allocated at the top of user RAM, from
@@ -99,9 +107,10 @@ Here there is 48KB of RAM rather than 32KB, and the total ROM is just 12KB,
 starting at $d000.  The 4KB from $c000 to $cfff is all memory mapped I/O.
 
 An additional 16KB of memory is available, which is referred to as the
-Language Card.  This memory can be banked into the space where the ROM usually
-resides from $d000 up.  Note that this space is only 12KB so the 16KB LC
-memory is itself banked with the bottom 4KB of LC space having two banks.
+Language Card (LC henceforth.)  This memory can be banked into the space
+where the ROM usually resides from $d000 up.  Note that this address space
+is only 12KB so the 16KB LC memory is itself banked with the bottom 4KB of
+LC space having two banks.
 
 When an Extended 80 Column card is installed in the aux slot of the Apple
 //e, an additional 64KB of RAM is added, for a total of 128KB.  The entire
@@ -127,38 +136,121 @@ to $bff.
 
 ### Applecorn Architecture
 
+```
+MAIN BANK:
+
+   +----------------------+ $ffff +----------------------+
+   | BASIC/Monitor ROM    |       | Language Card        |
+   |                      |       | ProDOS               | +-4K Bank Two----+
+   |###I/O Space (4KB)####|       +----------------------+ +-Unused---------+
+   +----------------------+ $c000
+   |                      |
+   |                      |
+   |                      |
+   |                      |
+   | Applecorn loader &   |
+   | Applecorn code to    |
+   | interface with       |
+   | ProDOS               |
+   |                      |
+   |                      |
+   |//////////////////////|
+   +----------------------+ $0000
+
+AUX BANK:
+
+   +----------------------+ $ffff 
+   | Language Card        |
+   | Applecorn MOS        |       +-4K Bank Two----+
+   |###I/O Space (4KB)####|       +-Unused---------+
+   +----------------------+ $c000
+   |                      |
+   | Acorn Language ROM   |
+   |                      |
+   +----------------------+
+   |                      |
+   | Acorn language       |
+   | user code/data       |
+   | space                |
+   |                      |
+   |                      |
+   |//////////////////////|
+   +----------------------+ $0000
+```
+
 - Applecorn maintains a 'BBC Micro virtual machine' in the Apple //e auxiliary
   memory. In particular, the 'BBC Micro' has its own zero page and stack in
   auxiliary memory, so there is no contention with ProDOS or with Applecorn.
 - Applecorn primarily uses the main memory for servicing ProDOS file system
   requests for the 'BBC Micro virtual machine'.
-- An 80 column screen is configured using PAGE2 memory from $800 to $bfff
-  in both main and aux memory.  This conveniently just fits in above page 7,
-  which is the highest page used as Acorn language ROM workspace.
 - The Acorn language ROM is loaded to $8000 in aux memory.
 - The Language Card memory is enabled and used to store the 'Applecorn MOS'
   from $d000 up in aux memory.  (The main bank LC memory contains ProDOS.)
 - Applecorn copies its own 'Applecorn MOS' code to $d000 in aux memory and
   relocates the MOS entry vectors to high memory.
+- An 80 column screen is configured using PAGE2 memory from $800 to $bfff
+  in both main and aux memory.  This conveniently just fits in above page 7,
+  which is the highest page used as Acorn language ROM workspace.
 - The only real difference between the Apple //e aux memory map and that of
   the BBC Micro is the Apple //e has a 'hole' from $c000 to $cfff where memory
   mapped I/O resides.  Fortunately this does not really matter because the 
   language only uses well-defined entry points to call into the MOS, so we
   can simply avoid this address range.
-
-## Limitations
-
-...
+- The memory map for the main and aux banks is illustrated in the diagram
+  above.  For the aux bank, the LC is always banked in since no Apple monitor
+  or BASIC ROM routines are called, so this is omitted from the diagram.
 
 ## 'Applecorn MOS' Features
 
+- In principle any Acorn language ROM should work.
+- Currently I have verified operation with:
+  - BBC BASIC
+  - Acornsoft COMAL
+  - Acornsoft FORTH
+
+## Limitations
+
+Applecorn currently has the following limitations:
+
+- A number of MOS calls relating to file I/O are not yet implemented including
+  `OSFIND`, `OSGBPB`. `OSBPUT`, `OSBGET`, `OSARGS`.  This means that file
+  operations such as the BBC BASIC `OPENIN` and `OPENOUT` do not work in the
+  Acorn languages.  `OSFILE` is (partially) implemented however, so BASIC and
+  COMAL can `LOAD` and `SAVE` programs.
+- The VDU driver is quite primitive at present.  In particular it only
+  supports 80 column text mode.  There is currently no graphics support.
+- Only a few `OSBYTE` calls are implemented.  More will be added in due
+  course.
+- The only implemented `OSWORD` call is A=&00, to read a line of input from
+  the console.  More will be added as needs arise.
+- Special BBC Micro functions such as sound, A/D interfaces, programmable
+  function keys and so on are currently not supported.
+- The Applecorn MOS command line is currently quite limited.  More commands
+  will be added in due course (for example `*FX`, `*LOAD`, `*SAVE` etc.).
+
 ### Escape
 
-...
+The BBC Micro uses interrupts extensively and the Escape key is handled
+asynchronously.  The language ROM code simply checks an 'escape flag' in
+zero page ($FF) from time to time to detect if Escape has been pressed.
 
-### Reset
+The Apple //e does not use interrupts in its keyboard handling and the basic
+machine include no sources of interrupts at all (there is no system timer.)
+This prevents Escape from being handled in the same manner.
 
-...
+As a partial workaround, Applecorn checks whether the Escape key is pressed
+from time to time when it has control, but there are cases where a program
+can run forever without ever making a MOS call.  In these cases the only
+way to interrupt the program is to press Ctrl-Reset.
+
+### Ctrl-Reset
+
+The Ctrl-Reset key combination is the only asynchronously handled keyboard
+event on the Apple //e.  Applecorn sets up a reset handler which will restart
+the ROM after Ctrl-Reset.  Any user program in aux memory will be untouched.
+
+For ROMs such as BASIC or COMAL, the `OLD` command can be used to recover the
+program in memory.
 
 ### Star Commands
 
