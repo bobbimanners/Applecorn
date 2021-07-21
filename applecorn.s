@@ -1361,50 +1361,78 @@ SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
 OSWORD      STX   ZP1                        ; ZP1 points to control block
             STY   ZP1+1
             CMP   #$00                       ; OSWORD 0 read a line
-            BNE   :S1
+            BNE   :UNSUPP
             LDA   (ZP1)                      ; Addr of buf -> ZP2
             STA   ZP2
             LDY   #$01
             LDA   (ZP1),Y
             STA   ZP2+1
-            LDY   #$00
-:L1         JSR   OSRDCH
-            STA   (ZP2),Y
             INY
-            CMP   #$0D                       ; Carriage return
-            BEQ   :DONE
-            CMP   #27                        ; Escape
-            BEQ   :CANCEL
-            CMP   #$7F                       ; Delete
-            BEQ   :DELETE
-            JSR   OSWRCH                     ; Echo
-            BRA   :L1
-:DONE       JSR   OSWRCH
-            LDA   #$0A
-            JSR   OSWRCH
-            CLC
-            RTS
-:CANCEL     SEC
-            RTS
-:DELETE     DEY
-            BEQ   :L1                        ; Nothing to delete
-            JSR   OSWRCH                     ; Echo
-            DEY
+            LDA   (ZP1),Y
+            STA   :MAXLEN
+            INY
+            LDA   (ZP1),Y
+            STA   :MINCH
+            INY
+            LDA   (ZP1),Y
+            STA   :MAXCH
+            LDY   #$00
             BRA   :L1
 
-:S1         PHA
-            LDA   #<OSWORDM                  ; Unimplemented, print msg
-            LDY   #>OSWORDM
+:BELL       LDA   #$07                       ; BELL
+:R1         DEY
+:R2         INY
+            JSR   $FFEE                      ; OSWRCH
+
+:L1         JSR   $FFE0                      ; OSRDCH
+            BCS   :EXIT
+
+            CMP   #$7F                       ; Delete
+            BNE   :S1                        ; Nope
+            CPY   #$00                       ; Begin of line?
+            BEQ   :L1
+            DEY
+:S1         CMP   #$15                       ; Line delete ^U
+            BNE   :S2                        ; Nope
+            TYA                              ; Begin of line?
+            BEQ   :L1
+            LDA   #$7F                       ; Delete
+:L2         JSR   $FFEE                      ; OSWRCH
+            DEY
+            BNE   :L2
+            BEQ   :L1
+:S2         STA   (ZP2),Y
+            CMP   #$0D                       ; CR
+            BEQ   :S3
+            CPY   :MAXLEN
+            BCS   :BELL
+            CMP   :MINCH
+            BCC   :R1
+            CMP   :MAXCH
+            BEQ   :R2
+            BCC   :R2
+            BCS   :R1
+:S3         JSR   $FFE7                      ; OSNEWL
+:EXIT       LDA   ESCFLAG
+            ROL
+            RTS
+
+:UNSUPP     PHA
+            LDA   #<:OSWORDM                 ; Unimplemented, print msg
+            LDY   #>:OSWORDM
             JSR   PRSTR
             PLA
             JSR   PRHEX
-            LDA   #<OSWORDM2
-            LDY   #>OSWORDM2
+            LDA   #<:OSWRDM2
+            LDY   #>:OSWRDM2
             JSR   PRSTR
             RTS
-OSWORDM     STR   'OSWORD('
+:MAXCH      DB    $00
+:MINCH      DB    $00
+:MAXLEN     DB    $00
+:OSWORDM    STR   'OSWORD('
             DB    $00
-OSWORDM2    STR   ')'
+:OSWRDM2    STR   ')'
             DB    $00
 
 OSBYTE      PHX
