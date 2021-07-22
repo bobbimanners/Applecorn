@@ -173,25 +173,25 @@ START       STZ   BLOCKS
 BLOCKS      DB    0                          ; Counter for blocks read
 
 * Set prefix if not already set
-SETPRFX     LDA   GPFXCMD
+SETPRFX     LDA   #GPFXCMD
             STA   :OPC7                      ; Initialize cmd byte to $C7
 :L1         JSR   MLI
 :OPC7       DB    $00
-            DW    GPFXPL
-            LDX   RDBUF
+            DW    GSPFXPL
+            LDX   $0300
             BNE   :S1
             LDA   $BF30
             STA   ONLPL+1                    ; Device number
             JSR   MLI
             DB    ONLNCMD
             DW    ONLPL
-            LDA   RDBUF+1
+            LDA   $0301
             AND   #$0F
             TAX
             INX
-            STX   RDBUF
+            STX   $0300
             LDA   #$2F
-            STA   RDBUF+1
+            STA   $0301
             DEC   :OPC7
             BNE   :L1
 :S1         RTS
@@ -622,7 +622,10 @@ CLSPL       HEX   01                         ; Number of parameters
 
 ONLPL       HEX   02                         ; Number of parameters
             DB    $00                        ; Unit num
-            DW    RDBUF+1                    ; Buffer
+            DW    $301                       ; Buffer
+
+GSPFXPL     HEX   01                         ; Number of parameters
+            DW    $300                       ; Buffer
 
 GPFXPL      HEX   01                         ; Number of parameters
             DW    RDBUF                      ; Buffer
@@ -1759,7 +1762,6 @@ STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
             STA   $C004                      ; Write main
             STA   MOSFILE,X
             STA   $C005                      ; Write aux
-            JSR   $FFEE                      ; OSWRCH
             INY
             INX
             BRA   :L3
