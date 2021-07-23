@@ -70,6 +70,7 @@ START       STZ   BLOCKS
             BRA   :L1
 :S1         JSR   CROUT
             JSR   SETPRFX
+            JSR   DISCONN
 
             STA   $C009                      ; Alt ZP on
             STZ   $9F                        ; WARMSTRT - set cold!
@@ -194,6 +195,44 @@ SETPRFX     LDA   #GPFXCMD
             STA   $0301
             DEC   :OPC7
             BNE   :L1
+:S1         RTS
+
+* Disconnect /RAM
+* Stolen from Beagle Bros Extra K
+DISCONN     LDA   $BF98
+            AND   #$30
+            CMP   #$30
+            BNE   :S1
+            LDA   $BF26
+            CMP   $BF10
+            BNE   :S2
+            LDA   $BF27
+            CMP   $BF11
+            BEQ   :S1
+:S2         LDY   $BF31
+:L1         LDA   $BF32,Y
+            AND   #$F3
+            CMP   #$B3
+            BEQ   :S3
+            DEY
+            BPL   :L1
+            BMI   :S1
+:S3         LDA   $BF32,Y
+            STA   $0302
+:L2         LDA   $BF33,Y
+            STA   $BF32,Y
+            BEQ   :S4
+            INY
+            BNE   :L2
+:S4         LDA   $BF26
+            STA   $0300
+            LDA   $BF27
+            STA   $0301
+            LDA   $BF10
+            STA   $BF26
+            LDA   $BF11
+            STA   $BF27
+            DEC   $BF31
 :S1         RTS
 
 * Reset handler
