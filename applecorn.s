@@ -1,4 +1,4 @@
-* Load Acorn BBC Micro ROM into aux memory
+* Load an Acorn BBC Micro ROM in aux memory and
 * Provide an environment where it can run
 * Bobbi 2021
 
@@ -721,7 +721,7 @@ BGETV       EQU   $216                       ; OSBGET vector
 BPUTV       EQU   $218                       ; OSBPUT vector
 GBPBV       EQU   $21A                       ; OSGBPB vector
 FINDV       EQU   $21C                       ; OSFIND vector
-
+FSCV        EQU   $21E                       ; FSCV misc file ops
 MAGIC       EQU   $BC                        ; Arbitrary value
 
 MOSSHIM
@@ -863,6 +863,10 @@ MOSINIT
             STA   FINDV
             LDA   #>OSFIND
             STA   FINDV+1
+            LDA   #<OSFSC
+            STA   FSCV
+            LDA   #>OSFSC
+            STA   FSCV+1
 
             LDA   #<:HELLO
             LDY   #>:HELLO
@@ -1001,6 +1005,13 @@ OSFIND      LDA   #<OSFINDM
             JSR   PRSTR
             RTS
 OSFINDM     ASC   'OSFIND.'
+            DB    $00
+
+OSFSC       LDA   #<OSFSCM
+            LDY   #>OSFSCM
+            JSR   PRSTR
+            RTS
+OSFSCM      ASC   'OSFSC.'
             DB    $00
 
 OSGBPB      LDA   #<OSGBPBM
@@ -1405,15 +1416,20 @@ SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
 OSWORD      STX   ZP1                        ; ZP1 points to control block
             STY   ZP1+1
             CMP   #$00                       ; OSWORD 0 read a line
-            BNE   :S1
+            BNE   :S01
             JMP   OSWORD0
-:S1         CMP   #$05                       ; OSWORD 5 read I/O memory
-            BNE   :S2
+:S01        CMP   #$01                       ; OSWORD 1 read system clock
+            BNE   :S02
+            JMP   OSWORD1
+:S02        CMP   #$02                       ; OSWORD 2 write system clock
+            BNE   :S05
+            JMP   OSWORD2
+:S05        CMP   #$05                       ; OSWORD 5 read I/O memory
+            BNE   :S06
             JMP   OSWORD5
-:S2         CMP   #$06                       ; OSWORD 6 write I/O memory
+:S06        CMP   #$06                       ; OSWORD 6 write I/O memory
             BNE   :UNSUPP
             JMP   OSWORD6
-
 :UNSUPP     PHA
             LDA   #<:OSWORDM                 ; Unimplemented, print msg
             LDY   #>:OSWORDM
@@ -1488,6 +1504,16 @@ OSWORD0     LDA   (ZP1)                      ; Addr of buf -> ZP2
 :MINCH      DB    $00
 :MAXCH      DB    $00
 
+OSWORD1     LDA   #$00
+            LDY   #$00
+:L1         STA   (ZP1),Y
+            INY
+            CPY   #$05
+            BNE   :L1
+            RTS
+
+OSWORD2     RTS                              ; Nothing to do
+
 OSWORD5     LDA   (ZP1)
             LDY   #$04
             STA   (ZP1),Y
@@ -1500,26 +1526,51 @@ OSWORD6     LDY   #$04
 
 OSBYTE      PHX
             PHY
-:S1         CMP   #$7C                       ; $7C = clear escape condition
-            BNE   :S2
+:S02        CMP   #$02                       ; $02 = select i/p stream
+            BNE   :S03
+            PLY                              ; Nothing to do, for now
+            PLX
+            RTS
+:S03        CMP   #$03                       ; $03 = select o/p stream
+            BNE   :S0B
+            PLY                              ; Nothing to do, for now
+            PLX
+            RTS
+:S0B        CMP   #$0B                       ; $0B = Set k/b autorep delay
+            BNE   :S0C
+            PLY                              ; Nothing to do
+            PLX
+            RTS
+:S0C        CMP   #$0C                       ; $0C = Set kbd autrep rate
+            BNE   :S0F
+            PLY                              ; Nothing to do
+            PLX
+            RTS
+:S0F        CMP   #$0F                       ; $0F = Flush selected bufs
+            BNE   :S7C
+            PLY                              ; Nothing to do
+            PLX
+            RTS
+:S7C        CMP   #$7C                       ; $7C = clear escape condition
+            BNE   :S7D
             PHA
             LDA   ESCFLAG
-            AND   #$7F                       ; Clear MSB
+            AND   #$7F                       ; Clear MSbit
             STA   ESCFLAG
             PLA
             PLY
             PLX
             RTS
-:S2         CMP   #$7D                       ; $7D = set escape condition
-            BNE   :S3
+:S7D        CMP   #$7D                       ; $7D = set escape condition
+            BNE   :S7E
             PHA
             ROR   ESCFLAG
             PLA
             PLY
             PLX
             RTS
-:S3         CMP   #$7E                       ; $7E = ack detection of ESC
-            BNE   :S4
+:S7E        CMP   #$7E                       ; $7E = ack detection of ESC
+            BNE   :S80
             PHA
             LDA   ESCFLAG
             AND   #$7F                       ; Clear MSB
@@ -1529,52 +1580,62 @@ OSBYTE      PHX
             PLX
             LDX   #$FF                       ; Means ESC condition cleared
             RTS
-:S4         CMP   #$81                       ; $81 = Read key with time lim
-            BNE   :S5
+:S80        CMP   #$80                       ; $80 = Read ADC/get buf status
+            BNE   :S81
+            PLY
+            PLX
+            JMP   OSBYTE80
+:S81        CMP   #$81                       ; $81 = Read key with time lim
+            BNE   :S82
             PLY
             PLX
             JMP   GETKEY
-:S5         CMP   #$82                       ; $82 = read high order address
-            BNE   :S6
+:S82        CMP   #$82                       ; $82 = read high order address
+            BNE   :S83
             PLY
             PLX
             LDY   #$FF                       ; $FFFF for I/O processor
             LDX   #$FF
             RTS
-:S6         CMP   #$83                       ; $83 = read bottom of user mem
-            BNE   :S7
+:S83        CMP   #$83                       ; $83 = read bottom of user mem
+            BNE   :S84
             PLY
             PLX
             LDY   #$0E                       ; $0E00
             LDX   #$00
             RTS
-:S7         CMP   #$84                       ; $84 = read top of user mem
-            BNE   :S8
+:S84        CMP   #$84                       ; $84 = read top of user mem
+            BNE   :S85
             PLY
             PLX
             LDY   #$80
             LDX   #$00
             RTS
-:S8         CMP   #$85                       ; $85 = top user mem for mode
-            BNE   :S9
+:S85        CMP   #$85                       ; $85 = top user mem for mode
+            BNE   :S86
             PLY
             PLX
             LDY   #$80
             LDX   #$00
             RTS
-:S9         CMP   #$86                       ; $86 = read cursor pos
-            BNE   :S10
+:S86        CMP   #$86                       ; $86 = read cursor pos
+            BNE   :S8B
             PLY
             PLX
             LDY   ROW
             LDX   COL
             RTS
-:S10        CMP   #$DA                       ; $DA = clear VDU queue
-            BNE   :S11
-            PLY
+:S8B        CMP   #$8B                       ; $8B = select file options
+            BNE   :SDA
+            PLY                              ; Do nothing, for now
             PLX
             RTS
-:S11        PHA
+:SDA        CMP   #$DA                       ; $DA = clear VDU queue
+            BNE   :UNSUPP
+            PLY                              ; Nothing to do
+            PLX
+            RTS
+:UNSUPP     PHA
             LDA   #<OSBYTEM
             LDY   #>OSBYTEM
             JSR   PRSTR
@@ -1880,6 +1941,26 @@ STARDIRRET
             STA   STRTL
             LDA   TEMP2
             STA   STRTH
+            RTS
+
+* Performs OSBYTE $80 function
+* Read ADC channel or get buffer status
+OSBYTE80    CPX   #$00                       ; X=0 Last ADC channel
+            BNE   :S1
+            LDX   #$00                       ; Fire button
+            LDY   #$00                       ; ADC never converted
+            RTS
+:S1         BMI   :S2
+            LDX   #$00                       ; X +ve, ADC value
+            LDY   #$00
+            RTS
+:S2         CPX   #$FF                       ; X $FF = keyboard buf
+            BEQ   :INPUT
+            CPX   #$FE                       ; X $FE = RS423 i/p buf
+            BEQ   :INPUT
+            LDX   #$FF                       ; Spaced remaining in o/p
+            RTS
+:INPUT      LDX   #$00                       ; Nothing in input buf
             RTS
 
 * Performs OSBYTE $81 INKEY$ function
