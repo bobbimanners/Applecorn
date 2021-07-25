@@ -1207,7 +1207,10 @@ OSRDCH      PHX
             BEQ   :S5
             CLC
             RTS
-:S5         SEC
+:S5         LDA   ESCFLAG
+            ORA   #$80
+            STA   ESCFLAG
+            SEC
             RTS
 CURS        DW    $0000                      ; Counter
 CSTATE      DB    $00                        ; Cursor on or off
@@ -1312,7 +1315,6 @@ OSWRCH      PHA
             CMP   #23
             BEQ   :SCROLL
             INC   ROW
-            JSR   CLREOL
 :IDONE      BRA   :DONE
 :T5         CMP   #$0B                       ; Cursor up
             BNE   :T6
@@ -1403,8 +1405,31 @@ SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
 OSWORD      STX   ZP1                        ; ZP1 points to control block
             STY   ZP1+1
             CMP   #$00                       ; OSWORD 0 read a line
+            BNE   :S1
+            JMP   OSWORD0
+:S1         CMP   #$05                       ; OSWORD 5 read I/O memory
+            BNE   :S2
+            JMP   OSWORD5
+:S2         CMP   #$06                       ; OSWORD 6 write I/O memory
             BNE   :UNSUPP
-            LDA   (ZP1)                      ; Addr of buf -> ZP2
+            JMP   OSWORD6
+
+:UNSUPP     PHA
+            LDA   #<:OSWORDM                 ; Unimplemented, print msg
+            LDY   #>:OSWORDM
+            JSR   PRSTR
+            PLA
+            JSR   PRHEX
+            LDA   #<:OSWRDM2
+            LDY   #>:OSWRDM2
+            JSR   PRSTR
+            RTS
+:OSWORDM    STR   'OSWORD('
+            DB    $00
+:OSWRDM2    STR   ')'
+            DB    $00
+
+OSWORD0     LDA   (ZP1)                      ; Addr of buf -> ZP2
             STA   ZP2
             LDY   #$01
             LDA   (ZP1),Y
@@ -1424,7 +1449,7 @@ OSWORD      STX   ZP1                        ; ZP1 points to control block
 :BELL       LDA   #$07                       ; BELL
 :R1         DEY
 :R2         INY
-            JSR   $FFEE                      ; OSWRCH
+:R3         JSR   $FFEE                      ; OSWRCH
 
 :L1         JSR   $FFE0                      ; OSRDCH
             BCS   :EXIT
@@ -1434,6 +1459,7 @@ OSWORD      STX   ZP1                        ; ZP1 points to control block
             CPY   #$00                       ; Begin of line?
             BEQ   :L1
             DEY
+            BCS   :R3
 :S1         CMP   #$15                       ; Line delete ^U
             BNE   :S2                        ; Nope
             TYA                              ; Begin of line?
@@ -1458,28 +1484,23 @@ OSWORD      STX   ZP1                        ; ZP1 points to control block
 :EXIT       LDA   ESCFLAG
             ROL
             RTS
-
-:UNSUPP     PHA
-            LDA   #<:OSWORDM                 ; Unimplemented, print msg
-            LDY   #>:OSWORDM
-            JSR   PRSTR
-            PLA
-            JSR   PRHEX
-            LDA   #<:OSWRDM2
-            LDY   #>:OSWRDM2
-            JSR   PRSTR
-            RTS
-:MAXCH      DB    $00
-:MINCH      DB    $00
 :MAXLEN     DB    $00
-:OSWORDM    STR   'OSWORD('
-            DB    $00
-:OSWRDM2    STR   ')'
-            DB    $00
+:MINCH      DB    $00
+:MAXCH      DB    $00
+
+OSWORD5     LDA   (ZP1)
+            LDY   #$04
+            STA   (ZP1),Y
+            RTS
+
+OSWORD6     LDY   #$04
+            LDA   (ZP1),Y
+            STA   (ZP1)
+            RTS
 
 OSBYTE      PHX
             PHY
-:S1         CMP   $7C                        ; $7C = clear escape condition
+:S1         CMP   #$7C                       ; $7C = clear escape condition
             BNE   :S2
             PHA
             LDA   ESCFLAG
@@ -1489,7 +1510,7 @@ OSBYTE      PHX
             PLY
             PLX
             RTS
-:S2         CMP   $7D                        ; $7D = set escape condition
+:S2         CMP   #$7D                       ; $7D = set escape condition
             BNE   :S3
             PHA
             ROR   ESCFLAG
@@ -1583,7 +1604,7 @@ OSCLI       PHX
             JSR   STRCMP
             BCS   :S1
             JSR   STARQUIT
-            BRA   :EXIT
+            BRA   :IEXIT
 :S1         LDA   #<:CAT
             STA   ZP2
             LDA   #>:CAT
@@ -1591,7 +1612,7 @@ OSCLI       PHX
             JSR   STRCMP
             BCS   :S2
             JSR   STARCAT
-            BRA   :EXIT
+            BRA   :IEXIT
 :S2         LDA   #<:CAT2
             STA   ZP2
             LDA   #>:CAT2
@@ -1607,18 +1628,44 @@ OSCLI       PHX
             JSR   STRCMP
             BCS   :S4
             JSR   STARDIR
-            BRA   :EXIT
+:IEXIT      BRA   :EXIT
 :S4         LDA   #<:HELP
             STA   ZP2
             LDA   #>:HELP
             STA   ZP2+1
             JSR   STRCMP
-            BCS   :UNSUPP
+            BCS   :S5
             JSR   STARHELP
             BRA   :EXIT
-:UNSUPP     LDA   #<:OSCLIM
+:S5         LDA   #<:LISP                    ; HACK TO MAKE LISP WORK??
+            STA   ZP2
+            LDA   #>:LISP
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :UNSUPP
+            LDA   #$01
+            JMP   $8000
+:UNSUPP
+            LDA   #<:OSCLIM
             LDY   #>:OSCLIM
             JSR   PRSTR
+            PLY
+            PLX
+            STX   ZP3
+            STY   ZP3+1
+            LDY   #$00
+:PL1        LDA   (ZP3),Y
+            CMP   #$0D
+            BEQ   :PS1
+            CMP   #$00
+            BEQ   :PS1
+            JSR   $FFEE                      ; OSWRCH
+            INY
+            BRA   :PL1
+:PS1        LDA   #<:OSCLIM2
+            LDY   #>:OSCLIM2
+            JSR   PRSTR
+            RTS
 :EXIT       PLY
             PLX
             RTS
@@ -1632,7 +1679,11 @@ OSCLI       PHX
             DB    $00
 :HELP       ASC   '*HELP'
             DB    $00
-:OSCLIM     ASC   'OSCLI.'
+:LISP       ASC   'LISP'
+            DB    $00
+:OSCLIM     ASC   'OSCLI('
+            DB    $00
+:OSCLIM2    ASC   ').'
             DB    $00
 
 * String comparison for OSCLI
