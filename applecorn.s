@@ -1,4 +1,4 @@
-* Load Acorn BBC Micro ROM into aux memory
+* Load an Acorn BBC Micro ROM in aux memory and
 * Provide an environment where it can run
 * Bobbi 2021
 
@@ -280,6 +280,79 @@ COPYAUXBLK
             LDA   $C081                      ; Bank the ROM back in
             LDA   $C081
             RTS
+
+* ProDOS file handling for MOS OSFIND OPEN call
+OFILE       LDX   $0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; ROM, please
+            LDA   $C081
+
+            LDA   #<MOSFILE
+            STA   OPENPL+1
+            LDA   #>MOSFILE
+            STA   OPENPL+2
+            JSR   OPENFILE
+            BCS   :NOTFND
+            LDA   OPENPL+5                   ; File ref number
+            PHA
+            BRA   FINDEXIT
+:NOTFND     LDA   #$00
+            PHA
+FINDEXIT    LDA   $C08B                      ; R/W RAM, LC bank 1
+            LDA   $C08B
+            LDA   #<OSFINDRET
+            STA   STRTL
+            LDA   #>OSFINDRET
+            STA   STRTH
+            PLA
+            SEC
+            BIT   $FF58
+            JMP   XFER
+
+* ProDOS file handling for MOS OSFIND CLOSE call
+CFILE       LDX   $0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; ROM, please
+            LDA   $C081
+
+            LDA   MOSFILE                    ; File ref number
+            STA   CLSPL+1
+            JSR   CLSFILE
+
+            JMP   FINDEXIT
+
+* ProDOS file handling for MOS OSBGET call
+FILEGET     LDX   $0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; ROM, please
+            LDA   $C081
+
+            LDA   MOSFILE                    ; File ref number
+            STA   READPL1+1
+            JSR   MLI
+            DB    READCMD
+            DW    READPL1
+            PHA
+* TODO HANDLE ERROR CASE WHERE C IS SET
+
+GETEXIT     LDA   $C08B                      ; R/W RAM, LC bank 1
+            LDA   $C08B
+            LDA   #<OSBGETRET
+            STA   STRTL
+            LDA   #>OSBGETRET
+            STA   STRTH
+            PLA
+            SEC
+            BIT   $FF58
+            JMP   XFER
+
+* ProDOS file handling for MOS OSBPUT call
+FILEPUT     LDX   $0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; ROM, please
+            LDA   $C081
+
+            JMP   GETEXIT
 
 * ProDOS file handling for MOS OSFILE LOAD call
 * Return A=0 if successful
@@ -650,6 +723,12 @@ READPL      HEX   04                         ; Number of parameters
             DW    512                        ; Request count
             DW    $0000                      ; Trans count
 
+READPL1     HEX   04                         ; Number of parameters
+            DB    #00                        ; Reference number
+            DW    RDBUF                      ; Pointer to data buffer
+            DW    1                          ; Request count
+            DW    $0000                      ; Trans count
+
 WRITEPL     HEX   04                         ; Number of parameters
             DB    $01                        ; Reference number
             DW    RDBUF                      ; Pointer to data buffer
@@ -738,7 +817,7 @@ BGETV       EQU   $216                       ; OSBGET vector
 BPUTV       EQU   $218                       ; OSBPUT vector
 GBPBV       EQU   $21A                       ; OSGBPB vector
 FINDV       EQU   $21C                       ; OSFIND vector
-
+FSCV        EQU   $21E                       ; FSCV misc file ops
 MAGIC       EQU   $BC                        ; Arbitrary value
 
 MOSSHIM
@@ -838,55 +917,6 @@ INITPG2     LDA   DEFVEC,X
             DEX
             BPL   INITPG2
             
-;            LDA   #<MOSBRKHDLR
-;            STA   BRKV
-;            LDA   #>MOSBRKHDLR
-;            STA   BRKV+1
-;            LDA   #<CLIHND                    ; Initialize MOS vectors
-;            STA   CLIV
-;            LDA   #>CLIHND
-;            STA   CLIV+1
-;            LDA   #<BYTEHND
-;            STA   BYTEV
-;            LDA   #>BYTEHND
-;            STA   BYTEV+1
-;            LDA   #<WORDHND
-;            STA   WORDV
-;            LDA   #>WORDHND
-;            STA   WORDV+1
-;            LDA   #<WRCHHND
-;            STA   WRCHV
-;            LDA   #>WRCHHND
-;            STA   WRCHV+1
-;            LDA   #<RDCHHND
-;            STA   RDCHV
-;            LDA   #>RDCHHND
-;            STA   RDCHV+1
-;            LDA   #<FILEHND
-;            STA   FILEV
-;            LDA   #>FILEHND
-;            STA   FILEV+1
-;            LDA   #<ARGSHND
-;            STA   ARGSV
-;            LDA   #>ARGSHND
-;            STA   ARGSV+1
-;            LDA   #<BGETHND
-;            STA   BGETV
-;            LDA   #>BGETHND
-;            STA   BGETV+1
-;            LDA   #<BPUTHND
-;            STA   BPUTV
-;            LDA   #>BPUTHND
-;            STA   BPUTV+1
-;            LDA   #<GBPBHND
-;            STA   GBPBV
-;            LDA   #>GBPBHND
-;            STA   GBPBV+1
-;            LDA   #<FINDHND
-;            STA   FINDV
-;            LDA   #>FINDHND
-;            STA   FINDV+1
-
             LDA   #<:HELLO
             LDY   #>:HELLO
             JSR   PRSTR
@@ -1024,37 +1054,143 @@ GSRDGO      LDA   #<OSREADM
 OSREADM     ASC   'GSREAD.'
             DB    $00
 
-FINDHND     LDA   #<OSFINDM
-            LDY   #>OSFINDM
-            JMP   PRSTR
-OSFINDM     ASC   'OSFIND.'
+* OSFIND - open/close a file for byte access
+FINDHND     PHX
+            PHY
+            PHA
+            STX   ZP1                        ; Points to filename
+            STY   ZP1+1
+
+            LDA   STRTL                      ; Backup STRTL/STRTH
+            STA   TEMP1
+            LDA   STRTH
+            STA   TEMP2
+            TSX                              ; Stash alt ZP
+            STX   $0101
+
+            PLA
+            PHA
+            CMP   #$00                       ; A=$00 = close
+            BEQ   :CLOSE
+
+            LDA   #<MOSFILE+1
+            STA   ZP2
+            LDA   #>MOSFILE+1
+            STA   ZP2+1
+            LDY   #$00
+:L1         LDA   (ZP1),Y
+            STA   $C004                      ; Write main
+            STA   (ZP2),Y
+            STA   $C005                      ; Write aux
+            INY
+            CMP   #$0D                       ; Carriage return
+            BNE   :L1
+            DEY
+            STA   $C004                      ; Write main
+            STY   MOSFILE                    ; Length (Pascal string)
+            STA   $C005                      ; Write aux
+
+            LDA   #<OFILE
+            STA   STRTL
+            LDA   #>OFILE
+            STA   STRTH
+:S1         CLC                              ; Use main memory
+            CLV                              ; Use main ZP and LC
+            JMP   XFER
+
+:CLOSE      STA   $C004                      ; Write main
+            STY   MOSFILE                    ; Write file number
+            STA   $C005                      ; Write aux
+
+            LDA   #<CFILE
+            STA   STRTL
+            LDA   #>CFILE
+            STA   STRTH
+            BRA   :S1
+
+OSFINDRET
+            LDX   $0101                      ; Recover alt SP from $0101
+            TXS
+            PHA                              ; Return value
+            LDA   TEMP1                      ; Restore STRTL/STRTH
+            STA   STRTL
+            LDA   TEMP2
+            STA   STRTH
+            PLA                              ; Return value
+            PLY                              ; Value of A on entry
+            CPY   #$00                       ; Was it close?
+            BNE   :S1
+            TYA                              ; Preserve A for close
+:S1         PLY
+            PLX
+            RTS
+
+* OSFSC - miscellanous file system calls
+OSFSC       LDA   #<OSFSCM
+            LDY   #>OSFSCM
+            JSR   PRSTR
+            RTS
+OSFSCM      ASC   'OSFSC.'
             DB    $00
 
-GBPBHND     LDA   #<OSGBPBM
+* OSGBPB - Get/Put a block of bytes to/from an open file
+GBPBHND      LDA   #<OSGBPBM
             LDY   #>OSGBPBM
             JMP   PRSTR
 OSGBPBM     ASC   'OSGBPB.'
             DB    $00
 
-BPUTHND     LDA   #<OSBPUTM
-            LDY   #>OSBPUTM
-            JMP   PRSTR
-OSBPUTM     ASC   'OSBPUT.'
-            DB    $00
+* OSBPUT - write one byte to an open file
+BPUTHND     LDA   STRTL                      ; Backup STRTL/STRTH
+            STA   TEMP1
+            LDA   STRTH
+            STA   TEMP2
+            LDA   #<FILEPUT
+            STA   STRTL
+            LDA   #>FILEPUT
+            STA   STRTH
+            TSX                              ; Stash alt SP in $0101
+            STX   $0101
+            CLC                              ; Use main memory
+            CLV                              ; Use main ZP and LC
+            JMP   XFER
 
-BGETHND     LDA   #<OSBGETM
-            LDY   #>OSBGETM
-            JMP   PRSTR
-OSBGETM     ASC   'OSBGET.'
-            DB    $00
+* OSBGET - read one byte from an open file
+BGETHND     LDA   STRTL                      ; Backup STRTL/STRTH
+            STA   TEMP1
+            LDA   STRTH
+            STA   TEMP2
+            STA   $C004                      ; Write to main memory
+            STY   MOSFILE                    ; File ref number
+            STA   $C005                      ; Write to aux memory
+            LDA   #<FILEGET
+            STA   STRTL
+            LDA   #>FILEGET
+            STA   STRTH
+            TSX                              ; Stash alt SP in $0101
+            STX   $0101
+            CLC                              ; Use main memory
+            CLV                              ; Use main ZP and LC
+            JMP   XFER
+OSBGETRET
+            LDX   $0101                      ; Recover alt SP from $0101
+            TXS
+            PHA                              ; Return code
+            LDA   TEMP1                      ; Recover STRTL/STRTH
+            STA   STRTL
+            LDA   TEMP2
+            STA   STRTH
+            PLA                              ; Return code (ie: char read)
+            RTS
 
+* OSARGS - adjust file arguments
 ARGSHND     LDA   #<OSARGSM
             LDY   #>OSARGSM
             JMP   PRSTR
 OSARGSM     ASC   'OSARGS.'
             DB    $00
 
-* MOS OSFILE HANDLER
+* OSFILE - perform actions on entire files
 * On entry, A=action
 *           XY=>control block
 * On exit,  A=preserved if unimplemented
@@ -1243,7 +1379,10 @@ RDCHHND     PHX
             ROR   $FF                        ; Set ESCFLG
             SEC                              ; Return CS
             RTS
-:S5         CLC
+:S5         LDA   ESCFLAG
+            ORA   #$80
+            STA   ESCFLAG
+            SEC
             RTS
 CURS        DW    $0000                      ; Counter
 CSTATE      DB    $00                        ; Cursor on or off
@@ -1323,7 +1462,6 @@ CURSRT      LDA   COL
             STZ   COL
 :S2         RTS
 
-
 * OSWRCH handler
 * All registers preserved
 WRCHHND     PHA
@@ -1361,7 +1499,6 @@ OUTCHAR     CMP   #$00                       ; NULL
             CMP   #23
             BEQ   :SCROLL
             INC   ROW
-            JSR   CLREOL
 :IDONE      BRA   :DONE
 :T5         CMP   #$0B                       ; Cursor up
             BNE   :T6
@@ -1454,6 +1591,18 @@ SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
 WORDHND     STX   OSCTRL+0                   ; Point to control block
             STY   OSCTRL+1
             CMP   #$00                       ; OSWORD 0 read a line
+            BNE   :S01
+            JMP   OSWORD0
+:S01        CMP   #$01                       ; OSWORD 1 read system clock
+            BNE   :S02
+            JMP   OSWORD1
+:S02        CMP   #$02                       ; OSWORD 2 write system clock
+            BNE   :S05
+            JMP   OSWORD2
+:S05        CMP   #$05                       ; OSWORD 5 read I/O memory
+            BNE   :S06
+            JMP   OSWORD5
+:S06        CMP   #$06                       ; OSWORD 6 write I/O memory
             BNE   :UNSUPP
 
 * OSRDLINE - Read a line of input
@@ -1515,6 +1664,9 @@ WORDHND     STX   OSCTRL+0                   ; Point to control block
 :EXIT       LDA   ESCFLAG
             ROL
             RTS
+:MAXLEN     DB    $00
+:MINCH      DB    $00
+:MAXCH      DB    $00
 
 :UNSUPP     PHA
             LDA   #<:OSWORDM                 ; Unimplemented, print msg
@@ -1562,7 +1714,7 @@ BYTECALLER
 :S1         CMP   #$7C                       ; $7C = clear escape condition
             BNE   :S2
             LDA   ESCFLAG
-            AND   #$7F                       ; Clear MSB
+            AND   #$7F                       ; Clear MSbit
             STA   ESCFLAG
             RTS
 
@@ -1654,7 +1806,7 @@ CLIHND      PHX
             JSR   STRCMP
             BCS   :S1
             JSR   STARQUIT
-            BRA   :EXIT
+            BRA   :IEXIT
 :S1         LDA   #<:CAT
             STA   ZP2
             LDA   #>:CAT
@@ -1662,7 +1814,7 @@ CLIHND      PHX
             JSR   STRCMP
             BCS   :S2
             JSR   STARCAT
-            BRA   :EXIT
+            BRA   :IEXIT
 :S2         LDA   #<:CAT2
             STA   ZP2
             LDA   #>:CAT2
@@ -1678,18 +1830,44 @@ CLIHND      PHX
             JSR   STRCMP
             BCS   :S4
             JSR   STARDIR
-            BRA   :EXIT
+:IEXIT      BRA   :EXIT
 :S4         LDA   #<:HELP
             STA   ZP2
             LDA   #>:HELP
             STA   ZP2+1
             JSR   STRCMP
-            BCS   :UNSUPP
+            BCS   :S5
             JSR   STARHELP
             BRA   :EXIT
-:UNSUPP     LDA   #<:OSCLIM
+:S5         LDA   #<:LISP                    ; HACK TO MAKE LISP WORK??
+            STA   ZP2
+            LDA   #>:LISP
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :UNSUPP
+            LDA   #$01
+            JMP   $8000
+:UNSUPP
+            LDA   #<:OSCLIM
             LDY   #>:OSCLIM
             JSR   PRSTR
+            PLY
+            PLX
+            STX   ZP3
+            STY   ZP3+1
+            LDY   #$00
+:PL1        LDA   (ZP3),Y
+            CMP   #$0D
+            BEQ   :PS1
+            CMP   #$00
+            BEQ   :PS1
+            JSR   $FFEE                      ; OSWRCH
+            INY
+            BRA   :PL1
+:PS1        LDA   #<:OSCLIM2
+            LDY   #>:OSCLIM2
+            JSR   PRSTR
+            RTS
 :EXIT       PLY
             PLX
             RTS
@@ -1703,7 +1881,11 @@ CLIHND      PHX
             DB    $00
 :HELP       ASC   '*HELP'
             DB    $00
-:OSCLIM     ASC   'OSCLI.'
+:LISP       ASC   'LISP'
+            DB    $00
+:OSCLIM     ASC   'OSCLI('
+            DB    $00
+:OSCLIM2    ASC   ').'
             DB    $00
 
 * String comparison for OSCLI
@@ -1900,6 +2082,26 @@ STARDIRRET
             STA   STRTL
             LDA   TEMP2
             STA   STRTH
+            RTS
+
+* Performs OSBYTE $80 function
+* Read ADC channel or get buffer status
+OSBYTE80    CPX   #$00                       ; X=0 Last ADC channel
+            BNE   :S1
+            LDX   #$00                       ; Fire button
+            LDY   #$00                       ; ADC never converted
+            RTS
+:S1         BMI   :S2
+            LDX   #$00                       ; X +ve, ADC value
+            LDY   #$00
+            RTS
+:S2         CPX   #$FF                       ; X $FF = keyboard buf
+            BEQ   :INPUT
+            CPX   #$FE                       ; X $FE = RS423 i/p buf
+            BEQ   :INPUT
+            LDX   #$FF                       ; Spaced remaining in o/p
+            RTS
+:INPUT      LDX   #$00                       ; Nothing in input buf
             RTS
 
 * Performs OSBYTE $81 INKEY$ function
