@@ -1,0 +1,19 @@
+Apple IIe colours
+
+Apple         BBC IBGR
+0 Black        0  0000
+8 Brown        1  0001
+4 Dark Green   2  0010
+9 Orange       3  0011
+2 Dark Blue    4  0100
+3 Purple       5  0101
+6 Medium Blue  6  0100
+5 Grey 1      7/8       1000 or 1001
+A Grey 2      7/8       1000 or 1001
+B Pink         9  1001
+C Light Green  A  1010
+D Yellow       B  1011
+7 Light Blue   C  1100
+1 Magenta      D  1101
+E Aquamarine   E  1110
+F White        F  1111
