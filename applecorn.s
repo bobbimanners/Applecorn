@@ -281,6 +281,79 @@ COPYAUXBLK
             LDA   $C081
             RTS
 
+* ProDOS file handling for MOS OSFIND OPEN call
+OFILE       LDX   $0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; ROM, please
+            LDA   $C081
+
+            LDA   #<MOSFILE
+            STA   OPENPL+1
+            LDA   #>MOSFILE
+            STA   OPENPL+2
+            JSR   OPENFILE
+            BCS   :NOTFND
+            LDA   OPENPL+5                   ; File ref number
+            PHA
+            BRA   FINDEXIT
+:NOTFND     LDA   #$00
+            PHA
+FINDEXIT    LDA   $C08B                      ; R/W RAM, LC bank 1
+            LDA   $C08B
+            LDA   #<OSFINDRET
+            STA   STRTL
+            LDA   #>OSFINDRET
+            STA   STRTH
+            PLA
+            SEC
+            BIT   $FF58
+            JMP   XFER
+
+* ProDOS file handling for MOS OSFIND CLOSE call
+CFILE       LDX   $0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; ROM, please
+            LDA   $C081
+
+            LDA   MOSFILE                    ; File ref number
+            STA   CLSPL+1
+            JSR   CLSFILE
+
+            JMP   FINDEXIT
+
+* ProDOS file handling for MOS OSBGET call
+FILEGET     LDX   $0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; ROM, please
+            LDA   $C081
+
+            LDA   MOSFILE                    ; File ref number
+            STA   READPL1+1
+            JSR   MLI
+            DB    READCMD
+            DW    READPL1
+            PHA
+* TODO HANDLE ERROR CASE WHERE C IS SET
+
+GETEXIT     LDA   $C08B                      ; R/W RAM, LC bank 1
+            LDA   $C08B
+            LDA   #<OSBGETRET
+            STA   STRTL
+            LDA   #>OSBGETRET
+            STA   STRTH
+            PLA
+            SEC
+            BIT   $FF58
+            JMP   XFER
+
+* ProDOS file handling for MOS OSBPUT call
+FILEPUT     LDX   $0100                      ; Recover SP
+            TXS
+            LDA   $C081                      ; ROM, please
+            LDA   $C081
+
+            JMP   GETEXIT
+
 * ProDOS file handling for MOS OSFILE LOAD call
 * Return A=0 if successful
 *        A=1 if file not found
@@ -650,6 +723,12 @@ READPL      HEX   04                         ; Number of parameters
             DW    512                        ; Request count
             DW    $0000                      ; Trans count
 
+READPL1     HEX   04                         ; Number of parameters
+            DB    #00                        ; Reference number
+            DW    RDBUF                      ; Pointer to data buffer
+            DW    1                          ; Request count
+            DW    $0000                      ; Trans count
+
 WRITEPL     HEX   04                         ; Number of parameters
             DB    $01                        ; Reference number
             DW    RDBUF                      ; Pointer to data buffer
@@ -1000,13 +1079,78 @@ OSREAD      LDA   #<OSREADM
 OSREADM     ASC   'OSREAD.'
             DB    $00
 
-OSFIND      LDA   #<OSFINDM
-            LDY   #>OSFINDM
-            JSR   PRSTR
-            RTS
-OSFINDM     ASC   'OSFIND.'
-            DB    $00
+* OSFIND - open/close a file for byte access
+OSFIND      PHX
+            PHY
+            PHA
+            STX   ZP1                        ; Points to filename
+            STY   ZP1+1
 
+            LDA   STRTL                      ; Backup STRTL/STRTH
+            STA   TEMP1
+            LDA   STRTH
+            STA   TEMP2
+            TSX                              ; Stash alt ZP
+            STX   $0101
+
+            PLA
+            PHA
+            CMP   #$00                       ; A=$00 = close
+            BEQ   :CLOSE
+
+            LDA   #<MOSFILE+1
+            STA   ZP2
+            LDA   #>MOSFILE+1
+            STA   ZP2+1
+            LDY   #$00
+:L1         LDA   (ZP1),Y
+            STA   $C004                      ; Write main
+            STA   (ZP2),Y
+            STA   $C005                      ; Write aux
+            INY
+            CMP   #$0D                       ; Carriage return
+            BNE   :L1
+            DEY
+            STA   $C004                      ; Write main
+            STY   MOSFILE                    ; Length (Pascal string)
+            STA   $C005                      ; Write aux
+
+            LDA   #<OFILE
+            STA   STRTL
+            LDA   #>OFILE
+            STA   STRTH
+:S1         CLC                              ; Use main memory
+            CLV                              ; Use main ZP and LC
+            JMP   XFER
+
+:CLOSE      STA   $C004                      ; Write main
+            STY   MOSFILE                    ; Write file number
+            STA   $C005                      ; Write aux
+
+            LDA   #<CFILE
+            STA   STRTL
+            LDA   #>CFILE
+            STA   STRTH
+            BRA   :S1
+
+OSFINDRET
+            LDX   $0101                      ; Recover alt SP from $0101
+            TXS
+            PHA                              ; Return value
+            LDA   TEMP1                      ; Restore STRTL/STRTH
+            STA   STRTL
+            LDA   TEMP2
+            STA   STRTH
+            PLA                              ; Return value
+            PLY                              ; Value of A on entry
+            CPY   #$00                       ; Was it close?
+            BNE   :S1
+            TYA                              ; Preserve A for close
+:S1         PLY
+            PLX
+            RTS
+
+* OSFSC - miscellanous file system calls
 OSFSC       LDA   #<OSFSCM
             LDY   #>OSFSCM
             JSR   PRSTR
@@ -1014,6 +1158,7 @@ OSFSC       LDA   #<OSFSCM
 OSFSCM      ASC   'OSFSC.'
             DB    $00
 
+* OSGBPB - Get/Put a block of bytes to/from an open file
 OSGBPB      LDA   #<OSGBPBM
             LDY   #>OSGBPBM
             JSR   PRSTR
@@ -1021,20 +1166,50 @@ OSGBPB      LDA   #<OSGBPBM
 OSGBPBM     ASC   'OSGBPB.'
             DB    $00
 
-OSBPUT      LDA   #<OSBPUTM
-            LDY   #>OSBPUTM
-            JSR   PRSTR
-            RTS
-OSBPUTM     ASC   'OSBPUT.'
-            DB    $00
+* OSBPUT - write one byte to an open file
+OSBPUT      LDA   STRTL                      ; Backup STRTL/STRTH
+            STA   TEMP1
+            LDA   STRTH
+            STA   TEMP2
+            LDA   #<FILEPUT
+            STA   STRTL
+            LDA   #>FILEPUT
+            STA   STRTH
+            TSX                              ; Stash alt SP in $0101
+            STX   $0101
+            CLC                              ; Use main memory
+            CLV                              ; Use main ZP and LC
+            JMP   XFER
 
-OSBGET      LDA   #<OSBGETM
-            LDY   #>OSBGETM
-            JSR   PRSTR
+* OSBGET - read one byte from an open file
+OSBGET      LDA   STRTL                      ; Backup STRTL/STRTH
+            STA   TEMP1
+            LDA   STRTH
+            STA   TEMP2
+            STA   $C004                      ; Write to main memory
+            STY   MOSFILE                    ; File ref number
+            STA   $C005                      ; Write to aux memory
+            LDA   #<FILEGET
+            STA   STRTL
+            LDA   #>FILEGET
+            STA   STRTH
+            TSX                              ; Stash alt SP in $0101
+            STX   $0101
+            CLC                              ; Use main memory
+            CLV                              ; Use main ZP and LC
+            JMP   XFER
+OSBGETRET
+            LDX   $0101                      ; Recover alt SP from $0101
+            TXS
+            PHA                              ; Return code
+            LDA   TEMP1                      ; Recover STRTL/STRTH
+            STA   STRTL
+            LDA   TEMP2
+            STA   STRTH
+            PLA                              ; Return code (ie: char read)
             RTS
-OSBGETM     ASC   'OSBGET.'
-            DB    $00
 
+* OSARGS - adjust file arguments
 OSARGS      LDA   #<OSARGSM
             LDY   #>OSARGSM
             JSR   PRSTR
@@ -1042,6 +1217,7 @@ OSARGS      LDA   #<OSARGSM
 OSARGSM     ASC   'OSARGS.'
             DB    $00
 
+* OSFILE - load or save an entire file
 OSFILE      PHX
             PHY
             PHA
@@ -1301,6 +1477,7 @@ CURSRT      LDA   COL
             STZ   COL
 :S2         RTS
 
+* OSWRCH - write a character to the console
 OSWRCH      PHA
             PHX
             PHY
@@ -1413,6 +1590,7 @@ SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
             DW    $828,$8A8,$928,$9A8,$A28,$AA8,$B28,$BA8
             DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
 
+* OSWORD - system calls that take word argument in X,Y
 OSWORD      STX   ZP1                        ; ZP1 points to control block
             STY   ZP1+1
             CMP   #$00                       ; OSWORD 0 read a line
@@ -1524,6 +1702,7 @@ OSWORD6     LDY   #$04
             STA   (ZP1)
             RTS
 
+* OSBYTE - system calls that take a byte in A
 OSBYTE      PHX
             PHY
 :S02        CMP   #$02                       ; $02 = select i/p stream
@@ -1654,6 +1833,7 @@ OSBYTEM     ASC   'OSBYTE($'
 OSBM2       ASC   ').'
             DB    $00
 
+* OSCLI - interface to command line
 OSCLI       PHX
             PHY
             STX   ZP1                        ; Pointer to CLI
