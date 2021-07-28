@@ -1,5 +1,7 @@
 #!/bin/sh
-cadius extractfile applecorn.po /APPLECORN/APPLECORN.S .
-rm _FileInformation.txt
-cadius clearhighbit APPLECORN.S\#040000
-cadius indentfile APPLECORN.S\#040000
+for file in APPLECORN LOADER MAINMEM AUXMEM; do
+  cadius extractfile applecorn.po /APPLECORN/${file}.S .
+  rm _FileInformation.txt
+  cadius clearhighbit ${file}.S\#040000
+  cadius indentfile ${file}.S\#040000
+done
