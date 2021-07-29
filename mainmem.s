@@ -27,7 +27,7 @@ SETPRFX     LDA   #GPFXCMD
             BNE   :L1
 :S1         RTS
 
-* Disconnect /RAM
+* Disconnect /RAM ramdrive to avoid aux corruption
 * Stolen from Beagle Bros Extra K
 DISCONN     LDA   $BF98
             AND   #$30
@@ -65,7 +65,7 @@ DISCONN     LDA   $BF98
             DEC   $BF31
 :S1         RTS
 
-* Reset handler
+* Reset handler - invoked on Ctrl-Reset
 * XFER to AUXMOS ($C000) in aux, AuxZP on, LC on
 RESET       TSX
             STX   $0100
@@ -80,14 +80,14 @@ RESET       TSX
             JMP   XFER
             RTS
 
-* Copy 512 bytes from RDBUF to AUXBLK in aux LC
+* Copy 512 bytes from BLKBUF to AUXBLK in aux LC
 COPYAUXBLK
             LDA   $C08B          ; R/W LC RAM, bank 1
             LDA   $C08B
             STA   $C009          ; Alt ZP (and Alt LC) on
 
             LDY   #$00
-:L1         LDA   RDBUF,Y
+:L1         LDA   BLKBUF,Y
             STA   $C005          ; Write aux mem
             STA   AUXBLK,Y
             STA   $C004          ; Write main mem
@@ -97,7 +97,7 @@ COPYAUXBLK
             BRA   :L1
 
 :S1         LDY   #$00
-:L2         LDA   RDBUF+$100,Y
+:L2         LDA   BLKBUF+$100,Y
             STA   $C005          ; Write aux mem
             STA   AUXBLK+$100,Y
             STA   $C004          ; Write main mem
@@ -119,10 +119,51 @@ OFILE       LDX   $0100          ; Recover SP
             LDA   $C081          ; ROM, please
             LDA   $C081
 
-* TODO if A=$80 then attempt to delete before open
-* TODO if A=$80 or $c0 then attempt to create before open
+            PLA                  ; Get option back
+            PHA
+            CMP   #$80           ; Write mode
+            BNE   :NODEST
 
-            LDA   #$00           ; Look for empty slot
+            LDA   #<MOSFILE      ; Attempt to destroy file
+            STA   DESTPL+1
+            LDA   #>MOSFILE
+            STA   DESTPL+2
+            JSR   MLI
+            DB    DESTCMD
+            DW    DESTPL
+
+:NODEST     PLA                  ; Get option back
+            PHA
+            AND   #$80           ; Write or Update
+            BEQ   :NOCREAT
+
+            LDA   #<MOSFILE      ; Attempt to create file
+            STA   CREATEPL+1
+            STA   OPENPL+1
+            LDA   #>MOSFILE
+            STA   CREATEPL+2
+            STA   OPENPL+2
+            LDA   #$C3           ; Access unlocked
+            STA   CREATEPL+3
+            LDA   #$06           ; Filetype BIN
+            STA   CREATEPL+4
+            LDA   #$00           ; Auxtype
+            STA   CREATEPL+5
+            LDA   #$00
+            STA   CREATEPL+6
+            LDA   #$01           ; Storage type - file
+            STA   CREATEPL+7
+            LDA   $BF90          ; Current date
+            STA   CREATEPL+8
+            LDA   $BF91
+            STA   CREATEPL+9
+            LDA   $BF92          ; Current time
+            STA   CREATEPL+10
+            LDA   $BF93
+            STA   CREATEPL+11
+            JSR   CRTFILE
+
+:NOCREAT    LDA   #$00           ; Look for empty slot
             JSR   FINDBUF
             STX   BUFIDX
             CPX   #$00
@@ -210,7 +251,6 @@ FINDBUF     LDX   #$00
             LDX   #$FF           ; $FF for not found
 :END        RTS
 
-
 * ProDOS file handling for MOS OSBGET call
 * Returns with char read in A and error num in X (or 0)
 FILEGET     LDX   $0100          ; Recover SP
@@ -227,7 +267,7 @@ FILEGET     LDX   $0100          ; Recover SP
             TAY                  ; Error number in Y
             BRA   GETEXIT
 :NOERR      LDX   #$00
-            LDA   RDBUF
+            LDA   BLKBUF
             PHA
 GETEXIT     LDA   $C08B          ; R/W RAM, LC bank 1
             LDA   $C08B
@@ -241,12 +281,32 @@ GETEXIT     LDA   $C08B          ; R/W RAM, LC bank 1
             JMP   XFER
 
 * ProDOS file handling for MOS OSBPUT call
+* Enters with char to write in A
 FILEPUT     LDX   $0100          ; Recover SP
             TXS
+            STA   BLKBUF         ; Char to write
             LDA   $C081          ; ROM, please
             LDA   $C081
 
-            JMP   GETEXIT
+            LDA   MOSFILE        ; File ref number
+            STA   WRITEPL+1
+            LDA   #$01           ; Bytes to write
+            STA   WRITEPL+4
+            LDA   #$00
+            STA   WRITEPL+5
+            JSR   WRTFILE
+
+* There is no way to report an error it seems!
+
+            LDA   $C08B          ; R/W RAM, LC bank 1
+            LDA   $C08B
+            LDA   #<OSBPUTRET
+            STA   STRTL
+            LDA   #>OSBPUTRET
+            STA   STRTH
+            SEC
+            BIT   $FF58
+            JMP   XFER
 
 * ProDOS file handling for MOS OSFILE LOAD call
 * Return A=0 if successful
@@ -266,20 +326,20 @@ LOADFILE    LDX   $0100          ; Recover SP
             BCS   :NOTFND        ; File not found
 :L1         LDA   OPENPL+5       ; File ref number
             STA   READPL+1
-            JSR   RDBLK
+            JSR   RDFILE
             BCC   :S1
             CMP   #$4C           ; EOF
             BEQ   :EOF
             BRA   :READERR
 
-:S1         LDA   #<RDBUF
+:S1         LDA   #<BLKBUF
             STA   A1L
-            LDA   #>RDBUF
+            LDA   #>BLKBUF
             STA   A1H
 
-            LDA   #<RDBUFEND
+            LDA   #<BLKBUFEND
             STA   A2L
-            LDA   #>RDBUFEND
+            LDA   #>BLKBUFEND
             STA   A2H
 
             LDA   FBLOAD
@@ -358,6 +418,7 @@ SAVEFILE    LDX   $0100          ; Recover SP
             LDA   $BF93
             STA   CREATEPL+11
             JSR   CRTFILE
+            BCS   :FWD1          ; :CANTOPEN error
             JSR   OPENFILE
             BCS   :FWD1          ; :CANTOPEN error
 
@@ -377,6 +438,8 @@ SAVEFILE    LDX   $0100          ; Recover SP
             STA   A2H
             INC   A2H            ; $200 = 512 bytes
             INC   A2H
+            LDA   OPENPL+5       ; File ref number
+            STA   WRITEPL+1
             LDA   #$00           ; 512 byte request count
             STA   WRITEPL+4
             LDA   #$02
@@ -412,9 +475,9 @@ SAVEFILE    LDX   $0100          ; Recover SP
             LDA   :LEN+1
             STA   WRITEPL+5
 
-:S2         LDA   #<RDBUF
+:S2         LDA   #<BLKBUF
             STA   A4L
-            LDA   #>RDBUF
+            LDA   #>BLKBUF
             STA   A4H
 
             CLC                  ; Aux -> Main
@@ -422,7 +485,7 @@ SAVEFILE    LDX   $0100          ; Recover SP
 
             LDA   OPENPL+5       ; File ref number
             STA   WRITEPL+1
-            JSR   WRTBLK
+            JSR   WRTFILE
             BCS   :WRITEERR
 
             BRA   :UPDLEN
@@ -430,8 +493,7 @@ SAVEFILE    LDX   $0100          ; Recover SP
 :ENDLOOP    INC   :BLOCKS
             BRA   :L1
 
-:UPDLEN
-            SEC                  ; Update length remaining
+:UPDLEN     SEC                  ; Update length remaining
             LDA   :LEN
             SBC   WRITEPL+4
             STA   :LEN
@@ -484,14 +546,14 @@ CATALOG     LDX   $0100          ; Recover SP
             LDA   $C081          ; Select ROM
             LDA   $C081
 
-            JSR   MLI            ; Fetch prefix into RDBUF
+            JSR   MLI            ; Fetch prefix into BLKBUF
             DB    GPFXCMD
             DW    GPFXPL
             BNE   CATEXIT        ; If prefix not set
 
-            LDA   #<RDBUF
+            LDA   #<BLKBUF
             STA   OPENPL+1
-            LDA   #>RDBUF
+            LDA   #>BLKBUF
             STA   OPENPL+2
             JSR   OPENFILE
             BCS   CATEXIT        ; Can't open dir
@@ -499,7 +561,7 @@ CATALOG     LDX   $0100          ; Recover SP
 CATREENTRY
             LDA   OPENPL+5       ; File ref num
             STA   READPL+1
-            JSR   RDBLK
+            JSR   RDFILE
             BCC   :S1
             CMP   #$4C           ; EOF
             BEQ   :EOF
@@ -580,14 +642,14 @@ CLSFILE     JSR   MLI
             DW    CLSPL
             RTS
 
-* Read 512 bytes into RDBUF
-RDBLK       JSR   MLI
+* Read 512 bytes into BLKBUF
+RDFILE      JSR   MLI
             DB    READCMD
             DW    READPL
             RTS
 
-* Write 512 bytes from RDBUF
-WRTBLK      JSR   MLI
+* Write data in BLKBUF to disk
+WRTFILE     JSR   MLI
             DB    WRITECMD
             DW    WRITEPL
             RTS
@@ -618,21 +680,24 @@ CREATEPL    HEX   07             ; Number of parameters
             DW    $0000          ; Create date
             DW    $0000          ; Create time
 
+DESTPL      HEX   01             ; Number of parameters
+            DW    $0000          ; Pointer to filename
+
 READPL      HEX   04             ; Number of parameters
             DB    $00            ; Reference number
-            DW    RDBUF          ; Pointer to data buffer
+            DW    BLKBUF         ; Pointer to data buffer
             DW    512            ; Request count
             DW    $0000          ; Trans count
 
 READPL2     HEX   04             ; Number of parameters
             DB    #00            ; Reference number
-            DW    RDBUF          ; Pointer to data buffer
+            DW    BLKBUF         ; Pointer to data buffer
             DW    1              ; Request count
             DW    $0000          ; Trans count
 
 WRITEPL     HEX   04             ; Number of parameters
             DB    $01            ; Reference number
-            DW    RDBUF          ; Pointer to data buffer
+            DW    BLKBUF         ; Pointer to data buffer
             DW    $00            ; Request count
             DW    $0000          ; Trans count
 
@@ -647,7 +712,7 @@ GSPFXPL     HEX   01             ; Number of parameters
             DW    $300           ; Buffer
 
 GPFXPL      HEX   01             ; Number of parameters
-            DW    RDBUF          ; Buffer
+            DW    BLKBUF         ; Buffer
 
 SPFXPL      HEX   01             ; Number of parameters
             DW    MOSFILE        ; Buffer

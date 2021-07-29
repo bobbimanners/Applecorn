@@ -367,22 +367,42 @@ OSGBPBM     ASC   'OSGBPB.'
             DB    $00
 
 * OSBPUT - write one byte to an open file
-BPUTHND     LDA   STRTL                      ; Backup STRTL/STRTH
+BPUTHND     PHX
+            PHY
+            PHA                              ; Stash char to write
+            LDA   STRTL                      ; Backup STRTL/STRTH
             STA   TEMP1
             LDA   STRTH
             STA   TEMP2
+            STA   $C004                      ; Write to main memory
+            STY   MOSFILE                    ; File reference number
+            STA   $C005                      ; Write to aux memory
             LDA   #<FILEPUT
             STA   STRTL
             LDA   #>FILEPUT
             STA   STRTH
+            PLA                              ; Char to write
             TSX                              ; Stash alt SP in $0101
             STX   $0101
             CLC                              ; Use main memory
             CLV                              ; Use main ZP and LC
             JMP   XFER
+OSBPUTRET
+            LDX   $0101                      ; Recover alt SP from $0101
+            TXS
+            LDA   TEMP1                      ; Recover STRTL/STRTH
+            STA   STRTL
+            LDA   TEMP2
+            STA   STRTH
+            CLC                              ; Means no error
+            PLY
+            PLX
+            RTS
 
 * OSBGET - read one byte from an open file
-BGETHND     LDA   STRTL                      ; Backup STRTL/STRTH
+BGETHND     PHX
+            PHY
+            LDA   STRTL                      ; Backup STRTL/STRTH
             STA   TEMP1
             LDA   STRTH
             STA   TEMP2
@@ -411,7 +431,9 @@ OSBGETRET
             CPY   #$00                       ; Check error status
             BEQ   :S1
             SEC                              ; Set carry for error
-:S1         RTS
+:S1         PLY
+            PLX
+            RTS
 
 * OSARGS - adjust file arguments
 ARGSHND     LDA   #<OSARGSM
