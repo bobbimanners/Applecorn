@@ -1,4 +1,5 @@
 * MAINMEM.S
+* (c) Bobbi 2021 GPL v3
 * Code that runs on the Apple //e in main memory
 * This code is mostly glue between the BBC Micro code
 * running in aux mem and ProDOS
@@ -10,7 +11,7 @@ SETPRFX     LDA   #GPFXCMD
 :OPC7       DB    $00
             DW    GSPFXPL
             LDX   $0300
-            BNE   :S1
+            BNE   RTSINST
             LDA   $BF30
             STA   ONLPL+1        ; Device number
             JSR   MLI
@@ -25,7 +26,7 @@ SETPRFX     LDA   #GPFXCMD
             STA   $0301
             DEC   :OPC7
             BNE   :L1
-:S1         RTS
+RTSINST     RTS
 
 * Disconnect /RAM ramdrive to avoid aux corruption
 * Stolen from Beagle Bros Extra K
@@ -76,7 +77,7 @@ RESET       TSX
             LDA   #>AUXMOS
             STA   STRTH
             SEC
-            BIT   $FF58
+            BIT   RTSINST
             JMP   XFER
             RTS
 
@@ -214,7 +215,7 @@ FINDEXIT    LDA   $C08B          ; R/W RAM, LC bank 1
             STA   STRTH
             PLA
             SEC
-            BIT   $FF58
+            BIT   RTSINST
             JMP   XFER
 BUFIDX      DB    $00
 
@@ -277,7 +278,7 @@ GETEXIT     LDA   $C08B          ; R/W RAM, LC bank 1
             STA   STRTH
             PLA
             SEC
-            BIT   $FF58
+            BIT   RTSINST
             JMP   XFER
 
 * ProDOS file handling for MOS OSBPUT call
@@ -305,8 +306,61 @@ FILEPUT     LDX   $0100          ; Recover SP
             LDA   #>OSBPUTRET
             STA   STRTH
             SEC
-            BIT   $FF58
+            BIT   RTSINST
             JMP   XFER
+
+* ProDOS file handling for OSBYTE $7F EOF
+* Returns EOF status in A ($FF for EOF, $00 otherwise)
+FILEEOF     LDX   $0100          ; Recover SP
+            TXS
+            LDA   $C081          ; ROM, please
+            LDA   $C081
+
+            LDA   MOSFILE        ; File ref number
+            STA   GEOFPL+1
+            STA   GMARKPL+1
+            JSR   MLI
+            DB    GEOFCMD
+            DW    GEOFPL
+            BCS   :ISEOF         ; If error, just say EOF
+
+            JSR   MLI
+            DB    GMARKCMD
+            DW    GMARKPL
+            BCS   :ISEOF         ; If error, just say EOF
+
+            LDA   GEOFPL+2       ; Subtract Mark from EOF
+            SEC
+            SBC   GMARKPL+2
+            STA   :REMAIN
+            LDA   GEOFPL+3
+            SBC   GMARKPL+3
+            STA   :REMAIN+1
+            LDA   GEOFPL+4
+            SBC   GMARKPL+4
+            STA   :REMAIN+2
+
+            LDA   :REMAIN        ; Check bytes remaining
+            BNE   :NOTEOF
+            LDA   :REMAIN+1
+            BNE   :NOTEOF
+            LDA   :REMAIN+2
+            BNE   :NOTEOF
+:ISEOF      LDA   #$FF
+            BRA   :EXIT
+:NOTEOF     LDA   #$00
+:EXIT       PHA                  ; Preserve return code
+            LDA   $C08B          ; R/W RAM, LC bank 1
+            LDA   $C08B
+            LDA   #<CHKEOFRET
+            STA   STRTL
+            LDA   #>CHKEOFRET
+            STA   STRTH
+            PLA                  ; Recover return code
+            SEC
+            BIT   RTSINST
+            JMP   XFER
+:REMAIN     DS    3              ; Remaining bytes
 
 * ProDOS file handling for MOS OSFILE LOAD call
 * Return A=0 if successful
@@ -379,7 +433,7 @@ LOADFILE    LDX   $0100          ; Recover SP
             STA   STRTH
             PLA
             SEC
-            BIT   $FF58
+            BIT   RTSINST
             JMP   XFER
 :BLOCKS     DB    $00
 
@@ -391,6 +445,14 @@ SAVEFILE    LDX   $0100          ; Recover SP
             TXS
             LDA   $C081          ; Gimme the ROM!
             LDA   $C081
+
+            LDA   #<MOSFILE      ; Attempt to destroy file
+            STA   DESTPL+1
+            LDA   #>MOSFILE
+            STA   DESTPL+2
+            JSR   MLI
+            DB    DESTCMD
+            DW    DESTPL
 
             STZ   :BLOCKS
             LDA   #<MOSFILE
@@ -527,7 +589,7 @@ SAVEFILE    LDX   $0100          ; Recover SP
             STA   STRTH
             PLA
             SEC
-            BIT   $FF58
+            BIT   RTSINST
             JMP   XFER
 :LEN        DW    $0000
 :BLOCKS     DB    $00
@@ -576,7 +638,7 @@ CATREENTRY
             LDA   #>PRONEBLK
             STA   STRTH
             SEC
-            BIT   $FF58
+            BIT   RTSINST
             JMP   XFER
 
 :READERR
@@ -592,7 +654,7 @@ CATEXIT     LDA   $C08B          ; R/W LC RAM, bank 1
             STA   STRTH
             PLA
             SEC
-            BIT   $FF58
+            BIT   RTSINST
             JMP   XFER
 
 * PRONEBLK call returns here ...
@@ -621,7 +683,7 @@ SETPFX      LDX   $0100          ; Recover SP
             LDA   #>STARDIRRET
             STA   STRTH
             SEC
-            BIT   $FF58
+            BIT   RTSINST
             JMP   XFER
 
 * Create disk file
@@ -716,6 +778,18 @@ GPFXPL      HEX   01             ; Number of parameters
 
 SPFXPL      HEX   01             ; Number of parameters
             DW    MOSFILE        ; Buffer
+
+GMARKPL     HEX   02             ; Number of parameters
+            DB    $00            ; File reference number
+            DB    $00            ; Mark (24 bit)
+            DB    $00
+            DB    $00
+
+GEOFPL      HEX   02             ; Number of parameters
+            DB    $00            ; File reference number
+            DB    $00            ; EOF (24 bit)
+            DB    $00
+            DB    $00
 
 QUITPL      HEX   04             ; Number of parameters
             DB    $00

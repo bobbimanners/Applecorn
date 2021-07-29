@@ -1,6 +1,6 @@
 * Load an Acorn BBC Micro ROM in aux memory and
 * Provide an environment where it can run
-* Bobbi 2021
+* (c) Bobbi 2021 GPLv3
 *
 * Assembled with the Merlin 8 assembler.
 
@@ -45,6 +45,8 @@ OPENCMD     EQU   $C8
 READCMD     EQU   $CA
 WRITECMD    EQU   $CB
 CLSCMD      EQU   $CC
+GMARKCMD    EQU   $CF
+GEOFCMD     EQU   $D1
 
 * IO Buffer for reading file (1024 bytes)
 IOBUF0      EQU   $4000       ; For loading ROM, OSFILE, *.

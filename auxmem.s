@@ -1,4 +1,5 @@
 * AUXMEM.S
+* (c) Bobbi 2021 GPLv3
 * BBC Micro 'virtual machine' in Apple //e aux memory
 
 ZP1         EQU   $90                        ; $90-$9f are Econet space
@@ -967,77 +968,84 @@ BYTEHND     PHA
             PLA
             RTS
 BYTECALLER
-            CMP   #$00
-            BNE   :S1
+            CMP   #$00                       ; $00 = identify MOS version
+            BNE   :S7C
             LDX   #$0A
             RTS
 
-:S1         CMP   #$7C                       ; $7C = clear escape condition
-            BNE   :S2
+:S7C        CMP   #$7C                       ; $7C = clear escape condition
+            BNE   :S7D
             LDA   ESCFLAG
             AND   #$7F                       ; Clear MSbit
             STA   ESCFLAG
             RTS
 
-:S2         CMP   #$7D                       ; $7D = set escape condition
-            BNE   :S3
+:S7D        CMP   #$7D                       ; $7D = set escape condition
+            BNE   :S7E
             ROR   ESCFLAG
             RTS
 
-:S3         CMP   #$7E                       ; $7E = ack detection of ESC
-            BNE   :S4
+:S7E        CMP   #$7E                       ; $7E = ack detection of ESC
+            BNE   :S7F
             LDA   ESCFLAG
             AND   #$7F                       ; Clear MSB
             STA   ESCFLAG
             LDX   #$FF                       ; Means ESC condition cleared
             RTS
 
-:S4         CMP   #$81                       ; $81 = Read key with time lim
-            BNE   :S5
+:S7F        CMP   #$7F                       ; $7F = check for EOF
+            BNE   :S81
+            PHY
+            JSR   CHKEOF
+            PLY
+            RTS
+
+:S81        CMP   #$81                       ; $81 = Read key with time lim
+            BNE   :S82
             JSR   GETKEY
             RTS
 
-:S5         CMP   #$82                       ; $82 = read high order address
-            BNE   :S6
+:S82        CMP   #$82                       ; $82 = read high order address
+            BNE   :S83
             LDY   #$FF                       ; $FFFF for I/O processor
             LDX   #$FF
             RTS
 
-:S6         CMP   #$83                       ; $83 = read bottom of user mem
-            BNE   :S7
+:S83        CMP   #$83                       ; $83 = read bottom of user mem
+            BNE   :S84
             LDY   #$0E                       ; $0E00
             LDX   #$00
             RTS
 
-:S7         CMP   #$84                       ; $84 = read top of user mem
-            BNE   :S8
+:S84        CMP   #$84                       ; $84 = read top of user mem
+            BNE   :S85
             LDY   #$80
             LDX   #$00
             RTS
 
-:S8         CMP   #$85                       ; $85 = top user mem for mode
-            BNE   :S9
+:S85        CMP   #$85                       ; $85 = top user mem for mode
+            BNE   :S86
             LDY   #$80
             LDX   #$00
             RTS
 
-:S9         CMP   #$86                       ; $86 = read cursor pos
-            BNE   :S10
+:S86        CMP   #$86                       ; $86 = read cursor pos
+            BNE   :SDA
             LDY   ROW
             LDX   COL
             RTS
 
-:S10        CMP   #$DA                       ; $DA = clear VDU queue
-            BNE   :S11
+:SDA        CMP   #$DA                       ; $DA = clear VDU queue
+            BNE   :UNSUPP
             RTS
 
-:S11        PHX
+:UNSUPP     PHX
             PHY
+            PHA
             LDA   #<OSBYTEM
             LDY   #>OSBYTEM
             JSR   PRSTR
-            TSX
-            LDA   $103,X
+            PLA
             JSR   OUTHEX
             LDA   #<OSBM2
             LDY   #>OSBM2
@@ -1365,6 +1373,35 @@ OSBYTE80    CPX   #$00                       ; X=0 Last ADC channel
 :INPUT      LDX   #$00                       ; Nothing in input buf
             RTS
 
+* Performs OSBYTE $7F EOF function
+* File ref number is in X
+CHKEOF      LDA   STRTL                      ; Backup STRTL/STRTH
+            STA   TEMP1
+            LDA   STRTH
+            STA   TEMP2
+            STA   $C004                      ; Write main mem
+            STX   MOSFILE                    ; File reference number
+            STA   $C005                      ; Write aux mem
+            LDA   #<FILEEOF
+            STA   STRTL
+            LDA   #>FILEEOF
+            STA   STRTH
+            TSX                              ; Stash alt SP in $0101
+            STX   $0101
+            CLC                              ; Use main memory
+            CLV                              ; Use main ZP and LC
+            JMP   XFER
+CHKEOFRET
+            LDX   $0101                      ; Recover alt SP from $0101
+            TXS
+            PHA                              ; Return code in A
+            LDA   TEMP1
+            STA   STRTL
+            LDA   TEMP2
+            STA   STRTH
+            PLX                              ; Recover return code -> X
+            RTS
+
 * Performs OSBYTE $81 INKEY$ function
 * X,Y has time limit
 * On exit, CC, Y=$00, X=key - key pressed
@@ -1429,7 +1466,7 @@ DELAY       PHX
 :L2         INY                              ; 2
             CPY   #$00                       ; 2
             BNE   :L2                        ; 3 (taken)
-            CPX   #$05                       ; 2
+            CPX   #$02                       ; 2
             BNE   :L1                        ; 3 (taken)
             PLY
             PLX
