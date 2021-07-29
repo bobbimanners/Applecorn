@@ -37,6 +37,7 @@ MLI         EQU   $BF00
 QUITCMD     EQU   $65
 GTIMECMD    EQU   $82
 CREATCMD    EQU   $C0
+DESTCMD     EQU   $C1
 ONLNCMD     EQU   $C5
 SPFXCMD     EQU   $C6
 GPFXCMD     EQU   $C7
@@ -52,9 +53,9 @@ IOBUF2      EQU   $4800
 IOBUF3      EQU   $4C00
 IOBUF4      EQU   $5000
 
-* File will be read 512 bytes at a time into this buffer
-RDBUF       EQU   $5200
-RDBUFEND    EQU   $5400
+* 512 byte buffer sufficient for one disk block
+BLKBUF      EQU   $5200
+BLKBUFEND   EQU   $5400
 
 * Address in aux memory where ROM will be loaded
 AUXADDR     EQU   $8000

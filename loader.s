@@ -40,17 +40,17 @@ START       STZ   :BLOCKS
 
 :L3         LDA   #'.'+$80         ; Read file block by block
             JSR   COUT1
-            JSR   RDBLK
+            JSR   RDFILE
             BCS   :S3              ; EOF (0 bytes left) or some error
 
-            LDA   #<RDBUF          ; Source start addr -> A1L,A1H
+            LDA   #<BLKBUF         ; Source start addr -> A1L,A1H
             STA   A1L
-            LDA   #>RDBUF
+            LDA   #>BLKBUF
             STA   A1H
 
-            LDA   #<RDBUFEND       ; Source end addr -> A2L,A2H
+            LDA   #<BLKBUFEND      ; Source end addr -> A2L,A2H
             STA   A2L
-            LDA   #>RDBUFEND
+            LDA   #>BLKBUFEND
             STA   A2H
 
             LDA   #<AUXADDR        ; Dest in aux -> A4L, A4H
