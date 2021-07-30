@@ -969,9 +969,17 @@ BYTEHND     PHA
             RTS
 BYTECALLER
             CMP   #$00                       ; $00 = identify MOS version
-            BNE   :S7C
+            BNE   :S02
             LDX   #$0A
             RTS
+
+:S02        CMP   #$02                       ; $02 = select input stream
+            BNE   :S03
+            RTS                              ; Nothing to do
+
+:S03        CMP   #$03                       ; $03 = select output stream
+            BNE   :S7C
+            RTS                              ; Nothing to do
 
 :S7C        CMP   #$7C                       ; $7C = clear escape condition
             BNE   :S7D
@@ -994,10 +1002,30 @@ BYTECALLER
             RTS
 
 :S7F        CMP   #$7F                       ; $7F = check for EOF
-            BNE   :S81
+            BNE   :S80
             PHY
             JSR   CHKEOF
             PLY
+            RTS
+
+:S80        CMP   #$80                       ; $80 = read ADC or get buf stat
+            BNE   :S81
+            CPX   #$00                       ; X<0 => info about buffers
+            BMI   :S80BUF                    ; X>=0 read ADC info
+            LDX   #$00                       ; ADC - just return 0
+            LDY   #$00                       ; ADC - just return 0
+            RTS
+:S80BUF     CPX   #$FF                       ; Kbd buf
+            BEQ   :S80KEY
+            CPX   #$FE                       ; RS423
+            BEQ   :NONE
+:ONE        LDX   #$01                       ; For outputs, 1 char free
+            RTS
+:S80KEY     LDX   $C000                      ; Keyboard data/strobe
+            AND   #$80
+            BEQ   :NONE
+            BRA   :ONE
+:NONE       LDX   #$00                       ; No chars in buf
             RTS
 
 :S81        CMP   #$81                       ; $81 = Read key with time lim
@@ -1030,10 +1058,16 @@ BYTECALLER
             RTS
 
 :S86        CMP   #$86                       ; $86 = read cursor pos
-            BNE   :SDA
+            BNE   :S8B
             LDY   ROW
             LDX   COL
             RTS
+
+:S8B        CMP   #$8B                       ; $8B = *OPT
+            BNE   :SDA
+* TODO: Could implement some FS options here
+*       messages on/off, error behaviour
+            RTS                              ; Nothing to do (yet)
 
 :SDA        CMP   #$DA                       ; $DA = clear VDU queue
             BNE   :UNSUPP
