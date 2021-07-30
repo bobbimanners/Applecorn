@@ -383,6 +383,7 @@ BPUTHND     PHX
             LDA   #>FILEPUT
             STA   STRTH
             PLA                              ; Char to write
+            PHA
             TSX                              ; Stash alt SP in $0101
             STX   $0101
             CLC                              ; Use main memory
@@ -396,6 +397,7 @@ OSBPUTRET
             LDA   TEMP2
             STA   STRTH
             CLC                              ; Means no error
+            PLA
             PLY
             PLX
             RTS
