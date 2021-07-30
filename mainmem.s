@@ -123,7 +123,7 @@ OFILE       LDX   $0100          ; Recover SP
             PLA                  ; Get option back
             PHA
             CMP   #$80           ; Write mode
-            BNE   :NODEST
+            BNE   :S0
 
             LDA   #<MOSFILE      ; Attempt to destroy file
             STA   DESTPL+1
@@ -132,11 +132,6 @@ OFILE       LDX   $0100          ; Recover SP
             JSR   MLI
             DB    DESTCMD
             DW    DESTPL
-
-:NODEST     PLA                  ; Get option back
-            PHA
-            AND   #$80           ; Write or Update
-            BEQ   :NOCREAT
 
             LDA   #<MOSFILE      ; Attempt to create file
             STA   CREATEPL+1
@@ -164,7 +159,7 @@ OFILE       LDX   $0100          ; Recover SP
             STA   CREATEPL+11
             JSR   CRTFILE
 
-:NOCREAT    LDA   #$00           ; Look for empty slot
+:S0         LDA   #$00           ; Look for empty slot
             JSR   FINDBUF
             STX   BUFIDX
             CPX   #$00
