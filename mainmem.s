@@ -6,14 +6,14 @@
 
 * Set prefix if not already set
 SETPRFX     LDA   #GPFXCMD
-            STA   :OPC7          ; Initialize cmd byte to $C7
+            STA   :OPC7              ; Initialize cmd byte to $C7
 :L1         JSR   MLI
 :OPC7       DB    $00
             DW    GSPFXPL
             LDX   $0300
             BNE   RTSINST
             LDA   $BF30
-            STA   ONLPL+1        ; Device number
+            STA   ONLPL+1            ; Device number
             JSR   MLI
             DB    ONLNCMD
             DW    ONLPL
@@ -70,28 +70,23 @@ DISCONN     LDA   $BF98
 * XFER to AUXMOS ($C000) in aux, AuxZP on, LC on
 RESET       TSX
             STX   $0100
-            LDA   $C08B          ; Rd/Wt LC, bank one
+            LDA   $C08B              ; Rd/Wt LC, bank one
             LDA   $C08B
-            LDA   #<AUXMOS
-            STA   STRTL
-            LDA   #>AUXMOS
-            STA   STRTH
-            SEC
-            BIT   RTSINST
-            JMP   XFER
+            >>>   XFADDR,AUXMOS
+            >>>   XFAUX
             RTS
 
 * Copy 512 bytes from BLKBUF to AUXBLK in aux LC
 COPYAUXBLK
-            LDA   $C08B          ; R/W LC RAM, bank 1
+            LDA   $C08B              ; R/W LC RAM, bank 1
             LDA   $C08B
-            STA   $C009          ; Alt ZP (and Alt LC) on
+            STA   $C009              ; Alt ZP (and Alt LC) on
 
             LDY   #$00
 :L1         LDA   BLKBUF,Y
-            STA   $C005          ; Write aux mem
+            STA   $C005              ; Write aux mem
             STA   AUXBLK,Y
-            STA   $C004          ; Write main mem
+            STA   $C004              ; Write main mem
             CPY   #$FF
             BEQ   :S1
             INY
@@ -99,33 +94,33 @@ COPYAUXBLK
 
 :S1         LDY   #$00
 :L2         LDA   BLKBUF+$100,Y
-            STA   $C005          ; Write aux mem
+            STA   $C005              ; Write aux mem
             STA   AUXBLK+$100,Y
-            STA   $C004          ; Write main mem
+            STA   $C004              ; Write main mem
             CPY   #$FF
             BEQ   :S2
             INY
             BRA   :L2
 
-:S2         STA   $C008          ; Alt ZP off
-            LDA   $C081          ; Bank the ROM back in
+:S2         STA   $C008              ; Alt ZP off
+            LDA   $C081              ; Bank the ROM back in
             LDA   $C081
             RTS
 
 * ProDOS file handling for MOS OSFIND OPEN call
 * Options in A: $40 'r', $80 'w', $C0 'rw'
-OFILE       LDX   $0100          ; Recover SP
+OFILE       LDX   $0100              ; Recover SP
             TXS
-            PHA                  ; Option
-            LDA   $C081          ; ROM, please
+            PHA                      ; Option
+            LDA   $C081              ; ROM, please
             LDA   $C081
 
-            PLA                  ; Get option back
+            PLA                      ; Get option back
             PHA
-            CMP   #$80           ; Write mode
+            CMP   #$80               ; Write mode
             BNE   :S0
 
-            LDA   #<MOSFILE      ; Attempt to destroy file
+            LDA   #<MOSFILE          ; Attempt to destroy file
             STA   DESTPL+1
             LDA   #>MOSFILE
             STA   DESTPL+2
@@ -133,33 +128,33 @@ OFILE       LDX   $0100          ; Recover SP
             DB    DESTCMD
             DW    DESTPL
 
-            LDA   #<MOSFILE      ; Attempt to create file
+            LDA   #<MOSFILE          ; Attempt to create file
             STA   CREATEPL+1
             STA   OPENPL+1
             LDA   #>MOSFILE
             STA   CREATEPL+2
             STA   OPENPL+2
-            LDA   #$C3           ; Access unlocked
+            LDA   #$C3               ; Access unlocked
             STA   CREATEPL+3
-            LDA   #$06           ; Filetype BIN
+            LDA   #$06               ; Filetype BIN
             STA   CREATEPL+4
-            LDA   #$00           ; Auxtype
+            LDA   #$00               ; Auxtype
             STA   CREATEPL+5
             LDA   #$00
             STA   CREATEPL+6
-            LDA   #$01           ; Storage type - file
+            LDA   #$01               ; Storage type - file
             STA   CREATEPL+7
-            LDA   $BF90          ; Current date
+            LDA   $BF90              ; Current date
             STA   CREATEPL+8
             LDA   $BF91
             STA   CREATEPL+9
-            LDA   $BF92          ; Current time
+            LDA   $BF92              ; Current time
             STA   CREATEPL+10
             LDA   $BF93
             STA   CREATEPL+11
             JSR   CRTFILE
 
-:S0         LDA   #$00           ; Look for empty slot
+:S0         LDA   #$00               ; Look for empty slot
             JSR   FINDBUF
             STX   BUFIDX
             CPX   #$00
@@ -178,7 +173,7 @@ OFILE       LDX   $0100          ; Recover SP
             LDY   #>IOBUF3
             BRA   :S4
 :S3         CPX   #$03
-            BNE   :NOTFND        ; Out of buffers really
+            BNE   :NOTFND            ; Out of buffers really
             LDA   #<IOBUF4
             LDY   #>IOBUF4
 
@@ -193,34 +188,29 @@ OFILE       LDX   $0100          ; Recover SP
             DB    OPENCMD
             DW    OPENPL2
             BCS   :NOTFND
-            LDA   OPENPL2+5      ; File ref number
+            LDA   OPENPL2+5          ; File ref number
             PHA
             LDX   BUFIDX
             CPX   #$FF
             BEQ   FINDEXIT
-            STA   FILEREFS,X     ; Record ref number
+            STA   FILEREFS,X         ; Record ref number
             BRA   FINDEXIT
 :NOTFND     LDA   #$00
             PHA
-FINDEXIT    LDA   $C08B          ; R/W RAM, LC bank 1
+FINDEXIT    LDA   $C08B              ; R/W RAM, LC bank 1
             LDA   $C08B
-            LDA   #<OSFINDRET
-            STA   STRTL
-            LDA   #>OSFINDRET
-            STA   STRTH
+            >>>   XFADDR,OSFINDRET
             PLA
-            SEC
-            BIT   RTSINST
-            JMP   XFER
+            >>>   XFAUX
 BUFIDX      DB    $00
 
 * ProDOS file handling for MOS OSFIND CLOSE call
-CFILE       LDX   $0100          ; Recover SP
+CFILE       LDX   $0100              ; Recover SP
             TXS
-            LDA   $C081          ; ROM, please
+            LDA   $C081              ; ROM, please
             LDA   $C081
 
-            LDA   MOSFILE        ; File ref number
+            LDA   MOSFILE            ; File ref number
             STA   CLSPL+1
             JSR   CLSFILE
 
@@ -244,49 +234,44 @@ FINDBUF     LDX   #$00
             INX
             CPX   #$04
             BNE   :L1
-            LDX   #$FF           ; $FF for not found
+            LDX   #$FF               ; $FF for not found
 :END        RTS
 
 * ProDOS file handling for MOS OSBGET call
 * Returns with char read in A and error num in X (or 0)
-FILEGET     LDX   $0100          ; Recover SP
+FILEGET     LDX   $0100              ; Recover SP
             TXS
-            LDA   $C081          ; ROM, please
+            LDA   $C081              ; ROM, please
             LDA   $C081
 
-            LDA   MOSFILE        ; File ref number
+            LDA   MOSFILE            ; File ref number
             STA   READPL2+1
             JSR   MLI
             DB    READCMD
             DW    READPL2
             BCC   :NOERR
-            TAY                  ; Error number in Y
+            TAY                      ; Error number in Y
             BRA   GETEXIT
 :NOERR      LDX   #$00
             LDA   BLKBUF
             PHA
-GETEXIT     LDA   $C08B          ; R/W RAM, LC bank 1
+GETEXIT     LDA   $C08B              ; R/W RAM, LC bank 1
             LDA   $C08B
-            LDA   #<OSBGETRET
-            STA   STRTL
-            LDA   #>OSBGETRET
-            STA   STRTH
+            >>>   XFADDR,OSBGETRET
             PLA
-            SEC
-            BIT   RTSINST
-            JMP   XFER
+            >>>   XFAUX
 
 * ProDOS file handling for MOS OSBPUT call
 * Enters with char to write in A
-FILEPUT     LDX   $0100          ; Recover SP
+FILEPUT     LDX   $0100              ; Recover SP
             TXS
-            STA   BLKBUF         ; Char to write
-            LDA   $C081          ; ROM, please
+            STA   BLKBUF             ; Char to write
+            LDA   $C081              ; ROM, please
             LDA   $C081
 
-            LDA   MOSFILE        ; File ref number
+            LDA   MOSFILE            ; File ref number
             STA   WRITEPL+1
-            LDA   #$01           ; Bytes to write
+            LDA   #$01               ; Bytes to write
             STA   WRITEPL+4
             LDA   #$00
             STA   WRITEPL+5
@@ -294,37 +279,32 @@ FILEPUT     LDX   $0100          ; Recover SP
 
 * There is no way to report an error it seems!
 
-            LDA   $C08B          ; R/W RAM, LC bank 1
+            LDA   $C08B              ; R/W RAM, LC bank 1
             LDA   $C08B
-            LDA   #<OSBPUTRET
-            STA   STRTL
-            LDA   #>OSBPUTRET
-            STA   STRTH
-            SEC
-            BIT   RTSINST
-            JMP   XFER
+            >>>   XFADDR,OSBPUTRET
+            >>>   XFAUX
 
 * ProDOS file handling for OSBYTE $7F EOF
 * Returns EOF status in A ($FF for EOF, $00 otherwise)
-FILEEOF     LDX   $0100          ; Recover SP
+FILEEOF     LDX   $0100              ; Recover SP
             TXS
-            LDA   $C081          ; ROM, please
+            LDA   $C081              ; ROM, please
             LDA   $C081
 
-            LDA   MOSFILE        ; File ref number
+            LDA   MOSFILE            ; File ref number
             STA   GEOFPL+1
             STA   GMARKPL+1
             JSR   MLI
             DB    GEOFCMD
             DW    GEOFPL
-            BCS   :ISEOF         ; If error, just say EOF
+            BCS   :ISEOF             ; If error, just say EOF
 
             JSR   MLI
             DB    GMARKCMD
             DW    GMARKPL
-            BCS   :ISEOF         ; If error, just say EOF
+            BCS   :ISEOF             ; If error, just say EOF
 
-            LDA   GEOFPL+2       ; Subtract Mark from EOF
+            LDA   GEOFPL+2           ; Subtract Mark from EOF
             SEC
             SBC   GMARKPL+2
             STA   :REMAIN
@@ -335,7 +315,7 @@ FILEEOF     LDX   $0100          ; Recover SP
             SBC   GMARKPL+4
             STA   :REMAIN+2
 
-            LDA   :REMAIN        ; Check bytes remaining
+            LDA   :REMAIN            ; Check bytes remaining
             BNE   :NOTEOF
             LDA   :REMAIN+1
             BNE   :NOTEOF
@@ -344,48 +324,38 @@ FILEEOF     LDX   $0100          ; Recover SP
 :ISEOF      LDA   #$FF
             BRA   :EXIT
 :NOTEOF     LDA   #$00
-:EXIT       PHA                  ; Preserve return code
-            LDA   $C08B          ; R/W RAM, LC bank 1
+:EXIT       PHA                      ; Preserve return code
+            LDA   $C08B              ; R/W RAM, LC bank 1
             LDA   $C08B
-            LDA   #<CHKEOFRET
-            STA   STRTL
-            LDA   #>CHKEOFRET
-            STA   STRTH
-            PLA                  ; Recover return code
-            SEC
-            BIT   RTSINST
-            JMP   XFER
-:REMAIN     DS    3              ; Remaining bytes
+            >>>   XFADDR,CHKEOFRET
+            PLA                      ; Recover return code
+            >>>   XFAUX
+:REMAIN     DS    3                  ; Remaining bytes
 
 * ProDOS file handling for OSARGS flush commands
-FLUSH       LDX   $0100          ; Recover SP
+FLUSH       LDX   $0100              ; Recover SP
             TXS
-            LDA   $C081          ; ROM, please
+            LDA   $C081              ; ROM, please
             LDA   $C081
 
-            LDA   MOSFILE        ; File ref number
+            LDA   MOSFILE            ; File ref number
             STA   FLSHPL+1
             JSR   MLI
             DB    FLSHCMD
             DW    FLSHPL
 
-            LDA   $C08B          ; R/W RAM, LC bank 1
+            LDA   $C08B              ; R/W RAM, LC bank 1
             LDA   $C08B
-            LDA   #<OSARGSRET1
-            STA   STRTL
-            LDA   #>OSARGSRET1
-            STA   STRTH
-            SEC
-            BIT   RTSINST
-            JMP   XFER
+            >>>   XFADDR,OSARGSRET
+            >>>   XFAUX
 
 * ProDOS file handling for MOS OSFILE LOAD call
 * Return A=0 if successful
 *        A=1 if file not found
 *        A=2 if read error
-LOADFILE    LDX   $0100          ; Recover SP
+LOADFILE    LDX   $0100              ; Recover SP
             TXS
-            LDA   $C081          ; Gimme the ROM!
+            LDA   $C081              ; Gimme the ROM!
             LDA   $C081
 
             STZ   :BLOCKS
@@ -394,12 +364,12 @@ LOADFILE    LDX   $0100          ; Recover SP
             LDA   #>MOSFILE
             STA   OPENPL+2
             JSR   OPENFILE
-            BCS   :NOTFND        ; File not found
-:L1         LDA   OPENPL+5       ; File ref number
+            BCS   :NOTFND            ; File not found
+:L1         LDA   OPENPL+5           ; File ref number
             STA   READPL+1
             JSR   RDFILE
             BCC   :S1
-            CMP   #$4C           ; EOF
+            CMP   #$4C               ; EOF
             BEQ   :EOF
             BRA   :READERR
 
@@ -425,45 +395,40 @@ LOADFILE    LDX   $0100          ; Recover SP
             BRA   :L2
 :S2         STA   A4H
 
-            SEC                  ; Main -> AUX
+            SEC                      ; Main -> AUX
             JSR   AUXMOVE
 
             INC   :BLOCKS
             BRA   :L1
 
-:NOTFND     LDA   #$01           ; Nothing found
+:NOTFND     LDA   #$01               ; Nothing found
             PHA
             BRA   :EXIT
-:READERR    LDA   #$02           ; Read error
+:READERR    LDA   #$02               ; Read error
             PHA
             BRA   :EOF2
-:EOF        LDA   #$00           ; Success
+:EOF        LDA   #$00               ; Success
             PHA
-:EOF2       LDA   OPENPL+5       ; File ref num
+:EOF2       LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-:EXIT       LDA   $C08B          ; R/W RAM, bank 1
+:EXIT       LDA   $C08B              ; R/W RAM, bank 1
             LDA   $C08B
-            LDA   #<OSFILERET    ; Return to caller in aux
-            STA   STRTL
-            LDA   #>OSFILERET
-            STA   STRTH
+            >>>   XFADDR,OSFILERET
             PLA
-            SEC
-            BIT   RTSINST
-            JMP   XFER
+            >>>   XFAUX
 :BLOCKS     DB    $00
 
 * ProDOS file handling for MOS OSFILE SAVE call
 * Return A=0 if successful
 *        A=1 if unable to create/open
 *        A=2 if error during save
-SAVEFILE    LDX   $0100          ; Recover SP
+SAVEFILE    LDX   $0100              ; Recover SP
             TXS
-            LDA   $C081          ; Gimme the ROM!
+            LDA   $C081              ; Gimme the ROM!
             LDA   $C081
 
-            LDA   #<MOSFILE      ; Attempt to destroy file
+            LDA   #<MOSFILE          ; Attempt to destroy file
             STA   DESTPL+1
             LDA   #>MOSFILE
             STA   DESTPL+2
@@ -478,30 +443,30 @@ SAVEFILE    LDX   $0100          ; Recover SP
             LDA   #>MOSFILE
             STA   CREATEPL+2
             STA   OPENPL+2
-            LDA   #$C3           ; Access unlocked
+            LDA   #$C3               ; Access unlocked
             STA   CREATEPL+3
-            LDA   #$06           ; Filetype BIN
+            LDA   #$06               ; Filetype BIN
             STA   CREATEPL+4
-            LDA   FBSTRT         ; Auxtype = save address
+            LDA   FBSTRT             ; Auxtype = save address
             STA   CREATEPL+5
             LDA   FBSTRT+1
             STA   CREATEPL+6
-            LDA   #$01           ; Storage type - file
+            LDA   #$01               ; Storage type - file
             STA   CREATEPL+7
-            LDA   $BF90          ; Current date
+            LDA   $BF90              ; Current date
             STA   CREATEPL+8
             LDA   $BF91
             STA   CREATEPL+9
-            LDA   $BF92          ; Current time
+            LDA   $BF92              ; Current time
             STA   CREATEPL+10
             LDA   $BF93
             STA   CREATEPL+11
             JSR   CRTFILE
-            BCS   :FWD1          ; :CANTOPEN error
+            BCS   :FWD1              ; :CANTOPEN error
             JSR   OPENFILE
-            BCS   :FWD1          ; :CANTOPEN error
+            BCS   :FWD1              ; :CANTOPEN error
 
-            SEC                  ; Compute file length
+            SEC                      ; Compute file length
             LDA   FBEND
             SBC   FBSTRT
             STA   :LEN
@@ -509,22 +474,22 @@ SAVEFILE    LDX   $0100          ; Recover SP
             SBC   FBSTRT+1
             STA   :LEN+1
 
-:L1         LDA   FBSTRT         ; Setup for first block
+:L1         LDA   FBSTRT             ; Setup for first block
             STA   A1L
             STA   A2L
             LDA   FBSTRT+1
             STA   A1H
             STA   A2H
-            INC   A2H            ; $200 = 512 bytes
+            INC   A2H                ; $200 = 512 bytes
             INC   A2H
-            LDA   OPENPL+5       ; File ref number
+            LDA   OPENPL+5           ; File ref number
             STA   WRITEPL+1
-            LDA   #$00           ; 512 byte request count
+            LDA   #$00               ; 512 byte request count
             STA   WRITEPL+4
             LDA   #$02
             STA   WRITEPL+5
             LDX   :BLOCKS
-:L2         CPX   #$00           ; Adjust for subsequent blks
+:L2         CPX   #$00               ; Adjust for subsequent blks
             BEQ   :S1
             INC   A1H
             INC   A1H
@@ -533,24 +498,24 @@ SAVEFILE    LDX   $0100          ; Recover SP
             DEX
             BRA   :L2
 
-:FWD1       BRA   :CANTOPEN      ; Forwarding call from above
+:FWD1       BRA   :CANTOPEN          ; Forwarding call from above
 
-:S1         LDA   :LEN+1         ; MSB of length remaining
+:S1         LDA   :LEN+1             ; MSB of length remaining
             CMP   #$02
-            BCS   :S2            ; MSB of len >= 2 (not last)
+            BCS   :S2                ; MSB of len >= 2 (not last)
 
-            CMP   #$00           ; If no bytes left ...
+            CMP   #$00               ; If no bytes left ...
             BNE   :S3
             LDA   :LEN
             BNE   :S3
             BRA   :NORMALEND
 
-:S3         LDA   FBEND          ; Adjust for last block
+:S3         LDA   FBEND              ; Adjust for last block
             STA   A2L
             LDA   FBEND+1
             STA   A2H
             LDA   :LEN
-            STA   WRITEPL+4      ; Remaining bytes to write
+            STA   WRITEPL+4          ; Remaining bytes to write
             LDA   :LEN+1
             STA   WRITEPL+5
 
@@ -559,10 +524,10 @@ SAVEFILE    LDX   $0100          ; Recover SP
             LDA   #>BLKBUF
             STA   A4H
 
-            CLC                  ; Aux -> Main
+            CLC                      ; Aux -> Main
             JSR   AUXMOVE
 
-            LDA   OPENPL+5       ; File ref number
+            LDA   OPENPL+5           ; File ref number
             STA   WRITEPL+1
             JSR   WRTFILE
             BCS   :WRITEERR
@@ -572,7 +537,7 @@ SAVEFILE    LDX   $0100          ; Recover SP
 :ENDLOOP    INC   :BLOCKS
             BRA   :L1
 
-:UPDLEN     SEC                  ; Update length remaining
+:UPDLEN     SEC                      ; Update length remaining
             LDA   :LEN
             SBC   WRITEPL+4
             STA   :LEN
@@ -582,126 +547,106 @@ SAVEFILE    LDX   $0100          ; Recover SP
             BRA   :ENDLOOP
 
 :CANTOPEN
-            LDA   #$01           ; Can't open/create
+            LDA   #$01               ; Can't open/create
             BRA   :EXIT
 :WRITEERR
-            LDA   OPENPL+5       ; File ref num
+            LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-            LDA   #$02           ; Write error
+            LDA   #$02               ; Write error
             BRA   :EXIT
 :NORMALEND
-            LDA   OPENPL+5       ; File ref num
+            LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-            LDA   #$00           ; Success!
-            BCC   :EXIT          ; If close OK
-            LDA   #$02           ; Write error
+            LDA   #$00               ; Success!
+            BCC   :EXIT              ; If close OK
+            LDA   #$02               ; Write error
 :EXIT       PHA
-            LDA   $C08B          ; R/W RAM, bank 1
+            LDA   $C08B              ; R/W RAM, bank 1
             LDA   $C08B
-            LDA   #<OSFILERET    ; Return to caller in aux
-            STA   STRTL
-            LDA   #>OSFILERET
-            STA   STRTH
+            >>>   XFADDR,OSFILERET
             PLA
-            SEC
-            BIT   RTSINST
-            JMP   XFER
+            >>>   XFAUX
 :LEN        DW    $0000
 :BLOCKS     DB    $00
 
 * Quit to ProDOS
-QUIT        INC   $3F4           ; Invalidate powerup byte
-            STA   $C054          ; PAGE2 off
+QUIT        INC   $3F4               ; Invalidate powerup byte
+            STA   $C054              ; PAGE2 off
             JSR   MLI
             DB    QUITCMD
             DW    QUITPL
             RTS
 
 * Obtain catalog of current PREFIX dir
-CATALOG     LDX   $0100          ; Recover SP
+CATALOG     LDX   $0100              ; Recover SP
             TXS
-            LDA   $C081          ; Select ROM
+            LDA   $C081              ; Select ROM
             LDA   $C081
 
-            JSR   MLI            ; Fetch prefix into BLKBUF
+            JSR   MLI                ; Fetch prefix into BLKBUF
             DB    GPFXCMD
             DW    GPFXPL
-            BNE   CATEXIT        ; If prefix not set
+            BNE   CATEXIT            ; If prefix not set
 
             LDA   #<BLKBUF
             STA   OPENPL+1
             LDA   #>BLKBUF
             STA   OPENPL+2
             JSR   OPENFILE
-            BCS   CATEXIT        ; Can't open dir
+            BCS   CATEXIT            ; Can't open dir
 
 CATREENTRY
-            LDA   OPENPL+5       ; File ref num
+            LDA   OPENPL+5           ; File ref num
             STA   READPL+1
             JSR   RDFILE
             BCC   :S1
-            CMP   #$4C           ; EOF
+            CMP   #$4C               ; EOF
             BEQ   :EOF
             BRA   :READERR
 
 :S1         JSR   COPYAUXBLK
 
-            LDA   $C08B          ; R/W RAM, bank 1
+            LDA   $C08B              ; R/W RAM, bank 1
             LDA   $C08B
-            LDA   #<PRONEBLK
-            STA   STRTL
-            LDA   #>PRONEBLK
-            STA   STRTH
-            SEC
-            BIT   RTSINST
-            JMP   XFER
+            >>>   XFADDR,PRONEBLK
+            >>>   XFAUX
 
 :READERR
-:EOF        LDA   OPENPL+5       ; File ref num
+:EOF        LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
 
-CATEXIT     LDA   $C08B          ; R/W LC RAM, bank 1
+CATEXIT     LDA   $C08B              ; R/W LC RAM, bank 1
             LDA   $C08B
-            LDA   #<STARCATRET
-            STA   STRTL
-            LDA   #>STARCATRET
-            STA   STRTH
+            >>>   XFADDR,STARCATRET
             PLA
-            SEC
-            BIT   RTSINST
-            JMP   XFER
+            >>>   XFAUX
 
 * PRONEBLK call returns here ...
 CATALOGRET
-            LDX   #0100          ; Recover SP
+            LDX   #0100              ; Recover SP
             TXS
-            LDA   $C081          ; ROM please
+            LDA   $C081              ; ROM please
             LDA   $C081
             BRA   CATREENTRY
 
 * Set the prefix
-SETPFX      LDX   $0100          ; Recover SP
+SETPFX      LDX   $0100              ; Recover SP
             TXS
-            LDA   $C081          ; ROM, ta!
+            LDA   $C081              ; ROM, ta!
             LDA   $C081
             JSR   MLI
             DB    SPFXCMD
             DW    SPFXPL
             BCC   :S1
-            JSR   BELL           ; Beep on error
+            JSR   BELL               ; Beep on error
 
-:S1         LDA   $C08B          ; R/W LC RAM, bank 1
+:S1         LDA   $C08B              ; R/W LC RAM, bank 1
             LDA   $C08B
-            LDA   #<STARDIRRET
-            STA   STRTL
-            LDA   #>STARDIRRET
-            STA   STRTH
-            SEC
-            BIT   RTSINST
-            JMP   XFER
+            >>>   XFADDR,STARDIRRET
+            >>>   XFAUX
 
 * Create disk file
 CRTFILE     JSR   MLI
@@ -740,95 +685,95 @@ CANTOPEN    ASC   "Unable to open BASIC.ROM"
 ROMFILE     STR   "BASIC.ROM"
 
 * ProDOS Parameter lists for MLI calls
-OPENPL      HEX   03             ; Number of parameters
-            DW    $0000          ; Pointer to filename
-            DW    IOBUF0         ; Pointer to IO buffer
-            DB    $00            ; Reference number returned
+OPENPL      HEX   03                 ; Number of parameters
+            DW    $0000              ; Pointer to filename
+            DW    IOBUF0             ; Pointer to IO buffer
+            DB    $00                ; Reference number returned
 
-OPENPL2     HEX   03             ; Number of parameters
-            DW    $0000          ; Pointer to filename
-            DW    $0000          ; Pointer to IO buffer
-            DB    $00            ; Reference number returned
+OPENPL2     HEX   03                 ; Number of parameters
+            DW    $0000              ; Pointer to filename
+            DW    $0000              ; Pointer to IO buffer
+            DB    $00                ; Reference number returned
 
-CREATEPL    HEX   07             ; Number of parameters
-            DW    $0000          ; Pointer to filename
-            DB    $00            ; Access
-            DB    $00            ; File type
-            DW    $0000          ; Aux type
-            DB    $00            ; Storage type
-            DW    $0000          ; Create date
-            DW    $0000          ; Create time
+CREATEPL    HEX   07                 ; Number of parameters
+            DW    $0000              ; Pointer to filename
+            DB    $00                ; Access
+            DB    $00                ; File type
+            DW    $0000              ; Aux type
+            DB    $00                ; Storage type
+            DW    $0000              ; Create date
+            DW    $0000              ; Create time
 
-DESTPL      HEX   01             ; Number of parameters
-            DW    $0000          ; Pointer to filename
+DESTPL      HEX   01                 ; Number of parameters
+            DW    $0000              ; Pointer to filename
 
-READPL      HEX   04             ; Number of parameters
-            DB    $00            ; Reference number
-            DW    BLKBUF         ; Pointer to data buffer
-            DW    512            ; Request count
-            DW    $0000          ; Trans count
+READPL      HEX   04                 ; Number of parameters
+            DB    $00                ; Reference number
+            DW    BLKBUF             ; Pointer to data buffer
+            DW    512                ; Request count
+            DW    $0000              ; Trans count
 
-READPL2     HEX   04             ; Number of parameters
-            DB    #00            ; Reference number
-            DW    BLKBUF         ; Pointer to data buffer
-            DW    1              ; Request count
-            DW    $0000          ; Trans count
+READPL2     HEX   04                 ; Number of parameters
+            DB    #00                ; Reference number
+            DW    BLKBUF             ; Pointer to data buffer
+            DW    1                  ; Request count
+            DW    $0000              ; Trans count
 
-WRITEPL     HEX   04             ; Number of parameters
-            DB    $01            ; Reference number
-            DW    BLKBUF         ; Pointer to data buffer
-            DW    $00            ; Request count
-            DW    $0000          ; Trans count
+WRITEPL     HEX   04                 ; Number of parameters
+            DB    $01                ; Reference number
+            DW    BLKBUF             ; Pointer to data buffer
+            DW    $00                ; Request count
+            DW    $0000              ; Trans count
 
-CLSPL       HEX   01             ; Number of parameters
-            DB    $00            ; Reference number
+CLSPL       HEX   01                 ; Number of parameters
+            DB    $00                ; Reference number
 
-FLSHPL      HEX   01             ; Number of parameters
-            DB    $00            ; Reference number
+FLSHPL      HEX   01                 ; Number of parameters
+            DB    $00                ; Reference number
 
-ONLPL       HEX   02             ; Number of parameters
-            DB    $00            ; Unit num
-            DW    $301           ; Buffer
+ONLPL       HEX   02                 ; Number of parameters
+            DB    $00                ; Unit num
+            DW    $301               ; Buffer
 
-GSPFXPL     HEX   01             ; Number of parameters
-            DW    $300           ; Buffer
+GSPFXPL     HEX   01                 ; Number of parameters
+            DW    $300               ; Buffer
 
-GPFXPL      HEX   01             ; Number of parameters
-            DW    BLKBUF         ; Buffer
+GPFXPL      HEX   01                 ; Number of parameters
+            DW    BLKBUF             ; Buffer
 
-SPFXPL      HEX   01             ; Number of parameters
-            DW    MOSFILE        ; Buffer
+SPFXPL      HEX   01                 ; Number of parameters
+            DW    MOSFILE            ; Buffer
 
-GMARKPL     HEX   02             ; Number of parameters
-            DB    $00            ; File reference number
-            DB    $00            ; Mark (24 bit)
+GMARKPL     HEX   02                 ; Number of parameters
+            DB    $00                ; File reference number
+            DB    $00                ; Mark (24 bit)
             DB    $00
             DB    $00
 
-GEOFPL      HEX   02             ; Number of parameters
-            DB    $00            ; File reference number
-            DB    $00            ; EOF (24 bit)
+GEOFPL      HEX   02                 ; Number of parameters
+            DB    $00                ; File reference number
+            DB    $00                ; EOF (24 bit)
             DB    $00
             DB    $00
 
-QUITPL      HEX   04             ; Number of parameters
+QUITPL      HEX   04                 ; Number of parameters
             DB    $00
             DW    $0000
             DB    $00
             DW    $0000
 
 * Buffer for Acorn MOS filename
-MOSFILE     DS    64             ; 64 bytes max prefix/file len
+MOSFILE     DS    64                 ; 64 bytes max prefix/file len
 
 * Acorn MOS format OSFILE param list
 FILEBLK
-FBPTR       DW    $0000          ; Pointer to name (in aux)
-FBLOAD      DW    $0000          ; Load address
+FBPTR       DW    $0000              ; Pointer to name (in aux)
+FBLOAD      DW    $0000              ; Load address
             DW    $0000
-FBEXEC      DW    $0000          ; Exec address
+FBEXEC      DW    $0000              ; Exec address
             DW    $0000
-FBSTRT      DW    $0000          ; Start address for SAVE
+FBSTRT      DW    $0000              ; Start address for SAVE
             DW    $0000
-FBEND       DW    $0000          ; End address for SAVE
+FBEND       DW    $0000              ; End address for SAVE
             DW    $0000
 
