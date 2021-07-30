@@ -68,6 +68,29 @@ AUXMOS1     EQU   $2000       ; Temp staging area in Aux
 EAUXMOS1    EQU   $3000       ; End of staging area
 AUXMOS      EQU   $D000       ; Final location in aux LC
 
+* Macro for calls from main memory to aux memory
+XFAUX       MAC
+            SEC               ; Use aux memory
+            BIT   $FF58       ; Set V: use alt ZP and LC
+            JMP   XFER
+            EOM
+
+* Macro for calls from aux memory to main memory
+XFMAIN      MAC
+            CLC               ; Use main memory
+            CLV               ; Use main ZP and LC
+            JMP   XFER
+            EOM
+
+* Macro to load addr into STRTL/STRTH
+XFADDR      MAC
+            LDA   #<]1
+            STA   STRTL
+            LDA   #>]1
+            STA   STRTH
+            EOM
+
+* Code is all included from PUT files below ...
             PUT   LOADER
             PUT   MAINMEM
             PUT   AUXMEM

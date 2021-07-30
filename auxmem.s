@@ -329,23 +329,15 @@ FINDHND     PHX
             STY   MOSFILE                    ; Length (Pascal string)
             STA   $C005                      ; Write aux
 
-            LDA   #<OFILE
-            STA   STRTL
-            LDA   #>OFILE
-            STA   STRTH
+            >>>   XFADDR,OFILE
             PLA                              ; Recover options
-:S1         CLC                              ; Use main memory
-            CLV                              ; Use main ZP and LC
-            JMP   XFER
+:S1         >>>   XFMAIN
 
 :CLOSE      STA   $C004                      ; Write main
             STY   MOSFILE                    ; Write file number
             STA   $C005                      ; Write aux
 
-            LDA   #<CFILE
-            STA   STRTL
-            LDA   #>CFILE
-            STA   STRTH
+            >>>   XFADDR,CFILE
             BRA   :S1
 
 OSFINDRET
@@ -385,17 +377,12 @@ BPUTHND     PHX
             STA   $C004                      ; Write to main memory
             STY   MOSFILE                    ; File reference number
             STA   $C005                      ; Write to aux memory
-            LDA   #<FILEPUT
-            STA   STRTL
-            LDA   #>FILEPUT
-            STA   STRTH
-            PLA                              ; Char to write
-            PHA
             TSX                              ; Stash alt SP in $0101
             STX   $0101
-            CLC                              ; Use main memory
-            CLV                              ; Use main ZP and LC
-            JMP   XFER
+            >>>   XFADDR,FILEPUT
+            PLA                              ; Char to write
+            PHA
+            >>>   XFMAIN
 OSBPUTRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
@@ -413,15 +400,10 @@ BGETHND     PHX
             STA   $C004                      ; Write to main memory
             STY   MOSFILE                    ; File ref number
             STA   $C005                      ; Write to aux memory
-            LDA   #<FILEGET
-            STA   STRTL
-            LDA   #>FILEGET
-            STA   STRTH
             TSX                              ; Stash alt SP in $0101
             STX   $0101
-            CLC                              ; Use main memory
-            CLV                              ; Use main ZP and LC
-            JMP   XFER
+            >>>   XFADDR,FILEGET
+            >>>   XFMAIN
 OSBGETRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
@@ -479,20 +461,14 @@ ARGSHND     PHA
             STY   MOSFILE                    ; File ref num
             STA   $C005                      ; Write aux memory
 :FLUSH      JSR   BCKSTRT
-            LDA   #<FLUSH
-            STA   STRTL
-            LDA   #>FLUSH
-            STA   STRTH
-            CLC                              ; Use main memory
-            CLV                              ; Use main ZP and LC
-            JMP   XFER
+            >>>   XFADDR,FLUSH
+            >>>   XFMAIN
 :EXIT       PLY
             PLX
             PLA
             RTS
 
-* When there is no return value
-OSARGSRET1
+OSARGSRET
             LDX   $0101                      ; Recover alt ZP from $0101
             TXS
             JSR   RSTSTRT
@@ -575,18 +551,10 @@ FILEHND     PHX
             PLX
             RTS
 
-:S1         LDA   #<SAVEFILE
-            STA   STRTL
-            LDA   #>SAVEFILE
-            STA   STRTH
+:S1         >>>   XFADDR,SAVEFILE
             BRA   :S3
-:S2         LDA   #<LOADFILE
-            STA   STRTL
-            LDA   #>LOADFILE
-            STA   STRTH
-:S3         CLC                              ; Use main memory
-            CLV                              ; Use main ZP and LC
-            JMP   XFER
+:S2         >>>   XFADDR,LOADFILE
+:S3         >>>   XFMAIN
 
 OSFILERET
             LDX   $0101                      ; Recover alt SP from $0101
@@ -1299,24 +1267,14 @@ STARHELP    LDA   #<:MSG
             DB    $0D,$0D,$00
 :MSG2       DB    $0D,$00
 
-STARQUIT    LDA   #<QUIT
-            STA   STRTL
-            LDA   #>QUIT
-            STA   STRTH
-            CLC                              ; Main memory
-            CLV                              ; Main ZP & LC
-            JMP   XFER
+STARQUIT    >>>   XFADDR,QUIT
+            >>>   XFMAIN
 
 STARCAT     JSR   BCKSTRT
             TSX
             STX   $0101                      ; Stash alt SP
-            LDA   #<CATALOG
-            STA   STRTL
-            LDA   #>CATALOG
-            STA   STRTH
-            CLC                              ; Main memory
-            CLV                              ; Main ZP & LC
-            JMP   XFER
+            >>>   XFADDR,CATALOG
+            >>>   XFMAIN
 STARCATRET
             LDX   $0101                      ; Recover alt SP
             TXS
@@ -1345,13 +1303,8 @@ PRONEBLK    LDX   $0101                      ; Recover alt SP
             BRA   :END
 
 :END        JSR   BCKSTRT
-            LDA   #<CATALOGRET
-            STA   STRTL
-            LDA   #>CATALOGRET
-            STA   STRTH
-            CLC                              ; Main memory
-            CLV                              ; Main ZP & LC
-            JMP   XFER
+            >>>   XFADDR,CATALOGRET
+            >>>   XFMAIN
 :DIRM       ASC   'Directory: '
             DB    $00
 
@@ -1427,13 +1380,8 @@ STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
             JSR   BCKSTRT
             TSX
             STX   $0101                      ; Stash alt SP
-            LDA   #<SETPFX
-            STA   STRTL
-            LDA   #>SETPFX
-            STA   STRTH
-            CLC                              ; Main memory
-            CLV                              ; Main ZP & LC
-            JMP   XFER
+            >>>   XFADDR,SETPFX
+            >>>   XFMAIN
 STARDIRRET
             LDX   $0101                      ; Recover Alt SP
             TXS
@@ -1466,15 +1414,10 @@ CHKEOF      JSR   BCKSTRT
             STA   $C004                      ; Write main mem
             STX   MOSFILE                    ; File reference number
             STA   $C005                      ; Write aux mem
-            LDA   #<FILEEOF
-            STA   STRTL
-            LDA   #>FILEEOF
-            STA   STRTH
+            >>>   XFADDR,FILEEOF
             TSX                              ; Stash alt SP in $0101
             STX   $0101
-            CLC                              ; Use main memory
-            CLV                              ; Use main ZP and LC
-            JMP   XFER
+            >>>   XFMAIN
 CHKEOFRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
