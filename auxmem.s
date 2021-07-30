@@ -1066,13 +1066,31 @@ BYTECALLER
             RTS
 
 :S8B        CMP   #$8B                       ; $8B = *OPT
-            BNE   :SDA
+            BNE   :S8E
 * TODO: Could implement some FS options here
 *       messages on/off, error behaviour
             RTS                              ; Nothing to do (yet)
 
+:S8E        CMP   #$8E                       ; $8E = Enter language ROM
+            BNE   :SDA
+
+            LDA   #$09                       ; Print language name at $8009
+            LDY   #$80
+            JSR   PRSTR
+            JSR   OSNEWL
+            JSR   OSNEWL
+
+            CLC                              ; TODO: CLC or SEC?
+            LDA   #$01
+            JMP   AUXADDR
+
 :SDA        CMP   #$DA                       ; $DA = clear VDU queue
+            BNE   :SEA
+            RTS
+
+:SEA        CMP   #$EA                       ; $EA = Tube presence
             BNE   :UNSUPP
+            LDX   #$00                       ; No tube
             RTS
 
 :UNSUPP     PHX
@@ -1101,9 +1119,9 @@ CLIHND      PHX
             PHY
             STX   ZP1+0                      ; Pointer to CLI
             STY   ZP1+1
-; TO DO: needs to skip leading '*'s and ' 's
-; TO DO: exit early with <cr>
-; TO DO: exit early with | as comment
+* TODO: needs to skip leading '*'s and ' 's
+* TODO: exit early with <cr>
+* TODO: exit early with | as comment
             LDA   #<:QUIT
             STA   ZP2
             LDA   #>:QUIT
@@ -1141,19 +1159,19 @@ CLIHND      PHX
             LDA   #>:HELP
             STA   ZP2+1
             JSR   STRCMP
-            BCS   :S5
+            BCS   :ASKROM
             JSR   STARHELP
             BRA   :EXIT
-:S5         LDA   #<:LISP                    ; HACK TO MAKE LISP WORK??
-            STA   ZP2
-            LDA   #>:LISP
-            STA   ZP2+1
-            JSR   STRCMP
-            BCS   :UNSUPP
-            LDA   #$01
-            JMP   $8000
-:UNSUPP
-            LDA   #<:OSCLIM
+:ASKROM     LDA   ZP1                        ; String in (OSLPTR),Y
+            STA   OSLPTR
+            LDA   ZP1+1
+            STA   OSLPTR+1
+            LDY   #$00
+            LDA   #$04                       ; Service 4 Unrecognized Cmd
+            LDX   #$0F                       ; ROM slot
+            JMP   $8003                      ; Service entry point
+* TODO: Do I need any extra error handling here?
+:UNSUPP     LDA   #<:OSCLIM
             LDY   #>:OSCLIM
             JSR   PRSTR
             PLY
@@ -1530,8 +1548,8 @@ IRQBRKHDLR  PHA
             CLI
             JMP   (BRKV)                     ; Pass on to BRK handler
 
-:S1                                          ; No Apple IRQs to handle
-            PLA                              ; TO DO: pass on to IRQ1V
+:S1                                          ; TODO: No Apple IRQs handled
+            PLA                              ; TODO: Pass on to IRQ1V
             TAX
             PLA
 NULLRTI     RTI
