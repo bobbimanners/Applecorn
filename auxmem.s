@@ -1162,15 +1162,18 @@ CLIHND      PHX
             BCS   :ASKROM
             JSR   STARHELP
             BRA   :EXIT
-:ASKROM     LDA   ZP1                        ; String in (OSLPTR),Y
+:ASKROM     LDA   $8003                      ; Check service entry
+            CMP   #$4C                       ; Not a JMP?
+            BNE   :UNSUPP                    ; Only BASIC has no srvc entry
+            LDA   ZP1                        ; String in (OSLPTR),Y
             STA   OSLPTR
             LDA   ZP1+1
             STA   OSLPTR+1
             LDY   #$00
             LDA   #$04                       ; Service 4 Unrecognized Cmd
             LDX   #$0F                       ; ROM slot
-            JMP   $8003                      ; Service entry point
-* TODO: Do I need any extra error handling here?
+            JSR   $8003                      ; Service entry point
+
 :UNSUPP     LDA   #<:OSCLIM
             LDY   #>:OSCLIM
             JSR   PRSTR
