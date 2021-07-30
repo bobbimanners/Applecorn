@@ -10,6 +10,8 @@ ZP3         EQU   $94
 
 ROW         EQU   $96                        ; Cursor row
 COL         EQU   $97                        ; Cursor column
+STRTBCKL    EQU   $9D
+STRTBCKH    EQU   $9E
 WARMSTRT    EQU   $9F                        ; Cold or warm start
 
 * $00-$8F Language workspace
@@ -56,8 +58,7 @@ MOSSHIM
 *
 * Initially executing at $3000 until copied to $D000
 
-MOSINIT
-            STA   $C005                      ; Make sure we are writing aux
+MOSINIT     STA   $C005                      ; Make sure we are writing aux
             STA   $C000                      ; Make sure 80STORE is off
 
             LDA   $C08B                      ; LC RAM Rd/Wt, 1st 4K bank
@@ -137,10 +138,10 @@ MOSINIT
             STZ   ESCFLAG
 
             LDX   #$35
-INITPG2     LDA   DEFVEC,X
+:INITPG2    LDA   DEFVEC,X
             STA   $200,X
             DEX
-            BPL   INITPG2
+            BPL   :INITPG2
 
             LDA   #<:HELLO
             LDY   #>:HELLO
@@ -171,6 +172,21 @@ INITPG2     LDA   DEFVEC,X
 :OLDM       ASC   '(Use OLD to recover any program)'
             DB    $0D,$0D,$00
 
+* Backup STRTL and STRTH to STRTBCKL/STRTBCKH
+* STRTL/STRTH are used by Apple II XFER, but we need to
+* preserve these for the BBC Micro
+BCKSTRT     LDA   STRTL
+            STA   STRTBCKL
+            LDA   STRTH
+            STA   STRTBCKH
+            RTS
+
+* Restore STRTL and STRTH from STRTBCKL/STRTBCKH
+RSTSTRT     LDA   STRTBCKL
+            STA   STRTL
+            LDA   STRTBCKH
+            STA   STRTH
+            RTS
 
 * Clear to EOL
 CLREOL      LDA   ROW
@@ -286,10 +302,7 @@ FINDHND     PHX
             STX   ZP1                        ; Points to filename
             STY   ZP1+1
 
-            LDA   STRTL                      ; Backup STRTL/STRTH
-            STA   TEMP1
-            LDA   STRTH
-            STA   TEMP2
+            JSR   BCKSTRT
             TSX                              ; Stash alt ZP
             STX   $0101
 
@@ -339,10 +352,7 @@ OSFINDRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
             PHA                              ; Return value
-            LDA   TEMP1                      ; Restore STRTL/STRTH
-            STA   STRTL
-            LDA   TEMP2
-            STA   STRTH
+            JSR   RSTSTRT
             PLA                              ; Return value
             PLY                              ; Value of A on entry
             CPY   #$00                       ; Was it close?
@@ -371,10 +381,7 @@ OSGBPBM     ASC   'OSGBPB.'
 BPUTHND     PHX
             PHY
             PHA                              ; Stash char to write
-            LDA   STRTL                      ; Backup STRTL/STRTH
-            STA   TEMP1
-            LDA   STRTH
-            STA   TEMP2
+            JSR   BCKSTRT
             STA   $C004                      ; Write to main memory
             STY   MOSFILE                    ; File reference number
             STA   $C005                      ; Write to aux memory
@@ -392,10 +399,7 @@ BPUTHND     PHX
 OSBPUTRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
-            LDA   TEMP1                      ; Recover STRTL/STRTH
-            STA   STRTL
-            LDA   TEMP2
-            STA   STRTH
+            JSR   RSTSTRT
             CLC                              ; Means no error
             PLA
             PLY
@@ -405,10 +409,7 @@ OSBPUTRET
 * OSBGET - read one byte from an open file
 BGETHND     PHX
             PHY
-            LDA   STRTL                      ; Backup STRTL/STRTH
-            STA   TEMP1
-            LDA   STRTH
-            STA   TEMP2
+            JSR   BCKSTRT
             STA   $C004                      ; Write to main memory
             STY   MOSFILE                    ; File ref number
             STA   $C005                      ; Write to aux memory
@@ -425,10 +426,7 @@ OSBGETRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
             PHA                              ; Return code
-            LDA   TEMP1                      ; Recover STRTL/STRTH
-            STA   STRTL
-            LDA   TEMP2
-            STA   STRTH
+            JSR   RSTSTRT
             PLA                              ; Return code (ie: char read)
             CLC                              ; Means no error
             CPY   #$00                       ; Check error status
@@ -439,11 +437,69 @@ OSBGETRET
             RTS
 
 * OSARGS - adjust file arguments
-ARGSHND     LDA   #<OSARGSM
-            LDY   #>OSARGSM
-            JMP   PRSTR
-OSARGSM     ASC   'OSARGS.'
-            DB    $00
+* On entry, A=action
+*           X=>4 byte ZP control block
+*           Y=file handle
+ARGSHND     PHA
+            PHX
+            PHY
+            CPY   #$00
+            BNE   :HASFILE
+            CMP   #$00                       ; Y=0,A=0 => current file sys
+            BNE   :S1
+            PLY
+            PLX
+            PLA
+            LDA   #$04                       ; DFS
+            RTS
+:S1         CMP   #$01                       ; Y=0,A=1 => addr of CLI
+            BNE   :S2
+* TODO: Implement this for *RUN and *command
+            JSR   BEEP
+            BRA   :EXIT
+:S2         CMP   #$FF                       ; Y=0,A=FF => flush all files
+            STA   $C004                      ; Write main memory
+            STZ   MOSFILE                    ; Zero means flush all
+            STA   $C005                      ; Write aux memory
+            BRA   :FLUSH
+:HASFILE    CMP   #$00                       ; Y!=0,A=0 => read seq ptr
+            BNE   :S3
+*TODO READ SEQ PTR
+            BRA   :EXIT
+:S3         CMP   #$01                       ; Y!=0,A=1 => write seq ptr
+            BNE   :S4
+*TODO WRT SEQ PTR
+            BRA   :EXIT
+:S4         CMP   #$02                       ; Y!=0,A=2 => read file len
+            BNE   :S5
+*TODO READ FILE LEN
+:S5         CMP   #$FF                       ; Y!=0,A=FF => flush file
+            BNE   :EXIT
+            STA   $C004                      ; Write main memory
+            STY   MOSFILE                    ; File ref num
+            STA   $C005                      ; Write aux memory
+:FLUSH      JSR   BCKSTRT
+            LDA   #<FLUSH
+            STA   STRTL
+            LDA   #>FLUSH
+            STA   STRTH
+            CLC                              ; Use main memory
+            CLV                              ; Use main ZP and LC
+            JMP   XFER
+:EXIT       PLY
+            PLX
+            PLA
+            RTS
+
+* When there is no return value
+OSARGSRET1
+            LDX   $0101                      ; Recover alt ZP from $0101
+            TXS
+            JSR   RSTSTRT
+            PLY
+            PLX
+            PLA
+            RTS
 
 * OSFILE - perform actions on entire files
 * On entry, A=action
@@ -495,11 +551,7 @@ FILEHND     PHX
             STY   MOSFILE                    ; Length (Pascal string)
             STA   $C005                      ; Write aux
 
-            LDA   STRTL                      ; Backup STRTL/STRTH
-            STA   TEMP1
-            LDA   STRTH
-            STA   TEMP2
-
+            JSR   BCKSTRT
             TSX
             STX   $0101                      ; Store alt SP in $0101
 
@@ -540,10 +592,7 @@ OSFILERET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
             PHA                              ; Return value
-            LDA   TEMP1                      ; Restore STRTL/STRTH
-            STA   STRTL
-            LDA   TEMP2
-            STA   STRTH
+            JSR   RSTSTRT
             PLA                              ; Return value
             PLY                              ; Value of A on entry
             CPY   #$FF                       ; LOAD
@@ -593,8 +642,6 @@ OSFILEM     ASC   'OSFILE($'
             DB    $00
 OSFILEM2    ASC   ')'
             DB    $00
-TEMP1       DB    $00
-TEMP2       DB    $00
 
 RDCHHND     PHX
             PHY
@@ -1260,10 +1307,7 @@ STARQUIT    LDA   #<QUIT
             CLV                              ; Main ZP & LC
             JMP   XFER
 
-STARCAT     LDA   STRTL
-            STA   TEMP1
-            LDA   STRTH
-            STA   TEMP2
+STARCAT     JSR   BCKSTRT
             TSX
             STX   $0101                      ; Stash alt SP
             LDA   #<CATALOG
@@ -1276,10 +1320,7 @@ STARCAT     LDA   STRTL
 STARCATRET
             LDX   $0101                      ; Recover alt SP
             TXS
-            LDA   TEMP1
-            STA   STRTL
-            LDA   TEMP2
-            STA   STRTH
+            JSR   RSTSTRT
             RTS
 
 * Print one block of a catalog. Called by CATALOG
@@ -1303,11 +1344,7 @@ PRONEBLK    LDX   $0101                      ; Recover alt SP
             BNE   :L1
             BRA   :END
 
-:END        LDA   STRTL
-            STA   TEMP1
-            LDA   STRTH
-            STA   TEMP2
-
+:END        JSR   BCKSTRT
             LDA   #<CATALOGRET
             STA   STRTL
             LDA   #>CATALOGRET
@@ -1387,11 +1424,7 @@ STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
             STA   $C004                      ; Write main
             STX   MOSFILE                    ; Length byte
             STA   $C005                      ; Write aux
-
-            LDA   STRTL
-            STA   TEMP1
-            LDA   STRTH
-            STA   TEMP2
+            JSR   BCKSTRT
             TSX
             STX   $0101                      ; Stash alt SP
             LDA   #<SETPFX
@@ -1404,10 +1437,7 @@ STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
 STARDIRRET
             LDX   $0101                      ; Recover Alt SP
             TXS
-            LDA   TEMP1
-            STA   STRTL
-            LDA   TEMP2
-            STA   STRTH
+            JSR   RSTSTRT
             RTS
 
 * Performs OSBYTE $80 function
@@ -1432,10 +1462,7 @@ OSBYTE80    CPX   #$00                       ; X=0 Last ADC channel
 
 * Performs OSBYTE $7F EOF function
 * File ref number is in X
-CHKEOF      LDA   STRTL                      ; Backup STRTL/STRTH
-            STA   TEMP1
-            LDA   STRTH
-            STA   TEMP2
+CHKEOF      JSR   BCKSTRT
             STA   $C004                      ; Write main mem
             STX   MOSFILE                    ; File reference number
             STA   $C005                      ; Write aux mem
@@ -1452,10 +1479,7 @@ CHKEOFRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
             PHA                              ; Return code in A
-            LDA   TEMP1
-            STA   STRTL
-            LDA   TEMP2
-            STA   STRTH
+            JSR   RSTSTRT
             PLX                              ; Recover return code -> X
             RTS
 

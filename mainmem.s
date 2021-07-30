@@ -357,6 +357,28 @@ FILEEOF     LDX   $0100          ; Recover SP
             JMP   XFER
 :REMAIN     DS    3              ; Remaining bytes
 
+* ProDOS file handling for OSARGS flush commands
+FLUSH       LDX   $0100          ; Recover SP
+            TXS
+            LDA   $C081          ; ROM, please
+            LDA   $C081
+
+            LDA   MOSFILE        ; File ref number
+            STA   FLSHPL+1
+            JSR   MLI
+            DB    FLSHCMD
+            DW    FLSHPL
+
+            LDA   $C08B          ; R/W RAM, LC bank 1
+            LDA   $C08B
+            LDA   #<OSARGSRET1
+            STA   STRTL
+            LDA   #>OSARGSRET1
+            STA   STRTH
+            SEC
+            BIT   RTSINST
+            JMP   XFER
+
 * ProDOS file handling for MOS OSFILE LOAD call
 * Return A=0 if successful
 *        A=1 if file not found
@@ -759,6 +781,9 @@ WRITEPL     HEX   04             ; Number of parameters
             DW    $0000          ; Trans count
 
 CLSPL       HEX   01             ; Number of parameters
+            DB    $00            ; Reference number
+
+FLSHPL      HEX   01             ; Number of parameters
             DB    $00            ; Reference number
 
 ONLPL       HEX   02             ; Number of parameters
