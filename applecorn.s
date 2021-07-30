@@ -90,6 +90,26 @@ XFADDR      MAC
             STA   STRTH
             EOM
 
+* Macro to backup STRTL/STRTH then load XFADDR
+* Callers running with AltZP should call this one
+ALXFADDR    MAC
+            LDA   STRTL
+            STA   STRTBCKL
+            LDA   STRTH
+            STA   STRTBCKH
+            >>>   XFADDR,]1
+            EOM
+
+* Macro to recover STRTL/STRTH
+* Used by callers running with AltZP to recover
+* STRTL and STRTH after XFER returns
+XFRECVR     MAC
+            LDA   STRTBCKL
+            STA   STRTL
+            LDA   STRTBCKH
+            STA   STRTH
+            EOM
+
 * Code is all included from PUT files below ...
             PUT   LOADER
             PUT   MAINMEM

@@ -172,22 +172,6 @@ MOSINIT     STA   $C005                      ; Make sure we are writing aux
 :OLDM       ASC   '(Use OLD to recover any program)'
             DB    $0D,$0D,$00
 
-* Backup STRTL and STRTH to STRTBCKL/STRTBCKH
-* STRTL/STRTH are used by Apple II XFER, but we need to
-* preserve these for the BBC Micro
-BCKSTRT     LDA   STRTL
-            STA   STRTBCKL
-            LDA   STRTH
-            STA   STRTBCKH
-            RTS
-
-* Restore STRTL and STRTH from STRTBCKL/STRTBCKH
-RSTSTRT     LDA   STRTBCKL
-            STA   STRTL
-            LDA   STRTBCKH
-            STA   STRTH
-            RTS
-
 * Clear to EOL
 CLREOL      LDA   ROW
             ASL
@@ -302,7 +286,6 @@ FINDHND     PHX
             STX   ZP1                        ; Points to filename
             STY   ZP1+1
 
-            JSR   BCKSTRT
             TSX                              ; Stash alt ZP
             STX   $0101
 
@@ -328,23 +311,21 @@ FINDHND     PHX
             STA   $C004                      ; Write main
             STY   MOSFILE                    ; Length (Pascal string)
             STA   $C005                      ; Write aux
-
-            >>>   XFADDR,OFILE
+            >>>   ALXFADDR,OFILE
             PLA                              ; Recover options
 :S1         >>>   XFMAIN
 
 :CLOSE      STA   $C004                      ; Write main
             STY   MOSFILE                    ; Write file number
             STA   $C005                      ; Write aux
-
-            >>>   XFADDR,CFILE
+            >>>   ALXFADDR,CFILE
             BRA   :S1
 
 OSFINDRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
             PHA                              ; Return value
-            JSR   RSTSTRT
+            >>>   XFRECVR
             PLA                              ; Return value
             PLY                              ; Value of A on entry
             CPY   #$00                       ; Was it close?
@@ -373,20 +354,19 @@ OSGBPBM     ASC   'OSGBPB.'
 BPUTHND     PHX
             PHY
             PHA                              ; Stash char to write
-            JSR   BCKSTRT
             STA   $C004                      ; Write to main memory
             STY   MOSFILE                    ; File reference number
             STA   $C005                      ; Write to aux memory
             TSX                              ; Stash alt SP in $0101
             STX   $0101
-            >>>   XFADDR,FILEPUT
+            >>>   ALXFADDR,FILEPUT
             PLA                              ; Char to write
             PHA
             >>>   XFMAIN
 OSBPUTRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
-            JSR   RSTSTRT
+            >>>   XFRECVR
             CLC                              ; Means no error
             PLA
             PLY
@@ -396,19 +376,18 @@ OSBPUTRET
 * OSBGET - read one byte from an open file
 BGETHND     PHX
             PHY
-            JSR   BCKSTRT
             STA   $C004                      ; Write to main memory
             STY   MOSFILE                    ; File ref number
             STA   $C005                      ; Write to aux memory
             TSX                              ; Stash alt SP in $0101
             STX   $0101
-            >>>   XFADDR,FILEGET
+            >>>   ALXFADDR,FILEGET
             >>>   XFMAIN
 OSBGETRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
             PHA                              ; Return code
-            JSR   RSTSTRT
+            >>>   XFRECVR
             PLA                              ; Return code (ie: char read)
             CLC                              ; Means no error
             CPY   #$00                       ; Check error status
@@ -460,8 +439,7 @@ ARGSHND     PHA
             STA   $C004                      ; Write main memory
             STY   MOSFILE                    ; File ref num
             STA   $C005                      ; Write aux memory
-:FLUSH      JSR   BCKSTRT
-            >>>   XFADDR,FLUSH
+:FLUSH      >>>   ALXFADDR,FLUSH
             >>>   XFMAIN
 :EXIT       PLY
             PLX
@@ -471,7 +449,7 @@ ARGSHND     PHA
 OSARGSRET
             LDX   $0101                      ; Recover alt ZP from $0101
             TXS
-            JSR   RSTSTRT
+            >>>   XFRECVR
             PLY
             PLX
             PLA
@@ -527,7 +505,6 @@ FILEHND     PHX
             STY   MOSFILE                    ; Length (Pascal string)
             STA   $C005                      ; Write aux
 
-            JSR   BCKSTRT
             TSX
             STX   $0101                      ; Store alt SP in $0101
 
@@ -551,16 +528,16 @@ FILEHND     PHX
             PLX
             RTS
 
-:S1         >>>   XFADDR,SAVEFILE
+:S1         >>>   ALXFADDR,SAVEFILE
             BRA   :S3
-:S2         >>>   XFADDR,LOADFILE
+:S2         >>>   ALXFADDR,LOADFILE
 :S3         >>>   XFMAIN
 
 OSFILERET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
             PHA                              ; Return value
-            JSR   RSTSTRT
+            >>>   XFRECVR
             PLA                              ; Return value
             PLY                              ; Value of A on entry
             CPY   #$FF                       ; LOAD
@@ -1267,18 +1244,17 @@ STARHELP    LDA   #<:MSG
             DB    $0D,$0D,$00
 :MSG2       DB    $0D,$00
 
-STARQUIT    >>>   XFADDR,QUIT
+STARQUIT    >>>   ALXFADDR,QUIT
             >>>   XFMAIN
 
-STARCAT     JSR   BCKSTRT
-            TSX
+STARCAT     TSX
             STX   $0101                      ; Stash alt SP
-            >>>   XFADDR,CATALOG
+            >>>   ALXFADDR,CATALOG
             >>>   XFMAIN
 STARCATRET
             LDX   $0101                      ; Recover alt SP
             TXS
-            JSR   RSTSTRT
+            >>>   XFRECVR
             RTS
 
 * Print one block of a catalog. Called by CATALOG
@@ -1302,8 +1278,7 @@ PRONEBLK    LDX   $0101                      ; Recover alt SP
             BNE   :L1
             BRA   :END
 
-:END        JSR   BCKSTRT
-            >>>   XFADDR,CATALOGRET
+:END        >>>   ALXFADDR,CATALOGRET
             >>>   XFMAIN
 :DIRM       ASC   'Directory: '
             DB    $00
@@ -1377,15 +1352,14 @@ STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
             STA   $C004                      ; Write main
             STX   MOSFILE                    ; Length byte
             STA   $C005                      ; Write aux
-            JSR   BCKSTRT
             TSX
             STX   $0101                      ; Stash alt SP
-            >>>   XFADDR,SETPFX
+            >>>   ALXFADDR,SETPFX
             >>>   XFMAIN
 STARDIRRET
             LDX   $0101                      ; Recover Alt SP
             TXS
-            JSR   RSTSTRT
+            >>>   XFRECVR
             RTS
 
 * Performs OSBYTE $80 function
@@ -1410,11 +1384,10 @@ OSBYTE80    CPX   #$00                       ; X=0 Last ADC channel
 
 * Performs OSBYTE $7F EOF function
 * File ref number is in X
-CHKEOF      JSR   BCKSTRT
-            STA   $C004                      ; Write main mem
+CHKEOF      STA   $C004                      ; Write main mem
             STX   MOSFILE                    ; File reference number
             STA   $C005                      ; Write aux mem
-            >>>   XFADDR,FILEEOF
+            >>>   ALXFADDR,FILEEOF
             TSX                              ; Stash alt SP in $0101
             STX   $0101
             >>>   XFMAIN
@@ -1422,7 +1395,7 @@ CHKEOFRET
             LDX   $0101                      ; Recover alt SP from $0101
             TXS
             PHA                              ; Return code in A
-            JSR   RSTSTRT
+            >>>   XFRECVR
             PLX                              ; Recover return code -> X
             RTS
 
