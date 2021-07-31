@@ -83,31 +83,41 @@ XFMAIN      MAC
             EOM
 
 * Macro to load addr into STRTL/STRTH
+* Called by code running in main mem
 XFADDR      MAC
+            PHA
             LDA   #<]1
             STA   STRTL
             LDA   #>]1
             STA   STRTH
+            PLA
             EOM
 
 * Macro to backup STRTL/STRTH then load XFADDR
-* Callers running with AltZP should call this one
-ALXFADDR    MAC
+* Called by code running in aux mem
+XFADDRAUX   MAC
+            PHA
             LDA   STRTL
             STA   STRTBCKL
             LDA   STRTH
             STA   STRTBCKH
-            >>>   XFADDR,]1
+            LDA   #<]1
+            STA   STRTL
+            LDA   #>]1
+            STA   STRTH
+            PLA
             EOM
 
 * Macro to recover STRTL/STRTH
-* Used by callers running with AltZP to recover
 * STRTL and STRTH after XFER returns
+* Called by code running in aux mem
 XFRECVR     MAC
+            PHA
             LDA   STRTBCKL
             STA   STRTL
             LDA   STRTBCKH
             STA   STRTH
+            PLA
             EOM
 
 * Code is all included from PUT files below ...
