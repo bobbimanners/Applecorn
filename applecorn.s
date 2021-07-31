@@ -122,6 +122,16 @@ XFRECVR     MAC
             PLA
             EOM
 
+* Macro called on entry to main memory
+ENTMAIN     MAC
+            LDX   $0100       ; Recover SP
+            TXS
+            PHA               ; Preserve parm in A
+            LDA   $C081       ; Bank in ROM
+            LDA   $C081
+            PLA
+            EOM
+
 * Code is all included from PUT files below ...
             PUT   LOADER
             PUT   MAINMEM
