@@ -86,6 +86,8 @@ XFMAIN      MAC
 * Called by code running in main mem
 XFADDR      MAC
             PHA
+            LDA   $C08B       ; R/W LC RAM, bank 1
+            LDA   $C08B
             LDA   #<]1
             STA   STRTL
             LDA   #>]1

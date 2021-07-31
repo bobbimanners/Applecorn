@@ -70,8 +70,6 @@ DISCONN     LDA   $BF98
 * XFER to AUXMOS ($C000) in aux, AuxZP on, LC on
 RESET       TSX
             STX   $0100
-            LDA   $C08B              ; Rd/Wt LC, bank one
-            LDA   $C08B
             >>>   XFADDR,AUXMOS
             >>>   XFAUX
             RTS
@@ -197,9 +195,7 @@ OFILE       LDX   $0100              ; Recover SP
             BRA   FINDEXIT
 :NOTFND     LDA   #$00
             PHA
-FINDEXIT    LDA   $C08B              ; R/W RAM, LC bank 1
-            LDA   $C08B
-            >>>   XFADDR,OSFINDRET
+FINDEXIT    >>>   XFADDR,OSFINDRET
             PLA
             >>>   XFAUX
 BUFIDX      DB    $00
@@ -255,9 +251,7 @@ FILEGET     LDX   $0100              ; Recover SP
 :NOERR      LDX   #$00
             LDA   BLKBUF
             PHA
-GETEXIT     LDA   $C08B              ; R/W RAM, LC bank 1
-            LDA   $C08B
-            >>>   XFADDR,OSBGETRET
+GETEXIT     >>>   XFADDR,OSBGETRET
             PLA
             >>>   XFAUX
 
@@ -279,8 +273,6 @@ FILEPUT     LDX   $0100              ; Recover SP
 
 * There is no way to report an error it seems!
 
-            LDA   $C08B              ; R/W RAM, LC bank 1
-            LDA   $C08B
             >>>   XFADDR,OSBPUTRET
             >>>   XFAUX
 
@@ -325,8 +317,6 @@ FILEEOF     LDX   $0100              ; Recover SP
             BRA   :EXIT
 :NOTEOF     LDA   #$00
 :EXIT       PHA                      ; Preserve return code
-            LDA   $C08B              ; R/W RAM, LC bank 1
-            LDA   $C08B
             >>>   XFADDR,CHKEOFRET
             PLA                      ; Recover return code
             >>>   XFAUX
@@ -344,8 +334,6 @@ FLUSH       LDX   $0100              ; Recover SP
             DB    FLSHCMD
             DW    FLSHPL
 
-            LDA   $C08B              ; R/W RAM, LC bank 1
-            LDA   $C08B
             >>>   XFADDR,OSARGSRET
             >>>   XFAUX
 
@@ -412,9 +400,7 @@ LOADFILE    LDX   $0100              ; Recover SP
 :EOF2       LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-:EXIT       LDA   $C08B              ; R/W RAM, bank 1
-            LDA   $C08B
-            >>>   XFADDR,OSFILERET
+:EXIT       >>>   XFADDR,OSFILERET
             PLA
             >>>   XFAUX
 :BLOCKS     DB    $00
@@ -563,8 +549,6 @@ SAVEFILE    LDX   $0100              ; Recover SP
             BCC   :EXIT              ; If close OK
             LDA   #$02               ; Write error
 :EXIT       PHA
-            LDA   $C08B              ; R/W RAM, bank 1
-            LDA   $C08B
             >>>   XFADDR,OSFILERET
             PLA
             >>>   XFAUX
@@ -608,8 +592,6 @@ CATREENTRY
 
 :S1         JSR   COPYAUXBLK
 
-            LDA   $C08B              ; R/W RAM, bank 1
-            LDA   $C08B
             >>>   XFADDR,PRONEBLK
             >>>   XFAUX
 
@@ -618,9 +600,7 @@ CATREENTRY
             STA   CLSPL+1
             JSR   CLSFILE
 
-CATEXIT     LDA   $C08B              ; R/W LC RAM, bank 1
-            LDA   $C08B
-            >>>   XFADDR,STARCATRET
+CATEXIT     >>>   XFADDR,STARCATRET
             PLA
             >>>   XFAUX
 
@@ -643,9 +623,7 @@ SETPFX      LDX   $0100              ; Recover SP
             BCC   :S1
             JSR   BELL               ; Beep on error
 
-:S1         LDA   $C08B              ; R/W LC RAM, bank 1
-            LDA   $C08B
-            >>>   XFADDR,STARDIRRET
+:S1         >>>   XFADDR,STARDIRRET
             >>>   XFAUX
 
 * Create disk file
