@@ -1,8 +1,9 @@
 * MAINMEM.S
 * (c) Bobbi 2021 GPL v3
-* Code that runs on the Apple //e in main memory
+*
+* Code that runs on the Apple //e in main memory.
 * This code is mostly glue between the BBC Micro code
-* running in aux mem and ProDOS
+* which runs in aux mem and Apple II ProDOS.
 
 * Set prefix if not already set
 SETPRFX     LDA   #GPFXCMD
@@ -107,14 +108,8 @@ COPYAUXBLK
 
 * ProDOS file handling for MOS OSFIND OPEN call
 * Options in A: $40 'r', $80 'w', $C0 'rw'
-OFILE       LDX   $0100              ; Recover SP
-            TXS
-            PHA                      ; Option
-            LDA   $C081              ; ROM, please
-            LDA   $C081
-
-            PLA                      ; Get option back
-            PHA
+OFILE       >>>   ENTMAIN
+            PHA                      ; Preserve arg for later
             CMP   #$80               ; Write mode
             BNE   :S0
 
@@ -187,37 +182,27 @@ OFILE       LDX   $0100              ; Recover SP
             DW    OPENPL2
             BCS   :NOTFND
             LDA   OPENPL2+5          ; File ref number
-            PHA
             LDX   BUFIDX
             CPX   #$FF
             BEQ   FINDEXIT
-            STA   FILEREFS,X         ; Record ref number
+            STA   FILEREFS,X         ; Record the ref number
             BRA   FINDEXIT
 :NOTFND     LDA   #$00
-            PHA
 FINDEXIT    >>>   XFADDR,OSFINDRET
-            PLA
             >>>   XFAUX
 BUFIDX      DB    $00
 
 * ProDOS file handling for MOS OSFIND CLOSE call
-CFILE       LDX   $0100              ; Recover SP
-            TXS
-            LDA   $C081              ; ROM, please
-            LDA   $C081
-
+CFILE       >>>   ENTMAIN
             LDA   MOSFILE            ; File ref number
             STA   CLSPL+1
             JSR   CLSFILE
-
             LDA   MOSFILE
             JSR   FINDBUF
             CPX   #$FF
             BEQ   :S1
-
             LDA   #$00
             STA   FILEREFS,X
-
 :S1         JMP   FINDEXIT
 
 * Map of file reference numbers to IOBUF1..4
@@ -235,11 +220,7 @@ FINDBUF     LDX   #$00
 
 * ProDOS file handling for MOS OSBGET call
 * Returns with char read in A and error num in X (or 0)
-FILEGET     LDX   $0100              ; Recover SP
-            TXS
-            LDA   $C081              ; ROM, please
-            LDA   $C081
-
+FILEGET     >>>   ENTMAIN
             LDA   MOSFILE            ; File ref number
             STA   READPL2+1
             JSR   MLI
@@ -247,21 +228,16 @@ FILEGET     LDX   $0100              ; Recover SP
             DW    READPL2
             BCC   :NOERR
             TAY                      ; Error number in Y
-            BRA   GETEXIT
+            BRA   :EXIT
 :NOERR      LDX   #$00
             LDA   BLKBUF
-            PHA
-GETEXIT     >>>   XFADDR,OSBGETRET
-            PLA
+:EXIT       >>>   XFADDR,OSBGETRET
             >>>   XFAUX
 
 * ProDOS file handling for MOS OSBPUT call
 * Enters with char to write in A
-FILEPUT     LDX   $0100              ; Recover SP
-            TXS
+FILEPUT     >>>   ENTMAIN
             STA   BLKBUF             ; Char to write
-            LDA   $C081              ; ROM, please
-            LDA   $C081
 
             LDA   MOSFILE            ; File ref number
             STA   WRITEPL+1
@@ -270,18 +246,12 @@ FILEPUT     LDX   $0100              ; Recover SP
             LDA   #$00
             STA   WRITEPL+5
             JSR   WRTFILE
-
-* There is no way to report an error it seems!
-
             >>>   XFADDR,OSBPUTRET
             >>>   XFAUX
 
 * ProDOS file handling for OSBYTE $7F EOF
 * Returns EOF status in A ($FF for EOF, $00 otherwise)
-FILEEOF     LDX   $0100              ; Recover SP
-            TXS
-            LDA   $C081              ; ROM, please
-            LDA   $C081
+FILEEOF     >>>   ENTMAIN
 
             LDA   MOSFILE            ; File ref number
             STA   GEOFPL+1
@@ -316,24 +286,17 @@ FILEEOF     LDX   $0100              ; Recover SP
 :ISEOF      LDA   #$FF
             BRA   :EXIT
 :NOTEOF     LDA   #$00
-:EXIT       PHA                      ; Preserve return code
-            >>>   XFADDR,CHKEOFRET
-            PLA                      ; Recover return code
+:EXIT       >>>   XFADDR,CHKEOFRET
             >>>   XFAUX
 :REMAIN     DS    3                  ; Remaining bytes
 
 * ProDOS file handling for OSARGS flush commands
-FLUSH       LDX   $0100              ; Recover SP
-            TXS
-            LDA   $C081              ; ROM, please
-            LDA   $C081
-
+FLUSH       >>>   ENTMAIN
             LDA   MOSFILE            ; File ref number
             STA   FLSHPL+1
             JSR   MLI
             DB    FLSHCMD
             DW    FLSHPL
-
             >>>   XFADDR,OSARGSRET
             >>>   XFAUX
 
@@ -341,11 +304,7 @@ FLUSH       LDX   $0100              ; Recover SP
 * Return A=0 if successful
 *        A=1 if file not found
 *        A=2 if read error
-LOADFILE    LDX   $0100              ; Recover SP
-            TXS
-            LDA   $C081              ; Gimme the ROM!
-            LDA   $C081
-
+LOADFILE    >>>   ENTMAIN
             STZ   :BLOCKS
             LDA   #<MOSFILE
             STA   OPENPL+1
@@ -360,17 +319,14 @@ LOADFILE    LDX   $0100              ; Recover SP
             CMP   #$4C               ; EOF
             BEQ   :EOF
             BRA   :READERR
-
 :S1         LDA   #<BLKBUF
             STA   A1L
             LDA   #>BLKBUF
             STA   A1H
-
             LDA   #<BLKBUFEND
             STA   A2L
             LDA   #>BLKBUFEND
             STA   A2H
-
             LDA   FBLOAD
             STA   A4L
             LDA   FBLOAD+1
@@ -382,26 +338,20 @@ LOADFILE    LDX   $0100              ; Recover SP
             DEX
             BRA   :L2
 :S2         STA   A4H
-
             SEC                      ; Main -> AUX
             JSR   AUXMOVE
-
             INC   :BLOCKS
             BRA   :L1
-
 :NOTFND     LDA   #$01               ; Nothing found
             PHA
             BRA   :EXIT
 :READERR    LDA   #$02               ; Read error
-            PHA
             BRA   :EOF2
 :EOF        LDA   #$00               ; Success
-            PHA
 :EOF2       LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
 :EXIT       >>>   XFADDR,OSFILERET
-            PLA
             >>>   XFAUX
 :BLOCKS     DB    $00
 
@@ -409,11 +359,7 @@ LOADFILE    LDX   $0100              ; Recover SP
 * Return A=0 if successful
 *        A=1 if unable to create/open
 *        A=2 if error during save
-SAVEFILE    LDX   $0100              ; Recover SP
-            TXS
-            LDA   $C081              ; Gimme the ROM!
-            LDA   $C081
-
+SAVEFILE    >>>   ENTMAIN
             LDA   #<MOSFILE          ; Attempt to destroy file
             STA   DESTPL+1
             LDA   #>MOSFILE
@@ -421,7 +367,6 @@ SAVEFILE    LDX   $0100              ; Recover SP
             JSR   MLI
             DB    DESTCMD
             DW    DESTPL
-
             STZ   :BLOCKS
             LDA   #<MOSFILE
             STA   CREATEPL+1
@@ -451,7 +396,6 @@ SAVEFILE    LDX   $0100              ; Recover SP
             BCS   :FWD1              ; :CANTOPEN error
             JSR   OPENFILE
             BCS   :FWD1              ; :CANTOPEN error
-
             SEC                      ; Compute file length
             LDA   FBEND
             SBC   FBSTRT
@@ -459,7 +403,6 @@ SAVEFILE    LDX   $0100              ; Recover SP
             LDA   FBEND+1
             SBC   FBSTRT+1
             STA   :LEN+1
-
 :L1         LDA   FBSTRT             ; Setup for first block
             STA   A1L
             STA   A2L
@@ -489,7 +432,6 @@ SAVEFILE    LDX   $0100              ; Recover SP
 :S1         LDA   :LEN+1             ; MSB of length remaining
             CMP   #$02
             BCS   :S2                ; MSB of len >= 2 (not last)
-
             CMP   #$00               ; If no bytes left ...
             BNE   :S3
             LDA   :LEN
@@ -548,9 +490,7 @@ SAVEFILE    LDX   $0100              ; Recover SP
             LDA   #$00               ; Success!
             BCC   :EXIT              ; If close OK
             LDA   #$02               ; Write error
-:EXIT       PHA
-            >>>   XFADDR,OSFILERET
-            PLA
+:EXIT       >>>   XFADDR,OSFILERET
             >>>   XFAUX
 :LEN        DW    $0000
 :BLOCKS     DB    $00
@@ -564,10 +504,7 @@ QUIT        INC   $3F4               ; Invalidate powerup byte
             RTS
 
 * Obtain catalog of current PREFIX dir
-CATALOG     LDX   $0100              ; Recover SP
-            TXS
-            LDA   $C081              ; Select ROM
-            LDA   $C081
+CATALOG     >>>   ENTMAIN
 
             JSR   MLI                ; Fetch prefix into BLKBUF
             DB    GPFXCMD
@@ -589,40 +526,28 @@ CATREENTRY
             CMP   #$4C               ; EOF
             BEQ   :EOF
             BRA   :READERR
-
 :S1         JSR   COPYAUXBLK
-
             >>>   XFADDR,PRONEBLK
             >>>   XFAUX
-
 :READERR
 :EOF        LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-
 CATEXIT     >>>   XFADDR,STARCATRET
-            PLA
             >>>   XFAUX
 
 * PRONEBLK call returns here ...
 CATALOGRET
-            LDX   #0100              ; Recover SP
-            TXS
-            LDA   $C081              ; ROM please
-            LDA   $C081
+            >>>   ENTMAIN
             BRA   CATREENTRY
 
 * Set the prefix
-SETPFX      LDX   $0100              ; Recover SP
-            TXS
-            LDA   $C081              ; ROM, ta!
-            LDA   $C081
+SETPFX      >>>   ENTMAIN
             JSR   MLI
             DB    SPFXCMD
             DW    SPFXPL
             BCC   :S1
             JSR   BELL               ; Beep on error
-
 :S1         >>>   XFADDR,STARDIRRET
             >>>   XFAUX
 
