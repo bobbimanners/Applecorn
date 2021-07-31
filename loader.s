@@ -1,8 +1,8 @@
-*
 * LOADER.S
-* Applecorn loader code
 * (c) Bobbi 2021 GPLv3
 *
+* Applecorn loader code
+
 START       STZ   :BLOCKS
             LDX   #$00
 :L1         LDA   HELLO,X          ; Signon message

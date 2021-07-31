@@ -110,10 +110,10 @@ XFADDRAUX   MAC
             PLA
             EOM
 
-* Macro to recover STRTL/STRTH
-* STRTL and STRTH after XFER returns
-* Called by code running in aux mem
-XFRECVR     MAC
+* Macro called on re-entry to aux memory
+ENTAUX      MAC
+            LDX   $0101       ; Recover alt SP
+            TXS
             PHA
             LDA   STRTBCKL
             STA   STRTL
@@ -122,7 +122,7 @@ XFRECVR     MAC
             PLA
             EOM
 
-* Macro called on entry to main memory
+* Macro called on re-entry to main memory
 ENTMAIN     MAC
             LDX   $0100       ; Recover SP
             TXS

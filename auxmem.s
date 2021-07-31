@@ -322,11 +322,7 @@ FINDHND     PHX
             BRA   :S1
 
 OSFINDRET
-            LDX   $0101                      ; Recover alt SP from $0101
-            TXS
-            PHA                              ; Return value
-            >>>   XFRECVR
-            PLA                              ; Return value
+            >>>   ENTAUX
             PLY                              ; Value of A on entry
             CPY   #$00                       ; Was it close?
             BNE   :S1
@@ -364,9 +360,7 @@ BPUTHND     PHX
             PHA
             >>>   XFMAIN
 OSBPUTRET
-            LDX   $0101                      ; Recover alt SP from $0101
-            TXS
-            >>>   XFRECVR
+            >>>   ENTAUX
             CLC                              ; Means no error
             PLA
             PLY
@@ -384,11 +378,7 @@ BGETHND     PHX
             >>>   XFADDRAUX,FILEGET
             >>>   XFMAIN
 OSBGETRET
-            LDX   $0101                      ; Recover alt SP from $0101
-            TXS
-            PHA                              ; Return code
-            >>>   XFRECVR
-            PLA                              ; Return code (ie: char read)
+            >>>   ENTAUX
             CLC                              ; Means no error
             CPY   #$00                       ; Check error status
             BEQ   :S1
@@ -447,9 +437,7 @@ ARGSHND     PHA
             RTS
 
 OSARGSRET
-            LDX   $0101                      ; Recover alt ZP from $0101
-            TXS
-            >>>   XFRECVR
+            >>>   ENTAUX
             PLY
             PLX
             PLA
@@ -534,11 +522,7 @@ FILEHND     PHX
 :S3         >>>   XFMAIN
 
 OSFILERET
-            LDX   $0101                      ; Recover alt SP from $0101
-            TXS
-            PHA                              ; Return value
-            >>>   XFRECVR
-            PLA                              ; Return value
+            >>>   ENTAUX
             PLY                              ; Value of A on entry
             CPY   #$FF                       ; LOAD
             BNE   :S4                        ; Deal with return from SAVE
@@ -1252,9 +1236,7 @@ STARCAT     TSX
             >>>   XFADDRAUX,CATALOG
             >>>   XFMAIN
 STARCATRET
-            LDX   $0101                      ; Recover alt SP
-            TXS
-            >>>   XFRECVR
+            >>>   ENTAUX
             RTS
 
 * Print one block of a catalog. Called by CATALOG
@@ -1357,9 +1339,7 @@ STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
             >>>   XFADDRAUX,SETPFX
             >>>   XFMAIN
 STARDIRRET
-            LDX   $0101                      ; Recover Alt SP
-            TXS
-            >>>   XFRECVR
+            >>>   ENTAUX
             RTS
 
 * Performs OSBYTE $80 function
@@ -1392,11 +1372,8 @@ CHKEOF      STA   $C004                      ; Write main mem
             STX   $0101
             >>>   XFMAIN
 CHKEOFRET
-            LDX   $0101                      ; Recover alt SP from $0101
-            TXS
-            PHA                              ; Return code in A
-            >>>   XFRECVR
-            PLX                              ; Recover return code -> X
+            >>>   ENTAUX
+            TAX                              ; Return code -> X
             RTS
 
 * Performs OSBYTE $81 INKEY$ function
