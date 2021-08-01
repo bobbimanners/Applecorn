@@ -106,8 +106,7 @@ START       STZ   :BLOCKS
 
             TSX                    ; Save SP at $0100
             STX   $0100
-            >>>   XFADDR,AUXMOS1
-            >>>   XFAUX
+            >>>   XF2AUX,AUXMOS1
 
 :BLOCKS     DB    0                ; Counter for blocks read
 

@@ -68,13 +68,6 @@ AUXMOS1     EQU   $2000       ; Temp staging area in Aux
 EAUXMOS1    EQU   $3000       ; End of staging area
 AUXMOS      EQU   $D000       ; Final location in aux LC
 
-* Macro for calls from main memory to aux memory
-XFAUX       MAC
-            SEC               ; Use aux memory
-            BIT   $FF58       ; Set V: use alt ZP and LC
-            JMP   XFER
-            EOM
-
 * Macro for calls from aux memory to main memory
 XFMAIN      MAC
             CLC               ; Use main memory
@@ -82,9 +75,9 @@ XFMAIN      MAC
             JMP   XFER
             EOM
 
-* Macro to load addr into STRTL/STRTH
-* Called by code running in main mem
-XFADDR      MAC
+* Called by code running in main mem to invoke a
+* routine in aux memory
+XF2AUX      MAC
             PHA
             LDA   $C08B       ; R/W LC RAM, bank 1
             LDA   $C08B
@@ -93,6 +86,9 @@ XFADDR      MAC
             LDA   #>]1
             STA   STRTH
             PLA
+            SEC               ; Use aux memory
+            BIT   $FF58       ; Set V: use alt ZP and LC
+            JMP   XFER
             EOM
 
 * Macro to backup STRTL/STRTH then load XFADDR
