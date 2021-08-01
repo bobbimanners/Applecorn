@@ -294,6 +294,52 @@ FLUSH       >>>   ENTMAIN
             DW    FLSHPL
             >>>   XF2AUX,OSARGSRET
 
+* ProDOS file handling for OSARGS get len command
+STAT        >>>   ENTMAIN
+            LDA   MOSFILE            ; File ref number
+            >>>   XF2AUX,OSARGSRET
+
+* ProDOS file handling for OSARGS set ptr command
+SEEK        >>>   ENTMAIN
+            LDA   MOSFILE            ; File ref number
+            >>>   XF2AUX,OSARGSRET
+
+* ProDOS file handling for OSARGS get ptr command
+TELL        >>>   ENTMAIN
+            LDA   MOSFILE            ; File ref number
+            STA   GMARKPL+1
+            JSR   MLI
+            DB    GMARKCMD
+            DW    GMARKPL
+            LDX   MOSFILE+1          ; Pointer to ZP control block
+            BCS   :ERR
+            LDA   $C08B              ; R/W LC RAM, bank 1
+            LDA   $C08B
+            STA   $C009              ; Alt ZP on
+            LDA   GMARKPL+2
+            STA   $00,X
+            LDA   GMARKPL+3
+            STA   $01,X
+            LDA   GMARKPL+4
+            STA   $02,X
+            STZ   $03,X
+            STA   $C008              ; Alt ZP off
+            LDA   $C081              ; Bank the ROM back in
+            LDA   $C081
+:EXIT       >>>   XF2AUX,OSARGSRET
+:ERR        LDX   MOSFILE+1          ; Address of ZP control block
+            LDA   $C08B
+            LDA   $C08B
+            STA   $C009
+            STZ   $00,X
+            STZ   $01,X
+            STZ   $02,X
+            STZ   $03,X
+            STZ   $C008
+            LDA   $C081
+            LDA   $C081
+            BRA   :EXIT
+
 * ProDOS file handling for MOS OSFILE LOAD call
 * Return A=0 if successful
 *        A=1 if file not found
