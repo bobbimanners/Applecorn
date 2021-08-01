@@ -98,6 +98,8 @@ XFADDR      MAC
 * Macro to backup STRTL/STRTH then load XFADDR
 * Called by code running in aux mem
 XFADDRAUX   MAC
+            TSX
+            STX   $0101       ; Save alt SP
             PHA
             LDA   STRTL
             STA   STRTBCKL

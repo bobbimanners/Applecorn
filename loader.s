@@ -3,6 +3,10 @@
 *
 * Applecorn loader code
 
+* Loads Acorn ROM file (16KB) from disk and writes it
+* to aux memory starting at $08000. Copies Applecorn MOS
+* to aux memory starting at AUXMOS1 and jumps to it.
+* (Note that the MOS code will relocate itself to $D000.)
 START       STZ   :BLOCKS
             LDX   #$00
 :L1         LDA   HELLO,X          ; Signon message
@@ -100,15 +104,10 @@ START       STZ   :BLOCKS
             EOR   #$A5             ; Checksum
             STA   RSTV+2
 
-            TSX
-            STX   $0100            ; Store SP at $0100
-            LDA   #<AUXMOS1        ; Start address in aux, for XFER
-            STA   STRTL
-            LDA   #>AUXMOS1
-            STA   STRTH
-            SEC                    ; Main -> Aux
-            BIT   $FF58            ; Set V; Use page zero and stack in aux
-            JMP   XFER             ; Jump to copied MOS code in Aux
+            TSX                    ; Save SP at $0100
+            STX   $0100
+            >>>   XFADDR,AUXMOS1
+            >>>   XFAUX
 
 :BLOCKS     DB    0                ; Counter for blocks read
 
