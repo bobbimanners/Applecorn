@@ -307,14 +307,12 @@ FINDHND     PHX
             STY   MOSFILE                    ; Length (Pascal string)
             STA   $C005                      ; Write aux
             PLA                              ; Recover options
-            >>>   XFADDRAUX,OFILE
-:S1         >>>   XFMAIN
+            >>>   XF2MAIN,OFILE
 
 :CLOSE      STA   $C004                      ; Write main
             STY   MOSFILE                    ; Write file number
             STA   $C005                      ; Write aux
-            >>>   XFADDRAUX,CFILE
-            BRA   :S1
+            >>>   XF2MAIN,CFILE
 
 OSFINDRET
             >>>   ENTAUX
@@ -348,8 +346,7 @@ BPUTHND     PHX
             STA   $C004                      ; Write to main memory
             STY   MOSFILE                    ; File reference number
             STA   $C005                      ; Write to aux memory
-            >>>   XFADDRAUX,FILEPUT
-            >>>   XFMAIN
+            >>>   XF2MAIN,FILEPUT
 OSBPUTRET
             >>>   ENTAUX
             CLC                              ; Means no error
@@ -364,8 +361,7 @@ BGETHND     PHX
             STA   $C004                      ; Write to main memory
             STY   MOSFILE                    ; File ref number
             STA   $C005                      ; Write to aux memory
-            >>>   XFADDRAUX,FILEGET
-            >>>   XFMAIN
+            >>>   XF2MAIN,FILEGET
 OSBGETRET
             >>>   ENTAUX
             CLC                              ; Means no error
@@ -418,8 +414,7 @@ ARGSHND     PHA
             STA   $C004                      ; Write main memory
             STY   MOSFILE                    ; File ref num
             STA   $C005                      ; Write aux memory
-:FLUSH      >>>   XFADDRAUX,FLUSH
-            >>>   XFMAIN
+:FLUSH      >>>   XF2MAIN,FLUSH
 :EXIT       PLY
             PLX
             PLA
@@ -502,10 +497,8 @@ FILEHND     PHX
             PLX
             RTS
 
-:S1         >>>   XFADDRAUX,SAVEFILE
-            BRA   :S3
-:S2         >>>   XFADDRAUX,LOADFILE
-:S3         >>>   XFMAIN
+:S1         >>>   XF2MAIN,SAVEFILE
+:S2         >>>   XF2MAIN,LOADFILE
 
 OSFILERET
             >>>   ENTAUX
@@ -1214,11 +1207,9 @@ STARHELP    LDA   #<:MSG
             DB    $0D,$0D,$00
 :MSG2       DB    $0D,$00
 
-STARQUIT    >>>   XFADDRAUX,QUIT
-            >>>   XFMAIN
+STARQUIT    >>>   XF2MAIN,QUIT
 
-STARCAT     >>>   XFADDRAUX,CATALOG
-            >>>   XFMAIN
+STARCAT     >>>   XF2MAIN,CATALOG
 STARCATRET
             >>>   ENTAUX
             RTS
@@ -1240,10 +1231,7 @@ PRONEBLK    >>>   ENTAUX
             INC
             CMP   #13                        ; Number of dirents in block
             BNE   :L1
-            BRA   :END
-
-:END        >>>   XFADDRAUX,CATALOGRET
-            >>>   XFMAIN
+            >>>   XF2MAIN,CATALOGRET
 :DIRM       ASC   'Directory: '
             DB    $00
 
@@ -1316,8 +1304,7 @@ STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
             STA   $C004                      ; Write main
             STX   MOSFILE                    ; Length byte
             STA   $C005                      ; Write aux
-            >>>   XFADDRAUX,SETPFX
-            >>>   XFMAIN
+            >>>   XF2MAIN,SETPFX
 STARDIRRET
             >>>   ENTAUX
             RTS
@@ -1347,8 +1334,7 @@ OSBYTE80    CPX   #$00                       ; X=0 Last ADC channel
 CHKEOF      STA   $C004                      ; Write main mem
             STX   MOSFILE                    ; File reference number
             STA   $C005                      ; Write aux mem
-            >>>   XFADDRAUX,FILEEOF
-            >>>   XFMAIN
+            >>>   XF2MAIN,FILEEOF
 CHKEOFRET
             >>>   ENTAUX
             TAX                              ; Return code -> X

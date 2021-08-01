@@ -91,9 +91,9 @@ XF2AUX      MAC
             JMP   XFER
             EOM
 
-* Macro to backup STRTL/STRTH then load XFADDR
-* Called by code running in aux mem
-XFADDRAUX   MAC
+* Called by code running in aux mem to invoke a
+* routine in main memory
+XF2MAIN     MAC
             TSX
             STX   $0101       ; Save alt SP
             PHA
@@ -106,6 +106,9 @@ XFADDRAUX   MAC
             LDA   #>]1
             STA   STRTH
             PLA
+            CLC               ; Use main mem
+            CLV               ; Use main ZP and LC
+            JMP   XFER
             EOM
 
 * Macro called on re-entry to aux memory
