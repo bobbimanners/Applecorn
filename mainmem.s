@@ -71,8 +71,7 @@ DISCONN     LDA   $BF98
 * XFER to AUXMOS ($C000) in aux, AuxZP on, LC on
 RESET       TSX
             STX   $0100
-            >>>   XFADDR,AUXMOS
-            >>>   XFAUX
+            >>>   XF2AUX,AUXMOS
             RTS
 
 * Copy 512 bytes from BLKBUF to AUXBLK in aux LC
@@ -188,8 +187,7 @@ OFILE       >>>   ENTMAIN
             STA   FILEREFS,X         ; Record the ref number
             BRA   FINDEXIT
 :NOTFND     LDA   #$00
-FINDEXIT    >>>   XFADDR,OSFINDRET
-            >>>   XFAUX
+FINDEXIT    >>>   XF2AUX,OSFINDRET
 BUFIDX      DB    $00
 
 * ProDOS file handling for MOS OSFIND CLOSE call
@@ -231,8 +229,7 @@ FILEGET     >>>   ENTMAIN
             BRA   :EXIT
 :NOERR      LDX   #$00
             LDA   BLKBUF
-:EXIT       >>>   XFADDR,OSBGETRET
-            >>>   XFAUX
+:EXIT       >>>   XF2AUX,OSBGETRET
 
 * ProDOS file handling for MOS OSBPUT call
 * Enters with char to write in A
@@ -246,8 +243,7 @@ FILEPUT     >>>   ENTMAIN
             LDA   #$00
             STA   WRITEPL+5
             JSR   WRTFILE
-            >>>   XFADDR,OSBPUTRET
-            >>>   XFAUX
+            >>>   XF2AUX,OSBPUTRET
 
 * ProDOS file handling for OSBYTE $7F EOF
 * Returns EOF status in A ($FF for EOF, $00 otherwise)
@@ -286,8 +282,7 @@ FILEEOF     >>>   ENTMAIN
 :ISEOF      LDA   #$FF
             BRA   :EXIT
 :NOTEOF     LDA   #$00
-:EXIT       >>>   XFADDR,CHKEOFRET
-            >>>   XFAUX
+:EXIT       >>>   XF2AUX,CHKEOFRET
 :REMAIN     DS    3                  ; Remaining bytes
 
 * ProDOS file handling for OSARGS flush commands
@@ -297,8 +292,7 @@ FLUSH       >>>   ENTMAIN
             JSR   MLI
             DB    FLSHCMD
             DW    FLSHPL
-            >>>   XFADDR,OSARGSRET
-            >>>   XFAUX
+            >>>   XF2AUX,OSARGSRET
 
 * ProDOS file handling for MOS OSFILE LOAD call
 * Return A=0 if successful
@@ -351,8 +345,7 @@ LOADFILE    >>>   ENTMAIN
 :EOF2       LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-:EXIT       >>>   XFADDR,OSFILERET
-            >>>   XFAUX
+:EXIT       >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
 
 * ProDOS file handling for MOS OSFILE SAVE call
@@ -490,8 +483,7 @@ SAVEFILE    >>>   ENTMAIN
             LDA   #$00               ; Success!
             BCC   :EXIT              ; If close OK
             LDA   #$02               ; Write error
-:EXIT       >>>   XFADDR,OSFILERET
-            >>>   XFAUX
+:EXIT       >>>   XF2AUX,OSFILERET
 :LEN        DW    $0000
 :BLOCKS     DB    $00
 
@@ -527,14 +519,12 @@ CATREENTRY
             BEQ   :EOF
             BRA   :READERR
 :S1         JSR   COPYAUXBLK
-            >>>   XFADDR,PRONEBLK
-            >>>   XFAUX
+            >>>   XF2AUX,PRONEBLK
 :READERR
 :EOF        LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-CATEXIT     >>>   XFADDR,STARCATRET
-            >>>   XFAUX
+CATEXIT     >>>   XF2AUX,STARCATRET
 
 * PRONEBLK call returns here ...
 CATALOGRET
@@ -548,8 +538,7 @@ SETPFX      >>>   ENTMAIN
             DW    SPFXPL
             BCC   :S1
             JSR   BELL               ; Beep on error
-:S1         >>>   XFADDR,STARDIRRET
-            >>>   XFAUX
+:S1         >>>   XF2AUX,STARDIRRET
 
 * Create disk file
 CRTFILE     JSR   MLI
