@@ -297,6 +297,16 @@ FLUSH       >>>   ENTMAIN
 * ProDOS file handling for OSARGS set ptr command
 SEEK        >>>   ENTMAIN
             LDA   MOSFILE            ; File ref number
+            STA   GMARKPL+1          ; GET_MARK has same params
+            LDA   MOSFILE+2          ; Desired offset in MOSFILE[2..4]
+            STA   GMARKPL+2
+            LDA   MOSFILE+3
+            STA   GMARKPL+3
+            LDA   MOSFILE+4
+            STA   GMARKPL+4
+            JSR   MLI
+            DB    SMARKCMD
+            DW    GMARKPL
             >>>   XF2AUX,OSARGSRET
 
 * ProDOS file handling for OSARGS get ptr command
