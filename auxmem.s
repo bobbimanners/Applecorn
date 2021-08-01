@@ -398,22 +398,29 @@ ARGSHND     PHA
             STA   $C004                      ; Write main memory
             STZ   MOSFILE                    ; Zero means flush all
             STA   $C005                      ; Write aux memory
-            BRA   :FLUSH
+            BRA   :IFLUSH
 :HASFILE    STA   $C004                      ; Write main memory
             STY   MOSFILE                    ; File ref num
             STX   MOSFILE+1                  ; Pointer to ZP control block
             STA   $C005                      ; Write aux memory
             CMP   #$00                       ; Y!=0,A=0 => read seq ptr
             BNE   :S3
+            STA   $C004                      ; Write main
+            STZ   MOSFILE+2                  ; 0 means get pos
+            STA   $C005                      ; Write aux
             >>>   XF2MAIN,TELL
 :IEXIT      BRA   :EXIT
+:IFLUSH     BRA   :FLUSH
 :S3         CMP   #$01                       ; Y!=0,A=1 => write seq ptr
             BNE   :S4
             >>>   XF2MAIN,SEEK
             BRA   :EXIT
 :S4         CMP   #$02                       ; Y!=0,A=2 => read file len
             BNE   :S5
-            >>>   XF2MAIN,STAT
+            STA   $C004                      ; Write main
+            STA   MOSFILE+2                  ; Non-zero means get len
+            STA   $C005                      ; Write aux
+            >>>   XF2MAIN,TELL
 :S5         CMP   #$FF                       ; Y!=0,A=FF => flush file
             BNE   :EXIT
 :FLUSH      >>>   XF2MAIN,FLUSH

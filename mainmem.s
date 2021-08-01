@@ -294,24 +294,27 @@ FLUSH       >>>   ENTMAIN
             DW    FLSHPL
             >>>   XF2AUX,OSARGSRET
 
-* ProDOS file handling for OSARGS get len command
-STAT        >>>   ENTMAIN
-            LDA   MOSFILE            ; File ref number
-            >>>   XF2AUX,OSARGSRET
-
 * ProDOS file handling for OSARGS set ptr command
 SEEK        >>>   ENTMAIN
             LDA   MOSFILE            ; File ref number
             >>>   XF2AUX,OSARGSRET
 
 * ProDOS file handling for OSARGS get ptr command
+* and for OSARGs get length command
 TELL        >>>   ENTMAIN
             LDA   MOSFILE            ; File ref number
             STA   GMARKPL+1
+            LDA   MOSFILE+2          ; Mode (0=pos, otherwise len)
+            CMP   #$00
+            BEQ   :POS
             JSR   MLI
+            DB    GEOFCMD
+            DW    GMARKPL            ; MARK parms same as EOF parms
+            BRA   :S1
+:POS        JSR   MLI
             DB    GMARKCMD
             DW    GMARKPL
-            LDX   MOSFILE+1          ; Pointer to ZP control block
+:S1         LDX   MOSFILE+1          ; Pointer to ZP control block
             BCS   :ERR
             LDA   $C08B              ; R/W LC RAM, bank 1
             LDA   $C08B
