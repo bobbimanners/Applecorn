@@ -409,12 +409,20 @@ ARGSHND     PHA
             STZ   MOSFILE+2                  ; 0 means get pos
             STA   $C005                      ; Write aux
             >>>   XF2MAIN,TELL
-:IEXIT      BRA   :EXIT
+:IEXIT      BRA   :IEXIT2
 :IFLUSH     BRA   :FLUSH
 :S3         CMP   #$01                       ; Y!=0,A=1 => write seq ptr
             BNE   :S4
+            STA   $C004                      ; Write main
+            LDA   $00,X
+            STA   MOSFILE+2
+            LDA   $01,X
+            STA   MOSFILE+3
+            LDA   $02,X
+            STA   MOSFILE+4
+            STA   $C005                      ; Write aux
             >>>   XF2MAIN,SEEK
-            BRA   :EXIT
+:IEXIT2     BRA   :EXIT
 :S4         CMP   #$02                       ; Y!=0,A=2 => read file len
             BNE   :S5
             STA   $C004                      ; Write main
