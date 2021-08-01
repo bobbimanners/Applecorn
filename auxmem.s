@@ -349,8 +349,6 @@ BPUTHND     PHX
             STY   MOSFILE                    ; File reference number
             STA   $C005                      ; Write to aux memory
             >>>   XFADDRAUX,FILEPUT
-            PLA                              ; Char to write
-            PHA
             >>>   XFMAIN
 OSBPUTRET
             >>>   ENTAUX
