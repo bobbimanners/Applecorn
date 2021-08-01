@@ -286,11 +286,6 @@ FINDHND     PHX
             STX   ZP1                        ; Points to filename
             STY   ZP1+1
 
-            TSX                              ; Stash alt ZP
-            STX   $0101
-
-            PLA
-            PHA
             CMP   #$00                       ; A=$00 = close
             BEQ   :CLOSE
 
@@ -311,8 +306,8 @@ FINDHND     PHX
             STA   $C004                      ; Write main
             STY   MOSFILE                    ; Length (Pascal string)
             STA   $C005                      ; Write aux
-            >>>   XFADDRAUX,OFILE
             PLA                              ; Recover options
+            >>>   XFADDRAUX,OFILE
 :S1         >>>   XFMAIN
 
 :CLOSE      STA   $C004                      ; Write main
@@ -353,8 +348,6 @@ BPUTHND     PHX
             STA   $C004                      ; Write to main memory
             STY   MOSFILE                    ; File reference number
             STA   $C005                      ; Write to aux memory
-            TSX                              ; Stash alt SP in $0101
-            STX   $0101
             >>>   XFADDRAUX,FILEPUT
             PLA                              ; Char to write
             PHA
@@ -373,8 +366,6 @@ BGETHND     PHX
             STA   $C004                      ; Write to main memory
             STY   MOSFILE                    ; File ref number
             STA   $C005                      ; Write to aux memory
-            TSX                              ; Stash alt SP in $0101
-            STX   $0101
             >>>   XFADDRAUX,FILEGET
             >>>   XFMAIN
 OSBGETRET
@@ -492,9 +483,6 @@ FILEHND     PHX
             STA   $C004                      ; Write main
             STY   MOSFILE                    ; Length (Pascal string)
             STA   $C005                      ; Write aux
-
-            TSX
-            STX   $0101                      ; Store alt SP in $0101
 
             PLA                              ; Get action back
             PHA
@@ -1231,9 +1219,7 @@ STARHELP    LDA   #<:MSG
 STARQUIT    >>>   XFADDRAUX,QUIT
             >>>   XFMAIN
 
-STARCAT     TSX
-            STX   $0101                      ; Stash alt SP
-            >>>   XFADDRAUX,CATALOG
+STARCAT     >>>   XFADDRAUX,CATALOG
             >>>   XFMAIN
 STARCATRET
             >>>   ENTAUX
@@ -1241,9 +1227,7 @@ STARCATRET
 
 * Print one block of a catalog. Called by CATALOG
 * Block is in AUXBLK
-PRONEBLK    LDX   $0101                      ; Recover alt SP
-            TXS
-
+PRONEBLK    >>>   ENTAUX
             LDA   AUXBLK+4                   ; Get storage type
             AND   #$E0                       ; Mask 3 MSBs
             CMP   #$E0
@@ -1334,8 +1318,6 @@ STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
             STA   $C004                      ; Write main
             STX   MOSFILE                    ; Length byte
             STA   $C005                      ; Write aux
-            TSX
-            STX   $0101                      ; Stash alt SP
             >>>   XFADDRAUX,SETPFX
             >>>   XFMAIN
 STARDIRRET
@@ -1368,8 +1350,6 @@ CHKEOF      STA   $C004                      ; Write main mem
             STX   MOSFILE                    ; File reference number
             STA   $C005                      ; Write aux mem
             >>>   XFADDRAUX,FILEEOF
-            TSX                              ; Stash alt SP in $0101
-            STX   $0101
             >>>   XFMAIN
 CHKEOFRET
             >>>   ENTAUX
