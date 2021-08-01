@@ -392,34 +392,35 @@ ARGSHND     PHA
             BNE   :S2
 * TODO: Implement this for *RUN and *command
             JSR   BEEP
-            BRA   :EXIT
+            BRA   :IEXIT
 :S2         CMP   #$FF                       ; Y=0,A=FF => flush all files
+            BNE   :IEXIT
             STA   $C004                      ; Write main memory
             STZ   MOSFILE                    ; Zero means flush all
             STA   $C005                      ; Write aux memory
             BRA   :FLUSH
-:HASFILE    CMP   #$00                       ; Y!=0,A=0 => read seq ptr
+:HASFILE    STA   $C004                      ; Write main memory
+            STY   MOSFILE                    ; File ref num
+            STX   MOSFILE+1                  ; Pointer to ZP control block
+            STA   $C005                      ; Write aux memory
+            CMP   #$00                       ; Y!=0,A=0 => read seq ptr
             BNE   :S3
-*TODO READ SEQ PTR
-            BRA   :EXIT
+            >>>   XF2MAIN,TELL
+:IEXIT      BRA   :EXIT
 :S3         CMP   #$01                       ; Y!=0,A=1 => write seq ptr
             BNE   :S4
-*TODO WRT SEQ PTR
+            >>>   XF2MAIN,SEEK
             BRA   :EXIT
 :S4         CMP   #$02                       ; Y!=0,A=2 => read file len
             BNE   :S5
-*TODO READ FILE LEN
+            >>>   XF2MAIN,STAT
 :S5         CMP   #$FF                       ; Y!=0,A=FF => flush file
             BNE   :EXIT
-            STA   $C004                      ; Write main memory
-            STY   MOSFILE                    ; File ref num
-            STA   $C005                      ; Write aux memory
 :FLUSH      >>>   XF2MAIN,FLUSH
 :EXIT       PLY
             PLX
             PLA
             RTS
-
 OSARGSRET
             >>>   ENTAUX
             PLY
