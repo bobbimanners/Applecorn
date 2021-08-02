@@ -951,6 +951,18 @@ BYTECALLER
             RTS                              ; Nothing to do
 
 :S03        CMP   #$03                       ; $03 = select output stream
+            BNE   :S0B
+            RTS                              ; Nothing to do
+
+:S0B        CMP   #$0B                       ; $0B = set keyboard delay
+            BNE   :S0C
+            RTS                              ; Nothing to do
+
+:S0C        CMP   #$0C                       ; $0C = set keyboard rate
+            BNE   :S0F
+            RTS                              ; Nothing to do
+
+:S0F        CMP   #$0F                       ; $0F = flush buffers
             BNE   :S7C
             RTS                              ; Nothing to do
 
@@ -1090,9 +1102,20 @@ CLIHND      PHX
             PHY
             STX   ZP1+0                      ; Pointer to CLI
             STY   ZP1+1
-* TODO: needs to skip leading '*'s and ' 's
-* TODO: exit early with <cr>
-* TODO: exit early with | as comment
+:L1         LDA   (ZP1)
+            CMP   #'*'                       ; Trim any leading stars
+            BEQ   :NEXT
+            CMP   #' '                       ; Trim any leading spaces
+            BEQ   :NEXT
+            BRA   :TRIMMED
+:NEXT       INC   ZP1
+            BNE   :L1
+            INC   ZP1+1
+            BRA   :L1
+:TRIMMED    CMP   #'|'                       ; | is comment
+            BEQ   :IEXIT
+            CMP   #$0D                       ; Carriage return
+            BEQ   :IEXIT
             LDA   #<:QUIT
             STA   ZP2
             LDA   #>:QUIT
@@ -1168,17 +1191,15 @@ CLIHND      PHX
 :EXIT       PLY
             PLX
             RTS
-:QUIT       ASC   '*QUIT'
+:QUIT       ASC   'QUIT'
             DB    $00
-:CAT        ASC   '*CAT'
+:CAT        ASC   'CAT'
             DB    $00
-:CAT2       ASC   '*.'
+:CAT2       ASC   '.'
             DB    $00
-:DIR        ASC   '*DIR'
+:DIR        ASC   'DIR'
             DB    $00
-:HELP       ASC   '*HELP'
-            DB    $00
-:LISP       ASC   'LISP'
+:HELP       ASC   'HELP'
             DB    $00
 :OSCLIM     ASC   'OSCLI('
             DB    $00
