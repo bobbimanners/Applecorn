@@ -45,6 +45,7 @@ BPUTV       EQU   $218                       ; OSBPUT vector
 GBPBV       EQU   $21A                       ; OSGBPB vector
 FINDV       EQU   $21C                       ; OSFIND vector
 FSCV        EQU   $21E                       ; FSCV misc file ops
+OSFILECB    EQU   $2EE                       ; OSFILE control block
 MAGIC       EQU   $BC                        ; Arbitrary value
 
 MOSSHIM
@@ -1139,7 +1140,7 @@ CLIHND      PHX
             JSR   STRCMP
             BCS   :S3
             JSR   STARCAT
-            BRA   :EXIT
+            BRA   :IEXIT
 :S3         LDA   #<:DIR
             STA   ZP2
             LDA   #>:DIR
@@ -1147,8 +1148,24 @@ CLIHND      PHX
             JSR   STRCMP
             BCS   :S4
             JSR   STARDIR
+            BRA   :IEXIT
+:S4         LDA   #<:LOAD
+            STA   ZP2
+            LDA   #>:LOAD
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :S5
+            JSR   STARLOAD
+            BRA   :EXIT
+:S5         LDA   #<:SAVE
+            STA   ZP2
+            LDA   #>:SAVE
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :S6
+            JSR   STARSAVE
 :IEXIT      BRA   :EXIT
-:S4         LDA   #<:HELP
+:S6         LDA   #<:HELP
             STA   ZP2
             LDA   #>:HELP
             STA   ZP2+1
@@ -1199,6 +1216,10 @@ CLIHND      PHX
             DB    $00
 :DIR        ASC   'DIR'
             DB    $00
+:LOAD       ASC   'LOAD'
+            DB    $00
+:SAVE       ASC   'SAVE'
+            DB    $00
 :HELP       ASC   'HELP'
             DB    $00
 :OSCLIM     ASC   'OSCLI('
@@ -1244,8 +1265,10 @@ STARHELP    LDA   #<:MSG
             DB    $0D,$0D,$00
 :MSG2       DB    $0D,$00
 
+* Handle *QUIT command
 STARQUIT    >>>   XF2MAIN,QUIT
 
+* Handle *CAT / *. command (list directory)
 STARCAT     >>>   XF2MAIN,CATALOG
 STARCATRET
             >>>   ENTAUX
@@ -1306,29 +1329,30 @@ PRONEENT    TAX
 :S2         JSR   OSNEWL
 :EXIT       RTS
 
-* On entry, command line is in ZP1
-STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
-            STA   ZP3
-            LDA   ZP1+1
-            STA   ZP3+1
-            LDX   #$01
-            LDY   #$00
-:L1         LDA   (ZP3),Y
+* Consume spaces in command line
+* Return C set if no space found, C clear otherwise
+* Command line pointer in (ZP1),Y
+EATSPC      LDA   (ZP1),Y                    ; Check first char is space
             CMP   #' '
-            BEQ   :L2
-            CMP   #$0D                       ; Carriage return
-            BEQ   :S2                        ; No space in cmdline
+            BNE   :NOTFND
+            INY
+:L1         LDA   (ZP1),Y                    ; Eat any additional spaces
+            CMP   #' '
+            BNE   :DONE
             INY
             BRA   :L1
-:S2         RTS                              ; No argument
-:L2         LDA   (ZP3),Y
-            CMP   #$0D
-            BEQ   :S2                        ; Hit EOL before arg
-            CMP   #' '
-            BNE   :L3
-            INY
-            BRA   :L2
-:L3         LDA   (ZP3),Y
+:DONE       CLC
+            RTS
+:NOTFND     SEC
+            RTS
+
+* Handle *DIR (directory change) command
+* On entry, ZP1 points to command line
+STARDIR     JSR   EATSPC                     ; Eat leading spaces
+            BCC   :S1                        ; If no space found
+            RTS                              ; No argument
+:S1         LDX   #$01
+:L3         LDA   (ZP1),Y
             CMP   #$0D
             BEQ   :S3
             STA   $C004                      ; Write main
@@ -1344,6 +1368,73 @@ STARDIR     LDA   ZP1                        ; Move ZP1->ZP3 (OSWRCH uses ZP1)
             >>>   XF2MAIN,SETPFX
 STARDIRRET
             >>>   ENTAUX
+            RTS
+
+* Add Y to ZP1 pointer
+ADDZP1Y     CLC
+            TYA
+            ADC   ZP1
+            STA   ZP1
+            LDA   #$00
+            ADC   ZP1+1
+            STA   ZP1+1
+            RTS
+
+* Handle *LOAD command
+* On entry, ZP1 points to command line
+STARLOAD    JSR   CLRCB
+            JSR   EATSPC                     ; Eat leading spaces
+            BCS   :END
+            JSR   ADDZP1Y                    ; Advance ZP1
+            LDX   #<OSFILECB
+            LDY   #>OSFILECB
+            LDA   ZP1                        ; Pointer to filename
+            STA   OSFILECB
+            LDA   ZP1+1
+            STA   OSFILECB+1
+            LDA   #$00                       ; DEBUG $0E00 load addr
+            STA   OSFILECB+2                 ; DEBUG
+            LDA   #$0E                       ; DEBUG
+            STA   OSFILECB+3                 ; DEBUG
+            LDA   #$FF                       ; OSFILE load flag
+            JSR   OSFILE
+:END        RTS
+
+* Handle *SAVE command
+* On entry, ZP1 points to command line
+STARSAVE    JSR   CLRCB
+            JSR   EATSPC                     ; Eat leading space
+            BCS   :END
+            JSR   ADDZP1Y                    ; Advance ZP1
+            LDX   #<OSFILECB
+            LDY   #>OSFILECB
+            LDA   ZP1                        ; Pointer to filename
+            STA   OSFILECB
+            LDA   ZP1+1
+            STA   OSFILECB+1
+            LDA   #$00                       ; DEBUG Save $0E00
+            STA   OSFILECB+10
+            LDA   #$0E
+            STA   OSFILECB+11
+            LDA   #$00                       ; DEBUG to $1E00
+            STA   OSFILECB+14
+            LDA   #$1E
+            STA   OSFILECB+15
+            LDA   #$00                       ; OSFILE save flag
+            JSR   OSFILE
+:END        RTS
+
+* DEBUG ...
+DUMMYNAME   ASC   'DUMMYFILE'
+            DB    $0D,$00
+
+* Clear OSFILE control block to zeros
+CLRCB       LDA   #$00
+            LDX   #$00
+:L1         STA   OSFILECB,X
+            INX
+            CPX   #18
+            BNE   :L1
             RTS
 
 * Performs OSBYTE $80 function
