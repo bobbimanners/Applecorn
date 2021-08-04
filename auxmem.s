@@ -367,9 +367,11 @@ OSBGETRET
             >>>   ENTAUX
             CLC                              ; Means no error
             CPY   #$00                       ; Check error status
-            BEQ   :S1
+            BEQ   :NOERR
             SEC                              ; Set carry for error
-:S1         PLY
+            BRA   :EXIT
+:NOERR      CLC
+:EXIT       PLY
             PLX
             RTS
 
