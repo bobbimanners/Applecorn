@@ -294,24 +294,37 @@ FLUSH       >>>   ENTMAIN
             DW    FLSHPL
             >>>   XF2AUX,OSARGSRET
 
-* ProDOS file handling for OSARGS get len command
-STAT        >>>   ENTMAIN
-            LDA   MOSFILE            ; File ref number
-            >>>   XF2AUX,OSARGSRET
-
 * ProDOS file handling for OSARGS set ptr command
 SEEK        >>>   ENTMAIN
             LDA   MOSFILE            ; File ref number
+            STA   GMARKPL+1          ; GET_MARK has same params
+            LDA   MOSFILE+2          ; Desired offset in MOSFILE[2..4]
+            STA   GMARKPL+2
+            LDA   MOSFILE+3
+            STA   GMARKPL+3
+            LDA   MOSFILE+4
+            STA   GMARKPL+4
+            JSR   MLI
+            DB    SMARKCMD
+            DW    GMARKPL
             >>>   XF2AUX,OSARGSRET
 
 * ProDOS file handling for OSARGS get ptr command
+* and for OSARGs get length command
 TELL        >>>   ENTMAIN
             LDA   MOSFILE            ; File ref number
             STA   GMARKPL+1
+            LDA   MOSFILE+2          ; Mode (0=pos, otherwise len)
+            CMP   #$00
+            BEQ   :POS
             JSR   MLI
+            DB    GEOFCMD
+            DW    GMARKPL            ; MARK parms same as EOF parms
+            BRA   :S1
+:POS        JSR   MLI
             DB    GMARKCMD
             DW    GMARKPL
-            LDX   MOSFILE+1          ; Pointer to ZP control block
+:S1         LDX   MOSFILE+1          ; Pointer to ZP control block
             BCS   :ERR
             LDA   $C08B              ; R/W LC RAM, bank 1
             LDA   $C08B
@@ -367,7 +380,12 @@ LOADFILE    >>>   ENTMAIN
             STA   A2L
             LDA   #>BLKBUFEND
             STA   A2H
-            LDA   FBLOAD
+            LDA   FBEXEC             ; If FBEXEC is zero, use addr
+            CMP   #$00               ; in the control block
+            BEQ   :CBADDR
+                                     ; Otherwise use the file addr
+* TODO Issue GET_FILE_INFO MLI call to get file load addr
+:CBADDR     LDA   FBLOAD
             STA   A4L
             LDA   FBLOAD+1
             LDX   :BLOCKS
