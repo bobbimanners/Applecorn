@@ -217,7 +217,7 @@ FINDBUF     LDX   #$00
 :END        RTS
 
 * ProDOS file handling for MOS OSBGET call
-* Returns with char read in A and error num in X (or 0)
+* Returns with char read in A and error num in Y (or 0)
 FILEGET     >>>   ENTMAIN
             LDA   MOSFILE            ; File ref number
             STA   READPL2+1
@@ -227,7 +227,7 @@ FILEGET     >>>   ENTMAIN
             BCC   :NOERR
             TAY                      ; Error number in Y
             BRA   :EXIT
-:NOERR      LDX   #$00
+:NOERR      LDY   #$00
             LDA   BLKBUF
 :EXIT       >>>   XF2AUX,OSBGETRET
 
