@@ -592,8 +592,7 @@ RDCHHND     PHX
             BNE   :S4
             INC   CURS+1
 :S4         LDA   $C000                      ; Keyboard data/strobe
-            AND   #$80
-            BEQ   :L1
+            BPL   :L1
             LDA   OLDCHAR                    ; Erase cursor
             JSR   PRCHRC
             LDA   $C000
@@ -603,8 +602,8 @@ RDCHHND     PHX
             PLX
             CMP   #$1B                       ; Escape pressed?
             BNE   :S5
-            ROR   $FF                        ; Set ESCFLG
             SEC                              ; Return CS
+            ROR   ESCFLAG
             RTS
 :S5         CLC
             RTS
@@ -614,7 +613,9 @@ OLDCHAR     DB    $00                        ; Char under cursor
 
 * Print char in A at ROW,COL
 PRCHRC      PHA
-            LDA   ROW
+            LDA   $C000                      ; Kbd data/strobe
+            BMI   :KEYHIT
+:RESUME     LDA   ROW
             ASL
             TAX
             LDA   SCNTAB,X                   ; LSB of row address
@@ -631,6 +632,24 @@ PRCHRC      PHA
             STA   (ZP1),Y                    ; Screen address
             STA   $C005                      ; Write aux mem again
             RTS
+:KEYHIT     STA   $C010                      ; Clear strobe
+            AND   #$7F
+            CMP   #$13                       ; Ctrl-S
+            BEQ   :PAUSE
+            CMP   #$1B                       ; Esc
+            BNE   :RESUME
+:ESC        SEC
+            ROR   ESCFLAG                    ; Set ESCFLAG
+            BRA   :RESUME
+:PAUSE      STA   $C010                      ; Clear strobe
+:L1         LDA   $C000                      ; Kbd data/strobe
+            BPL   :L1
+            AND   #$7F
+            CMP   #$11                       ; Ctrl-Q
+            BEQ   :RESUME
+            CMP   #$1B                       ; Esc
+            BEQ   :ESC
+            BRA   :PAUSE
 
 * Return char at ROW,COL in A
 GETCHRC     LDA   ROW
