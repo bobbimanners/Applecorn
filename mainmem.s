@@ -380,7 +380,12 @@ LOADFILE    >>>   ENTMAIN
             STA   A2L
             LDA   #>BLKBUFEND
             STA   A2H
-            LDA   FBLOAD
+            LDA   FBEXEC             ; If FBEXEC is zero, use addr
+            CMP   #$00               ; in the control block
+            BEQ   :CBADDR
+                                     ; Otherwise use the file addr
+* TODO Issue GET_FILE_INFO MLI call to get file load addr
+:CBADDR     LDA   FBLOAD
             STA   A4L
             LDA   FBLOAD+1
             LDX   :BLOCKS

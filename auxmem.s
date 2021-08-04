@@ -1165,7 +1165,15 @@ CLIHND      PHX
             BCS   :S6
             JSR   STARSAVE
 :IEXIT      BRA   :EXIT
-:S6         LDA   #<:HELP
+:S6         LDA   #<:RUN
+            STA   ZP2
+            LDA   #>:RUN
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :S7
+            JSR   STARRUN
+            BRA   :EXIT
+:S7         LDA   #<:HELP
             STA   ZP2
             LDA   #>:HELP
             STA   ZP2+1
@@ -1219,6 +1227,8 @@ CLIHND      PHX
 :LOAD       ASC   'LOAD'
             DB    $00
 :SAVE       ASC   'SAVE'
+            DB    $00
+:RUN        ASC   'RUN'
             DB    $00
 :HELP       ASC   'HELP'
             DB    $00
@@ -1483,10 +1493,6 @@ STARLOAD    JSR   CLRCB
             JSR   ADDZP1Y                    ; Update ZP1
             JSR   HEXCONST
             BCS   :ERR                       ; Bad hex constant
-            LDA   ADDRBUF+1
-            JSR   OUTHEX
-            LDA   ADDRBUF
-            JSR   OUTHEX
             LDA   ADDRBUF
             STA   OSFILECB+2                 ; Load address LSB
             LDA   ADDRBUF+1
@@ -1496,10 +1502,8 @@ STARLOAD    JSR   CLRCB
             LDA   #$FF                       ; OSFILE load flag
             JSR   OSFILE
 :END        RTS
-:NOADDR     LDA   #$00                       ; DEBUG DEFAULTS TO 0E00
-            STA   OSFILECB+2                 ; FOR NOW!!!!!!!!!!!!!!!
-            LDA   #$0E
-            STA   OSFILECB+3
+:NOADDR     LDA   #$FF                       ; Set OSFILECB+6 to non-zero
+            STA   OSFILECB+6                 ; Means use the file's addr
             BRA   :OSFILE
 :ERR        JSR   BEEP
             RTS
@@ -1508,25 +1512,46 @@ STARLOAD    JSR   CLRCB
 * On entry, ZP1 points to command line
 STARSAVE    JSR   CLRCB
             JSR   EATSPC                     ; Eat leading space
-            BCS   :END
+            BCS   :ERR
             JSR   ADDZP1Y                    ; Advance ZP1
-            LDX   #<OSFILECB
-            LDY   #>OSFILECB
             LDA   ZP1                        ; Pointer to filename
             STA   OSFILECB
             LDA   ZP1+1
             STA   OSFILECB+1
-            LDA   #$00                       ; DEBUG Save $0E00
+            JSR   EATWORD
+            BCS   :ERR                       ; No start address given
+            LDA   #$0D                       ; Carriage return
+            STA   (ZP1),Y                    ; Terminate filename
+            INY
+            JSR   EATSPC                     ; Eat any whitespace
+            JSR   ADDZP1Y                    ; Update ZP1
+            JSR   HEXCONST
+            BCS   :ERR                       ; Bad start address
+            LDA   ADDRBUF
             STA   OSFILECB+10
-            LDA   #$0E
+            LDA   ADDRBUF+1
             STA   OSFILECB+11
-            LDA   #$00                       ; DEBUG to $1E00
+            JSR   EATSPC                     ; Eat any whitespace
+            JSR   ADDZP1Y                    ; Update ZP1
+            JSR   HEXCONST
+            BCS   :ERR                       ; Bad end address
+            LDA   ADDRBUF
             STA   OSFILECB+14
-            LDA   #$1E
+            LDA   ADDRBUF+1
             STA   OSFILECB+15
+            LDX   #<OSFILECB
+            LDY   #>OSFILECB
             LDA   #$00                       ; OSFILE save flag
             JSR   OSFILE
 :END        RTS
+:ERR        JSR   BEEP
+            RTS
+
+* Handle *RUN command
+* On entry, ZP1 points to command line
+* TODO: Write this!!
+STARRUN
+            RTS
 
 * Clear OSFILE control block to zeros
 CLRCB       LDA   #$00
