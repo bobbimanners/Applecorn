@@ -1346,6 +1346,21 @@ EATSPC      LDA   (ZP1),Y                    ; Check first char is space
 :NOTFND     SEC
             RTS
 
+* Consume non-spaces in command line
+* Command line pointer in (ZP1),Y
+* Returns with carry set if EOL
+EATWORD     LDA   (ZP1),Y
+            CMP   #' '
+            BEQ   :SPC
+            CMP   #$0D                       ; Carriage return
+            BEQ   :EOL
+            INY
+            BRA   EATWORD
+:SPC        CLC
+            RTS
+:EOL        SEC
+            RTS
+
 * Handle *DIR (directory change) command
 * On entry, ZP1 points to command line
 STARDIR     JSR   EATSPC                     ; Eat leading spaces
@@ -1370,7 +1385,7 @@ STARDIRRET
             >>>   ENTAUX
             RTS
 
-* Add Y to ZP1 pointer
+* Add Y to ZP1 pointer. Clear Y.
 ADDZP1Y     CLC
             TYA
             ADC   ZP1
@@ -1378,27 +1393,116 @@ ADDZP1Y     CLC
             LDA   #$00
             ADC   ZP1+1
             STA   ZP1+1
+            LDY   #$00
             RTS
+
+* Decode ASCII hex digit in A
+* Returns with carry set if bad char, C clear otherwise
+HEXDIGIT    CMP   #'F'+1
+            BCS   :BADCHAR                   ; char > 'F'
+            CMP   #'A'
+            BCC   :S1
+            SEC                              ; 'A' <= char <= 'F'
+            SBC   #'A'-10
+            CLC
+            RTS
+:S1         CMP   #'9'+1
+            BCS   :BADCHAR                   ; '9' < char < 'A'
+            CMP   #'0'
+            BCC   :BADCHAR                   ; char < '0'
+            SEC                              ; '0' <= char <= '9'
+            SBC   #'0'
+            CLC
+            RTS
+:BADCHAR    SEC
+            RTS
+
+* Decode hex constant on command line
+* On entry, ZP1 points to command line
+HEXCONST    LDX   #$00
+:L1         STZ   :BUF,X                     ; Clear :BUF
+            INX
+            CPX   #$04
+            BNE   :L1
+            LDX   #$00
+            LDY   #$00
+:L2         LDA   (ZP1),Y                    ; Parse hex digits into
+            JSR   HEXDIGIT                   ; :BUF, left aligned
+            BCS   :NOTHEX
+            STA   :BUF,X
+            INY
+            INX
+            CPX   #$04
+            BNE   :L2
+            LDA   (ZP1),Y                    ; Peek at next char
+:NOTHEX     CPX   #$00                       ; Was it the first digit?
+            BEQ   :ERR                       ; If so, bad hex constant
+            CMP   #' '                       ; If whitespace, then okay
+            BEQ   :OK
+            CMP   #$0D
+            BEQ   :OK
+:ERR        SEC
+            RTS
+:OK         LDA   :BUF-4,X
+            ASL
+            ASL
+            ASL
+            ASL
+            ORA   :BUF-3,X
+            STA   ADDRBUF+1
+            LDA   :BUF-2,X
+            ASL
+            ASL
+            ASL
+            ASL
+            ORA   :BUF-1,X
+            STA   ADDRBUF
+            CLC
+            RTS
+:ZEROPAD    DB    $00,$00,$00
+:BUF        DB    $00,$00,$00,$00
+
+ADDRBUF     DW    $0000                      ; Used by HEXCONST
 
 * Handle *LOAD command
 * On entry, ZP1 points to command line
 STARLOAD    JSR   CLRCB
             JSR   EATSPC                     ; Eat leading spaces
-            BCS   :END
+            BCS   :ERR
             JSR   ADDZP1Y                    ; Advance ZP1
-            LDX   #<OSFILECB
-            LDY   #>OSFILECB
             LDA   ZP1                        ; Pointer to filename
             STA   OSFILECB
             LDA   ZP1+1
             STA   OSFILECB+1
-            LDA   #$00                       ; DEBUG $0E00 load addr
-            STA   OSFILECB+2                 ; DEBUG
-            LDA   #$0E                       ; DEBUG
-            STA   OSFILECB+3                 ; DEBUG
+            JSR   EATWORD                    ; Advance past filename
+            BCS   :NOADDR                    ; No load address given
+            LDA   #$0D                       ; Carriage return
+            STA   (ZP1),Y                    ; Terminate filename
+            INY
+            JSR   EATSPC                     ; Eat any whitespace
+            JSR   ADDZP1Y                    ; Update ZP1
+            JSR   HEXCONST
+            BCS   :ERR                       ; Bad hex constant
+            LDA   ADDRBUF+1
+            JSR   OUTHEX
+            LDA   ADDRBUF
+            JSR   OUTHEX
+            LDA   ADDRBUF
+            STA   OSFILECB+2                 ; Load address LSB
+            LDA   ADDRBUF+1
+            STA   OSFILECB+3                 ; Load address MSB
+:OSFILE     LDX   #<OSFILECB
+            LDY   #>OSFILECB
             LDA   #$FF                       ; OSFILE load flag
             JSR   OSFILE
 :END        RTS
+:NOADDR     LDA   #$00                       ; DEBUG DEFAULTS TO 0E00
+            STA   OSFILECB+2                 ; FOR NOW!!!!!!!!!!!!!!!
+            LDA   #$0E
+            STA   OSFILECB+3
+            BRA   :OSFILE
+:ERR        JSR   BEEP
+            RTS
 
 * Handle *SAVE command
 * On entry, ZP1 points to command line
@@ -1423,10 +1527,6 @@ STARSAVE    JSR   CLRCB
             LDA   #$00                       ; OSFILE save flag
             JSR   OSFILE
 :END        RTS
-
-* DEBUG ...
-DUMMYNAME   ASC   'DUMMYFILE'
-            DB    $0D,$00
 
 * Clear OSFILE control block to zeros
 CLRCB       LDA   #$00
