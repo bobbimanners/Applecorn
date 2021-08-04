@@ -1274,6 +1274,8 @@ STRCMP      LDY   #$00
             BEQ   :MATCH
             CMP   #' '
             BEQ   :MATCH
+            CMP   #'"'
+            BEQ   :MATCH
             BRA   :MISMTCH
 :MATCH      CLC
             RTS
@@ -1360,28 +1362,35 @@ PRONEENT    TAX
 :S2         JSR   OSNEWL
 :EXIT       RTS
 
-* Consume spaces in command line
+* Consume spaces in command line. Treat " as space!
 * Return C set if no space found, C clear otherwise
 * Command line pointer in (ZP1),Y
-EATSPC      LDA   (ZP1),Y                    ; Check first char is space
-            CMP   #' '
-            BNE   :NOTFND
-            INY
-:L1         LDA   (ZP1),Y                    ; Eat any additional spaces
-            CMP   #' '
+EATSPC      LDA   (ZP1),Y                    ; Check first char is ...
+            CMP   #' '                       ; ... space
+            BEQ   :START
+            CMP   #'"'                       ; Or quote mark
+            BEQ   :START
+            BRA   :NOTFND
+:START      INY
+:L1         LDA   (ZP1),Y                    ; Eat any additional ...
+            CMP   #' '                       ; ... spaces
+            BEQ   :CONT
+            CMP   #'"'                       ; Or quote marks
             BNE   :DONE
-            INY
+:CONT       INY
             BRA   :L1
 :DONE       CLC
             RTS
 :NOTFND     SEC
             RTS
 
-* Consume non-spaces in command line
+* Consume chars in command line until space or " is found
 * Command line pointer in (ZP1),Y
 * Returns with carry set if EOL
 EATWORD     LDA   (ZP1),Y
             CMP   #' '
+            BEQ   :SPC
+            CMP   #'"'
             BEQ   :SPC
             CMP   #$0D                       ; Carriage return
             BEQ   :EOL
