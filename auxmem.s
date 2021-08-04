@@ -173,6 +173,10 @@ MOSINIT     STA   $C005                      ; Make sure we are writing aux
 :OLDM       ASC   '(Use OLD to recover any program)'
             DB    $0D,$0D,$00
 
+***********************************************************
+* Apple //e VDU Driver for 80 column mode (PAGE2)
+***********************************************************
+
 * Clear to EOL
 CLREOL      LDA   ROW
             ASL
@@ -256,6 +260,211 @@ PRNIB       CMP   #$0A
 :S1         ADC   #'0'                       ; < $0A
             JMP   OSWRCH
 
+* Print char in A at ROW,COL
+PRCHRC      PHA
+            LDA   $C000                      ; Kbd data/strobe
+            BMI   :KEYHIT
+:RESUME     LDA   ROW
+            ASL
+            TAX
+            LDA   SCNTAB,X                   ; LSB of row address
+            STA   ZP1
+            LDA   SCNTAB+1,X                 ; MSB of row address
+            STA   ZP1+1
+            LDA   COL
+            LSR
+            TAY
+            BCC   :S1
+            STA   $C004                      ; Write main memory
+:S1         PLA
+            ORA   #$80
+            STA   (ZP1),Y                    ; Screen address
+            STA   $C005                      ; Write aux mem again
+            RTS
+:KEYHIT     STA   $C010                      ; Clear strobe
+            AND   #$7F
+            CMP   #$13                       ; Ctrl-S
+            BEQ   :PAUSE
+            CMP   #$1B                       ; Esc
+            BNE   :RESUME
+:ESC        SEC
+            ROR   ESCFLAG                    ; Set ESCFLAG
+            BRA   :RESUME
+:PAUSE      STA   $C010                      ; Clear strobe
+:L1         LDA   $C000                      ; Kbd data/strobe
+            BPL   :L1
+            AND   #$7F
+            CMP   #$11                       ; Ctrl-Q
+            BEQ   :RESUME
+            CMP   #$1B                       ; Esc
+            BEQ   :ESC
+            BRA   :PAUSE
+
+* Return char at ROW,COL in A
+GETCHRC     LDA   ROW
+            ASL
+            TAX
+            LDA   SCNTAB,X
+            STA   ZP1
+            LDA   SCNTAB+1,X
+            STA   ZP1+1
+            LDA   COL
+            LSR
+            TAY
+            BCC   :S1
+            STA   $C002                      ; Read main memory
+:S1         LDA   (ZP1),Y
+            STX   $C003                      ; Read aux mem again
+            RTS
+
+* Perform backspace & delete operation
+BACKSPC     LDA   COL
+            BEQ   :S1
+            DEC   COL
+            BRA   :S2
+:S1         LDA   ROW
+            BEQ   :S3
+            DEC   ROW
+            STZ   COL
+:S2         LDA   #' '
+            JSR   PRCHRC
+:S3         RTS
+
+* Perform backspace/cursor left operation
+NDBSPC      LDA   COL
+            BEQ   :S1
+            DEC   COL
+            BRA   :S3
+:S1         LDA   ROW
+            BEQ   :S3
+            DEC   ROW
+            STZ   COL
+:S3         RTS
+
+* Perform cursor right operation
+CURSRT      LDA   COL
+            CMP   #78
+            BCS   :S1
+            INC   COL
+            RTS
+:S1         LDA   ROW
+            CMP   #22
+            BCS   :S2
+            INC   ROW
+            STZ   COL
+:S2         RTS
+
+* Output character to VDU driver
+* All registers trashable
+OUTCHAR     CMP   #$00                       ; NULL
+            BNE   :T1
+            BRA   :IDONE
+:T1         CMP   #$07                       ; BELL
+            BNE   :T2
+            JSR   BEEP
+            BRA   :IDONE
+:T2         CMP   #$08                       ; Backspace
+            BNE   :T3
+            JSR   NDBSPC
+            BRA   :DONE
+:T3         CMP   #$09                       ; Cursor right
+            BNE   :T4
+            JSR   CURSRT
+            BRA   :DONE
+:T4         CMP   #$0A                       ; Linefeed
+            BNE   :T5
+            LDA   ROW
+            CMP   #23
+            BEQ   :SCROLL
+            INC   ROW
+:IDONE      BRA   :DONE
+:T5         CMP   #$0B                       ; Cursor up
+            BNE   :T6
+            LDA   ROW
+            BEQ   :DONE
+            DEC   ROW
+            BRA   :DONE
+:T6         CMP   #$0D                       ; Carriage return
+            BNE   :T7
+            JSR   CLREOL
+            STZ   COL
+            BRA   :DONE
+:T7         CMP   #$0C                       ; Ctrl-L
+            BNE   :T8
+            JSR   CLEAR
+            BRA   :DONE
+:T8         CMP   #$1E                       ; Home
+            BNE   :T9
+            STZ   ROW
+            STZ   COL
+            BRA   :DONE
+:T9         CMP   #$7F                       ; Delete
+            BNE   :T10
+            JSR   BACKSPC
+            BRA   :DONE
+:T10        JSR   PRCHRC
+            LDA   COL
+            CMP   #79
+            BNE   :S2
+            STZ   COL
+            LDA   ROW
+            CMP   #23
+            BEQ   :SCROLL
+            INC   ROW
+            BRA   :DONE
+:S2         INC   COL
+            BRA   :DONE
+:SCROLL     JSR   SCROLL
+            STZ   COL
+            JSR   CLREOL
+:DONE       RTS
+
+* Scroll whole screen one line
+SCROLL      LDA   #$00
+:L1         PHA
+            JSR   SCR1LINE
+            PLA
+            INC
+            CMP   #23
+            BNE   :L1
+            RTS
+
+* Copy line A+1 to line A
+SCR1LINE    ASL                              ; Dest addr->ZP1
+            TAX
+            LDA   SCNTAB,X
+            STA   ZP1
+            LDA   SCNTAB+1,X
+            STA   ZP1+1
+            INX                              ; Source addr->ZP2
+            INX
+            LDA   SCNTAB,X
+            STA   ZP2
+            LDA   SCNTAB+1,X
+            STA   ZP2+1
+            LDY   #$00
+:L1         LDA   (ZP2),Y
+            STA   (ZP1),Y
+            STA   $C002                      ; Read main mem
+            STA   $C004                      ; Write main
+            LDA   (ZP2),Y
+            STA   (ZP1),Y
+            STA   $C003                      ; Read aux mem
+            STA   $C005                      ; Write aux mem
+            INY
+            CPY   #40
+            BNE   :L1
+            RTS
+
+* Addresses of screen rows in PAGE2
+SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
+            DW    $828,$8A8,$928,$9A8,$A28,$AA8,$B28,$BA8
+            DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
+
+*********************************************************
+* AppleMOS Kernel
+*********************************************************
+
 RDROM       LDA   #<OSRDRMM
             LDY   #>OSRDRMM
             JMP   PRSTR
@@ -286,10 +495,8 @@ FINDHND     PHX
             PHA
             STX   ZP1                        ; Points to filename
             STY   ZP1+1
-
             CMP   #$00                       ; A=$00 = close
             BEQ   :CLOSE
-
             PHA
             LDA   #<MOSFILE+1
             STA   ZP2
@@ -309,12 +516,10 @@ FINDHND     PHX
             STA   $C005                      ; Write aux
             PLA                              ; Recover options
             >>>   XF2MAIN,OFILE
-
 :CLOSE      STA   $C004                      ; Write main
             STY   MOSFILE                    ; Write file number
             STA   $C005                      ; Write aux
             >>>   XF2MAIN,CFILE
-
 OSFINDRET
             >>>   ENTAUX
             PLY                              ; Value of A on entry
@@ -515,10 +720,8 @@ FILEHND     PHX
             PLY
             PLX
             RTS
-
 :S1         >>>   XF2MAIN,SAVEFILE
 :S2         >>>   XF2MAIN,LOADFILE
-
 OSFILERET
             >>>   ENTAUX
             PLY                              ; Value of A on entry
@@ -570,6 +773,7 @@ OSFILEM     ASC   'OSFILE($'
 OSFILEM2    ASC   ')'
             DB    $00
 
+* Read a character from the keyboard
 RDCHHND     PHX
             PHY
             JSR   GETCHRC
@@ -613,220 +817,19 @@ CURS        DW    $0000                      ; Counter
 CSTATE      DB    $00                        ; Cursor on or off
 OLDCHAR     DB    $00                        ; Char under cursor
 
-* Print char in A at ROW,COL
-PRCHRC      PHA
-            LDA   $C000                      ; Kbd data/strobe
-            BMI   :KEYHIT
-:RESUME     LDA   ROW
-            ASL
-            TAX
-            LDA   SCNTAB,X                   ; LSB of row address
-            STA   ZP1
-            LDA   SCNTAB+1,X                 ; MSB of row address
-            STA   ZP1+1
-            LDA   COL
-            LSR
-            TAY
-            BCC   :S1
-            STA   $C004                      ; Write main memory
-:S1         PLA
-            ORA   #$80
-            STA   (ZP1),Y                    ; Screen address
-            STA   $C005                      ; Write aux mem again
-            RTS
-:KEYHIT     STA   $C010                      ; Clear strobe
-            AND   #$7F
-            CMP   #$13                       ; Ctrl-S
-            BEQ   :PAUSE
-            CMP   #$1B                       ; Esc
-            BNE   :RESUME
-:ESC        SEC
-            ROR   ESCFLAG                    ; Set ESCFLAG
-            BRA   :RESUME
-:PAUSE      STA   $C010                      ; Clear strobe
-:L1         LDA   $C000                      ; Kbd data/strobe
-            BPL   :L1
-            AND   #$7F
-            CMP   #$11                       ; Ctrl-Q
-            BEQ   :RESUME
-            CMP   #$1B                       ; Esc
-            BEQ   :ESC
-            BRA   :PAUSE
-
-* Return char at ROW,COL in A
-GETCHRC     LDA   ROW
-            ASL
-            TAX
-            LDA   SCNTAB,X
-            STA   ZP1
-            LDA   SCNTAB+1,X
-            STA   ZP1+1
-            LDA   COL
-            LSR
-            TAY
-            BCC   :S1
-            STA   $C002                      ; Read main memory
-:S1         LDA   (ZP1),Y
-            STX   $C003                      ; Read aux mem again
-            RTS
-
-* Perform backspace & delete operation
-BACKSPC     LDA   COL
-            BEQ   :S1
-            DEC   COL
-            BRA   :S2
-:S1         LDA   ROW
-            BEQ   :S3
-            DEC   ROW
-            STZ   COL
-:S2         LDA   #' '
-            JSR   PRCHRC
-:S3         RTS
-
-* Perform backspace/cursor left operation
-NDBSPC      LDA   COL
-            BEQ   :S1
-            DEC   COL
-            BRA   :S3
-:S1         LDA   ROW
-            BEQ   :S3
-            DEC   ROW
-            STZ   COL
-:S3         RTS
-
-* Perform cursor right operation
-CURSRT      LDA   COL
-            CMP   #78
-            BCS   :S1
-            INC   COL
-            RTS
-:S1         LDA   ROW
-            CMP   #22
-            BCS   :S2
-            INC   ROW
-            STZ   COL
-:S2         RTS
-
 * OSWRCH handler
 * All registers preserved
 WRCHHND     PHA
             PHX
             PHY
-* Check any output redirections
-* Check any spool output
+* TODO Check any output redirections
+* TODO Check any spool output
             JSR   OUTCHAR
-* Check any printer output
+* TODO Check any printer output
             PLY
             PLX
             PLA
             RTS
-
-* Output character to VDU driver
-* All registers trashable
-OUTCHAR     CMP   #$00                       ; NULL
-            BNE   :T1
-            BRA   :IDONE
-:T1         CMP   #$07                       ; BELL
-            BNE   :T2
-            JSR   BEEP
-            BRA   :IDONE
-:T2         CMP   #$08                       ; Backspace
-            BNE   :T3
-            JSR   NDBSPC
-            BRA   :DONE
-:T3         CMP   #$09                       ; Cursor right
-            BNE   :T4
-            JSR   CURSRT
-            BRA   :DONE
-:T4         CMP   #$0A                       ; Linefeed
-            BNE   :T5
-            LDA   ROW
-            CMP   #23
-            BEQ   :SCROLL
-            INC   ROW
-:IDONE      BRA   :DONE
-:T5         CMP   #$0B                       ; Cursor up
-            BNE   :T6
-            LDA   ROW
-            BEQ   :DONE
-            DEC   ROW
-            BRA   :DONE
-:T6         CMP   #$0D                       ; Carriage return
-            BNE   :T7
-            JSR   CLREOL
-            STZ   COL
-            BRA   :DONE
-:T7         CMP   #$0C                       ; Ctrl-L
-            BNE   :T8
-            JSR   CLEAR
-            BRA   :DONE
-:T8         CMP   #$1E                       ; Home
-            BNE   :T9
-            STZ   ROW
-            STZ   COL
-            BRA   :DONE
-:T9         CMP   #$7F                       ; Delete
-            BNE   :T10
-            JSR   BACKSPC
-            BRA   :DONE
-:T10        JSR   PRCHRC
-            LDA   COL
-            CMP   #79
-            BNE   :S2
-            STZ   COL
-            LDA   ROW
-            CMP   #23
-            BEQ   :SCROLL
-            INC   ROW
-            BRA   :DONE
-:S2         INC   COL
-            BRA   :DONE
-:SCROLL     JSR   SCROLL
-            STZ   COL
-            JSR   CLREOL
-:DONE       RTS
-
-* Scroll whole screen one line
-SCROLL      LDA   #$00
-:L1         PHA
-            JSR   SCR1LINE
-            PLA
-            INC
-            CMP   #23
-            BNE   :L1
-            RTS
-
-* Copy line A+1 to line A
-SCR1LINE    ASL                              ; Dest addr->ZP1
-            TAX
-            LDA   SCNTAB,X
-            STA   ZP1
-            LDA   SCNTAB+1,X
-            STA   ZP1+1
-            INX                              ; Source addr->ZP2
-            INX
-            LDA   SCNTAB,X
-            STA   ZP2
-            LDA   SCNTAB+1,X
-            STA   ZP2+1
-            LDY   #$00
-:L1         LDA   (ZP2),Y
-            STA   (ZP1),Y
-            STA   $C002                      ; Read main mem
-            STA   $C004                      ; Write main
-            LDA   (ZP2),Y
-            STA   (ZP1),Y
-            STA   $C003                      ; Read aux mem
-            STA   $C005                      ; Write aux mem
-            INY
-            CPY   #40
-            BNE   :L1
-            RTS
-
-* Addresses of screen rows in PAGE2
-SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
-            DW    $828,$8A8,$928,$9A8,$A28,$AA8,$B28,$BA8
-            DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
 
 * OSWORD HANDLER
 * On entry, A=action
@@ -1666,6 +1669,10 @@ NEGKEY      LDX   #$00                       ; Unimplemented
             LDY   #$00
             RTS
 
+***********************************************************
+* Helper functions
+***********************************************************
+
 * Beep
 BEEP        PHA
             PHX
@@ -1692,6 +1699,10 @@ DELAY       PHX
             PLY
             PLX
             RTS
+
+**********************************************************
+* Interrupt Handlers, MOS redirection vectors etc.
+**********************************************************
 
 * IRQ/BRK handler
 IRQBRKHDLR  PHA
@@ -1741,26 +1752,6 @@ STOP        JMP   STOP                       ; Cannot return from a BRK
 MSGBRK      DB    $0D
             ASC   "ERROR: "
             DB    $00
-
-;DEFBRKHDLR
-;            LDA   #<BRKM
-;            LDY   #>BRKM
-;            JSR   PRSTR
-;            PLA
-;            PLX
-;            PLY
-;            PHY
-;            PHX
-;            PHA
-;            JSR   OUT2HEX
-;            LDA   #<BRKM2
-;            LDY   #>BRKM2
-;            JSR   PRSTR
-;            RTI
-;BRKM        ASC   "BRK($"
-;            DB    $00
-;BRKM2       ASC   ")."
-;            DB    $00
 
 * Default page 2 contents
 DEFVEC      DW    NULLRTS                    ; $200 USERV
@@ -1840,7 +1831,6 @@ MOSEND
             ORG   MOSEND-MOSAPI+MOSVEC
             DW    IRQBRKHDLR                 ; FFFE IRQVEC
 MOSVEND
-
 
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      DS    $200
