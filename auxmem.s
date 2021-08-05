@@ -949,6 +949,7 @@ OSWORD0     LDY   #$04
 :MINCH      DB    $00
 :MAXCH      DB    $00
 
+* OSWORD1 - Read system clock
 OSWORD1     LDA   #$00
             LDY   #$00
 :L1         STA   (OSCTRL),Y
@@ -957,16 +958,29 @@ OSWORD1     LDA   #$00
             BNE   :L1
             RTS
 
+* OSWORD2 - Write system clock
 OSWORD2     RTS                              ; Nothing to do
 
-OSWORD5     LDA   (OSCTRL)
-            LDY   #$04
+* OSWORD5 - Read I/O Processor memory
+OSWORD5     LDA   (OSCTRL)                   ; Fetch pointer into ZP2
+            STA   ZP2
+            LDY   #$01
+            LDA   (OSCTRL),Y
+            STA   ZP2+1
+            LDA   (ZP2)                      ; Now read byte
+            LDY   #$04                       ; Save byte to XY+4
             STA   (OSCTRL),Y
             RTS
 
-OSWORD6     LDA   #$04
+* OSWORD6 - Write I/O Processor memory
+OSWORD6     LDA   (OSCTRL)                   ; Fetch pointer into ZP2
+            STA   ZP2
+            LDY   #$01
             LDA   (OSCTRL),Y
-            STA   (OSCTRL)
+            STA   ZP2+1
+            LDY   #$04                       ; Byte to be written XY+4
+            LDA   (OSCTRL),Y
+            STA   (ZP2)
             RTS
 
 * OSBYTE HANDLER
