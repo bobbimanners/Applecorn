@@ -684,11 +684,27 @@ FILEHND     PHX
             LDY   #$01
             LDA   (ZP1),Y
             STA   ZP2+1
-            LDA   #<MOSFILE+1
+            LDA   #<MOSFILE+1                ; ZP1 is dest pointer
             STA   ZP1
             LDA   #>MOSFILE+1
             STA   ZP1+1
-            LDY   #$00
+            LDA   (ZP2)                      ; Look at first char of filename
+            CMP   #'9'+1
+            BCS   :NOTDIGT
+            CMP   #'0'
+            BCC   :NOTDIGT
+            LDA   #'N'                       ; Prefix numeric with 'N'
+            STA   $C004                      ; Write main
+            STA   (ZP1)
+            STA   $C005                      ; Write aux
+            LDY   #$01                       ; Increment Y
+            DEC   ZP2                        ; Decrement source pointer
+            LDA   ZP2
+            CMP   #$FF
+            BNE   :L2
+            DEC   ZP2+1
+            BRA   :L2
+:NOTDIGT    LDY   #$00
 :L2         LDA   (ZP2),Y
             STA   $C004                      ; Write main
             STA   (ZP1),Y
