@@ -5,6 +5,14 @@
 * This code is mostly glue between the BBC Micro code
 * which runs in aux mem and Apple II ProDOS.
 
+* Trampoline in main memory used by aux memory IRQ handler
+* to invoke Apple II / ProDOS IRQs in main memory
+A2IRQ       >>>   ENTMAIN
+            JSR   A2IRQ2
+            >>>   XF2AUX,IRQBRKRET
+A2IRQ2      PHP                      ; Fake things to look like IRQ
+            JMP   (A2IRQV)           ; Call Apple II ProDOS ISR
+
 * Set prefix if not already set
 SETPRFX     LDA   #GPFXCMD
             STA   :OPC7              ; Initialize cmd byte to $C7

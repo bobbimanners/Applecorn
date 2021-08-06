@@ -191,10 +191,10 @@ CLREOL      LDA   ROW
             LSR
             TAY
             BCC   :S1
-            STA   $C004                      ; Write main mem
+            >>>   WRTMAIN
 :S1         LDA   #" "
             STA   (ZP1),Y
-            STA   $C005                      ; Write aux mem
+            >>>   WRTAUX
             LDA   COL
             CMP   #79
             BEQ   :S2
@@ -275,11 +275,11 @@ PRCHRC      PHA
             LSR
             TAY
             BCC   :S1
-            STA   $C004                      ; Write main memory
+            >>>   WRTMAIN
 :S1         PLA
             ORA   #$80
             STA   (ZP1),Y                    ; Screen address
-            STA   $C005                      ; Write aux mem again
+            >>>   WRTAUX
             RTS
 :KEYHIT     STA   $C010                      ; Clear strobe
             AND   #$7F
@@ -446,11 +446,11 @@ SCR1LINE    ASL                              ; Dest addr->ZP1
 :L1         LDA   (ZP2),Y
             STA   (ZP1),Y
             STA   $C002                      ; Read main mem
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             LDA   (ZP2),Y
             STA   (ZP1),Y
             STA   $C003                      ; Read aux mem
-            STA   $C005                      ; Write aux mem
+            >>>   WRTAUX
             INY
             CPY   #40
             BNE   :L1
@@ -504,21 +504,21 @@ FINDHND     PHX
             STA   ZP2+1
             LDY   #$00
 :L1         LDA   (ZP1),Y
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STA   (ZP2),Y
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             INY
             CMP   #$0D                       ; Carriage return
             BNE   :L1
             DEY
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STY   MOSFILE                    ; Length (Pascal string)
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             PLA                              ; Recover options
             >>>   XF2MAIN,OFILE
-:CLOSE      STA   $C004                      ; Write main
+:CLOSE      >>>   WRTMAIN
             STY   MOSFILE                    ; Write file number
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             >>>   XF2MAIN,CFILE
 OSFINDRET
             >>>   ENTAUX
@@ -549,9 +549,9 @@ OSGBPBM     ASC   'OSGBPB.'
 BPUTHND     PHX
             PHY
             PHA                              ; Stash char to write
-            STA   $C004                      ; Write to main memory
+            >>>   WRTMAIN
             STY   MOSFILE                    ; File reference number
-            STA   $C005                      ; Write to aux memory
+            >>>   WRTAUX
             >>>   XF2MAIN,FILEPUT
 OSBPUTRET
             >>>   ENTAUX
@@ -564,9 +564,9 @@ OSBPUTRET
 * OSBGET - read one byte from an open file
 BGETHND     PHX
             PHY
-            STA   $C004                      ; Write to main memory
+            >>>   WRTMAIN
             STY   MOSFILE                    ; File ref number
-            STA   $C005                      ; Write to aux memory
+            >>>   WRTAUX
             >>>   XF2MAIN,FILEGET
 OSBGETRET
             >>>   ENTAUX
@@ -603,39 +603,39 @@ ARGSHND     PHA
             BRA   :IEXIT
 :S2         CMP   #$FF                       ; Y=0,A=FF => flush all files
             BNE   :IEXIT
-            STA   $C004                      ; Write main memory
+            >>>   WRTMAIN
             STZ   MOSFILE                    ; Zero means flush all
-            STA   $C005                      ; Write aux memory
+            >>>   WRTAUX
             BRA   :IFLUSH
-:HASFILE    STA   $C004                      ; Write main memory
+:HASFILE    >>>   WRTMAIN
             STY   MOSFILE                    ; File ref num
             STX   MOSFILE+1                  ; Pointer to ZP control block
-            STA   $C005                      ; Write aux memory
+            >>>   WRTAUX
             CMP   #$00                       ; Y!=0,A=0 => read seq ptr
             BNE   :S3
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STZ   MOSFILE+2                  ; 0 means get pos
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             >>>   XF2MAIN,TELL
 :IEXIT      BRA   :IEXIT2
 :IFLUSH     BRA   :FLUSH
 :S3         CMP   #$01                       ; Y!=0,A=1 => write seq ptr
             BNE   :S4
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             LDA   $00,X
             STA   MOSFILE+2
             LDA   $01,X
             STA   MOSFILE+3
             LDA   $02,X
             STA   MOSFILE+4
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             >>>   XF2MAIN,SEEK
 :IEXIT2     BRA   :EXIT
 :S4         CMP   #$02                       ; Y!=0,A=2 => read file len
             BNE   :S5
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STA   MOSFILE+2                  ; Non-zero means get len
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             >>>   XF2MAIN,TELL
 :S5         CMP   #$FF                       ; Y!=0,A=FF => flush file
             BNE   :EXIT
@@ -672,9 +672,9 @@ FILEHND     PHX
             STA   ZP2+1
             LDY   #$00                       ; Copy to FILEBLK in main mem
 :L1         LDA   (ZP1),Y
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STA   (ZP2),Y
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             INY
             CPY   #$12
             BNE   :L1
@@ -694,9 +694,9 @@ FILEHND     PHX
             CMP   #'0'
             BCC   :NOTDIGT
             LDA   #'N'                       ; Prefix numeric with 'N'
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STA   (ZP1)
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             LDY   #$01                       ; Increment Y
             DEC   ZP2                        ; Decrement source pointer
             LDA   ZP2
@@ -706,16 +706,16 @@ FILEHND     PHX
             BRA   :L2
 :NOTDIGT    LDY   #$00
 :L2         LDA   (ZP2),Y
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STA   (ZP1),Y
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             INY
             CMP   #$21                       ; Space or Carriage return
             BCS   :L2
             DEY
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STY   MOSFILE                    ; Length (Pascal string)
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
 
             PLA                              ; Get action back
             PHA
@@ -1443,16 +1443,16 @@ STARDIR     JSR   EATSPC                     ; Eat leading spaces
 :L3         LDA   (ZP1),Y
             CMP   #$0D
             BEQ   :S3
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STA   MOSFILE,X
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             INY
             INX
             BRA   :L3
 :S3         DEX
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STX   MOSFILE                    ; Length byte
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             >>>   XF2MAIN,SETPFX
 STARDIRRET
             >>>   ENTAUX
@@ -1647,9 +1647,9 @@ OSBYTE80    CPX   #$00                       ; X=0 Last ADC channel
 
 * Performs OSBYTE $7F EOF function
 * File ref number is in X
-CHKEOF      STA   $C004                      ; Write main mem
+CHKEOF      >>>   WRTMAIN
             STX   MOSFILE                    ; File reference number
-            STA   $C005                      ; Write aux mem
+            >>>   WRTAUX
             >>>   XF2MAIN,FILEEOF
 CHKEOFRET
             >>>   ENTAUX
@@ -1735,14 +1735,18 @@ DELAY       PHX
 **********************************************************
 
 * IRQ/BRK handler
-IRQBRKHDLR  PHA
+IRQBRKHDLR
+            PHA
+            >>>   WRTMAIN
+            STA   $45                        ; A->$45 for ProDOS IRQ handlers
+            >>>   WRTAUX
             TXA
             PHA
             CLD
             TSX
             LDA   $103,X                     ; Get PSW from stack
             AND   #$10
-            BEQ   :S1                        ; IRQ
+            BEQ   :IRQ                       ; IRQ
             SEC
             LDA   $0104,X
             SBC   #$01
@@ -1756,7 +1760,8 @@ IRQBRKHDLR  PHA
             CLI
             JMP   (BRKV)                     ; Pass on to BRK handler
 
-:S1                                          ; TODO: No Apple IRQs handled
+:IRQ        >>>   XF2MAIN,A2IRQ
+IRQBRKRET
             PLA                              ; TODO: Pass on to IRQ1V
             TAX
             PLA
