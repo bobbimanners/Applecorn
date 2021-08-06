@@ -30,6 +30,9 @@ STRTH       EQU   $3EE
 * Reset vector (2 bytes + 1 byte checksum)
 RSTV        EQU   $3F2
 
+* IRQ vector
+A2IRQV      EQU   $3FE
+
 * MLI entry point
 MLI         EQU   $BF00
 
@@ -132,6 +135,18 @@ ENTMAIN     MAC
             LDA   $C081       ; Bank in ROM
             LDA   $C081
             PLA
+            EOM
+
+* Enable writing to main memory (for code running in aux)
+WRTMAIN     MAC
+            SEI               ; Keeps IRQ handler easy
+            STA   $C004       ; Write to main memory
+            EOM
+
+* Go back to writing to aux (for code runnign in aux)
+WRTAUX      MAC
+            STA   $C005       ; Write to aux memory
+            CLI               ; Normal service resumed
             EOM
 
 * Code is all included from PUT files below ...

@@ -1,19 +1,9 @@
 * AUXMEM.S
-* (c) Bobbi 2021 GPLv3
-* BBC Micro 'virtual machine' in Apple //e aux memory
+****************************
+* BBC MOS in auxilary memory
+****************************
 
-ZP1         EQU   $90                        ; $90-$9f are Econet space
-                                             ; so safe to use
-ZP2         EQU   $92
-
-ZP3         EQU   $94
-
-ROW         EQU   $96                        ; Cursor row
-COL         EQU   $97                        ; Cursor column
-STRTBCKL    EQU   $9D
-STRTBCKH    EQU   $9E
-WARMSTRT    EQU   $9F                        ; Cold or warm start
-
+* MOSEQU.S
 *******************************
 * BBC MOS WORKSPACE LOCATIONS *
 *******************************
@@ -51,21 +41,46 @@ OSINTA      EQU   $FC             ; IRQ register A store
 FAULT       EQU   $FD             ; Error message pointer
 ESCFLAG     EQU   $FF             ; Escape status
 
-USERV       EQU   $200
-BRKV        EQU   $202                       ; BRK vector
-CLIV        EQU   $208                       ; OSCLI vector
-BYTEV       EQU   $20A                       ; OSBYTE vector
-WORDV       EQU   $20C                       ; OSWORD vector
-WRCHV       EQU   $20E                       ; OSWRCH vector
-RDCHV       EQU   $210                       ; OSRDCH vector
-FILEV       EQU   $212                       ; OSFILE vector
-ARGSV       EQU   $214                       ; OSARGS vector
-BGETV       EQU   $216                       ; OSBGET vector
-BPUTV       EQU   $218                       ; OSBPUT vector
-GBPBV       EQU   $21A                       ; OSGBPB vector
-FINDV       EQU   $21C                       ; OSFIND vector
-FSCV        EQU   $21E                       ; FSCV misc file ops
-OSFILECB    EQU   $2EE                       ; OSFILE control block
+
+* $0200-$0235 Vectors
+* $0236-$028F OSBYTE variable
+* $0290-$02ED
+* $02EE-$02FF MOS control block
+
+USERV       EQU   $200            ; USER vector
+BRKV        EQU   $202            ; BRK vector
+CLIV        EQU   $208            ; OSCLI vector
+BYTEV       EQU   $20A            ; OSBYTE vector
+WORDV       EQU   $20C            ; OSWORD vector
+WRCHV       EQU   $20E            ; OSWRCH vector
+RDCHV       EQU   $210            ; OSRDCH vector
+FILEV       EQU   $212            ; OSFILE vector
+ARGSV       EQU   $214            ; OSARGS vector
+BGETV       EQU   $216            ; OSBGET vector
+BPUTV       EQU   $218            ; OSBPUT vector
+GBPBV       EQU   $21A            ; OSGBPB vector
+FINDV       EQU   $21C            ; OSFIND vector
+FSCV        EQU   $21E            ; FSCV misc file ops
+
+OSFILECB    EQU   $2EE            ; OSFILE control block
+
+* MOSINIT.S
+*****************************************************
+* BBC Micro 'virtual machine' in Apple //e aux memory
+* (c) Bobbi 2021 GPLv3
+
+ZP1         EQU   $90                        ; $90-$9f are Econet space
+                                             ; so safe to use
+ZP2         EQU   $92
+
+ZP3         EQU   $94
+
+ROW         EQU   $96                        ; Cursor row
+COL         EQU   $97                        ; Cursor column
+STRTBCKL    EQU   $9D
+STRTBCKH    EQU   $9E
+WARMSTRT    EQU   $9F                        ; Cold or warm start
+
 MAGIC       EQU   $BC                        ; Arbitrary value
 
 MOSSHIM
@@ -193,10 +208,10 @@ MOSINIT     STA   $C005                      ; Make sure we are writing aux
 :OLDM       ASC   '(Use OLD to recover any program)'
             DB    $0D,$0D,$00
 
-*******************
 * VDU.S
-* VDU DRIVER
-*
+***********************************************************
+* Apple //e VDU Driver for 80 column mode (PAGE2)
+***********************************************************
 
 * Clear to EOL
 CLREOL      LDA   ROW
@@ -212,10 +227,10 @@ CLREOL      LDA   ROW
             LSR
             TAY
             BCC   :S1
-            STA   $C004                      ; Write main mem
+            >>>   WRTMAIN
 :S1         LDA   #" "
             STA   (ZP1),Y
-            STA   $C005                      ; Write aux mem
+            >>>   WRTAUX
             LDA   COL
             CMP   #79
             BEQ   :S2
@@ -238,436 +253,6 @@ CLEAR       STZ   ROW
             STZ   COL
             RTS
 
-*
-* END PART OF VDU.S
-*******************
-
-*******************
-* PART OF KERNEL.S
-*
-
-* Print string pointed to by X,Y to the screen
-OUTSTR      TXA
-
-* Print string pointed to by A,Y to the screen
-PRSTR       STA   ZP3+0                      ;  String in A,Y
-            STY   ZP3+1
-:L1         LDA   (ZP3)                      ; Ptr to string in ZP3
-            BEQ   :S1
-            JSR   OSASCI
-            INC   ZP3
-            BNE   :L1
-            INC   ZP3+1
-            BRA   :L1
-:S1         RTS
-
-* Print XY in hex
-OUT2HEX     TYA
-            JSR   OUTHEX
-            TAX                              ; Continue into OUTHEX
-
-* Print hex byte in A
-OUTHEX      PHA
-            LSR
-            LSR
-            LSR
-            LSR
-            AND   #$0F
-            JSR   PRNIB
-            PLA
-            AND   #$0F                       ; Continue into PRNIB
-;           JSR   PRNIB
-;           RTS
-
-* Print hex nibble in A
-PRNIB       CMP   #$0A
-            BCC   :S1
-            CLC                              ; >= $0A
-            ADC   #'A'-$0A
-            JSR   OSWRCH
-            RTS
-:S1         ADC   #'0'                       ; < $0A
-            JMP   OSWRCH
-
-RDROM       LDA   #<OSRDRMM
-            LDY   #>OSRDRMM
-            JMP   PRSTR
-OSRDRMM     ASC   'OSRDDRM.'
-            DB    $00
-
-EVENT       LDA   #<OSEVENM
-            LDY   #>OSEVENM
-            JMP   PRSTR
-OSEVENM     ASC   'OSEVEN.'
-            DB    $00
-
-GSINTGO     LDA   #<OSINITM
-            LDY   #>OSINITM
-            JMP   PRSTR
-OSINITM     ASC   'GSINITM.'
-            DB    $00
-
-GSRDGO      LDA   #<OSREADM
-            LDY   #>OSREADM
-            JMP   PRSTR
-OSREADM     ASC   'GSREAD.'
-            DB    $00
-
-*
-* END OF PART OF KERNEL.S
-*************************
-
-********************
-* START OF FILESYS.S
-*
-
-* OSFIND - open/close a file for byte access
-FINDHND     PHX
-            PHY
-            PHA
-            STX   ZP1                        ; Points to filename
-            STY   ZP1+1
-
-            CMP   #$00                       ; A=$00 = close
-            BEQ   :CLOSE
-
-            PHA
-            LDA   #<MOSFILE+1
-            STA   ZP2
-            LDA   #>MOSFILE+1
-            STA   ZP2+1
-            LDY   #$00
-:L1         LDA   (ZP1),Y
-            STA   $C004                      ; Write main
-            STA   (ZP2),Y
-            STA   $C005                      ; Write aux
-            INY
-            CMP   #$0D                       ; Carriage return
-            BNE   :L1
-            DEY
-            STA   $C004                      ; Write main
-            STY   MOSFILE                    ; Length (Pascal string)
-            STA   $C005                      ; Write aux
-            PLA                              ; Recover options
-            >>>   XF2MAIN,OFILE
-
-:CLOSE      STA   $C004                      ; Write main
-            STY   MOSFILE                    ; Write file number
-            STA   $C005                      ; Write aux
-            >>>   XF2MAIN,CFILE
-
-OSFINDRET
-            >>>   ENTAUX
-            PLY                              ; Value of A on entry
-            CPY   #$00                       ; Was it close?
-            BNE   :S1
-            TYA                              ; Preserve A for close
-:S1         PLY
-            PLX
-            RTS
-
-* OSFSC - miscellanous file system calls
-OSFSC       LDA   #<OSFSCM
-            LDY   #>OSFSCM
-            JSR   PRSTR
-            RTS
-OSFSCM      ASC   'OSFSC.'
-            DB    $00
-
-* OSGBPB - Get/Put a block of bytes to/from an open file
-GBPBHND     LDA   #<OSGBPBM
-            LDY   #>OSGBPBM
-            JMP   PRSTR
-OSGBPBM     ASC   'OSGBPB.'
-            DB    $00
-
-* OSBPUT - write one byte to an open file
-BPUTHND     PHX
-            PHY
-            PHA                              ; Stash char to write
-            STA   $C004                      ; Write to main memory
-            STY   MOSFILE                    ; File reference number
-            STA   $C005                      ; Write to aux memory
-            >>>   XF2MAIN,FILEPUT
-OSBPUTRET
-            >>>   ENTAUX
-            CLC                              ; Means no error
-            PLA
-            PLY
-            PLX
-            RTS
-
-* OSBGET - read one byte from an open file
-BGETHND     PHX
-            PHY
-            STA   $C004                      ; Write to main memory
-            STY   MOSFILE                    ; File ref number
-            STA   $C005                      ; Write to aux memory
-            >>>   XF2MAIN,FILEGET
-OSBGETRET
-            >>>   ENTAUX
-            CLC                              ; Means no error
-            CPY   #$00                       ; Check error status
-            BEQ   :S1
-            SEC                              ; Set carry for error
-:S1         PLY
-            PLX
-            RTS
-
-* OSARGS - adjust file arguments
-* On entry, A=action
-*           X=>4 byte ZP control block
-*           Y=file handle
-ARGSHND     PHA
-            PHX
-            PHY
-            CPY   #$00
-            BNE   :HASFILE
-            CMP   #$00                       ; Y=0,A=0 => current file sys
-            BNE   :S1
-            PLY
-            PLX
-            PLA
-            LDA   #$04                       ; DFS
-            RTS
-:S1         CMP   #$01                       ; Y=0,A=1 => addr of CLI
-            BNE   :S2
-* TODO: Implement this for *RUN and *command
-            JSR   BEEP
-            BRA   :IEXIT
-:S2         CMP   #$FF                       ; Y=0,A=FF => flush all files
-            BNE   :IEXIT
-            STA   $C004                      ; Write main memory
-            STZ   MOSFILE                    ; Zero means flush all
-            STA   $C005                      ; Write aux memory
-            BRA   :IFLUSH
-:HASFILE    STA   $C004                      ; Write main memory
-            STY   MOSFILE                    ; File ref num
-            STX   MOSFILE+1                  ; Pointer to ZP control block
-            STA   $C005                      ; Write aux memory
-            CMP   #$00                       ; Y!=0,A=0 => read seq ptr
-            BNE   :S3
-            STA   $C004                      ; Write main
-            STZ   MOSFILE+2                  ; 0 means get pos
-            STA   $C005                      ; Write aux
-            >>>   XF2MAIN,TELL
-:IEXIT      BRA   :IEXIT2
-:IFLUSH     BRA   :FLUSH
-:S3         CMP   #$01                       ; Y!=0,A=1 => write seq ptr
-            BNE   :S4
-            STA   $C004                      ; Write main
-            LDA   $00,X
-            STA   MOSFILE+2
-            LDA   $01,X
-            STA   MOSFILE+3
-            LDA   $02,X
-            STA   MOSFILE+4
-            STA   $C005                      ; Write aux
-            >>>   XF2MAIN,SEEK
-:IEXIT2     BRA   :EXIT
-:S4         CMP   #$02                       ; Y!=0,A=2 => read file len
-            BNE   :S5
-            STA   $C004                      ; Write main
-            STA   MOSFILE+2                  ; Non-zero means get len
-            STA   $C005                      ; Write aux
-            >>>   XF2MAIN,TELL
-:S5         CMP   #$FF                       ; Y!=0,A=FF => flush file
-            BNE   :EXIT
-:FLUSH      >>>   XF2MAIN,FLUSH
-:EXIT       PLY
-            PLX
-            PLA
-            RTS
-OSARGSRET
-            >>>   ENTAUX
-            PLY
-            PLX
-            PLA
-            RTS
-
-* OSFILE - perform actions on entire files
-* On entry, A=action
-*           XY=>control block
-* On exit,  A=preserved if unimplemented
-*           A=0 object not found (not load/save)
-*           A=1 file found
-*           A=2 directory found
-*           XY  preserved
-*               control block updated
-FILEHND     PHX
-            PHY
-            PHA
-
-            STX   ZP1                        ; LSB of parameter block
-            STY   ZP1+1                      ; MSB of parameter block
-            LDA   #<FILEBLK
-            STA   ZP2
-            LDA   #>FILEBLK
-            STA   ZP2+1
-            LDY   #$00                       ; Copy to FILEBLK in main mem
-:L1         LDA   (ZP1),Y
-            STA   $C004                      ; Write main
-            STA   (ZP2),Y
-            STA   $C005                      ; Write aux
-            INY
-            CPY   #$12
-            BNE   :L1
-
-            LDA   (ZP1)                      ; Pointer to filename->ZP2
-            STA   ZP2
-            LDY   #$01
-            LDA   (ZP1),Y
-            STA   ZP2+1
-            LDA   #<MOSFILE+1
-            STA   ZP1
-            LDA   #>MOSFILE+1
-            STA   ZP1+1
-            LDY   #$00
-:L2         LDA   (ZP2),Y
-            STA   $C004                      ; Write main
-            STA   (ZP1),Y
-            STA   $C005                      ; Write aux
-            INY
-            CMP   #$21                       ; Space or Carriage return
-            BCS   :L2
-            DEY
-            STA   $C004                      ; Write main
-            STY   MOSFILE                    ; Length (Pascal string)
-            STA   $C005                      ; Write aux
-
-            PLA                              ; Get action back
-            PHA
-            BEQ   :S1                        ; A=00 -> SAVE
-            CMP   #$FF
-            BEQ   :S2                        ; A=FF -> LOAD
-
-            LDA   #<OSFILEM                  ; If not implemented, print msg
-            LDY   #>OSFILEM
-            JSR   PRSTR
-            PLA
-            PHA
-            JSR   OUTHEX
-            LDA   #<OSFILEM2
-            LDY   #>OSFILEM2
-            JSR   PRSTR
-            PLA                              ; Not implemented, return unchanged
-            PLY
-            PLX
-            RTS
-
-:S1         >>>   XF2MAIN,SAVEFILE
-:S2         >>>   XF2MAIN,LOADFILE
-
-OSFILERET
-            >>>   ENTAUX
-            PLY                              ; Value of A on entry
-            CPY   #$FF                       ; LOAD
-            BNE   :S4                        ; Deal with return from SAVE
-
-            CMP   #$01                       ; No file found
-            BNE   :SL1
-            BRK
-            DB    $D6                        ; $D6 = Object not found
-            ASC   'File not found'
-            BRK
-
-:SL1        CMP   #$02                       ; Read error
-            BNE   :SL2
-            BRK
-            DB    $CA                        ; $CA = Premature end, 'Data lost'
-            ASC   'Read error'
-            BRK
-
-:SL2        LDA   #$01                       ; Return code - file found
-            BRA   :EXIT
-
-:S4         CPY   #$00                       ; Return from SAVE
-            BNE   :S6
-            CMP   #$01                       ; Unable to create or open
-            BNE   :SS1
-            BRK
-            DB    $C0                        ; $C0 = Can't create file to save
-            ASC   'Can'
-            DB    $27
-            ASC   't save file'
-            BRK
-
-:SS1        CMP   #$02                       ; Unable to write
-            BNE   :S6
-            BRK
-            DB    $CA                        ; $CA = Premature end, 'Data lost'
-            ASC   'Write error'
-            BRK
-
-:S6         LDA   #$00
-:EXIT       PLY
-            PLX
-            RTS
-
-OSFILEM     ASC   'OSFILE($'
-            DB    $00
-OSFILEM2    ASC   ')'
-            DB    $00
-
-*
-* END OF PART OF FILESYS.S
-**************************
-
-******************
-* PART OF KERNEL.S
-*
-
-RDCHHND     PHX
-            PHY
-            JSR   GETCHRC
-            STA   OLDCHAR
-:L1         LDA   CURS+1                     ; Skip unless CURS=$8000
-            CMP   #$80
-            BNE   :S1
-            LDA   CURS
-            BNE   :S1
-
-            STZ   CURS
-            STZ   CURS+1
-            LDA   CSTATE
-            ROR
-            BCS   :S2
-            LDA   #'_'
-            BRA   :S3
-:S2         LDA   OLDCHAR
-:S3         JSR   PRCHRC
-            INC   CSTATE
-:S1         INC   CURS
-            BNE   :S4
-            INC   CURS+1
-:S4         LDA   $C000                      ; Keyboard data/strobe
-            BPL   :L1
-            LDA   OLDCHAR                    ; Erase cursor
-            JSR   PRCHRC
-            LDA   $C000
-            AND   #$7F
-            STA   $C010                      ; Clear strobe
-            PLY
-            PLX
-            CMP   #$1B                       ; Escape pressed?
-            BNE   :S5
-            SEC                              ; Return CS
-            ROR   ESCFLAG
-            RTS
-:S5         CLC
-            RTS
-CURS        DW    $0000                      ; Counter
-CSTATE      DB    $00                        ; Cursor on or off
-OLDCHAR     DB    $00                        ; Char under cursor
-
-*
-* END OF PART OF KENERL.S
-*************************
-
-***************
-* PART OF VDU.S
-*
-
 * Print char in A at ROW,COL
 PRCHRC      PHA
             LDA   $C000                      ; Kbd data/strobe
@@ -683,11 +268,11 @@ PRCHRC      PHA
             LSR
             TAY
             BCC   :S1
-            STA   $C004                      ; Write main memory
+            >>>   WRTMAIN
 :S1         PLA
             ORA   #$80
             STA   (ZP1),Y                    ; Screen address
-            STA   $C005                      ; Write aux mem again
+            >>>   WRTAUX
             RTS
 :KEYHIT     STA   $C010                      ; Clear strobe
             AND   #$7F
@@ -761,20 +346,6 @@ CURSRT      LDA   COL
             INC   ROW
             STZ   COL
 :S2         RTS
-
-* OSWRCH handler
-* All registers preserved
-WRCHHND     PHA
-            PHX
-            PHY
-* Check any output redirections
-* Check any spool output
-            JSR   OUTCHAR
-* Check any printer output
-            PLY
-            PLX
-            PLA
-            RTS
 
 * Output character to VDU driver
 * All registers trashable
@@ -868,11 +439,11 @@ SCR1LINE    ASL                              ; Dest addr->ZP1
 :L1         LDA   (ZP2),Y
             STA   (ZP1),Y
             STA   $C002                      ; Read main mem
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             LDA   (ZP2),Y
             STA   (ZP1),Y
             STA   $C003                      ; Read aux mem
-            STA   $C005                      ; Write aux mem
+            >>>   WRTAUX
             INY
             CPY   #40
             BNE   :L1
@@ -883,303 +454,348 @@ SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
             DW    $828,$8A8,$928,$9A8,$A28,$AA8,$B28,$BA8
             DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
 
-*
-* END OF PART OF VDU.S
-**********************
+* FILESYS.S
+*********************************************************
+* AppleMOS Host File System
+*********************************************************
 
-***************************
-* START OF PART OF KERNEL.S
-*
 
-* OSWORD HANDLER
-* On entry, A=action
-*           XY=>control block
-* On exit,  All preserved (except OSWORD 0)
-*           control block updated
-WORDHND     STX   OSCTRL+0                   ; Point to control block
-            STY   OSCTRL+1
-            CMP   #$00                       ; OSWORD 0 read a line
-            BNE   :S01
-            JMP   OSWORD0
-:S01        CMP   #$01                       ; OSWORD 1 read system clock
-            BNE   :S02
-            JMP   OSWORD1
-:S02        CMP   #$02                       ; OSWORD 2 write system clock
-            BNE   :S05
-            JMP   OSWORD2
-:S05        CMP   #$05                       ; OSWORD 5 read I/O memory
-            BNE   :S06
-            JMP   OSWORD5
-:S06        CMP   #$06                       ; OSWORD 6 write I/O memory
-            BNE   :UNSUPP
-
-:UNSUPP     PHA
-            LDA   #<:OSWORDM                 ; Unimplemented, print msg
-            LDY   #>:OSWORDM
-            JSR   PRSTR
-            PLA
+* OSFIND - open/close a file for byte access
+FINDHND     PHX
+            PHY
             PHA
-            JSR   OUTHEX
-            LDA   #<:OSWRDM2
-            LDY   #>:OSWRDM2
-            JSR   PRSTR
-            PLA
-            RTS
-:OSWORDM    ASC   'OSWORD('
-            DB    $00
-:OSWRDM2    ASC   ')'
-            DB    $00
-
-* OSRDLINE - Read a line of input
-* On entry, (OSCTRL)=>control block
-* On exit,  Y=length of line, offset to <cr>
-*           CC = Ok, CS = Escape
-*
-OSWORD0     LDY   #$04
-:RDLNLP1    LDA   (OSCTRL),Y                 ; Copy MAXLEN, MINCH, MAXCH to workspace
-            STA   MAXLEN-2,Y
-            DEY
-            CPY   #$02
-            BCS   :RDLNLP1
-:RDLNLP2    LDA   (OSCTRL),Y                 ; (ZP2)=>line buffer
-            STA   OSTEXT,Y
-            DEY
-            BPL   :RDLNLP2
-            INY
-            BRA   :L1
-
-:BELL       LDA   #$07                       ; BELL
-:R1         DEY
-:R2         INY                              ; Step to next character
-:R3         JSR   OSWRCH                     ; Output character
-
-:L1         JSR   OSRDCH
-            BCS   :EXIT
-            CMP   #$08                       ; Backspace
-            BEQ   :RDDEL
-            CMP   #$7F                       ; Delete
-            BEQ   :RDDEL
-            CMP   #$15                       ; Ctrl-U
-            BNE   :S2
-            INY                              ; Balance first DEY
-:RDCTRLU    DEY                              ; Back up one character
-            BEQ   :L1                        ; Beginning of line
-            LDA   #$7F                       ; Delete
-            JSR   OSWRCH
-            JMP   :RDCTRLU
-:RDDEL      TYA
-            BEQ   :L1                        ; Beginning of line
-            DEY                              ; Back up one character
-            LDA   #$7F                       ; Delete
-            BNE   :R3                        ; Jump back to delete
-
-:S2         STA   (OSTEXT),Y
-            CMP   #$0D                       ; CR
-            BEQ   :S3
-            CPY   MAXLEN
-            BCS   :BELL                      ; Too long, beep
-            CMP   MINCHAR
-            BCC   :R1                        ; <MINCHAR, don't step to next
-            CMP   MAXCHAR
-            BEQ   :R2                        ; =MAXCHAR, step to next
-            BCC   :R2                        ; <MAXCHAR, step to next
-            BCS   :R1                        ; >MAXCHAR, don't step to next
-
-:S3         JSR   OSNEWL
-:EXIT       LDA   ESCFLAG
-            ROL
-            RTS
-;:MAXLEN     DB    $00
-;:MINCH      DB    $00
-;:MAXCH      DB    $00
-
-OSWORD1     LDA   #$00
+            STX   ZP1                        ; Points to filename
+            STY   ZP1+1
+            CMP   #$00                       ; A=$00 = close
+            BEQ   :CLOSE
+            PHA
+            LDA   #<MOSFILE+1
+            STA   ZP2
+            LDA   #>MOSFILE+1
+            STA   ZP2+1
             LDY   #$00
-:L1         STA   (OSCTRL),Y
+:L1         LDA   (ZP1),Y
+            >>>   WRTMAIN
+            STA   (ZP2),Y
+            >>>   WRTAUX
             INY
-            CPY   #$05
+            CMP   #$0D                       ; Carriage return
             BNE   :L1
+            DEY
+            >>>   WRTMAIN
+            STY   MOSFILE                    ; Length (Pascal string)
+            >>>   WRTAUX
+            PLA                              ; Recover options
+            >>>   XF2MAIN,OFILE
+:CLOSE      >>>   WRTMAIN
+            STY   MOSFILE                    ; Write file number
+            >>>   WRTAUX
+            >>>   XF2MAIN,CFILE
+OSFINDRET
+            >>>   ENTAUX
+            PLY                              ; Value of A on entry
+            CPY   #$00                       ; Was it close?
+            BNE   :S1
+            TYA                              ; Preserve A for close
+:S1         PLY
+            PLX
             RTS
 
-OSWORD2     RTS                              ; Nothing to do
-
-OSWORD5     LDA   (OSCTRL)
-            LDY   #$04
-            STA   (OSCTRL),Y
+* OSFSC - miscellanous file system calls
+OSFSC       LDA   #<OSFSCM
+            LDY   #>OSFSCM
+            JSR   PRSTR
             RTS
+OSFSCM      ASC   'OSFSC.'
+            DB    $00
 
-OSWORD6     LDA   #$04
-            LDA   (OSCTRL),Y
-            STA   (OSCTRL)
-            RTS
+* OSGBPB - Get/Put a block of bytes to/from an open file
+GBPBHND     LDA   #<OSGBPBM
+            LDY   #>OSGBPBM
+            JMP   PRSTR
+OSGBPBM     ASC   'OSGBPB.'
+            DB    $00
 
-* OSBYTE HANDLER
-* On entry, A=action
-*           X=first parameter
-*           Y=second parameter if A>$7F
-* On exit,  A=preserved
-*           X=first returned result
-*           Y=second returned result if A>$7F
-*           Cy=any returned status if A>$7F
-BYTEHND     PHA
-            JSR   BYTECALLER
-            PLA
-            RTS
-BYTECALLER
-            CMP   #$00                       ; $00 = identify MOS version
-            BNE   :S02
-            LDX   #$0A
-            RTS
-
-:S02        CMP   #$02                       ; $02 = select input stream
-            BNE   :S03
-            RTS                              ; Nothing to do
-
-:S03        CMP   #$03                       ; $03 = select output stream
-            BNE   :S0B
-            RTS                              ; Nothing to do
-
-:S0B        CMP   #$0B                       ; $0B = set keyboard delay
-            BNE   :S0C
-            RTS                              ; Nothing to do
-
-:S0C        CMP   #$0C                       ; $0C = set keyboard rate
-            BNE   :S0F
-            RTS                              ; Nothing to do
-
-:S0F        CMP   #$0F                       ; $0F = flush buffers
-            BNE   :S7C
-            RTS                              ; Nothing to do
-
-:S7C        CMP   #$7C                       ; $7C = clear escape condition
-            BNE   :S7D
-            LDA   ESCFLAG
-            AND   #$7F                       ; Clear MSbit
-            STA   ESCFLAG
-            RTS
-
-:S7D        CMP   #$7D                       ; $7D = set escape condition
-            BNE   :S7E
-            ROR   ESCFLAG
-            RTS
-
-:S7E        CMP   #$7E                       ; $7E = ack detection of ESC
-            BNE   :S7F
-            LDA   ESCFLAG
-            AND   #$7F                       ; Clear MSB
-            STA   ESCFLAG
-            LDX   #$FF                       ; Means ESC condition cleared
-            RTS
-
-:S7F        CMP   #$7F                       ; $7F = check for EOF
-            BNE   :S80
+* OSBPUT - write one byte to an open file
+BPUTHND     PHX
             PHY
-            JSR   CHKEOF
-            PLY
-            RTS
-
-:S80        CMP   #$80                       ; $80 = read ADC or get buf stat
-            BNE   :S81
-            CPX   #$00                       ; X<0 => info about buffers
-            BMI   :S80BUF                    ; X>=0 read ADC info
-            LDX   #$00                       ; ADC - just return 0
-            LDY   #$00                       ; ADC - just return 0
-            RTS
-:S80BUF     CPX   #$FF                       ; Kbd buf
-            BEQ   :S80KEY
-            CPX   #$FE                       ; RS423
-            BEQ   :NONE
-:ONE        LDX   #$01                       ; For outputs, 1 char free
-            RTS
-:S80KEY     LDX   $C000                      ; Keyboard data/strobe
-            AND   #$80
-            BEQ   :NONE
-            BRA   :ONE
-:NONE       LDX   #$00                       ; No chars in buf
-            RTS
-
-:S81        CMP   #$81                       ; $81 = Read key with time lim
-            BNE   :S82
-            JSR   GETKEY
-            RTS
-
-:S82        CMP   #$82                       ; $82 = read high order address
-            BNE   :S83
-            LDY   #$FF                       ; $FFFF for I/O processor
-            LDX   #$FF
-            RTS
-
-:S83        CMP   #$83                       ; $83 = read bottom of user mem
-            BNE   :S84
-            LDY   #$0E                       ; $0E00
-            LDX   #$00
-            RTS
-
-:S84        CMP   #$84                       ; $84 = read top of user mem
-            BNE   :S85
-            LDY   #$80
-            LDX   #$00
-            RTS
-
-:S85        CMP   #$85                       ; $85 = top user mem for mode
-            BNE   :S86
-            LDY   #$80
-            LDX   #$00
-            RTS
-
-:S86        CMP   #$86                       ; $86 = read cursor pos
-            BNE   :S8B
-            LDY   ROW
-            LDX   COL
-            RTS
-
-:S8B        CMP   #$8B                       ; $8B = *OPT
-            BNE   :S8E
-* TODO: Could implement some FS options here
-*       messages on/off, error behaviour
-            RTS                              ; Nothing to do (yet)
-
-:S8E        CMP   #$8E                       ; $8E = Enter language ROM
-            BNE   :SDA
-
-            LDA   #$09                       ; Print language name at $8009
-            LDY   #$80
-            JSR   PRSTR
-            JSR   OSNEWL
-            JSR   OSNEWL
-
-            SEC                              ; SEC=not entered from RESET
-            LDA   #$01
-            JMP   AUXADDR
-
-:SDA        CMP   #$DA                       ; $DA = clear VDU queue
-            BNE   :SEA
-            RTS
-
-:SEA        CMP   #$EA                       ; $EA = Tube presence
-            BNE   :UNSUPP
-            LDX   #$00                       ; No tube
-            RTS
-
-:UNSUPP     PHX
-            PHY
-            PHA
-            LDA   #<OSBYTEM
-            LDY   #>OSBYTEM
-            JSR   PRSTR
+            PHA                              ; Stash char to write
+            >>>   WRTMAIN
+            STY   MOSFILE                    ; File reference number
+            >>>   WRTAUX
+            >>>   XF2MAIN,FILEPUT
+OSBPUTRET
+            >>>   ENTAUX
+            CLC                              ; Means no error
             PLA
-            JSR   OUTHEX
-            LDA   #<OSBM2
-            LDY   #>OSBM2
-            JSR   PRSTR
             PLY
             PLX
             RTS
 
-OSBYTEM     ASC   'OSBYTE($'
+* OSBGET - read one byte from an open file
+BGETHND     PHX
+            PHY
+            >>>   WRTMAIN
+            STY   MOSFILE                    ; File ref number
+            >>>   WRTAUX
+            >>>   XF2MAIN,FILEGET
+OSBGETRET
+            >>>   ENTAUX
+            CLC                              ; Means no error
+            CPY   #$00                       ; Check error status
+            BEQ   :NOERR
+            SEC                              ; Set carry for error
+            BRA   :EXIT
+:NOERR      CLC
+:EXIT       PLY
+            PLX
+            RTS
+
+* OSARGS - adjust file arguments
+* On entry, A=action
+*           X=>4 byte ZP control block
+*           Y=file handle
+ARGSHND     PHA
+            PHX
+            PHY
+            CPY   #$00
+            BNE   :HASFILE
+            CMP   #$00                       ; Y=0,A=0 => current file sys
+            BNE   :S1
+            PLY
+            PLX
+            PLA
+            LDA   #$09                       ; Hosted filing system
+            RTS
+:S1         CMP   #$01                       ; Y=0,A=1 => addr of CLI
+            BNE   :S2
+* TODO: Implement this for *RUN and *command
+            JSR   BEEP
+            BRA   :IEXIT
+:S2         CMP   #$FF                       ; Y=0,A=FF => flush all files
+            BNE   :IEXIT
+            >>>   WRTMAIN
+            STZ   MOSFILE                    ; Zero means flush all
+            >>>   WRTAUX
+            BRA   :IFLUSH
+:HASFILE    >>>   WRTMAIN
+            STY   MOSFILE                    ; File ref num
+            STX   MOSFILE+1                  ; Pointer to ZP control block
+            >>>   WRTAUX
+            CMP   #$00                       ; Y!=0,A=0 => read seq ptr
+            BNE   :S3
+            >>>   WRTMAIN
+            STZ   MOSFILE+2                  ; 0 means get pos
+            >>>   WRTAUX
+            >>>   XF2MAIN,TELL
+:IEXIT      BRA   :IEXIT2
+:IFLUSH     BRA   :FLUSH
+:S3         CMP   #$01                       ; Y!=0,A=1 => write seq ptr
+            BNE   :S4
+            >>>   WRTMAIN
+            LDA   $00,X
+            STA   MOSFILE+2
+            LDA   $01,X
+            STA   MOSFILE+3
+            LDA   $02,X
+            STA   MOSFILE+4
+            >>>   WRTAUX
+            >>>   XF2MAIN,SEEK
+:IEXIT2     BRA   :EXIT
+:S4         CMP   #$02                       ; Y!=0,A=2 => read file len
+            BNE   :S5
+            >>>   WRTMAIN
+            STA   MOSFILE+2                  ; Non-zero means get len
+            >>>   WRTAUX
+            >>>   XF2MAIN,TELL
+:S5         CMP   #$FF                       ; Y!=0,A=FF => flush file
+            BNE   :EXIT
+:FLUSH      >>>   XF2MAIN,FLUSH
+:EXIT       PLY
+            PLX
+            PLA
+            RTS
+OSARGSRET
+            >>>   ENTAUX
+            PLY
+            PLX
+            PLA
+            RTS
+
+* OSFILE - perform actions on entire files
+* On entry, A=action
+*           XY=>control block
+* On exit,  A=preserved if unimplemented
+*           A=0 object not found (not load/save)
+*           A=1 file found
+*           A=2 directory found
+*           XY  preserved
+*               control block updated
+FILEHND     PHX
+            PHY
+            PHA
+
+            STX   ZP1                        ; LSB of parameter block
+            STY   ZP1+1                      ; MSB of parameter block
+            LDA   #<FILEBLK
+            STA   ZP2
+            LDA   #>FILEBLK
+            STA   ZP2+1
+            LDY   #$00                       ; Copy to FILEBLK in main mem
+:L1         LDA   (ZP1),Y
+            >>>   WRTMAIN
+            STA   (ZP2),Y
+            >>>   WRTAUX
+            INY
+            CPY   #$12
+            BNE   :L1
+
+            LDA   (ZP1)                      ; Pointer to filename->ZP2
+            STA   ZP2
+            LDY   #$01
+            LDA   (ZP1),Y
+            STA   ZP2+1
+            LDA   #<MOSFILE+1                ; ZP1 is dest pointer
+            STA   ZP1
+            LDA   #>MOSFILE+1
+            STA   ZP1+1
+            LDA   (ZP2)                      ; Look at first char of filename
+            CMP   #'9'+1
+            BCS   :NOTDIGT
+            CMP   #'0'
+            BCC   :NOTDIGT
+            LDA   #'N'                       ; Prefix numeric with 'N'
+            >>>   WRTMAIN
+            STA   (ZP1)
+            >>>   WRTAUX
+            LDY   #$01                       ; Increment Y
+            DEC   ZP2                        ; Decrement source pointer
+            LDA   ZP2
+            CMP   #$FF
+            BNE   :L2
+            DEC   ZP2+1
+            BRA   :L2
+:NOTDIGT    LDY   #$00
+:L2         LDA   (ZP2),Y
+            >>>   WRTMAIN
+            STA   (ZP1),Y
+            >>>   WRTAUX
+            INY
+            CMP   #$21                       ; Space or Carriage return
+            BCS   :L2
+            DEY
+            >>>   WRTMAIN
+            STY   MOSFILE                    ; Length (Pascal string)
+            >>>   WRTAUX
+
+            PLA                              ; Get action back
+            PHA
+            BEQ   :S1                        ; A=00 -> SAVE
+            CMP   #$FF
+            BEQ   :S2                        ; A=FF -> LOAD
+
+            LDA   #<OSFILEM                  ; If not implemented, print msg
+            LDY   #>OSFILEM
+            JSR   PRSTR
+            PLA
+            PHA
+            JSR   OUTHEX
+            LDA   #<OSFILEM2
+            LDY   #>OSFILEM2
+            JSR   PRSTR
+            PLA                              ; Not implemented, return unchanged
+            PLY
+            PLX
+            RTS
+:S1         >>>   XF2MAIN,SAVEFILE
+:S2         >>>   XF2MAIN,LOADFILE
+OSFILERET
+            >>>   ENTAUX
+            PLY                              ; Value of A on entry
+            CPY   #$FF                       ; LOAD
+            BNE   :S4                        ; Deal with return from SAVE
+
+            CMP   #$01                       ; No file found
+            BNE   :SL1
+            BRK
+            DB    $D6                        ; $D6 = Object not found
+            ASC   'File not found'
+            BRK
+
+:SL1        CMP   #$02                       ; Read error
+            BNE   :SL2
+            BRK
+            DB    $CA                        ; $CA = Premature end, 'Data lost'
+            ASC   'Read error'
+            BRK
+
+:SL2        LDA   #$01                       ; Return code - file found
+            BRA   :EXIT
+
+:S4         CPY   #$00                       ; Return from SAVE
+            BNE   :S6
+            CMP   #$01                       ; Unable to create or open
+            BNE   :SS1
+            BRK
+            DB    $C0                        ; $C0 = Can't create file to save
+            ASC   'Can'
+            DB    $27
+            ASC   't save file'
+            BRK
+
+:SS1        CMP   #$02                       ; Unable to write
+            BNE   :S6
+            BRK
+            DB    $CA                        ; $CA = Premature end, 'Data lost'
+            ASC   'Write error'
+            BRK
+
+:S6         LDA   #$00
+:EXIT       PLY
+            PLX
+            RTS
+
+OSFILEM     ASC   'OSFILE($'
             DB    $00
-OSBM2       ASC   ').'
+OSFILEM2    ASC   ')'
             DB    $00
+
+* Performs OSBYTE $7F EOF function
+* File ref number is in X
+CHKEOF      >>>   WRTMAIN
+            STX   MOSFILE                    ; File reference number
+            >>>   WRTAUX
+            >>>   XF2MAIN,FILEEOF
+CHKEOFRET
+            >>>   ENTAUX
+            TAX                              ; Return code -> X
+            RTS
+
+* KERNEL.S
+*********************************************************
+* AppleMOS Kernel
+*********************************************************
+
+* KERNEL/STARTUP.S
+******************
+* KERNEL/SWROM.S
+****************
+
+BYTE8E      PHP                              ; Save CLC=RESET, SEC=Not RESET
+            LDA   #$09                       ; $8E = Enter language ROM
+            LDY   #$80                       ; Print language name at $8009
+            JSR   PRSTR
+            JSR   OSNEWL
+            JSR   OSNEWL
+
+            PLP                              ; Get entry type back
+            LDA   #$01
+            JMP   AUXADDR
+
+SERVICE     RTS
+
+* KERNEL/OSCLI.S
+****************
 
 * OSCLI HANDLER
 * On entry, XY=>command string
@@ -1265,10 +881,9 @@ CLIHND      PHX
             BCS   :ASKROM
             JSR   STARHELP
             BRA   :EXIT
-:ASKROM
-            LDA   $8006                     ; Check for service entry
-            BPL   :UNSUPP                   ; No service entry
-;            LDA   $8003                      ; Check service entry
+:ASKROM     LDA   $8006                      ; Check for service entry
+            BPL   :UNSUPP                    ; No service entry
+;            LDA   $8003                      ; Check for service entry
 ;            CMP   #$4C                       ; Not a JMP?
 ;            BNE   :UNSUPP                    ; Only BASIC has no srvc entry
             LDA   ZP1                        ; String in (OSLPTR),Y
@@ -1279,6 +894,8 @@ CLIHND      PHX
             LDA   #$04                       ; Service 4 Unrecognized Cmd
             LDX   #$0F                       ; ROM slot
             JSR   $8003                      ; Service entry point
+            TAX                              ; Check return
+            BEQ   :EXIT                      ; Call claimed
 
 :UNSUPP     LDA   #<:OSCLIM
             LDY   #>:OSCLIM
@@ -1339,6 +956,8 @@ STRCMP      LDY   #$00
             CMP   #$0D
             BEQ   :MATCH
             CMP   #' '
+            BEQ   :MATCH
+            CMP   #'"'
             BEQ   :MATCH
             BRA   :MISMTCH
 :MATCH      CLC
@@ -1426,28 +1045,35 @@ PRONEENT    TAX
 :S2         JSR   OSNEWL
 :EXIT       RTS
 
-* Consume spaces in command line
+* Consume spaces in command line. Treat " as space!
 * Return C set if no space found, C clear otherwise
 * Command line pointer in (ZP1),Y
-EATSPC      LDA   (ZP1),Y                    ; Check first char is space
-            CMP   #' '
-            BNE   :NOTFND
-            INY
-:L1         LDA   (ZP1),Y                    ; Eat any additional spaces
-            CMP   #' '
+EATSPC      LDA   (ZP1),Y                    ; Check first char is ...
+            CMP   #' '                       ; ... space
+            BEQ   :START
+            CMP   #'"'                       ; Or quote mark
+            BEQ   :START
+            BRA   :NOTFND
+:START      INY
+:L1         LDA   (ZP1),Y                    ; Eat any additional ...
+            CMP   #' '                       ; ... spaces
+            BEQ   :CONT
+            CMP   #'"'                       ; Or quote marks
             BNE   :DONE
-            INY
+:CONT       INY
             BRA   :L1
 :DONE       CLC
             RTS
 :NOTFND     SEC
             RTS
 
-* Consume non-spaces in command line
+* Consume chars in command line until space or " is found
 * Command line pointer in (ZP1),Y
 * Returns with carry set if EOL
 EATWORD     LDA   (ZP1),Y
             CMP   #' '
+            BEQ   :SPC
+            CMP   #'"'
             BEQ   :SPC
             CMP   #$0D                       ; Carriage return
             BEQ   :EOL
@@ -1467,16 +1093,16 @@ STARDIR     JSR   EATSPC                     ; Eat leading spaces
 :L3         LDA   (ZP1),Y
             CMP   #$0D
             BEQ   :S3
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STA   MOSFILE,X
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             INY
             INX
             BRA   :L3
 :S3         DEX
-            STA   $C004                      ; Write main
+            >>>   WRTMAIN
             STX   MOSFILE                    ; Length byte
-            STA   $C005                      ; Write aux
+            >>>   WRTAUX
             >>>   XF2MAIN,SETPFX
 STARDIRRET
             >>>   ENTAUX
@@ -1636,9 +1262,15 @@ STARSAVE    JSR   CLRCB
 
 * Handle *RUN command
 * On entry, ZP1 points to command line
-* TODO: Write this!!
-STARRUN
-            RTS
+STARRUN     TYA
+            CLC
+            ADC ZP1
+            TAX
+            LDA #$00
+            ADC ZP2
+            TAY
+            LDA #$04
+CALLFSCV    JMP (FSCV)                     ; Hand on to filing system
 
 * Clear OSFILE control block to zeros
 CLRCB       LDA   #$00
@@ -1648,6 +1280,465 @@ CLRCB       LDA   #$00
             CPX   #18
             BNE   :L1
             RTS
+
+************************
+* OSWORD/OSBYTE dispatch
+************************
+
+* OSWORD:
+* On entry, A=action
+*           XY=>control block
+* On exit,  A=preserved
+*           X,Y,Cy trashed (except OSWORD 0)
+*           control block updated
+*
+WORDHND     PHA
+            PHP
+            SEI
+            STA   OSAREG          ; Store registers
+            STX   OSCTRL+0        ; Point to control block
+            STY   OSCTRL+1
+            LDX   #$08            ; X=SERVWORD
+            CMP   #$E0            ; User OSWORD
+            BCS   WORDGO1
+            CMP   #WORDMAX+1
+            BCS   BYTWRDFAIL      ; Pass on to service call
+            ADC   #WORDOFF
+            BCC   BYTWRDCALL      ; Call OSWORD routine
+WORDGO1     LDA   #WORDOFF+WORDMAX+1
+            BCS   BYTWRDCALL      ; Call User OSWORD routine
+
+* OSBYTE:
+* On entry, A=action
+*           X=first parameter
+*           Y=second parameter if A>$7F
+* On exit,  A=preserved
+*           X=first returned result
+*           Y=second returned result if A>$7F
+*           Cy=any returned status if A>$7F
+*
+BYTEHND     PHA
+            PHP
+            SEI
+            STA   OSAREG          ; Store registers
+            STX   OSXREG
+            STY   OSYREG
+            LDX   #$07            ; X=SERVBYTE
+            CMP   #$A6
+            BCS   BYTEGO1         ; OSBYTE &A6+
+            CMP   #BYTEMAX+1
+            BCS   BYTWRDFAIL      ; Pass on to service call
+            CMP   #BYTEHIGH
+            BCS   BYTEGO2         ; High OSBYTEs
+            CMP   #BYTELOW+1
+            BCS   BYTWRDFAIL      ; Pass on to service call
+            STZ   OSYREG          ; Prepare Y=0 for low OSBYTEs
+            BCC   BYTEGO3
+
+BYTEGO1     LDA   #BYTEMAX+1          ; Index for BYTEVAR
+BYTEGO2     SBC   #BYTEHIGH-BYTELOW-1 ; Reduce OSBYTE number
+BYTEGO3     ORA   #$80                ; Will become CS=OSBYTE call
+
+BYTWRDCALL  ASL   A               ; Index into dispatch table
+            TAY                   ; Y=offset into dispatch table
+;           BIT   FXNETCLAIM      ; Check Econet intercept flag
+;           BPL   BYTWRDNONET     ; No intercept, skip past
+;           TXA                   ; Set A=BYTE or WORD call
+;           CLV                   ; Clear V
+;           JSR   CALLNET         ; Call Econet with X=call type
+;           BVS   BYTWRDEXIT      ; V now set, claimed by NETV, return
+
+BYTWRDNONET LDA   BYTWRDADDR+1,Y  ; Get routine address
+            STA   OSINTWS+1
+            LDA   BYTWRDADDR+0,Y
+            STA   OSINTWS+0
+            LDA   OSAREG          ; Get A parameter back
+            LDY   OSYREG          ; Get Y parameter back
+            LDX   OSXREG          ; Get X parameter, set EQ from it
+            BCS   BYTWRDGO        ; Skip if OSBYTE call
+            LDY   #$00            ; OSWORD call, enter with Y=0
+            LDA   (OSCTRL),Y      ; and A=first byte in control block, set EQ from it
+            SEC                   ; Enter routine with CS
+BYTWRDGO    JSR   JMPADDR         ; Call the routine
+* Routines are entered with:
+*  A=OSBYTE call or first byte of OSWORD control block
+*  X=X parameter
+*  Y=OSBYTE Y parameter for A>$7F
+*  Y=$00 for OSBYTE A<$80
+*  Y=$00 for OSWORD so (OSCTRL),Y => first byte
+*  Carry Set
+*  EQ set from OSBYTE X or from OSWORD first byte
+* X,Y,Cy from routine returned to caller
+
+BYTWRDEXIT  ROR   A               ; Move Carry to A
+            PLP                   ; Restore original flags
+            ROL   A               ; Move Carry back to flags
+            PLA                   ; Restore A
+            CLV                   ; Clear V = Actioned
+            RTS
+
+BYTWRDFAIL
+;           JSR   SERVICE         ; Offer to sideways ROMs
+;           LDX   OSXREG          ; Get returned X
+;           CMP   #$00
+;           BEQ   BYTWRDEXIT      ; Claimed, return
+            JSR   UNSUPBYTWRD     ; *DEBUG*
+            LDX   #$FF            ; X=&FF if unclaimed (normally set within SERVICE)
+            PLP                   ; Restore IRQs
+            PLA                   ; Restore A
+            BIT   SETV            ; Set V = Not actioned
+            RTS
+
+SETV                              ; JMP() is $6C, bit 6 set, use to set V
+JMPADDR     JMP   ((OSINTWS))
+
+
+*************************
+* OSBYTE DISPATCH TABLE *
+*************************
+
+BYTWRDADDR  DW    BYTE00   ; OSBYTE   0 - Machine host
+;           DW    BYTE01   ; OSBYTE   1 - User flag
+;           DW    BYTE02   ; OSBYTE   2 - OSRDCH source
+;           DW    BYTE03   ; OSBYTE   3 - OSWRCH dest
+;           DW    BYTE04   ; OSBYTE   4 - Cursor keys
+BYTWRDLOW
+BYTELOW     EQU   {BYTWRDLOW-BYTWRDADDR}/2-1          ; Maximum low OSBYTE
+BYTEHIGH    EQU   $7C                                 ; First high OSBYTE
+            DW    BYTE7C   ; OSBYTE 124 - Clear Escape
+            DW    BYTE7D   ; OSBYTE 125 - Set Escape
+            DW    BYTE7E   ; OSBYTE 126 - Ack. Escape
+            DW    BYTE7F   ; OSBYTE 127 - Read EOF
+            DW    BYTE80   ; OSBYTE 128 - ADVAL
+            DW    BYTE81   ; OSBYTE 129 - INKEY
+            DW    BYTE82   ; OSBYTE 130 - Memory high word
+            DW    BYTE83   ; OSBYTE 131 - MEMBOT
+            DW    BYTE84   ; OSBYTE 132 - MEMTOP
+            DW    BYTE85   ; OSBYTE 133 - MEMTOP for MODE
+            DW    BYTE86   ; OSBYTE 134 - POS, VPOS
+            DW    BYTE87   ; OSBYTE 135 - Character, MODE
+;           DW    BYTE88   ; OSBYTE 136 - *CODE
+;           DW    BYTE89   ; OSBYTE 137 - *MOTOR
+;           DW    BYTE8A   ; OSBYTE 138 - Buffer insert
+;           DW    BYTE8B   ; OSBYTE 139 - *OPT
+;           DW    BYTE8C   ; OSBYTE 140 - *TAPE
+;           DW    BYTE8D   ; OSBYTE 141 - *ROM
+;           DW    BYTE8E   ; OSBYTE 142 - Enter language
+;           DW    BYTE8F   ; OSBYTE 143 - Service call
+BYTWRDTOP
+            DW    BYTEVAR  ; OSBYTE 166+ - Read/Write OSBYTE variable
+BYTEMAX     EQU   {BYTWRDTOP-BYTWRDLOW}/2+BYTEHIGH-1  ; Maximum high OSBYTE
+
+*************************
+* OSWORD DISPATCH TABLE *
+*************************
+OSWBASE     DW    WORD00   ; OSWORD  0 - Read input line
+            DW    WORD01   ; OSWORD  1 - Read elapsed time
+            DW    WORD02   ; OSWORD  2 - Write eleapsed time
+            DW    WORD03   ; OSWORD  3 - Read interval timer
+            DW    WORD04   ; OSWORD  4 - Write interval timer
+            DW    WORD05   ; OSWORD  5 - Read I/O memory
+            DW    WORD06   ; OSWORD  6 - Write I/O memory
+;           DW    WORD07   ; OSWORD  7 - SOUND
+;           DW    WORD08   ; OSWORD  8 - ENVELOPE
+;           DW    WORD09   ; OSWORD  9 - POINT
+;           DW    WORD0A   ; OSWORD 10 - Read character bitmap
+;           DW    WORD0B   ; OSWORD 11 - Read palette
+;           DW    WORD0C   ; OSWORD 12 - Write palette
+;           DW    WORD0D   ; OSWORD 13 - Read coordinates
+OSWEND
+            DW    WORDE0   ; OSWORD &E0+ - User OSWORD
+WORDOFF     EQU   {OSWBASE-BYTWRDADDR}/2              ; Offset to start of OSWORD table
+WORDMAX     EQU   {OSWEND-OSWBASE}/2-1                ; Maximum OSWORD
+
+* OSWORD &00 - Read a line of input
+***********************************
+* On entry, (OSCTRL)=>control block
+*           Y=0, A=(OSCTRL)
+* On exit,  Y=length of line, offset to <cr>
+*           CC = Ok, CS = Escape
+*
+
+WORD00    IF MAXLEN-OSTEXT-2
+            LDY   #$04
+:WORD00LP1  LDA   (OSCTRL),Y         ; Copy MAXLEN, MINCH, MAXCH to workspace
+            STA   MAXLEN-2,Y
+            DEY
+            CPY   #$02
+            BCS   :WORD00LP1
+:WORD00LP2  LDA   (OSCTRL),Y         ; (OSTEXT)=>line buffer
+            STA   OSTEXT,Y
+            DEY
+            BPL   :WORD00LP2
+            INY                      ; Initial line length = zero
+          ELSE
+            LDA   (OSCTRL),Y         ; Copy control block 
+            STA   OSTEXT,Y           ; 0,1 => text
+            INY                      ;  2  = MAXLEN 
+            CPY   #$05               ;  3  = MINCHAR
+            BCC   WORD00             ;  4  = MAXCHAR
+            LDY   #$00               ; Initial line length = zero
+          FIN
+;           STY   FXLINES            ; Reset line counter
+            CLI
+            BEQ   :WORD00LP          ; Enter main loop
+
+:WORD00BELL LDA   #$07               ; $07=BELL
+            DEY                      ; Balance next INY
+:WORD00NEXT INY                      ; Step to next character
+:WORD00ECHO JSR   OSWRCH             ; Print character
+
+:WORD00LP   JSR   OSRDCH
+            BCS   :WORD00ESC         ; Escape
+;           TAX                      ; Save character in X for a mo
+;           LDA   FXVAR03            ; Get FX3 destination
+;           ROR   A
+;           ROR   A                  ; Move bit 1 into Carry
+;           TXA                      ; Get character back
+;           BCS   :WORD00TEST        ; VDU disabled, ignore VDU queue
+;           LDX   FXVDUQLEN          ; Get length of VDU queue
+;           BNE   :WORD00ECHO        ; Not zero, just print and loop
+:WORD00TEST CMP   #$7F               ; Delete
+            BNE   :WORD00CHAR
+            CPY   #$00
+            BEQ   :WORD00LP          ; Nothing to delete
+            DEY                      ; Back up one character
+            BCS   :WORD00ECHO        ; Loop back to print DEL
+:WORD00CHAR CMP   #$15               ; Ctrl-U
+            BNE   :WORD00INS         ; No, insert character
+            LDA   #$7F               ; Delete character
+            INY                      ; Balance first DEY
+:WORD00ALL  DEY                      ; Back up one character
+            BEQ   :WORD00LP          ; Beginning of line
+            JSR   OSWRCH             ; Print DELETE
+            JMP   :WORD00ALL         ; Loop to delete all
+:WORD00INS  STA   (OSTEXT),Y         ; Store the character
+            CMP   #$0D
+            BEQ   :WORD00CR          ; CR - Done
+            CPY   MAXLEN
+            BCS   :WORD00BELL        ; Too long, beep
+            CMP   MINCHAR
+            BCC   :WORD00ECHO        ; <MINCHAR, don't step to next
+            CMP   MAXCHAR
+            BCC   :WORD00NEXT        ; <MAXCHAR, step to next
+            BEQ   :WORD00NEXT        ; =MAXCHAR, step to next
+            BCS   :WORD00ECHO        ; >MAXCHAR, don't step to next
+
+:WORD00CR   JSR   OSNEWL
+;           JSR   CALLNET            ; Call Econet Vector with A=13
+:WORD00ESC  LDA   ESCFLAG            ; Get Escape flag
+            ROL   A                  ; Carry=Escape state
+            RTS
+
+* OSWORD &01 - Read elapsed time
+* OSWORD &02 - Write elapsed time
+* OSWORD &03 - Read countdown timer
+* OSWORD &04 - Write countdown timer
+************************************
+* On entry, (OSCTRL)=>control block
+*           Y=0
+
+WORD01      TYA              ; Dummy, just return zero
+:WORD01LP   STA   (OSCTRL),Y
+            INY
+            CPY   #$05
+            BCC   :WORD01LP
+WORD04
+WORD03
+WORD02      RTS              ; Dummy, do nothing
+
+* OSWORD &05 - Read I/O memory
+* OSWORD &06 - Write I/O memory
+***********************************
+* On entry, (OSCTRL)+0 address
+*           (OSCTRL)+4 byte read or written
+*           Y=0, A=(OSCTRL)
+
+WORD05      JSR   :GETADDR     ; Point to address, set X and Y
+; needs to switch to main memory
+            LDA   (OSINTWS)    ; Get byte
+; needs to switch back
+            STA   (OSCTRL),Y   ; Store it
+            RTS
+WORD06      JSR   :GETADDR     ; Point to address, set X and Y
+            LDA   (OSCTRL),Y   ; Get byte
+; needs to switch to main memory
+            STA   (OSINTWS)    ; Store it
+; needs to switch back
+            RTS
+:GETADDR    STA   OSINTWS+0    ; (OSINTWS)=>byte to read/write
+            INY
+            LDA   (OSCTRL),Y
+            STA   OSINTWS+1
+            LDY   #$04         ; Point Y to data byte
+            RTS
+
+* KERNEL/BWMISC.S
+*****************
+* Here until tidied
+
+
+BYTE00      LDX   #$0A                       ; $00 = identify Host
+            RTS
+
+BYTE7C      LDA   ESCFLAG                    ; $7C = clear escape condition
+            AND   #$7F                       ; Clear MSbit
+            STA   ESCFLAG
+            RTS
+
+BYTE7D      ROR   ESCFLAG                    ; $7D = set escape condition
+            RTS
+
+BYTE7E      LDA   ESCFLAG                    ; $7E = ack detection of ESC
+            AND   #$7F                       ; Clear MSB
+            STA   ESCFLAG
+            LDX   #$FF                       ; Means ESC condition cleared
+            RTS
+
+BYTE7F      PHY                              ; $7F = check for EOF
+            JSR   CHKEOF
+            PLY
+            RTS
+
+                     ; $80 = read ADC or get buf stat
+BYTE80      CPX   #$00                       ; X<0 => info about buffers
+            BMI   :S80BUF                    ; X>=0 read ADC info
+            LDX   #$00                       ; ADC - just return 0
+            LDY   #$00                       ; ADC - just return 0
+            RTS
+:S80BUF     CPX   #$FF                       ; Kbd buf
+            BEQ   :S80KEY
+            CPX   #$FE                       ; RS423
+            BEQ   :NONE
+:ONE        LDX   #$01                       ; For outputs, 1 char free
+            RTS
+:S80KEY     LDX   $C000                      ; Keyboard data/strobe
+            AND   #$80
+            BEQ   :NONE
+            BRA   :ONE
+:NONE       LDX   #$00                       ; No chars in buf
+            RTS
+
+BYTE81      JSR   GETKEY                     ; $81 = Read key with time lim
+            RTS
+
+BYTE82      LDY   #$00                       ; $82 = read high order address
+            LDX   #$00                       ; $0000 for language processor
+            RTS
+
+BYTE83      LDY   #$0E                       ; $83 = read bottom of user mem
+            LDX   #$00                       ; $0E00
+            RTS
+
+BYTE84      LDY   #$80                       ; $84 = read top of user mem
+            LDX   #$00
+            RTS
+
+BYTE85      LDY   #$80                       ; $85 = top user mem for mode
+            LDX   #$00
+            RTS
+
+BYTE86      LDY   ROW                        ; $86 = read cursor pos
+            LDX   COL
+            RTS
+
+BYTE8B      LDA    #$00                      ; $8B = *OPT
+            JMP    ((FSCV))                  ; Hand over to filing system
+
+BYTEDA      RTS                              ; $DA = clear VDU queue
+
+BYTEEA      LDX   #$00                       ; No tube
+            RTS                              ; $EA = Tube presence
+
+UNSUPBYTWRD
+            LDA   #<OSBYTEM
+            LDY   #>OSBYTEM
+            CPX   #7
+            BEQ   UNSUPGO
+            LDA   #<OSWORDM
+            LDY   #>OSWORDM
+UNSUPGO     JSR   PRSTR
+            LDA   OSAREG
+            JSR   OUTHEX
+            LDA   #<OSBM2
+            LDY   #>OSBM2
+            JMP   PRSTR
+
+OSBYTEM     ASC   'OSBYTE($'
+            DB    $00
+OSWORDM     ASC   'OSWORD($'
+            DB    $00
+OSBM2       ASC   ').'
+            DB    $00
+
+BYTEVAR     LDX   #$00
+            LDY   #$00
+BYTE87
+WORDE0      RTS
+
+* KERNEL/MISC.S
+***************
+
+* OSWRCH handler
+* All registers preserved
+WRCHHND     PHA
+            PHX
+            PHY
+* TODO Check any output redirections
+* TODO Check any spool output
+            JSR   OUTCHAR
+* TODO Check any printer output
+            PLY
+            PLX
+            PLA
+            RTS
+
+* OSRDCH handler
+* All registers preserved except A,Cy
+* Read a character from the keyboard
+RDCHHND     PHX
+            PHY
+            JSR   GETCHRC
+            STA   OLDCHAR
+:L1         LDA   CURS+1                     ; Skip unless CURS=$8000
+            CMP   #$80
+            BNE   :S1
+            LDA   CURS
+            BNE   :S1
+
+            STZ   CURS
+            STZ   CURS+1
+            LDA   CSTATE
+            ROR
+            BCS   :S2
+            LDA   #'_'
+            BRA   :S3
+:S2         LDA   OLDCHAR
+:S3         JSR   PRCHRC
+            INC   CSTATE
+:S1         INC   CURS
+            BNE   :S4
+            INC   CURS+1
+:S4         LDA   $C000                      ; Keyboard data/strobe
+            BPL   :L1
+            LDA   OLDCHAR                    ; Erase cursor
+            JSR   PRCHRC
+            LDA   $C000
+            AND   #$7F
+            STA   $C010                      ; Clear strobe
+            PLY
+            PLX
+            CMP   #$1B                       ; Escape pressed?
+            BNE   :S5
+            SEC                              ; Return CS
+            ROR   ESCFLAG
+            SEC
+            RTS
+:S5         CLC
+            RTS
+CURS        DW    $0000                      ; Counter
+CSTATE      DB    $00                        ; Cursor on or off
+OLDCHAR     DB    $00                        ; Char under cursor
 
 * Performs OSBYTE $80 function
 * Read ADC channel or get buffer status
@@ -1667,17 +1758,6 @@ OSBYTE80    CPX   #$00                       ; X=0 Last ADC channel
             LDX   #$FF                       ; Spaced remaining in o/p
             RTS
 :INPUT      LDX   #$00                       ; Nothing in input buf
-            RTS
-
-* Performs OSBYTE $7F EOF function
-* File ref number is in X
-CHKEOF      STA   $C004                      ; Write main mem
-            STX   MOSFILE                    ; File reference number
-            STA   $C005                      ; Write aux mem
-            >>>   XF2MAIN,FILEEOF
-CHKEOFRET
-            >>>   ENTAUX
-            TAX                              ; Return code -> X
             RTS
 
 * Performs OSBYTE $81 INKEY$ function
@@ -1723,6 +1803,10 @@ NEGKEY      LDX   #$00                       ; Unimplemented
             LDY   #$00
             RTS
 
+***********************************************************
+* Helper functions
+***********************************************************
+
 * Beep
 BEEP        PHA
             PHX
@@ -1750,15 +1834,66 @@ DELAY       PHX
             PLX
             RTS
 
+* Print string pointed to by X,Y to the screen
+OUTSTR      TXA
+
+* Print string pointed to by A,Y to the screen
+PRSTR       STA   OSTEXT+0                  ;  String in A,Y
+            STY   OSTEXT+1
+:L1         LDA   (OSTEXT)                  ; Ptr to string in ZP3
+            BEQ   :S1
+            JSR   OSASCI
+            INC   OSTEXT
+            BNE   :L1
+            INC   OSTEXT+1
+            BRA   :L1
+:S1         RTS
+
+* Print XY in hex
+OUT2HEX     TYA
+            JSR   OUTHEX
+            TAX                             ; Continue into OUTHEX
+
+* Print hex byte in A
+OUTHEX      PHA
+            LSR
+            LSR
+            LSR
+            LSR
+            AND   #$0F
+            JSR   PRNIB
+            PLA
+            AND   #$0F                       ; Continue into PRNIB
+;           JSR   PRNIB
+;           RTS
+
+* Print hex nibble in A
+PRNIB       CMP   #$0A
+            BCC   :S1
+            CLC                              ; >= $0A
+            ADC   #'A'-$0A
+            JSR   OSWRCH
+            RTS
+:S1         ADC   #'0'                       ; < $0A
+            JMP   OSWRCH
+
+**********************************************************
+* Interrupt Handlers, MOS redirection vectors etc.
+**********************************************************
+
 * IRQ/BRK handler
-IRQBRKHDLR  PHA
+IRQBRKHDLR
+            PHA
+            >>>   WRTMAIN
+            STA   $45                        ; A->$45 for ProDOS IRQ handlers
+            >>>   WRTAUX
             TXA
             PHA
             CLD
             TSX
             LDA   $103,X                     ; Get PSW from stack
             AND   #$10
-            BEQ   :S1                        ; IRQ
+            BEQ   :IRQ                       ; IRQ
             SEC
             LDA   $0104,X
             SBC   #$01
@@ -1772,7 +1907,8 @@ IRQBRKHDLR  PHA
             CLI
             JMP   (BRKV)                     ; Pass on to BRK handler
 
-:S1                                          ; TODO: No Apple IRQs handled
+:IRQ        >>>   XF2MAIN,A2IRQ
+IRQBRKRET
             PLA                              ; TODO: Pass on to IRQ1V
             TAX
             PLA
@@ -1799,25 +1935,30 @@ MSGBRK      DB    $0D
             ASC   "ERROR: "
             DB    $00
 
-;DEFBRKHDLR
-;            LDA   #<BRKM
-;            LDY   #>BRKM
-;            JSR   PRSTR
-;            PLA
-;            PLX
-;            PLY
-;            PHY
-;            PHX
-;            PHA
-;            JSR   OUT2HEX
-;            LDA   #<BRKM2
-;            LDY   #>BRKM2
-;            JSR   PRSTR
-;            RTI
-;BRKM        ASC   "BRK($"
-;            DB    $00
-;BRKM2       ASC   ")."
-;            DB    $00
+RDROM       LDA   #<OSRDRMM
+            LDY   #>OSRDRMM
+            JMP   PRSTR
+OSRDRMM     ASC   'OSRDDRM.'
+            DB    $00
+
+EVENT       LDA   #<OSEVENM
+            LDY   #>OSEVENM
+            JMP   PRSTR
+OSEVENM     ASC   'OSEVEN.'
+            DB    $00
+
+GSINTGO     LDA   #<OSINITM
+            LDY   #>OSINITM
+            JMP   PRSTR
+OSINITM     ASC   'GSINITM.'
+            DB    $00
+
+GSRDGO      LDA   #<OSREADM
+            LDY   #>OSREADM
+            JMP   PRSTR
+OSREADM     ASC   'GSREAD.'
+            DB    $00
+
 
 * Default page 2 contents
 DEFVEC      DW    NULLRTS                    ; $200 USERV
@@ -1898,11 +2039,7 @@ MOSEND
             DW    IRQBRKHDLR                 ; FFFE IRQVEC
 MOSVEND
 
-
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      DS    $200
 
-*
-* END OF PART OF KERNEL.S
-*************************
-
+

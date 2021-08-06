@@ -5,6 +5,14 @@
 * This code is mostly glue between the BBC Micro code
 * which runs in aux mem and Apple II ProDOS.
 
+* Trampoline in main memory used by aux memory IRQ handler
+* to invoke Apple II / ProDOS IRQs in main memory
+A2IRQ       >>>   ENTMAIN
+            JSR   A2IRQ2
+            >>>   XF2AUX,IRQBRKRET
+A2IRQ2      PHP                      ; Fake things to look like IRQ
+            JMP   (A2IRQV)           ; Call Apple II ProDOS ISR
+
 * Set prefix if not already set
 SETPRFX     LDA   #GPFXCMD
             STA   :OPC7              ; Initialize cmd byte to $C7
@@ -217,7 +225,7 @@ FINDBUF     LDX   #$00
 :END        RTS
 
 * ProDOS file handling for MOS OSBGET call
-* Returns with char read in A and error num in X (or 0)
+* Returns with char read in A and error num in Y (or 0)
 FILEGET     >>>   ENTMAIN
             LDA   MOSFILE            ; File ref number
             STA   READPL2+1
@@ -227,7 +235,7 @@ FILEGET     >>>   ENTMAIN
             BCC   :NOERR
             TAY                      ; Error number in Y
             BRA   :EXIT
-:NOERR      LDX   #$00
+:NOERR      LDY   #$00
             LDA   BLKBUF
 :EXIT       >>>   XF2AUX,OSBGETRET
 
@@ -435,7 +443,7 @@ SAVEFILE    >>>   ENTMAIN
             STA   CREATEPL+3
             LDA   #$06               ; Filetype BIN
             STA   CREATEPL+4
-            LDA   FBLOAD             ; Address = load address
+            LDA   FBLOAD             ; Auxtype = load address
             STA   CREATEPL+5
             LDA   FBLOAD+1
             STA   CREATEPL+6
