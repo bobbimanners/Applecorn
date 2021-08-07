@@ -2,17 +2,9 @@
 * (c) Bobbi 2021 GPLv3
 * BBC Micro 'virtual machine' in Apple //e aux memory
 
-ZP1         EQU   $90                        ; $90-$9f are Econet space
-                                             ; so safe to use
-ZP2         EQU   $92
-
-ZP3         EQU   $94
-
-ROW         EQU   $96                        ; Cursor row
-COL         EQU   $97                        ; Cursor column
-STRTBCKL    EQU   $9D
-STRTBCKH    EQU   $9E
-WARMSTRT    EQU   $9F                        ; Cold or warm start
+***********************************************************
+* Acorn MOS Workspace Locations
+***********************************************************
 
 * $00-$8F Language workspace
 * $90-$9F Network workspace
@@ -24,14 +16,35 @@ WARMSTRT    EQU   $9F                        ; Cold or warm start
 * $E0-$EE Internal MOS workspace
 * $EF-$FF MOS API workspace
 
+FSFLAG1     EQU   $E2
+FSFLAG2     EQU   $E3
+GSFLAG      EQU   $E4
+GSCHAR      EQU   $E5
+OSTEXT      EQU   $E6
+MAXLEN      EQU   OSTEXT+2                   ; $E8
+MINCHAR     EQU   OSTEXT+3                   ; $E9
+MAXCHAR     EQU   OSTEXT+4                   ; $EA
+OSTEMP      EQU   $EB
+* $EC kbd ws
+* $ED kbd ws
+* $EE kbd ws
 OSAREG      EQU   $EF
-OSXREG      EQU   $F0
-OSYREG      EQU   $F1
+OSXREG      EQU   OSAREG+1                   ; $F0
+OSYREG      EQU   OSXREG+1                   ; $F1
 OSCTRL      EQU   OSXREG
 OSLPTR      EQU   $F2
-
+*
+OSINTWS     EQU   $FA                        ; IRQ ZP pointer
+OSINTA      EQU   $FC                        ; IRQ A-reg store
 FAULT       EQU   $FD                        ; Error message pointer
 ESCFLAG     EQU   $FF                        ; Escape status
+
+* $0200-$0235 Vectors
+* $0236-$028F OSBYTE variables
+* $0290-$02ED
+* $02EE-$02FF MOS control block
+
+USERV       EQU   $300                       ; USER vector
 BRKV        EQU   $202                       ; BRK vector
 CLIV        EQU   $208                       ; OSCLI vector
 BYTEV       EQU   $20A                       ; OSBYTE vector
@@ -46,6 +59,23 @@ GBPBV       EQU   $21A                       ; OSGBPB vector
 FINDV       EQU   $21C                       ; OSFIND vector
 FSCV        EQU   $21E                       ; FSCV misc file ops
 OSFILECB    EQU   $2EE                       ; OSFILE control block
+
+*********************************************************
+* BBC Micro 'virtual machine' in Apple //e aux memory
+*********************************************************
+
+ZP1         EQU   $90                        ; $90-$9f are Econet space
+                                             ; so safe to use
+ZP2         EQU   $92
+
+ZP3         EQU   $94
+
+ROW         EQU   $96                        ; Cursor row
+COL         EQU   $97                        ; Cursor column
+STRTBCKL    EQU   $9D
+STRTBCKH    EQU   $9E
+WARMSTRT    EQU   $9F                        ; Cold or warm start
+
 MAGIC       EQU   $BC                        ; Arbitrary value
 
 MOSSHIM
