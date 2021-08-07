@@ -1,5 +1,6 @@
 * AUXMEM.S
 * (c) Bobbi 2021 GPLv3
+*
 * BBC Micro 'virtual machine' in Apple //e aux memory
 
 ***********************************************************
@@ -60,9 +61,9 @@ FINDV       EQU   $21C                       ; OSFIND vector
 FSCV        EQU   $21E                       ; FSCV misc file ops
 OSFILECB    EQU   $2EE                       ; OSFILE control block
 
-*********************************************************
+***********************************************************
 * BBC Micro 'virtual machine' in Apple //e aux memory
-*********************************************************
+***********************************************************
 
 ZP1         EQU   $90                        ; $90-$9f are Econet space
                                              ; so safe to use
@@ -246,49 +247,6 @@ CLEAR       STZ   ROW
 :S3         STZ   ROW
             STZ   COL
             RTS
-
-* Print string pointed to by X,Y to the screen
-OUTSTR      TXA
-
-* Print string pointed to by A,Y to the screen
-PRSTR       STA   ZP3+0                      ;  String in A,Y
-            STY   ZP3+1
-:L1         LDA   (ZP3)                      ; Ptr to string in ZP3
-            BEQ   :S1
-            JSR   OSASCI
-            INC   ZP3
-            BNE   :L1
-            INC   ZP3+1
-            BRA   :L1
-:S1         RTS
-
-* Print XY in hex
-OUT2HEX     TYA
-            JSR   OUTHEX
-            TAX                              ; Continue into OUTHEX
-
-* Print hex byte in A
-OUTHEX      PHA
-            LSR
-            LSR
-            LSR
-            LSR
-            AND   #$0F
-            JSR   PRNIB
-            PLA
-            AND   #$0F                       ; Continue into PRNIB
-;           JSR   PRNIB
-;           RTS
-
-* Print hex nibble in A
-PRNIB       CMP   #$0A
-            BCC   :S1
-            CLC                              ; >= $0A
-            ADC   #'A'-$0A
-            JSR   OSWRCH
-            RTS
-:S1         ADC   #'0'                       ; < $0A
-            JMP   OSWRCH
 
 * Print char in A at ROW,COL
 PRCHRC      PHA
@@ -492,32 +450,9 @@ SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
             DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
 
 *********************************************************
-* AppleMOS Kernel
+* AppleMOS Host Filing System
+* Routes MOS calls <-> ProDOS
 *********************************************************
-
-RDROM       LDA   #<OSRDRMM
-            LDY   #>OSRDRMM
-            JMP   PRSTR
-OSRDRMM     ASC   'OSRDDRM.'
-            DB    $00
-
-EVENT       LDA   #<OSEVENM
-            LDY   #>OSEVENM
-            JMP   PRSTR
-OSEVENM     ASC   'OSEVEN.'
-            DB    $00
-
-GSINTGO     LDA   #<OSINITM
-            LDY   #>OSINITM
-            JMP   PRSTR
-OSINITM     ASC   'GSINITM.'
-            DB    $00
-
-GSRDGO      LDA   #<OSREADM
-            LDY   #>OSREADM
-            JMP   PRSTR
-OSREADM     ASC   'GSREAD.'
-            DB    $00
 
 * OSFIND - open/close a file for byte access
 FINDHND     PHX
@@ -818,6 +753,17 @@ OSFILEM     ASC   'OSFILE($'
             DB    $00
 OSFILEM2    ASC   ')'
             DB    $00
+
+* Performs OSBYTE $7F EOF function
+* File ref number is in X
+CHKEOF      >>>   WRTMAIN
+            STX   MOSFILE                    ; File reference number
+            >>>   WRTAUX
+            >>>   XF2MAIN,FILEEOF
+CHKEOFRET
+            >>>   ENTAUX
+            TAX                              ; Return code -> X
+            RTS
 
 * Read a character from the keyboard
 RDCHHND     PHX
@@ -1265,9 +1211,8 @@ CLIHND      PHX
             BCS   :ASKROM
             JSR   STARHELP
             BRA   :EXIT
-:ASKROM     LDA   $8003                      ; Check service entry
-            CMP   #$4C                       ; Not a JMP?
-            BNE   :UNSUPP                    ; Only BASIC has no srvc entry
+:ASKROM     LDA   $8006                      ; Check service entry
+            BPL   :UNSUPP                    ; Only BASIC has no srvc entry
             LDA   ZP1                        ; String in (OSLPTR),Y
             STA   OSLPTR
             LDA   ZP1+1
@@ -1675,17 +1620,6 @@ OSBYTE80    CPX   #$00                       ; X=0 Last ADC channel
 :INPUT      LDX   #$00                       ; Nothing in input buf
             RTS
 
-* Performs OSBYTE $7F EOF function
-* File ref number is in X
-CHKEOF      >>>   WRTMAIN
-            STX   MOSFILE                    ; File reference number
-            >>>   WRTAUX
-            >>>   XF2MAIN,FILEEOF
-CHKEOFRET
-            >>>   ENTAUX
-            TAX                              ; Return code -> X
-            RTS
-
 * Performs OSBYTE $81 INKEY$ function
 * X,Y has time limit
 * On exit, CC, Y=$00, X=key - key pressed
@@ -1760,6 +1694,49 @@ DELAY       PHX
             PLX
             RTS
 
+* Print string pointed to by X,Y to the screen
+OUTSTR      TXA
+
+* Print string pointed to by A,Y to the screen
+PRSTR       STA   ZP3+0                      ;  String in A,Y
+            STY   ZP3+1
+:L1         LDA   (ZP3)                      ; Ptr to string in ZP3
+            BEQ   :S1
+            JSR   OSASCI
+            INC   ZP3
+            BNE   :L1
+            INC   ZP3+1
+            BRA   :L1
+:S1         RTS
+
+* Print XY in hex
+OUT2HEX     TYA
+            JSR   OUTHEX
+            TAX                              ; Continue into OUTHEX
+
+* Print hex byte in A
+OUTHEX      PHA
+            LSR
+            LSR
+            LSR
+            LSR
+            AND   #$0F
+            JSR   PRNIB
+            PLA
+            AND   #$0F                       ; Continue into PRNIB
+;           JSR   PRNIB
+;           RTS
+
+* Print hex nibble in A
+PRNIB       CMP   #$0A
+            BCC   :S1
+            CLC                              ; >= $0A
+            ADC   #'A'-$0A
+            JSR   OSWRCH
+            RTS
+:S1         ADC   #'0'                       ; < $0A
+            JMP   OSWRCH
+
 **********************************************************
 * Interrupt Handlers, MOS redirection vectors etc.
 **********************************************************
@@ -1816,6 +1793,30 @@ STOP        JMP   STOP                       ; Cannot return from a BRK
 
 MSGBRK      DB    $0D
             ASC   "ERROR: "
+            DB    $00
+
+RDROM       LDA   #<OSRDRMM
+            LDY   #>OSRDRMM
+            JMP   PRSTR
+OSRDRMM     ASC   'OSRDDRM.'
+            DB    $00
+
+EVENT       LDA   #<OSEVENM
+            LDY   #>OSEVENM
+            JMP   PRSTR
+OSEVENM     ASC   'OSEVEN.'
+            DB    $00
+
+GSINTGO     LDA   #<OSINITM
+            LDY   #>OSINITM
+            JMP   PRSTR
+OSINITM     ASC   'GSINITM.'
+            DB    $00
+
+GSRDGO      LDA   #<OSREADM
+            LDY   #>OSREADM
+            JMP   PRSTR
+OSREADM     ASC   'GSREAD.'
             DB    $00
 
 * Default page 2 contents
