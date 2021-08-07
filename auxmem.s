@@ -765,64 +765,6 @@ CHKEOFRET
             TAX                              ; Return code -> X
             RTS
 
-* Read a character from the keyboard
-RDCHHND     PHX
-            PHY
-            JSR   GETCHRC
-            STA   OLDCHAR
-:L1         LDA   CURS+1                     ; Skip unless CURS=$8000
-            CMP   #$80
-            BNE   :S1
-            LDA   CURS
-            BNE   :S1
-
-            STZ   CURS
-            STZ   CURS+1
-            LDA   CSTATE
-            ROR
-            BCS   :S2
-            LDA   #'_'
-            BRA   :S3
-:S2         LDA   OLDCHAR
-:S3         JSR   PRCHRC
-            INC   CSTATE
-:S1         INC   CURS
-            BNE   :S4
-            INC   CURS+1
-:S4         LDA   $C000                      ; Keyboard data/strobe
-            BPL   :L1
-            LDA   OLDCHAR                    ; Erase cursor
-            JSR   PRCHRC
-            LDA   $C000
-            AND   #$7F
-            STA   $C010                      ; Clear strobe
-            PLY
-            PLX
-            CMP   #$1B                       ; Escape pressed?
-            BNE   :S5
-            SEC                              ; Return CS
-            ROR   ESCFLAG
-            RTS
-:S5         CLC
-            RTS
-CURS        DW    $0000                      ; Counter
-CSTATE      DB    $00                        ; Cursor on or off
-OLDCHAR     DB    $00                        ; Char under cursor
-
-* OSWRCH handler
-* All registers preserved
-WRCHHND     PHA
-            PHX
-            PHY
-* TODO Check any output redirections
-* TODO Check any spool output
-            JSR   OUTCHAR
-* TODO Check any printer output
-            PLY
-            PLX
-            PLA
-            RTS
-
 * OSWORD HANDLER
 * On entry, A=action
 *           XY=>control block
@@ -1221,7 +1163,8 @@ CLIHND      PHX
             LDA   #$04                       ; Service 4 Unrecognized Cmd
             LDX   #$0F                       ; ROM slot
             JSR   $8003                      ; Service entry point
-
+            TAX
+            BEQ   :EXIT
 :UNSUPP     LDA   #<:OSCLIM
             LDY   #>:OSCLIM
             JSR   PRSTR
@@ -1599,6 +1542,69 @@ CLRCB       LDA   #$00
             CPX   #18
             BNE   :L1
             RTS
+
+*********************************************************
+* Kernel / Misc
+*********************************************************
+
+* OSWRCH handler
+* All registers preserved
+WRCHHND     PHA
+            PHX
+            PHY
+* TODO Check any output redirections
+* TODO Check any spool output
+            JSR   OUTCHAR
+* TODO Check any printer output
+            PLY
+            PLX
+            PLA
+            RTS
+
+* OSRDCH handler
+* All registers preserved except A, carry
+* Read a character from the keyboard
+RDCHHND     PHX
+            PHY
+            JSR   GETCHRC
+            STA   OLDCHAR
+:L1         LDA   CURS+1                     ; Skip unless CURS=$8000
+            CMP   #$80
+            BNE   :S1
+            LDA   CURS
+            BNE   :S1
+            STZ   CURS
+            STZ   CURS+1
+            LDA   CSTATE
+            ROR
+            BCS   :S2
+            LDA   #'_'
+            BRA   :S3
+:S2         LDA   OLDCHAR
+:S3         JSR   PRCHRC
+            INC   CSTATE
+:S1         INC   CURS
+            BNE   :S4
+            INC   CURS+1
+:S4         LDA   $C000                      ; Keyboard data/strobe
+            BPL   :L1
+            LDA   OLDCHAR                    ; Erase cursor
+            JSR   PRCHRC
+            LDA   $C000
+            AND   #$7F
+            STA   $C010                      ; Clear strobe
+            PLY
+            PLX
+            CMP   #$1B                       ; Escape pressed?
+            BNE   :S5
+            SEC                              ; Return CS
+            ROR   ESCFLAG
+            RTS
+:S5         CLC
+            RTS
+CURS        DW    $0000                      ; Counter
+CSTATE      DB    $00                        ; Cursor on or off
+OLDCHAR     DB    $00                        ; Char under cursor
 
 * Performs OSBYTE $80 function
 * Read ADC channel or get buffer status
