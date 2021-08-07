@@ -26,9 +26,9 @@ MAXLEN      EQU   OSTEXT+2                   ; $E8
 MINCHAR     EQU   OSTEXT+3                   ; $E9
 MAXCHAR     EQU   OSTEXT+4                   ; $EA
 OSTEMP      EQU   $EB
-* $EC kbd ws
-* $ED kbd ws
-* $EE kbd ws
+OSKBD1      EQU   $EC                        ; Kbd workspace
+OSKBD2      EQU   $ED
+OSKBD3      EQU   $EE
 OSAREG      EQU   $EF
 OSXREG      EQU   OSAREG+1                   ; $F0
 OSYREG      EQU   OSXREG+1                   ; $F1
@@ -45,7 +45,7 @@ ESCFLAG     EQU   $FF                        ; Escape status
 * $0290-$02ED
 * $02EE-$02FF MOS control block
 
-USERV       EQU   $300                       ; USER vector
+USERV       EQU   $200                       ; USER vector
 BRKV        EQU   $202                       ; BRK vector
 CLIV        EQU   $208                       ; OSCLI vector
 BYTEV       EQU   $20A                       ; OSBYTE vector
@@ -59,6 +59,7 @@ BPUTV       EQU   $218                       ; OSBPUT vector
 GBPBV       EQU   $21A                       ; OSGBPB vector
 FINDV       EQU   $21C                       ; OSFIND vector
 FSCV        EQU   $21E                       ; FSCV misc file ops
+
 OSFILECB    EQU   $2EE                       ; OSFILE control block
 
 ***********************************************************
@@ -559,7 +560,7 @@ ARGSHND     PHA
             PLY
             PLX
             PLA
-            LDA   #$04                       ; DFS
+            LDA   #$09                       ; Hosted filing system
             RTS
 :S1         CMP   #$01                       ; Y=0,A=1 => addr of CLI
             BNE   :S2
@@ -1163,8 +1164,8 @@ CLIHND      PHX
             LDA   #$04                       ; Service 4 Unrecognized Cmd
             LDX   #$0F                       ; ROM slot
             JSR   $8003                      ; Service entry point
-            TAX
-            BEQ   :EXIT
+            TAX                              ; Check ret val
+            BEQ   :EXIT                      ; Call claimed
 :UNSUPP     LDA   #<:OSCLIM
             LDY   #>:OSCLIM
             JSR   PRSTR
@@ -1530,9 +1531,15 @@ STARSAVE    JSR   CLRCB
 
 * Handle *RUN command
 * On entry, ZP1 points to command line
-* TODO: Write this!!
-STARRUN
-            RTS
+STARRUN     TYA
+            CLC
+            ADC   ZP1
+            TAX
+            LDA   #$00
+            ADC   ZP2
+            TAY
+            LDA   #$04
+CALLFSCV    JMP   (FSCV)                     ; FSCV does the work
 
 * Clear OSFILE control block to zeros
 CLRCB       LDA   #$00
@@ -1599,6 +1606,7 @@ RDCHHND     PHX
             BNE   :S5
             SEC                              ; Return CS
             ROR   ESCFLAG
+            SEC
             RTS
 :S5         CLC
             RTS
@@ -1704,14 +1712,14 @@ DELAY       PHX
 OUTSTR      TXA
 
 * Print string pointed to by A,Y to the screen
-PRSTR       STA   ZP3+0                      ;  String in A,Y
-            STY   ZP3+1
-:L1         LDA   (ZP3)                      ; Ptr to string in ZP3
+PRSTR       STA   OSTEXT+0                   ;  String in A,Y
+            STY   OSTEXT+1
+:L1         LDA   (OSTEXT)                   ; Ptr to string in OSTEXT
             BEQ   :S1
             JSR   OSASCI
-            INC   ZP3
+            INC   OSTEXT
             BNE   :L1
-            INC   ZP3+1
+            INC   OSTEXT+1
             BRA   :L1
 :S1         RTS
 
@@ -1730,8 +1738,6 @@ OUTHEX      PHA
             JSR   PRNIB
             PLA
             AND   #$0F                       ; Continue into PRNIB
-;           JSR   PRNIB
-;           RTS
 
 * Print hex nibble in A
 PRNIB       CMP   #$0A
