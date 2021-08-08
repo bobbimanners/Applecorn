@@ -150,7 +150,16 @@ WRTAUX      MAC
             EOM
 
 * Code is all included from PUT files below ...
+* ... order matters!
             PUT   LOADER
             PUT   MAINMEM
-            PUT   AUXMEM
+            PUT   AUX.MOS.WS
+            PUT   AUX.AMOS.INIT
+            PUT   AUX.VDU
+            PUT   AUX.HOSTFS
+            PUT   AUX.AMOS.KRNL
+            PUT   AUX.OSBW.ORIG
+*        PUT   AUX.OSBW.JGH
+            PUT   AUX.MISC
+            PUT   AUX.IRQ.VECS
 
