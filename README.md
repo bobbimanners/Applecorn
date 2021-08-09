@@ -15,7 +15,7 @@ Enhanced (65C02) Apple //e with 128KB of memory.
 
 ## How to Run the Software
 
-Boot the diskette `applecorn.po` which is a 143KB Disk ][ bootable ProDOS
+Boot the diskette `applecorn.po` which is an 800KB Disk ][ bootable ProDOS
 diskette.  I use version 2.4.2 of ProDOS for my testing, but the software
 should run on other versions of ProDOS.
 
