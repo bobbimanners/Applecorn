@@ -153,13 +153,14 @@ WRTAUX      MAC
 * ... order matters!
             PUT   LOADER
             PUT   MAINMEM
-            PUT   AUX.MOS.WS
-            PUT   AUX.AMOS.INIT
-            PUT   AUX.VDU
-            PUT   AUX.HOSTFS
-            PUT   AUX.AMOS.KRNL
-            PUT   AUX.OSBW.ORIG
-*        PUT   AUX.OSBW.JGH
-            PUT   AUX.MISC
-            PUT   AUX.IRQ.VECS
+            PUT   AUXMEM.MOSEQU
+            PUT   AUXMEM.INIT
+            PUT   AUXMEM.VDU
+            PUT   AUXMEM.HOSTFS
+            PUT   AUXMEM.KERNEL
+*           PUT   AUXMEM.OSBW.ORIG
+            PUT   AUXMEM.BYTWRD
+            PUT   AUXMEM.CHARIO
+            PUT   AUXMEM.MISC
+
 

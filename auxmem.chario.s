@@ -2,6 +2,11 @@
 * Kernel / Misc
 *********************************************************
 
+* KERNEL/CHARIO.S
+*****************
+* Character read and write
+*
+
 * OSWRCH handler
 * All registers preserved
 WRCHHND     PHA
@@ -17,7 +22,7 @@ WRCHHND     PHA
             RTS
 
 * OSRDCH handler
-* All registers preserved except A, carry
+* All registers preserved except A, Carry
 * Read a character from the keyboard
 RDCHHND     PHX
             PHY
@@ -28,6 +33,7 @@ RDCHHND     PHX
             BNE   :S1
             LDA   CURS
             BNE   :S1
+
             STZ   CURS
             STZ   CURS+1
             LDA   CSTATE
@@ -62,25 +68,10 @@ CURS        DW    $0000       ; Counter
 CSTATE      DB    $00         ; Cursor on or off
 OLDCHAR     DB    $00         ; Char under cursor
 
-* Performs OSBYTE $80 function
-* Read ADC channel or get buffer status
-OSBYTE80    CPX   #$00        ; X=0 Last ADC channel
-            BNE   :S1
-            LDX   #$00        ; Fire button
-            LDY   #$00        ; ADC never converted
+
+BYTE81      JSR   GETKEY      ; $81 = Read key with time lim
             RTS
-:S1         BMI   :S2
-            LDX   #$00        ; X +ve, ADC value
-            LDY   #$00
-            RTS
-:S2         CPX   #$FF        ; X $FF = keyboard buf
-            BEQ   :INPUT
-            CPX   #$FE        ; X $FE = RS423 i/p buf
-            BEQ   :INPUT
-            LDX   #$FF        ; Spaced remaining in o/p
-            RTS
-:INPUT      LDX   #$00        ; Nothing in input buf
-            RTS
+
 
 * Performs OSBYTE $81 INKEY$ function
 * X,Y has time limit
@@ -125,75 +116,68 @@ NEGKEY      LDX   #$00        ; Unimplemented
             LDY   #$00
             RTS
 
-***********************************************************
-* Helper functions
-***********************************************************
+* KERNEL/KEYBOARD.S
+*******************
 
-* Beep
-BEEP        PHA
-            PHX
-            LDX   #$80
-:L1         LDA   $C030
-            JSR   DELAY
-            INX
-            BNE   :L1
-            PLX
-            PLA
+KBDREAD
+KEYPRESS    LDA   $C000
+            TAY
+            CMP   #$80
+            BCC   KEYNONE     ; No key pressed
+            AND   #$7F
+            STA   $C010       ; Ack. keypress
+            BIT   $C061
+            BMI   KEYLALT     ; Left Apple pressed
+            BIT   $C062
+            BMI   KEYRALT     ; Right Apple pressed
+            CMP   #$09
+            BEQ   KEYTAB
+            CMP   #$08
+            BCC   KEYOK       ; <$08 not cursor key
+            CMP   #$0C
+            BCC   KEYCURSR
+            CMP   #$15
+            BEQ   KEYCUR15
+KEYOK       SEC               ; SEC=Ok
+KEYNONE     RTS
+
+KEYTAB      LDA   #$C9
+; If cursors active, COPY
+; else TAB
+            SEC
             RTS
 
-* Delay approx 1/100 sec
-DELAY       PHX
-            PHY
-            LDX   #$00
-:L1         INX               ; 2
-            LDY   #$00        ; 2
-:L2         INY               ; 2
-            CPY   #$00        ; 2
-            BNE   :L2         ; 3 (taken)
-            CPX   #$02        ; 2
-            BNE   :L1         ; 3 (taken)
-            PLY
-            PLX
+KEYRALT                       ; Right Apple key pressed
+KEYLALT     CMP   #$40        ; Left Apple key pressed
+            BCS   KEYCTRL
+            CMP   #$30
+            BCC   KEYOK       ; <'0'
+            CMP   #$3A
+            BCS   KEYOK       ; >'9'
+KEYFUNC     AND   #$0F        ; Convert Apple-Num to function key
+            ORA   #$80
+            BIT   $C062
+            BPL   KEYFUNOK    ; Left+Digit       -> $8x
+            ORA   #$90        ; Right+Digit      -> $9x
+            BIT   $C061
+            BPL   KEYFUNOK
+            EOR   #$30        ; Left+Right+Digit -> $Ax
+KEYFUNOK    SEC
+            RTS
+KEYCTRL     AND   #$1F        ; Apple-Letter -> Ctrl-Letter
             RTS
 
-* Print string pointed to by X,Y to the screen
-OUTSTR      TXA
-
-* Print string pointed to by A,Y to the screen
-PRSTR       STA   OSTEXT+0    ;  String in A,Y
-            STY   OSTEXT+1
-:L1         LDA   (OSTEXT)    ; Ptr to string in OSTEXT
-            BEQ   :S1
-            JSR   OSASCI
-            INC   OSTEXT
-            BNE   :L1
-            INC   OSTEXT+1
-            BRA   :L1
-:S1         RTS
-
-* Print XY in hex
-OUT2HEX     TYA
-            JSR   OUTHEX
-            TAX               ; Continue into OUTHEX
-
-* Print hex byte in A
-OUTHEX      PHA
-            LSR
-            LSR
-            LSR
-            LSR
-            AND   #$0F
-            JSR   PRNIB
-            PLA
-            AND   #$0F        ; Continue into PRNIB
-
-* Print hex nibble in A
-PRNIB       CMP   #$0A
-            BCC   :S1
-            CLC               ; >= $0A
-            ADC   #'A'-$0A
-            JSR   OSWRCH
+KEYCUR15
+*         BIT   $C062
+*         BPL   KEYCUR16 ; Right Apple not pressed
+*         LDA   #$C9     ; Solid+Right -> COPY?
+*         SEC
+*         RTS
+KEYCUR16    LDA   #$09        ; Convert RGT to $09
+KEYCURSR    AND   #$03
+            ORA   #$CC        ; Cursor keys $CC-$CF
+            SEC               ; SEC=Ok
             RTS
-:S1         ADC   #'0'        ; < $0A
-            JMP   OSWRCH
+
+
 

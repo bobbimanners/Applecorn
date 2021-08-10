@@ -2,36 +2,61 @@
 * AppleMOS Kernel
 *********************************************************
 
-BYTE8E      PHP                       ; Save CLC=reset, SEC=not reset
-            LDA   #$09                ; $8E = enter language ROM
-            LDY   #$80                ; Print lang name at $8009
-            JSR   PRSTR
+* KERNEL/SWROM.S
+****************
+
+* OSBYTE $8E - Enter language ROM
+*
+BYTE8E      PHP                 ; Save CLC=RESET, SEC=Not RESET
+            LDA   #$08
+            STA   FAULT+0
+            LDA   #$80
+            STA   FAULT+1
+            JSR   PRERR         ; Print ROM name with PRERR to set FAULT
             JSR   OSNEWL
             JSR   OSNEWL
-            PLP                       ; Get entry type back
+            PLP                 ; Get entry type back
             LDA   #$01
             JMP   AUXADDR
-SERVICE     RTS
+
+* OSBYTE $8F - Issue service call
+* X=service call, Y=parameter
+*
+BYTE8F      TXA
+SERVICE     LDX   #$0F
+            BIT   $8006
+            BPL   :SERVSKIP     ; No service entry
+            JSR   $8003         ; Call service entry
+            TAX
+            BEQ   :SERVDONE
+:SERVSKIP   LDX   #$FF
+:SERVDONE   RTS
+
+
+* KERNEL/OSCLI.S
+****************
 
 * OSCLI HANDLER
 * On entry, XY=>command string
+* TO DO: line pointer in XY should be in LPTR
+*
 CLIHND      PHX
             PHY
-            STX   ZP1+0               ; Pointer to CLI
+            STX   ZP1+0         ; Pointer to CLI
             STY   ZP1+1
 :L1         LDA   (ZP1)
-            CMP   #'*'                ; Trim any leading stars
+            CMP   #'*'          ; Trim any leading stars
             BEQ   :NEXT
-            CMP   #' '                ; Trim any leading spaces
+            CMP   #' '          ; Trim any leading spaces
             BEQ   :NEXT
             BRA   :TRIMMED
 :NEXT       INC   ZP1
             BNE   :L1
             INC   ZP1+1
             BRA   :L1
-:TRIMMED    CMP   #'|'                ; | is comment
+:TRIMMED    CMP   #'|'          ; | is comment
             BEQ   :IEXIT
-            CMP   #$0D                ; Carriage return
+            CMP   #$0D          ; Carriage return
             BEQ   :IEXIT
             LDA   #<:QUIT
             STA   ZP2
@@ -97,18 +122,22 @@ CLIHND      PHX
             BCS   :ASKROM
             JSR   STARHELP
             BRA   :EXIT
-:ASKROM     LDA   $8006               ; Check service entry
-            BPL   :UNSUPP             ; Only BASIC has no srvc entry
-            LDA   ZP1                 ; String in (OSLPTR),Y
+:ASKROM     LDA   $8006         ; Check for service entry
+            BPL   :UNSUPP       ; No service entry
+*            LDA   $8003     ; Check for service entry
+*            CMP   #$4C      ; Not a JMP?
+*            BNE   :UNSUPP   ; Only BASIC has no srvc entry
+            LDA   ZP1           ; String in (OSLPTR),Y
             STA   OSLPTR
             LDA   ZP1+1
             STA   OSLPTR+1
             LDY   #$00
-            LDA   #$04                ; Service 4 Unrecognized Cmd
-            LDX   #$0F                ; ROM slot
-            JSR   $8003               ; Service entry point
-            TAX                       ; Check ret val
-            BEQ   :EXIT               ; Call claimed
+            LDA   #$04          ; Service 4 Unrecognized Cmd
+            LDX   #$0F          ; ROM slot
+            JSR   $8003         ; Service entry point
+            TAX                 ; Check return
+            BEQ   :EXIT         ; Call claimed
+
 :UNSUPP     LDA   #<:OSCLIM
             LDY   #>:OSCLIM
             JSR   PRSTR
@@ -122,7 +151,7 @@ CLIHND      PHX
             BEQ   :PS1
             CMP   #$00
             BEQ   :PS1
-            JSR   $FFEE               ; OSWRCH
+            JSR   OSWRCH
             INY
             BRA   :PL1
 :PS1        LDA   #<:OSCLIM2
@@ -181,7 +210,7 @@ STRCMP      LDY   #$00
 STARHELP    LDA   #<:MSG
             LDY   #>:MSG
             JSR   PRSTR
-            LDA   #$09                ; Language name
+            LDA   #$09          ; Language name
             LDY   #$80
             JSR   PRSTR
             LDA   #<:MSG2
@@ -197,80 +226,22 @@ STARHELP    LDA   #<:MSG
 STARQUIT    >>>   XF2MAIN,QUIT
 
 * Handle *CAT / *. command (list directory)
-STARCAT     >>>   XF2MAIN,CATALOG
-STARCATRET
-            >>>   ENTAUX
-            RTS
-
-* Print one block of a catalog. Called by CATALOG
-* Block is in AUXBLK
-PRONEBLK    >>>   ENTAUX
-            LDA   AUXBLK+4            ; Get storage type
-            AND   #$E0                ; Mask 3 MSBs
-            CMP   #$E0
-            BNE   :NOTKEY             ; Not a key block
-            LDA   #<:DIRM
-            LDY   #>:DIRM
-            JSR   PRSTR
-:NOTKEY     LDA   #$00
-:L1         PHA
-            JSR   PRONEENT
-            PLA
-            INC
-            CMP   #13                 ; Number of dirents in block
-            BNE   :L1
-            >>>   XF2MAIN,CATALOGRET
-:DIRM       ASC   'Directory: '
-            DB    $00
-
-* Print a single directory entry
-* On entry: A = dirent index in AUXBLK
-PRONEENT    TAX
-            LDA   #<AUXBLK+4          ; Skip pointers
-            STA   ZP3
-            LDA   #>AUXBLK+4
-            STA   ZP3+1
-:L1         CPX   #$00
-            BEQ   :S1
-            CLC
-            LDA   #$27                ; Size of dirent
-            ADC   ZP3
-            STA   ZP3
-            LDA   #$00
-            ADC   ZP3+1
-            STA   ZP3+1
-            DEX
-            BRA   :L1
-:S1         LDY   #$00
-            LDA   (ZP3),Y
-            BEQ   :EXIT               ; Inactive entry
-            AND   #$0F                ; Len of filename
-            TAX
-            LDY   #$01
-:L2         CPX   #$00
-            BEQ   :S2
-            LDA   (ZP3),Y
-            JSR   OSWRCH
-            DEX
-            INY
-            BRA   :L2
-:S2         JSR   OSNEWL
-:EXIT       RTS
+STARCAT     JMP   FSCCAT
 
 * Consume spaces in command line. Treat " as space!
 * Return C set if no space found, C clear otherwise
 * Command line pointer in (ZP1),Y
-EATSPC      LDA   (ZP1),Y             ; Check first char is ...
-            CMP   #' '                ; ... space
+EATSPC      LDA   (ZP1),Y       ; Check first char is ...
+            CMP   #' '          ; ... space
             BEQ   :START
-            CMP   #'"'                ; Or quote mark
+            CMP   #'"'          ; Or quote mark
             BEQ   :START
             BRA   :NOTFND
 :START      INY
-:L1         LDA   (ZP1),Y             ; Eat any additional ...
-            CMP   #' '                ; ... spaces
+:L1         LDA   (ZP1),Y       ; Eat any additional ...
+            CMP   #' '          ; ... spaces
             BEQ   :CONT
-            CMP   #'"'                ; Or quote marks
+            CMP   #'"'          ; Or quote marks
             BNE   :DONE
 :CONT       INY
             BRA   :L1
@@ -287,37 +258,13 @@ EATWORD     LDA   (ZP1),Y
             BEQ   :SPC
             CMP   #'"'
             BEQ   :SPC
-            CMP   #$0D                ; Carriage return
+            CMP   #$0D          ; Carriage return
             BEQ   :EOL
             INY
             BRA   EATWORD
 :SPC        CLC
             RTS
 :EOL        SEC
-            RTS
-
-* Handle *DIR (directory change) command
-* On entry, ZP1 points to command line
-STARDIR     JSR   EATSPC              ; Eat leading spaces
-            BCC   :S1                 ; If no space found
-            RTS                       ; No argument
-:S1         LDX   #$01
-:L3         LDA   (ZP1),Y
-            CMP   #$0D
-            BEQ   :S3
-            >>>   WRTMAIN
-            STA   MOSFILE,X
-            >>>   WRTAUX
-            INY
-            INX
-            BRA   :L3
-:S3         DEX
-            >>>   WRTMAIN
-            STX   MOSFILE             ; Length byte
-            >>>   WRTAUX
-            >>>   XF2MAIN,SETPFX
-STARDIRRET
-            >>>   ENTAUX
             RTS
 
 * Add Y to ZP1 pointer. Clear Y.
@@ -334,18 +281,18 @@ ADDZP1Y     CLC
 * Decode ASCII hex digit in A
 * Returns with carry set if bad char, C clear otherwise
 HEXDIGIT    CMP   #'F'+1
-            BCS   :BADCHAR            ; char > 'F'
+            BCS   :BADCHAR      ; char > 'F'
             CMP   #'A'
             BCC   :S1
-            SEC                       ; 'A' <= char <= 'F'
+            SEC                 ; 'A' <= char <= 'F'
             SBC   #'A'-10
             CLC
             RTS
 :S1         CMP   #'9'+1
-            BCS   :BADCHAR            ; '9' < char < 'A'
+            BCS   :BADCHAR      ; '9' < char < 'A'
             CMP   #'0'
-            BCC   :BADCHAR            ; char < '0'
-            SEC                       ; '0' <= char <= '9'
+            BCC   :BADCHAR      ; char < '0'
+            SEC                 ; '0' <= char <= '9'
             SBC   #'0'
             CLC
             RTS
@@ -355,24 +302,24 @@ HEXDIGIT    CMP   #'F'+1
 * Decode hex constant on command line
 * On entry, ZP1 points to command line
 HEXCONST    LDX   #$00
-:L1         STZ   :BUF,X              ; Clear :BUF
+:L1         STZ   :BUF,X        ; Clear :BUF
             INX
             CPX   #$04
             BNE   :L1
             LDX   #$00
             LDY   #$00
-:L2         LDA   (ZP1),Y             ; Parse hex digits into
-            JSR   HEXDIGIT            ; :BUF, left aligned
+:L2         LDA   (ZP1),Y       ; Parse hex digits into
+            JSR   HEXDIGIT      ; :BUF, left aligned
             BCS   :NOTHEX
             STA   :BUF,X
             INY
             INX
             CPX   #$04
             BNE   :L2
-            LDA   (ZP1),Y             ; Peek at next char
-:NOTHEX     CPX   #$00                ; Was it the first digit?
-            BEQ   :ERR                ; If so, bad hex constant
-            CMP   #' '                ; If whitespace, then okay
+            LDA   (ZP1),Y       ; Peek at next char
+:NOTHEX     CPX   #$00          ; Was it the first digit?
+            BEQ   :ERR          ; If so, bad hex constant
+            CMP   #' '          ; If whitespace, then okay
             BEQ   :OK
             CMP   #$0D
             BEQ   :OK
@@ -397,38 +344,38 @@ HEXCONST    LDX   #$00
 :ZEROPAD    DB    $00,$00,$00
 :BUF        DB    $00,$00,$00,$00
 
-ADDRBUF     DW    $0000               ; Used by HEXCONST
+ADDRBUF     DW    $0000         ; Used by HEXCONST
 
 * Handle *LOAD command
 * On entry, ZP1 points to command line
 STARLOAD    JSR   CLRCB
-            JSR   EATSPC              ; Eat leading spaces
+            JSR   EATSPC        ; Eat leading spaces
             BCS   :ERR
-            JSR   ADDZP1Y             ; Advance ZP1
-            LDA   ZP1                 ; Pointer to filename
+            JSR   ADDZP1Y       ; Advance ZP1
+            LDA   ZP1           ; Pointer to filename
             STA   OSFILECB
             LDA   ZP1+1
             STA   OSFILECB+1
-            JSR   EATWORD             ; Advance past filename
-            BCS   :NOADDR             ; No load address given
-            LDA   #$0D                ; Carriage return
-            STA   (ZP1),Y             ; Terminate filename
+            JSR   EATWORD       ; Advance past filename
+            BCS   :NOADDR       ; No load address given
+            LDA   #$0D          ; Carriage return
+            STA   (ZP1),Y       ; Terminate filename
             INY
-            JSR   EATSPC              ; Eat any whitespace
-            JSR   ADDZP1Y             ; Update ZP1
+            JSR   EATSPC        ; Eat any whitespace
+            JSR   ADDZP1Y       ; Update ZP1
             JSR   HEXCONST
-            BCS   :ERR                ; Bad hex constant
+            BCS   :ERR          ; Bad hex constant
             LDA   ADDRBUF
-            STA   OSFILECB+2          ; Load address LSB
+            STA   OSFILECB+2    ; Load address LSB
             LDA   ADDRBUF+1
-            STA   OSFILECB+3          ; Load address MSB
+            STA   OSFILECB+3    ; Load address MSB
 :OSFILE     LDX   #<OSFILECB
             LDY   #>OSFILECB
-            LDA   #$FF                ; OSFILE load flag
+            LDA   #$FF          ; OSFILE load flag
             JSR   OSFILE
 :END        RTS
-:NOADDR     LDA   #$FF                ; Set OSFILECB+6 to non-zero
-            STA   OSFILECB+6          ; Means use the file's addr
+:NOADDR     LDA   #$FF          ; Set OSFILECB+6 to non-zero
+            STA   OSFILECB+6    ; Means use the file's addr
             BRA   :OSFILE
 :ERR        JSR   BEEP
             RTS
@@ -436,37 +383,37 @@ STARLOAD    JSR   CLRCB
 * Handle *SAVE command
 * On entry, ZP1 points to command line
 STARSAVE    JSR   CLRCB
-            JSR   EATSPC              ; Eat leading space
+            JSR   EATSPC        ; Eat leading space
             BCS   :ERR
-            JSR   ADDZP1Y             ; Advance ZP1
-            LDA   ZP1                 ; Pointer to filename
+            JSR   ADDZP1Y       ; Advance ZP1
+            LDA   ZP1           ; Pointer to filename
             STA   OSFILECB
             LDA   ZP1+1
             STA   OSFILECB+1
             JSR   EATWORD
-            BCS   :ERR                ; No start address given
-            LDA   #$0D                ; Carriage return
-            STA   (ZP1),Y             ; Terminate filename
+            BCS   :ERR          ; No start address given
+            LDA   #$0D          ; Carriage return
+            STA   (ZP1),Y       ; Terminate filename
             INY
-            JSR   EATSPC              ; Eat any whitespace
-            JSR   ADDZP1Y             ; Update ZP1
+            JSR   EATSPC        ; Eat any whitespace
+            JSR   ADDZP1Y       ; Update ZP1
             JSR   HEXCONST
-            BCS   :ERR                ; Bad start address
+            BCS   :ERR          ; Bad start address
             LDA   ADDRBUF
             STA   OSFILECB+10
             LDA   ADDRBUF+1
             STA   OSFILECB+11
-            JSR   EATSPC              ; Eat any whitespace
-            JSR   ADDZP1Y             ; Update ZP1
+            JSR   EATSPC        ; Eat any whitespace
+            JSR   ADDZP1Y       ; Update ZP1
             JSR   HEXCONST
-            BCS   :ERR                ; Bad end address
+            BCS   :ERR          ; Bad end address
             LDA   ADDRBUF
             STA   OSFILECB+14
             LDA   ADDRBUF+1
             STA   OSFILECB+15
             LDX   #<OSFILECB
             LDY   #>OSFILECB
-            LDA   #$00                ; OSFILE save flag
+            LDA   #$00          ; OSFILE save flag
             JSR   OSFILE
 :END        RTS
 :ERR        JSR   BEEP
@@ -474,15 +421,11 @@ STARSAVE    JSR   CLRCB
 
 * Handle *RUN command
 * On entry, ZP1 points to command line
-STARRUN     TYA
-            CLC
-            ADC   ZP1
-            TAX
-            LDA   #$00
-            ADC   ZP2
-            TAY
+STARRUN     JSR   ADDZP1Y
+            LDX   ZP1+0
+            LDY   ZP1+1
             LDA   #$04
-CALLFSCV    JMP   (FSCV)              ; FSCV does the work
+CALLFSCV    JMP   (FSCV)        ; Hand on to filing system
 
 * Clear OSFILE control block to zeros
 CLRCB       LDA   #$00
@@ -492,4 +435,6 @@ CLRCB       LDA   #$00
             CPX   #18
             BNE   :L1
             RTS
+
+
 

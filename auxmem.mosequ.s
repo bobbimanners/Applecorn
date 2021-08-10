@@ -1,9 +1,7 @@
-* AUX.MOS.WS.S
-* (c) Bobbi 2021 GPLv3
-
-***********************************************************
-* Acorn MOS Workspace Locations
-***********************************************************
+* MOSEQU.S
+*******************************
+* BBC MOS WORKSPACE LOCATIONS *
+*******************************
 
 * $00-$8F Language workspace
 * $90-$9F Network workspace
@@ -19,27 +17,28 @@ FSFLAG1     EQU   $E2
 FSFLAG2     EQU   $E3
 GSFLAG      EQU   $E4
 GSCHAR      EQU   $E5
-OSTEXT      EQU   $E6
+OSTEXT      EQU   $E6         ; $E6 => text string
 MAXLEN      EQU   OSTEXT+2    ; $E8
 MINCHAR     EQU   OSTEXT+3    ; $E9
 MAXCHAR     EQU   OSTEXT+4    ; $EA
-OSTEMP      EQU   $EB
-OSKBD1      EQU   $EC         ; Kbd workspace
-OSKBD2      EQU   $ED
-OSKBD3      EQU   $EE
-OSAREG      EQU   $EF
-OSXREG      EQU   OSAREG+1    ; $F0
-OSYREG      EQU   OSXREG+1    ; $F1
-OSCTRL      EQU   OSXREG
-OSLPTR      EQU   $F2
-*
-OSINTWS     EQU   $FA         ; IRQ ZP pointer
-OSINTA      EQU   $FC         ; IRQ A-reg store
-FAULT       EQU   $FD         ; Error message pointer
-ESCFLAG     EQU   $FF         ; Escape status
+OSTEMP      EQU   $EB         ; $EB
+OSKBD1      EQU   $EC         ; $EC kbd ws
+OSKBD2      EQU   OSKBD1+1    ; $ED kbd ws
+OSKBD3      EQU   OSKBD1+2    ; $EE kbd ws
+OSAREG      EQU   $EF         ; $EF   A  register
+OSXREG      EQU   OSAREG+1    ; $F0   X  register
+OSYREG      EQU   OSXREG+1    ; $F1   Y  register
+OSCTRL      EQU   OSXREG      ; $F0  (XY)=>control block
+OSLPTR      EQU   $F2         ; $F2 => command line
+;
+OSINTWS     EQU   $FA         ; $FA  IRQ ZP pointer, use when IRQs off
+OSINTA      EQU   $FC         ; $FC  IRQ register A store
+FAULT       EQU   $FD         ; $FD  Error message pointer
+ESCFLAG     EQU   $FF         ; $FF  Escape status
+
 
 * $0200-$0235 Vectors
-* $0236-$028F OSBYTE variables
+* $0236-$028F OSBYTE variable
 * $0290-$02ED
 * $02EE-$02FF MOS control block
 
@@ -59,5 +58,6 @@ FINDV       EQU   $21C        ; OSFIND vector
 FSCV        EQU   $21E        ; FSCV misc file ops
 
 OSFILECB    EQU   $2EE        ; OSFILE control block
+
 
 

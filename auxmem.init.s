@@ -13,7 +13,6 @@ COL         EQU   $97                        ; Cursor column
 STRTBCKL    EQU   $9D
 STRTBCKH    EQU   $9E
 WARMSTRT    EQU   $9F                        ; Cold or warm start
-
 MAGIC       EQU   $BC                        ; Arbitrary value
 
 MOSSHIM
@@ -95,22 +94,30 @@ MOSINIT     STA   $C005                      ; Make sure we are writing aux
             INC   A4H
 :S7         BRA   :L2
 
-:NORELOC
+:NORELOC                                     ; We should jump up into high memory here
 :S8         STA   $C00D                      ; 80 col on
             STA   $C003                      ; Alt charset off
             STA   $C055                      ; PAGE2
 
-            STZ   ROW
-            STZ   COL
-            JSR   CLEAR
+            LDY   WARMSTRT                   ; Don't lose this
+            LDX   #$FF
+            TXS                              ; Initialise stack
+            INX                              ; X=$00
+            TXA
+:SCLR       STA   $0000,X                    ; Clear Kernel memory
+            STA   $0200,X
+            STA   $0300,X
+            INX
+            BNE   :SCLR
 
-            STZ   ESCFLAG
-
-            LDX   #$35
-:INITPG2    LDA   DEFVEC,X
+            LDX   #ENDVEC-DEFVEC-1
+:INITPG2    LDA   DEFVEC,X                   ; Set up vectors
             STA   $200,X
             DEX
             BPL   :INITPG2
+            STY   WARMSTRT                   ; Put it back
+
+            JSR   CLEAR                      ; Initialise VDU driver
 
             LDA   #<:HELLO
             LDY   #>:HELLO
@@ -140,4 +147,6 @@ MOSINIT     STA   $C005                      ; Make sure we are writing aux
             DB    $0D,$0D,$00
 :OLDM       ASC   '(Use OLD to recover any program)'
             DB    $0D,$0D,$00
+
+
 
