@@ -7,13 +7,9 @@
 * to aux memory starting at $08000. Copies Applecorn MOS
 * to aux memory starting at AUXMOS1 and jumps to it.
 * (Note that the MOS code will relocate itself to $D000.)
-START       STZ   :BLOCKS
+START       JSR   ROMMENU
+            STZ   :BLOCKS
             LDX   #$00
-:L1         LDA   HELLO,X          ; Signon message
-            BEQ   :S1
-            JSR   COUT1
-            INX
-            BRA   :L1
 :S1         JSR   CROUT
             JSR   SETPRFX
             JSR   DISCONN
@@ -22,10 +18,6 @@ START       STZ   :BLOCKS
             STZ   $9F              ; WARMSTRT - set cold!
             STA   $C008            ; Alt ZP off
 
-            LDA   #<ROMFILE
-            STA   OPENPL+1
-            LDA   #>ROMFILE
-            STA   OPENPL+2
             JSR   OPENFILE         ; Open ROM file
             BCC   :S2
             LDX   #$00
@@ -110,5 +102,6 @@ START       STZ   :BLOCKS
 
 :BLOCKS     DB    0                ; Counter for blocks read
 
-
+CANTOPEN    ASC   "Unable to open ROM file"
+            DB    $00
 

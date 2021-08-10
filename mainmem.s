@@ -642,12 +642,6 @@ WRTFILE     JSR   MLI
             DW    WRITEPL
             RTS
 
-HELLO       ASC   "Applecorn - (c) Bobbi 2021 GPLv3"
-            HEX   00
-CANTOPEN    ASC   "Unable to open BASIC.ROM"
-            HEX   00
-ROMFILE     STR   "BASIC.ROM"
-
 * ProDOS Parameter lists for MLI calls
 OPENPL      HEX   03                 ; Number of parameters
             DW    $0000              ; Pointer to filename
@@ -740,6 +734,4 @@ FBSTRT      DW    $0000              ; Start address for SAVE
             DW    $0000
 FBEND       DW    $0000              ; End address for SAVE
             DW    $0000
-
-
 
