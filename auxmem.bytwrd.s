@@ -333,8 +333,8 @@ BYTE7F       PHY                          ; $7F = check for EOF
              PLY
              RTS
 
-BYTE82       LDY   #$00                   ; $82 = read high order address
-             LDX   #$00                   ; $0000 for language processor
+BYTE82       LDY   #$FF                   ; $82 = read high order address
+             LDX   #$FF                   ; $FFFF for I/O processor
              RTS
 
 BYTE83       LDY   #$0E                   ; $83 = read bottom of user mem
@@ -381,6 +381,4 @@ OSBM2        ASC   ').'
 BYTEVAR      LDX   #$00
              LDY   #$00
 WORDE0       RTS
-
-
 
