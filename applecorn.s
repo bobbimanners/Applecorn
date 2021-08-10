@@ -152,6 +152,7 @@ WRTAUX      MAC
 * Code is all included from PUT files below ...
 * ... order matters!
             PUT   LOADER
+            PUT   MAIN.ROMMENU
             PUT   MAINMEM
             PUT   AUXMEM.MOSEQU
             PUT   AUXMEM.INIT
@@ -162,5 +163,4 @@ WRTAUX      MAC
             PUT   AUXMEM.BYTWRD
             PUT   AUXMEM.CHARIO
             PUT   AUXMEM.MISC
-
 
