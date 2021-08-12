@@ -10,16 +10,12 @@
 BYTE80      LDY   #$00           ; Prepare return=&00xx
             TXA                  ; X<0  - info about buffers
             BMI   ADVALBUF       ; X>=0 - read input devices
-*
-* TEST CODE
             CPX   #$7F
             BNE   ADVALNONE
 ADVALWAIT   JSR   KBDREAD
-            BCC   ADVALWAIT
+            BCS   ADVALWAIT
             TAX
             RTS
-* TEST CODE
-*
 ADVALNONE   LDX   #$00           ; Input, just return 0
             RTS
 ADVALBUF    INX
@@ -39,55 +35,64 @@ ADVALBUF    INX
 ******************
 
 * Beep
+*
+* Sound measurement shows the tone formula is:
+*   1.230 MHz
+* ------------- = cycles
+* 8 * frequency
+*
+* cycles = BEEPX*5+10
+*
+* So:
+* BEEPX = (cycles-10)/5
+* So:
+* BEEPX = (  1.230 MHz        )
+*         (------------- - 10 ) / 5
+*         (8 * frequency      )
+
+* BEEPX     EQU   57    ; note=C5
+BEEPX       EQU   116            ; note=C4
 BEEP        PHA
             PHX
-*
-* A nicer beep
-* 1.023MHz clock
-*
             PHY
-            LDY   #$00           ; 2cy duration
-*
-* $C1 975cy =  524.6Hz = C5 slightly sharp
-*                        (actually sounds like E5 on my Casio)
-* $6B 546cy =  936.8Hz = A5# sharp - close to Apple BEEP
-* $60 491cy = 1041.7Hz = C6 slightly sharp
-*
-:L1         LDX   #$60           ; 2cy pitch   2cy
+            LDY   #$00           ;       duration
+:L1         LDX   #BEEPX         ; 2cy   pitch      2cy
 *------------------------------------------------
-:L2         DEX                  ; 2cy      193 * 2cy
-            BNE   :L2            ; 3cy/2cy  192 * 3cy + 1 * 2cy
+:L2         DEX                  ; 2cy      BEEPX * 2cy
+            BNE   :L2            ; 3cy/2cy  (BEEPX-1) * 3cy + 1 * 2cy
 *------------------------------------------------
-*                                    964cy
-            LDA   $C030          ; 4cy         4cy
-            DEY                  ; 2cy         2cy
-            BNE   :L1            ; 2cy/3cy     3cy
-            PLY                  ;           975cy = 524.6Hz = C5
-* 
-*            LDX   #$20
-*:L1         LDA   $C030
-*            JSR   DELAY
-*            INX
-*            BNE   :L1
-*
+*                                   BEEPX*5-1cy
+            LDA   $C030          ; 4cy        BEEPX*5+5
+            DEY                  ; 2cy        BEEPX*5+7
+            BNE   :L1            ; 3cy/2cy    BEEPX*5+10
+            PLY                  ;
             PLX
             PLA
             RTS
 
 * Delay approx 1/100 sec
-DELAY       PHX
-            PHY
-            LDX   #$00
-:L1         INX                  ; 2
-            LDY   #$00           ; 2
-:L2         INY                  ; 2
-            CPY   #$00           ; 2
-            BNE   :L2            ; 3 (taken)
-            CPX   #$02           ; 2
-            BNE   :L1            ; 3 (taken)
-            PLY
-            PLX
-            RTS
+************************
+* Enter at DELAY with CS to test keyboard
+* Enter at CENTI to ignore keyboard
+*
+CENTI       CLC                  ; Don't test keyboard
+DELAY       PHX                  ; 3cy
+            PHY                  ; 3cy
+            LDY   #10            ; 2cy     10 * 1/1000s
+*------------------------------------------------
+:L1         LDX   #$48           ; 2cy     $48 gives about 1/1000s
+:L2         BCC   :L3            ; 2cy/3cy Don't test kbd
+            LDA   $C000          ; 4cy
+            BMI   :L5            ; 2cy     keypress, exit early
+:L3         DEX                  ; 2cy
+            BNE   :L2            ; 3cy/2cy -> 72*(2+2+4+2+2+3)-1
+*                            ;          = 1079 -> 0.00105s
+*------------------------------------------------
+:L4         DEY                  ; 2cy
+            BNE   :L1            ; 3cy/2cy
+:L5         PLY                  ; 4cy
+            PLX                  ; 4cy
+            RTS                  ; 6cy
 
 * Print string pointed to by X,Y to the screen
 OUTSTR      TXA
@@ -305,6 +310,4 @@ MOSVEND
 
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      DS    $200
-
-
 
