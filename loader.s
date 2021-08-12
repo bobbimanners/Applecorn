@@ -97,7 +97,10 @@ START       JSR   ROMMENU
             STA   RSTV+2
 
             TSX                    ; Save SP at $0100
-            STX   $0100
+            STX   $0100            ; In main
+            STA   $C005            ; Write to aux
+            STX   $0100            ; And also in aux
+            STA   $C004            ; Write to main
             >>>   XF2AUX,AUXMOS1
 
 :BLOCKS     DB    0                ; Counter for blocks read
