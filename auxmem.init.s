@@ -26,7 +26,10 @@ MOSSHIM
 *
 * Initially executing at $3000 until copied to $D000
 
-MOSINIT     STA   $C005                      ; Make sure we are writing aux
+MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
+            TXS
+
+            STA   $C005                      ; Make sure we are writing aux
             STA   $C000                      ; Make sure 80STORE is off
 
             LDA   $C08B                      ; LC RAM Rd/Wt, 1st 4K bank
@@ -147,6 +150,4 @@ MOSINIT     STA   $C005                      ; Make sure we are writing aux
             DB    $0D,$0D,$00
 :OLDM       ASC   '(Use OLD to recover any program)'
             DB    $0D,$0D,$00
-
-
 
