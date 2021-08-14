@@ -40,6 +40,9 @@ of these files is a dump of a 16KB BBC Micro language ROM.
 Once the ROM has loaded, it will automatically be started and you will
 see the prompt.  For BBC BASIC, the prompt character is `>`.
 
+Most of the BBC Micro languages (including BBC BASIC) prefer upper case
+input.  You may want to keep Caps Lock enabled most of the time!
+
 32 Kilobytes of space is available for your programs and variables. `PAGE`
 is set to `&0E0`.
 
