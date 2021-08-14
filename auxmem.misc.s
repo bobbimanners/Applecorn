@@ -145,15 +145,12 @@ PRNIB       CMP   #$0A
 * IRQ/BRK handler
 IRQBRKHDLR
             PHA
-*  >>>   WRTMAIN
-*  STA   $45      ; A->$45 for ProDOS IRQ handlers
-*  >>>   WRTAUX
 * Mustn't enable IRQs within the IRQ handler
-* Do this manually, as we have complete control at this point
+* Do not use WRTMAIN/WRTAUX macros
             STA   $C004          ; Write to main memory
             STA   $45            ; $45=A for ProDOS IRQ handlers
             STA   $C005          ; Write to aux memory
-;
+
             TXA
             PHA
             CLD
@@ -176,6 +173,7 @@ IRQBRKHDLR
 
 :IRQ        >>>   XF2MAIN,A2IRQ  ; Bounce to Apple IRQ handler
 IRQBRKRET
+            >>>   ENTAUX
             PLA                  ; TODO: Pass on to IRQ1V
             TAX
             PLA

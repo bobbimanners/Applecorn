@@ -72,24 +72,15 @@ AUXMOS1     EQU   $2000       ; Temp staging area in Aux
 EAUXMOS1    EQU   $3000       ; End of staging area
 AUXMOS      EQU   $D000       ; Final location in aux LC
 
-* Macro for calls from aux memory to main memory
-XFMAIN      MAC
-            CLC               ; Use main memory
-            CLV               ; Use main ZP and LC
-            JMP   XFER
-            EOM
-
 * Called by code running in main mem to invoke a
 * routine in aux memory
 XF2AUX      MAC
-            PHA
-            LDA   $C08B       ; R/W LC RAM, bank 1
-            LDA   $C08B
-            LDA   #<]1
-            STA   STRTL
-            LDA   #>]1
-            STA   STRTH
-            PLA
+            LDX   $C08B       ; R/W LC RAM, bank 1
+            LDX   $C08B
+            LDX   #<]1
+            STX   STRTL
+            LDX   #>]1
+            STX   STRTH
             SEC               ; Use aux memory
             BIT   $FF58       ; Set V: use alt ZP and LC
             JMP   XFER
@@ -98,18 +89,18 @@ XF2AUX      MAC
 * Called by code running in aux mem to invoke a
 * routine in main memory
 XF2MAIN     MAC
+            LDX   STRTL
+            STX   STRTBCKL
+            LDX   STRTH
+            STX   STRTBCKH
+            LDX   #<]1
+            STX   STRTL
+            LDX   #>]1
+            STX   STRTH
             TSX
             STX   $0101       ; Save alt SP
-            PHA
-            LDA   STRTL
-            STA   STRTBCKL
-            LDA   STRTH
-            STA   STRTBCKH
-            LDA   #<]1
-            STA   STRTL
-            LDA   #>]1
-            STA   STRTH
-            PLA
+            LDX   $0100       ; Load main SP
+            TXS
             CLC               ; Use main mem
             CLV               ; Use main ZP and LC
             JMP   XFER
@@ -117,24 +108,18 @@ XF2MAIN     MAC
 
 * Macro called on re-entry to aux memory
 ENTAUX      MAC
+            LDX   STRTBCKL
+            STX   STRTL
+            LDX   STRTBCKH
+            STX   STRTH
             LDX   $0101       ; Recover alt SP
             TXS
-            PHA
-            LDA   STRTBCKL
-            STA   STRTL
-            LDA   STRTBCKH
-            STA   STRTH
-            PLA
             EOM
 
 * Macro called on re-entry to main memory
 ENTMAIN     MAC
-            LDX   $0100       ; Recover SP
-            TXS
-            PHA               ; Preserve parm in A
-            LDA   $C081       ; Bank in ROM
-            LDA   $C081
-            PLA
+            LDX   $C081       ; Bank in ROM
+            LDX   $C081
             EOM
 
 * Enable writing to main memory (for code running in aux)
@@ -159,7 +144,6 @@ WRTAUX      MAC
             PUT   AUXMEM.VDU
             PUT   AUXMEM.HOSTFS
             PUT   AUXMEM.KERNEL
-*           PUT   AUXMEM.OSBW.ORIG
             PUT   AUXMEM.BYTWRD
             PUT   AUXMEM.CHARIO
             PUT   AUXMEM.MISC
