@@ -6,6 +6,10 @@
 *****************
 * Character read and write
 *
+* 14-Aug-2021 Flashing cursor and INKEY sync'd to frame
+*             rate with VBLK. Ensured cursor turned on
+*             straightaway.
+
 
 * TEMP:
 FXESCCHAR   EQU   $240
@@ -53,32 +57,40 @@ RDCHHND     LDA   #$80        ; flag=wait forever
 INKEY       PHY               ; Dummy PHY to balance RDCH
 INKEYGO     PHX               ; Save registers
             PHY
-;
             JSR   GETCHRC     ; Get character under cursor
             STA   OLDCHAR
-            BRA   INKEYLP
+            CLI
+            BRA   INKEY1      ; Turn cursor on
 ;
 INKEYLP1    PHX
 INKEYLP2    PHY
 INKEYLP     INC   FLASHER     ; Increment cursor counter
             INC   FLASHER
+*           INC   FLASHER    ; Fast flash
+*           INC   FLASHER
             LDA   FLASHER
-            AND   #63         ; Flash every 64/100sec = 32/50sec
+            AND   #127        ; Flash every 64/100sec = 32/50sec
             BNE   INKEY3      ; Not time to toggle yet
             LDA   OLDCHAR     ; Prepare to remove cursor
             BIT   FLASHER
-            BVS   INKEY2      ; Remove cursor
-            LDA   CURSOR      ; Add cursor
-* TO DO: Cursor could be any char, eg $A0 for block cursor
+            BMI   INKEY2      ; Remove cursor
+INKEY1      LDA   CURSOR      ; Add cursor
 INKEY2      JSR   PRCHRC      ; Toggle cursor
-INKEY3
-;
-            LDA   ESCFLAG
-            SEC
+INKEY3      LDA   ESCFLAG
             BMI   INKEYOK     ; Escape pending, return it
-            JSR   KEYREAD     ; Test for input, all can be trashed
+INKEY4      JSR   KEYREAD     ; Test for input, all can be trashed
             BCC   INKEYOK     ; Char returned, return it
-            JSR   DELAY       ; Wait 1/100sec
+*           JSR   DELAY       ; Wait 1/100sec
+;
+* VBLK pulses at 50Hz, changes at 100Hz
+* (60Hz in US, will need tweeking)
+            LDX   $C019       ; Get initial VBLK state
+INKEY5      BIT   $C000
+            BMI   INKEY4      ; Key pressed
+            TXA
+            EOR   $C019
+            BPL   INKEY5      ; Wait for VBLK change
+;
             PLY
             BMI   INKEYLP2    ; Loop forever
             PLX
@@ -109,98 +121,6 @@ INKEYOK     PHA
             RTS
 ; Character read: CC, A=char, X=???, Y<$80
 ; Escape:         CS, A=??  , X=???, Y<$80
-
-
-* OLD CODE
-**********
-*
-*RDCHHND     PHX
-*            PHY
-*            JSR   GETCHRC
-*            STA   OLDCHAR
-*:L1         LDA   CURS+1      ; Skip unless CURS=$8000
-*            CMP   #$80
-*            BNE   :S1
-*            LDA   CURS
-*            BNE   :S1
-*
-*            STZ   CURS
-*            STZ   CURS+1
-*            LDA   CSTATE
-*            ROR
-*            BCS   :S2
-*            LDA   #'_'
-*            BRA   :S3
-*:S2         LDA   OLDCHAR
-*:S3         JSR   PRCHRC
-*            INC   CSTATE
-*:S1         INC   CURS
-*            BNE   :S4
-*            INC   CURS+1
-*:S4         LDA   $C000       ; Keyboard data/strobe
-*            BPL   :L1
-*            LDA   OLDCHAR     ; Erase cursor
-*            JSR   PRCHRC
-*            LDA   $C000
-*            AND   #$7F
-*            STA   $C010       ; Clear strobe
-*            PLY
-*            PLX
-*            CMP   #$1B        ; Escape pressed?
-*            BNE   :S5
-*            SEC               ; Return CS
-*            ROR   ESCFLAG
-*            SEC
-*            RTS
-*:S5         CLC
-*            RTS
-*CURS        DW    $0000       ; Counter
-*CSTATE      DB    $00         ; Cursor on or off
-*OLDCHAR     DB    $00         ; Char under cursor
-*
-*
-** Performs OSBYTE $81 INKEY$ function
-** X,Y has time limit
-** On exit, CC, Y=$00, X=key - key pressed
-**          CS, Y=$FF        - timeout
-**          CS, Y=$1B        - escape
-*GETKEY      TYA
-*            BMI   NEGKEY     ; Negative INKEY
-*:L1         CPX   #$00
-*            BEQ   :S1
-*            LDA   $C000      ; Keyb data/strobe
-*            AND   #$80
-*            BNE   :GOTKEY
-*            JSR   DELAY      ; 1/100 sec
-*            DEX
-*            BRA   :L1
-*:S1         CPY   #$00
-*            BEQ   :S2
-*            DEY
-*            LDX   #$FF
-*            BRA   :L1
-*:S2         LDA   $C000       ; Keyb data/strobe
-*            AND   #$80
-*            BNE   :GOTKEY
-*            LDY   #$FF        ; No key, time expired
-*            SEC
-*            RTS
-*:GOTKEY     LDA   $C000       ; Fetch char
-*            AND   #$7F
-*            STA   $C010       ; Clear strobe
-*            CMP   #27         ; Escape
-*            BEQ   :ESC
-*            TAX
-*            LDY   #$00
-*            CLC
-*            RTS
-*:ESC        ROR   ESCFLAG
-*            LDY   #27         ; Escape
-*            SEC
-*            RTS
-*NEGKEY      LDX   #$00        ; Unimplemented
-*            LDY   #$00
-*            RTS
 
 
 BYTE81      TYA
