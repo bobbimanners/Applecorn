@@ -46,17 +46,18 @@ is set to `&0E0`.
 ## How to Build
 
 Applecorn is built natively on the Apple //e using the Merlin 8 assembler
-v2.58.
+v2.58.  It may also be built using Merlin-32 on Windows, Linux or Mac if
+preferred.
 
 In Merlin-8:
-- Press 'D' for disk commands and enter the prefix of the build directory:
+- Press `D` for disk commands and enter the prefix of the build directory:
   `PFX /APPLECORN`
-- Press 'L' to load a file and enter the filename `APPLECORN`.
-- Press 'E' to enter the editor and issue the following command to
-  assemble: `asm`
-- Once assembly is complete, press 'O' to save the object file and
+- Press `L` to load a file and enter the filename `APPLECORN`.
+- Press `E` to enter the editor and issue the following command a the `:`
+  prompt: `asm`
+- Once assembly is complete, press `O` to save the object file and
   enter the filename `APPLECORN`.
-- Press 'Q' to quit Merlin-8.
+- Press `Q` to quit Merlin-8.
 
 ## Theory of Operation
 
@@ -210,7 +211,7 @@ AUX BANK:
   from $d000 up in aux memory.  (The main bank LC memory contains ProDOS.)
 - Applecorn copies its own 'Applecorn MOS' code to $d000 in aux memory and
   relocates the MOS entry vectors to high memory.
-- An 80 column screen is configured using PAGE2 memory from $800 to $bfff
+- An 80 column screen is configured using PAGE2 memory from $800 to $bff
   in both main and aux memory.  This conveniently just fits in above page 7,
   which is the highest page used as Acorn language ROM workspace.
 - The only real difference between the Apple //e aux memory map and that of
@@ -235,22 +236,27 @@ AUX BANK:
 ## Limitations
 
 Applecorn currently has the following limitations:
-
-- A number of MOS calls relating to file I/O are not yet implemented including
-  `OSFIND`, `OSGBPB`. `OSBPUT`, `OSBGET`, `OSARGS`.  This means that file
-  operations such as the BBC BASIC `OPENIN` and `OPENOUT` do not work in the
-  Acorn languages.  `OSFILE` is (partially) implemented however, so BASIC and
-  COMAL can `LOAD` and `SAVE` programs.
-- The VDU driver is quite primitive at present.  In particular it only
-  supports 80 column text mode.  There is currently no graphics support.
-- Only a few `OSBYTE` calls are implemented.  More will be added in due
-  course.
-- The only implemented `OSWORD` call is A=&00, to read a line of input from
-  the console.  More will be added as needs arise.
+- Not all MOS calls are implemented.
+- There is file I/O support for file-orientated (`OSFILE`) file
+  operations.  This allows `LOAD` and `SAVE` to work in languages such as
+  BASIC or COMAL.
+- There is also support for the character orientated operations (`OSFIND`,
+  `OSBGET` `OSBPUT`) which allows all the disk file operations in the Acorn
+  languages to work correctly.  For example in BBC BASIC the following
+  commands work: `OPENIN`, `OPENOUT`, `OPENUP`, `BGET#` `BPUT#` `PTR#=`,
+  `EOF#`, `EXT#`.
+- Missing operations include `OSGBPB` and `OSFSC`.  These are required by
+  the BCPL language system, so currently it is not possible to load the
+  BCPL compiler for example.
+- The VDU driver is quite primitive at present.  Is supports 80 column
+  text mode (`MODE 0`) and 40 column text mode (`MODE 1`).  There is
+  currently no graphics support.
+- Only a limited number of `OSBYTE` and `OSWORD` calls are implemented.
+  More will be added in due course.
 - Special BBC Micro functions such as sound, A/D interfaces, programmable
   function keys and so on are currently not supported.
 - The Applecorn MOS command line is currently quite limited.  More commands
-  will be added in due course (for example `*FX`, `*LOAD`, `*SAVE` etc.).
+  will be added in due course.
 
 ### Escape
 
@@ -290,4 +296,10 @@ language ROM.
 
 `*DIR pathname` - Allows the current directory to be changed to any ProDOS
 path.  For example `*DIR /H1/APPLECORN`.
+
+`*LOAD filename SSSS` - Load file `filename` into memory at hex address
+`SSSS`. Be sure to specify the address otherwise it defaults to 0000!
+
+`*SAVE filename SSSS EEEE` - Save memory from hex address `SSSS` to hex
+address `EEEE` into file `filename`.
 
