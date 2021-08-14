@@ -4,18 +4,22 @@
 
 Applecorn is a ProDOS application for the Apple //e Enhanced which provides
 an environment for Acorn BBC Microcomputer language ROMs to run.  This
-allows BBC BASIC and other Acorn languages to run on the Apple //e.
+allows BBC BASIC and other Acorn languages to run on the Apple //e and
+compatible systems.
 
 The language ROMs run as-is, without any modification required.
 
-
 ## Hardware Requirements
 
-Enhanced (65C02) Apple //e with 128KB of memory.
+Enhanced (65C02) Apple //e with 128KB of memory, or compatible system.
+
+Applecorn should work on the //c, //c+ also.  Please let me know if you
+are able to test it on one of these systems.  (Applecorn does not work
+propertly on the Apple IIgs, but we hope to support the GS eventually!)
 
 ## How to Run the Software
 
-Boot the diskette `applecorn.po` which is an 800KB Disk ][ bootable ProDOS
+Boot the diskette `applecorn.po` which is an 800KB bootable ProDOS
 diskette.  I use version 2.4.2 of ProDOS for my testing, but the software
 should run on other versions of ProDOS.
 
@@ -25,10 +29,16 @@ BRUN APPLECORN
 ```
 to start the software.
 
-Applecorn will then load the content of the file `BASIC.ROM` from the
-diskette.  This is a 16KB file containing BBC BASIC v2 from the BBC Micro.
+For convenience there is an Applesoft BASIC program called `START` which
+can be used to launch Applecorn directly from Bitsy Bye.
+
+When first started, Applecorn will display a ROM selection menu.  Choose
+the language ROM you wish to load by pressing the associated number key.
+Applecorn will then load the requested ROM file from the diskette.  Each
+of these files is a dump of a 16KB BBC Micro language ROM.
+
 Once the ROM has loaded, it will automatically be started and you will
-see the `>` prompt of BBC BASIC.
+see the prompt.  For BBC BASIC, the prompt character is `>`.
 
 32 Kilobytes of space is available for your programs and variables. `PAGE`
 is set to `&0E0`.
@@ -37,6 +47,16 @@ is set to `&0E0`.
 
 Applecorn is built natively on the Apple //e using the Merlin 8 assembler
 v2.58.
+
+In Merlin-8:
+- Press 'D' for disk commands and enter the prefix of the build directory:
+  `PFX /APPLECORN`
+- Press 'L' to load a file and enter the filename `APPLECORN`.
+- Press 'E' to enter the editor and issue the following command to
+  assemble: `asm`
+- Once assembly is complete, press 'O' to save the object file and
+  enter the filename `APPLECORN`.
+- Press 'Q' to quit Merlin-8.
 
 ## Theory of Operation
 
@@ -209,6 +229,7 @@ AUX BANK:
   - BBC BASIC
   - Acornsoft COMAL
   - Acornsoft FORTH
+  - Acornsoft Lisp
   - Acornsoft MicroProlog
 
 ## Limitations
