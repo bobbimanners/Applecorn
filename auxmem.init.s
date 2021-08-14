@@ -12,8 +12,6 @@ ROW         EQU   $96                        ; Cursor row
 COL         EQU   $97                        ; Cursor column
 STRTBCKL    EQU   $9D
 STRTBCKH    EQU   $9E
-WARMSTRT    EQU   $9F                        ; Cold or warm start
-MAGIC       EQU   $BC                        ; Arbitrary value
 
 MOSSHIM
             ORG   AUXMOS                     ; MOS shim implementation
@@ -35,11 +33,14 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             LDA   $C08B                      ; LC RAM Rd/Wt, 1st 4K bank
             LDA   $C08B
 
-            LDA   WARMSTRT                   ; Don't relocate on restart
-            CMP   #MAGIC
-            BEQ   :NORELOC
+:MODBRA     BRA   :RELOC                     ; NOPped out on first run
+            BRA   :NORELOC
 
-            LDA   #<AUXMOS1                  ; Relocate MOS shim
+            LDA   #$EA                       ; NOP opcode
+            STA   :MODBRA
+            STA   :MODBRA+1
+
+:RELOC      LDA   #<AUXMOS1                  ; Relocate MOS shim
             STA   A1L
             LDA   #>AUXMOS1
             STA   A1H
@@ -102,7 +103,6 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             STA   $C003                      ; Alt charset off
             STA   $C055                      ; PAGE2
 
-            LDY   WARMSTRT                   ; Don't lose this
             LDX   #$FF
             TXS                              ; Initialise stack
             INX                              ; X=$00
@@ -118,7 +118,6 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             STA   $200,X
             DEX
             BPL   :INITPG2
-            STY   WARMSTRT                   ; Put it back
 
             JSR   CLEAR                      ; Initialise VDU driver
 
@@ -132,22 +131,10 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             JSR   OSNEWL
             JSR   OSNEWL
 
-            LDA   WARMSTRT
-            CMP   #MAGIC
-            BNE   :S9
-            LDA   #<:OLDM
-            LDY   #>:OLDM
-            JSR   PRSTR
-
-:S9         LDA   #MAGIC                     ; So we do not reloc again
-            STA   WARMSTRT
-
             CLC                              ; CLC=Entered from RESET
             LDA   #$01                       ; $01=Entering application code
             JMP   AUXADDR                    ; Start Acorn ROM
 * No return
 :HELLO      ASC   'Applecorn MOS v0.01'
-            DB    $0D,$0D,$00
-:OLDM       ASC   '(Use OLD to recover any program)'
             DB    $0D,$0D,$00
 
