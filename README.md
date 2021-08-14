@@ -15,7 +15,7 @@ Enhanced (65C02) Apple //e with 128KB of memory, or compatible system.
 
 Applecorn should work on the //c, //c+ also.  Please let me know if you
 are able to test it on one of these systems.  (Applecorn does not work
-propertly on the Apple IIgs, but we hope to support the GS eventually!)
+properly on the Apple IIgs, but we hope to support the GS eventually!)
 
 ## How to Run the Software
 
