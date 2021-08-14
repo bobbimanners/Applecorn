@@ -96,10 +96,9 @@ START       JSR   ROMMENU
             EOR   #$A5             ; Checksum
             STA   RSTV+2
 
-            TSX                    ; Save SP at $0100
-            STX   $0100            ; In main
+            TSX                    ; Save SP at $0100 in aux
             STA   $C005            ; Write to aux
-            STX   $0100            ; And also in aux
+            STX   $0100
             STA   $C004            ; Write to main
             >>>   XF2AUX,AUXMOS1
 
