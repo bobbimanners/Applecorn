@@ -8,8 +8,10 @@ ZP2         EQU   $92
 
 ZP3         EQU   $94
 
-ROW         EQU   $96                        ; Cursor row
-COL         EQU   $97                        ; Cursor column
+* COL,ROW needs to be in X,Y order
+* TO DO: will be moved to VDU space
+COL         EQU   $96                        ; Cursor column
+ROW         EQU   $97                        ; Cursor row
 STRTBCKL    EQU   $9D
 STRTBCKH    EQU   $9E
 
@@ -135,6 +137,9 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             LDA   #$01                       ; $01=Entering application code
             JMP   AUXADDR                    ; Start Acorn ROM
 * No return
-:HELLO      ASC   'Applecorn MOS v0.01'
+:HELLO      DB    $07
+            ASC   'Applecorn MOS v0.01'
             DB    $0D,$0D,$00
+
+
 
