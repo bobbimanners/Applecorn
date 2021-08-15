@@ -75,6 +75,7 @@ AUXMOS      EQU   $D000       ; Final location in aux LC
 * Called by code running in main mem to invoke a
 * routine in aux memory
 XF2AUX      MAC
+            SEI               ; EXPERIMENT
             LDX   $C08B       ; R/W LC RAM, bank 1
             LDX   $C08B
             LDX   #<]1
@@ -89,6 +90,7 @@ XF2AUX      MAC
 * Called by code running in aux mem to invoke a
 * routine in main memory
 XF2MAIN     MAC
+            SEI               ; Experiment
             LDX   STRTL
             STX   STRTBCKL
             LDX   STRTH
@@ -113,6 +115,7 @@ ENTAUX      MAC
             STX   STRTH
             LDX   $0101       ; Recover alt SP
             TXS
+            CLI
             EOM
 
 * Macro called on re-entry to main memory
@@ -120,6 +123,7 @@ ENTMAIN     MAC
             TXS               ; Main SP already in X
             LDX   $C081       ; Bank in ROM
             LDX   $C081
+            CLI
             EOM
 
 * Enable writing to main memory (for code running in aux)
