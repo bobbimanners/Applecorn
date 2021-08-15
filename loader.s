@@ -96,6 +96,11 @@ START       JSR   ROMMENU
             EOR   #$A5             ; Checksum
             STA   RSTV+2
 
+            LDA   #<GSBRK          ; Set BRK vector in main mem
+            STA   $3F0
+            LDA   #>GSBRK
+            STA   $3F0+1
+
             TSX                    ; Save SP at $0100 in aux
             STA   $C005            ; Write to aux
             STX   $0100
