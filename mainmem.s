@@ -13,6 +13,9 @@ A2IRQ       >>>   ENTMAIN
 A2IRQ2      PHP                      ; Fake things to look like IRQ
             JMP   (A2IRQV)           ; Call Apple II ProDOS ISR
 
+* BRK handler in main memory. Used on Apple IIgs only.
+GSBRK       >>>   XF2AUX,GSBRKAUX
+
 * Set prefix if not already set
 SETPRFX     LDA   #GPFXCMD
             STA   :OPC7              ; Initialize cmd byte to $C7

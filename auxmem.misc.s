@@ -179,6 +179,10 @@ IRQBRKRET
             PLA
 NULLRTI     RTI
 
+* Invoked from GSBRK in main memory. On IIgs only.
+GSBRKAUX    >>>   ENTAUX
+            JMP   IRQBRKHDLR     ; See if this works!!
+
 PRERR       LDY   #$01
 PRERRLP     LDA   (FAULT),Y
             BEQ   PRERR1
