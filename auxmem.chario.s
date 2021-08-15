@@ -6,10 +6,10 @@
 *****************
 * Character read and write
 *
-* 14-Aug-2021 Flashing cursor and INKEY sync'd to frame
-*             rate with VBLK. Ensured cursor turned on
-*             straightaway.
-
+* 14-Aug-2021 Flashing cursor and INKEY sync'd to frame rate
+*             with VBLK. Ensured cursor turned on straight away.
+* 15-Aug-2021 Cursor keys move copy cursor, copy reads char.
+*             Copy cursor not visible yet.
 
 * TEMP:
 FXESCCHAR   EQU   $240
@@ -64,6 +64,7 @@ INKEYGO     PHX               ; Save registers
 ;
 INKEYLP1    PHX
 INKEYLP2    PHY
+* TO DO: display copy cursor as well
 INKEYLP     INC   FLASHER     ; Increment cursor counter
             INC   FLASHER
 *           INC   FLASHER    ; Fast flash
@@ -75,12 +76,12 @@ INKEYLP     INC   FLASHER     ; Increment cursor counter
             BIT   FLASHER
             BMI   INKEY2      ; Remove cursor
 INKEY1      LDA   CURSOR      ; Add cursor
-INKEY2      JSR   PRCHRC      ; Toggle cursor
+INKEY2      JSR   PUTCHRC     ; Toggle cursor
 INKEY3      LDA   ESCFLAG
             BMI   INKEYOK     ; Escape pending, return it
 INKEY4      JSR   KEYREAD     ; Test for input, all can be trashed
             BCC   INKEYOK     ; Char returned, return it
-*           JSR   DELAY       ; Wait 1/100sec
+*           JSR   DELAY      ; Wait 1/100sec
 ;
 * VBLK pulses at 50Hz, changes at 100Hz
 * (60Hz in US, will need tweeking)
@@ -109,7 +110,7 @@ INKEYDEC    DEX
 
 INKEYOK     PHA
             LDA   OLDCHAR
-            JSR   PRCHRC      ; Remove cursor
+            JSR   PUTCHRC     ; Remove cursor
             PLA
             PLY               ; <$80=INKEY or $80=RDCH
             PLX               ; Restore X
@@ -161,10 +162,30 @@ KEYREAD
 * TO DO: check *EXEC source
 * TO DO: expand current soft key
             JSR   KBDREAD     ; Fetch character from KBD "buffer"
-            BCS   KEYREAD0    ; Nothing pending
-* TO DO: process cursor keys
+            BCS   KEYREADOK   ; Nothing pending
 * TO DO: process new soft keys
-KEYREAD0    RTS
+*
+* Process cursor keys
+* TO DO: check FX4VAR
+            CMP   #$C9
+            BEQ   KEYCOPY
+            CMP   #$CC
+            BCC   KEYREADOK   ; Not cursor key
+            JSR   MOVECOPY    ; Move copy cursor
+KEYCOPYBAD  SEC
+KEYREADOK   RTS
+
+KEYCOPY     AND   #$0F        ; TAB=$09 if no copy cursor
+            BIT   VDUSTATUS
+            BVC   KEYCOPYOK   ; No copy cursor
+            JSR   COPYSWAP    ; Swap to copy cursor
+            JSR   GETCHRC     ; Get the character
+            PHA
+            JSR   MOVECOPY3   ; Move copy cursor, swap back
+            PLA
+            BEQ   KEYCOPYBAD  ; Bad character read
+KEYCOPYOK   CLC
+            RTS               ; Return the character
 
 
 * KBDREAD
@@ -198,8 +219,9 @@ KBDTEST     LDA   $C000       ; VS here to test for keypress
             BCC   KBDCURSR
             CMP   #$15
             BEQ   KBDCUR15
-            CMP   #27         ; TEMP
-*        CMP   FXESCCHAR ; Current ESCAPE char?
+* Test for Escape key
+KBDESC      CMP   #27         ; TEMP
+*           CMP   FXESCCHAR  ; Current ESCAPE char?
             BNE   KBDNOESC    ; No
             LDX   FXESCON     ; Is ESCAPE enabled?
             BNE   KBDNOESC    ; No
@@ -232,4 +254,6 @@ KBDCUR15    SBC   #$0C        ; Convert RGT to $09
 KBDCURSR    CLC
             ADC   #$C4        ; Cursor keys $CC-$CF
             RTS               ; CLC=Ok set earlier
+
+
 
