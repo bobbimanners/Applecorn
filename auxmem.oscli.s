@@ -1,40 +1,7 @@
-*********************************************************
-* AppleMOS Kernel
-*********************************************************
-
-* KERNEL/SWROM.S
-****************
-
-* OSBYTE $8E - Enter language ROM
+* AUXMEM.OSCLI.S
+* (c) BOBBI 2021 GPLv3
 *
-BYTE8E      PHP                 ; Save CLC=RESET, SEC=Not RESET
-            LDA   #$08
-            STA   FAULT+0
-            LDA   #$80
-            STA   FAULT+1
-            JSR   PRERR         ; Print ROM name with PRERR to set FAULT
-            JSR   OSNEWL
-            JSR   OSNEWL
-            PLP                 ; Get entry type back
-            LDA   #$01
-            JMP   AUXADDR
-
-* OSBYTE $8F - Issue service call
-* X=service call, Y=parameter
-*
-BYTE8F      TXA
-SERVICE     LDX   #$0F
-            BIT   $8006
-            BPL   :SERVSKIP     ; No service entry
-            JSR   $8003         ; Call service entry
-            TAX
-            BEQ   :SERVDONE
-:SERVSKIP   LDX   #$FF
-:SERVDONE   RTS
-
-
-* KERNEL/OSCLI.S
-****************
+* Handle OSCLI system calls
 
 * OSCLI HANDLER
 * On entry, XY=>command string
@@ -435,6 +402,4 @@ CLRCB       LDA   #$00
             CPX   #18
             BNE   :L1
             RTS
-
-
 

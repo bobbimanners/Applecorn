@@ -143,7 +143,7 @@ WRTAUX      MAC
             PUT   AUXMEM.INIT
             PUT   AUXMEM.VDU
             PUT   AUXMEM.HOSTFS
-            PUT   AUXMEM.KERNEL
+            PUT   AUXMEM.OSCLI
             PUT   AUXMEM.BYTWRD
             PUT   AUXMEM.CHARIO
             PUT   AUXMEM.MISC
