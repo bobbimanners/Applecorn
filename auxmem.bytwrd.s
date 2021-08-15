@@ -352,6 +352,33 @@ BYTE85       LDY   #$80                   ; $85 = top user mem for mode
 BYTE8B       LDA   #$00                   ; $8B = *OPT
              JMP   (FSCV)                 ; Hand over to filing system
 
+* OSBYTE $8E - Enter language ROM
+*
+BYTE8E       PHP                          ; Save CLC=RESET, SEC=Not RESET
+             LDA   #$08
+             STA   FAULT+0
+             LDA   #$80
+             STA   FAULT+1
+             JSR   PRERR                  ; Print ROM name with PRERR to set FAULT
+             JSR   OSNEWL
+             JSR   OSNEWL
+             PLP                          ; Get entry type back
+             LDA   #$01
+             JMP   AUXADDR
+
+* OSBYTE $8F - Issue service call
+* X=service call, Y=parameter
+*
+BYTE8F       TXA
+SERVICE      LDX   #$0F
+             BIT   $8006
+             BPL   :SERVSKIP              ; No service entry
+             JSR   $8003                  ; Call service entry
+             TAX
+             BEQ   :SERVDONE
+:SERVSKIP    LDX   #$FF
+:SERVDONE    RTS
+
 BYTEDA       RTS                          ; $DA = clear VDU queue
 
 BYTEEA       LDX   #$00                   ; No tube
