@@ -76,9 +76,9 @@ START       JSR   ROMMENU
             LDA   #>MOSSHIM
             STA   A1H
 
-            LDA   #<MOSSHIM+$1000  ; End address of MOS shim
+            LDA   #<MOSSHIM+$2000  ; End address of MOS shim
             STA   A2L
-            LDA   #>MOSSHIM+$1000
+            LDA   #>MOSSHIM+$2000
             STA   A2H
 
             LDA   #<AUXMOS1        ; To AUXMOS1 in aux memory
