@@ -8,9 +8,9 @@
 *************************
 
 BYTWRDADDR   DW    BYTE00                 ; OSBYTE   0 - Machine host
-*           DW    BYTE01   ; OSBYTE   1 - User flag
-*           DW    BYTE02   ; OSBYTE   2 - OSRDCH source
-*           DW    BYTE03   ; OSBYTE   3 - OSWRCH dest
+             DW    BYTE01                 ; OSBYTE   1 - User flag
+             DW    BYTE02                 ; OSBYTE   2 - OSRDCH source
+             DW    BYTE03                 ; OSBYTE   3 - OSWRCH dest
 *           DW    BYTE04   ; OSBYTE   4 - Cursor keys
 BYTWRDLOW
 BYTESZLO     EQU   BYTWRDLOW-BYTWRDADDR
@@ -313,6 +313,13 @@ GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
 
 BYTE00       LDX   #$0A                   ; $00 = identify Host
              RTS
+
+BYTE01       LDA   #$F1                   ; $01 = read/write user flag
+             JMP   BYTEHND
+
+BYTE02       RTS                          ; $02 = select input stream
+
+BYTE03       RTS                          ; $03 = select output stream
 
 BYTE7C       LDA   ESCFLAG                ; $7C = clear escape condition
              AND   #$7F                   ; Clear MSbit
