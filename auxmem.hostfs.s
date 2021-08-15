@@ -304,8 +304,10 @@ OSFILEM2    ASC   ')'
 *            A=modified if implemented
 *            X,Y=any return values
 * 
-FSCHND      CMP   #$01
-            BEQ   CHKEOF              ; A=0  - Read EOF
+FSCHND      CMP   #$00
+            BEQ   FSOPT               ; A=0  - *OPT
+            CMP   #$01
+            BEQ   CHKEOF              ; A=1  - Read EOF
             CMP   #$02
             BEQ   FSCRUN              ; A=2  - */filename
             CMP   #$04
@@ -326,6 +328,9 @@ FSCREN
             RTS
 OSFSCM      ASC   'OSFSC.'
             DB    $00
+
+* Performs OSFSC *OPT function
+FSOPT       RTS                       ; No FS options for now
 
 * Performs OSBYTE $7F EOF function
 * File ref number is in X
@@ -434,6 +439,4 @@ STARDIR     JSR   EATSPC              ; Eat leading spaces
 STARDIRRET
             >>>   ENTAUX
             RTS
-
-
 
