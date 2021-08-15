@@ -28,14 +28,14 @@ BYTEHIGH     EQU   $7C                    ; First high OSBYTE
              DW    BYTE85                 ; OSBYTE 133 - MEMTOP for MODE
              DW    BYTE86                 ; OSBYTE 134 - POS, VPOS
              DW    BYTE87                 ; OSBYTE 135 - Character, MODE
-*           DW    BYTE88   ; OSBYTE 136 - *CODE
-*           DW    BYTE89   ; OSBYTE 137 - *MOTOR
-*           DW    BYTE8A   ; OSBYTE 138 - Buffer insert
-*           DW    BYTE8B   ; OSBYTE 139 - *OPT
-*           DW    BYTE8C   ; OSBYTE 140 - *TAPE
-*           DW    BYTE8D   ; OSBYTE 141 - *ROM
-*           DW    BYTE8E   ; OSBYTE 142 - Enter language
-*           DW    BYTE8F   ; OSBYTE 143 - Service call
+             DW    BYTE88                 ; OSBYTE 136 - *CODE
+             DW    BYTE89                 ; OSBYTE 137 - *MOTOR
+             DW    BYTE8A                 ; OSBYTE 138 - Buffer insert
+             DW    BYTE8B                 ; OSBYTE 139 - *OPT
+             DW    BYTE8C                 ; OSBYTE 140 - *TAPE
+             DW    BYTE8D                 ; OSBYTE 141 - *ROM
+             DW    BYTE8E                 ; OSBYTE 142 - Enter language
+             DW    BYTE8F                 ; OSBYTE 143 - Service call
 BYTWRDTOP
              DW    BYTEVAR                ; OSBYTE 166+ - Read/Write OSBYTE variable
 * Maximum high OSBYTE
@@ -206,7 +206,7 @@ WORD00       IF    MAXLEN-OSTEXT-2
              ELSE
              LDA   (OSCTRL),Y             ; Copy control block 
              STA   OSTEXT,Y               ; 0,1 => text
-             INY                          ;  2  = MAXLEN 
+             INY                          ;  2  = MAXLEN
              CPY   #$05                   ;  3  = MINCHAR
              BCC   WORD00                 ;  4  = MAXCHAR
              LDY   #$00                   ; Initial line length = zero
@@ -356,11 +356,22 @@ BYTE85       LDY   #$80                   ; $85 = top user mem for mode
              LDX   #$00
              RTS
 
+* BYTE86 and BYTE87 are in AUXMEM.VDU.S
+
+BYTE88       JMP   (USERV)                ; $88 = *CODE
+
+BYTE89       RTS                          ; $89 = *MOTOR
+
+BYTE8A       RTS                          ; $8A = insert val into buf
+
 BYTE8B       LDA   #$00                   ; $8B = *OPT
              JMP   (FSCV)                 ; Hand over to filing system
 
+BYTE8C       RTS                          ; $8C = *TAPE
+
+BYTE8D       RTS                          ; $8D = *ROM
+
 * OSBYTE $8E - Enter language ROM
-*
 BYTE8E       PHP                          ; Save CLC=RESET, SEC=Not RESET
              LDA   #$08
              STA   FAULT+0
@@ -375,7 +386,6 @@ BYTE8E       PHP                          ; Save CLC=RESET, SEC=Not RESET
 
 * OSBYTE $8F - Issue service call
 * X=service call, Y=parameter
-*
 BYTE8F       TXA
 SERVICE      LDX   #$0F
              BIT   $8006
