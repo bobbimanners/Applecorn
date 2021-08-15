@@ -99,8 +99,7 @@ XF2MAIN     MAC
             STX   STRTH
             TSX
             STX   $0101       ; Save alt SP
-            LDX   $0100       ; Load main SP
-            TXS
+            LDX   $0100       ; Load main SP into X
             CLC               ; Use main mem
             CLV               ; Use main ZP and LC
             JMP   XFER
@@ -118,6 +117,7 @@ ENTAUX      MAC
 
 * Macro called on re-entry to main memory
 ENTMAIN     MAC
+            TXS               ; Main SP already in X
             LDX   $C081       ; Bank in ROM
             LDX   $C081
             EOM
