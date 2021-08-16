@@ -1,8 +1,10 @@
-* Load an Acorn BBC Micro ROM in aux memory and
-* Provide an environment where it can run
+* APPLECORN.S
 * (c) Bobbi 2021 GPLv3
 *
-* Assembled with the Merlin 8 assembler.
+* Load an Acorn BBC Micro ROM in aux memory and
+* Provide an environment where it can run
+*
+* Assembled with the Merlin 8 v2.58 assembler on Apple II.
 
             XC                ; 65c02
             ORG   $2000       ; Load addr of loader in main memory
@@ -75,13 +77,13 @@ AUXMOS      EQU   $D000       ; Final location in aux LC
 * Called by code running in main mem to invoke a
 * routine in aux memory
 XF2AUX      MAC
-            SEI               ; EXPERIMENT
             LDX   $C08B       ; R/W LC RAM, bank 1
             LDX   $C08B
             LDX   #<]1
             STX   STRTL
             LDX   #>]1
             STX   STRTH
+            SEI               ; Disable IRQ before XFER
             SEC               ; Use aux memory
             BIT   $FF58       ; Set V: use alt ZP and LC
             JMP   XFER
@@ -90,7 +92,6 @@ XF2AUX      MAC
 * Called by code running in aux mem to invoke a
 * routine in main memory
 XF2MAIN     MAC
-            SEI               ; Experiment
             LDX   STRTL
             STX   STRTBCKL
             LDX   STRTH
@@ -99,6 +100,7 @@ XF2MAIN     MAC
             STX   STRTL
             LDX   #>]1
             STX   STRTH
+            SEI               ; Disable IRQ before XFER
             TSX
             STX   $0101       ; Save alt SP
             LDX   $0100       ; Load main SP into X
@@ -109,13 +111,13 @@ XF2MAIN     MAC
 
 * Macro called on re-entry to aux memory
 ENTAUX      MAC
+            LDX   $0101       ; Recover alt SP
+            TXS
+            CLI               ; Re-enable IRQ after XFER
             LDX   STRTBCKL
             STX   STRTL
             LDX   STRTBCKH
             STX   STRTH
-            LDX   $0101       ; Recover alt SP
-            TXS
-            CLI
             EOM
 
 * Macro called on re-entry to main memory
@@ -123,7 +125,7 @@ ENTMAIN     MAC
             TXS               ; Main SP already in X
             LDX   $C081       ; Bank in ROM
             LDX   $C081
-            CLI
+            CLI               ; Re-enable IRQ after XFER
             EOM
 
 * Enable writing to main memory (for code running in aux)
@@ -132,10 +134,26 @@ WRTMAIN     MAC
             STA   $C004       ; Write to main memory
             EOM
 
-* Go back to writing to aux (for code runnign in aux)
+* Go back to writing to aux (for code running in aux)
 WRTAUX      MAC
             STA   $C005       ; Write to aux memory
             CLI               ; Normal service resumed
+            EOM
+
+* Manually enable AltZP (for code running in main)
+ALTZP       MAC
+            SEI               ; Disable IRQ when AltZP on
+            LDA   $C08B       ; R/W LC bank 1
+            LDA   $C08B
+            STA   $C009       ; Alt ZP and LC
+            EOM
+
+* Manually disable AltZP (for code running in main)
+MAINZP      MAC
+            STA   $C008       ; Main ZP and LC
+            LDA   $C081       ; Bank ROM back in
+            LDA   $C081
+            CLI               ; Turn IRQ back on
             EOM
 
 * Code is all included from PUT files below ...

@@ -14,10 +14,6 @@ START       JSR   ROMMENU
             JSR   SETPRFX
             JSR   DISCONN
 
-            STA   $C009            ; Alt ZP on
-            STZ   $9F              ; WARMSTRT - set cold!
-            STA   $C008            ; Alt ZP off
-
             JSR   OPENFILE         ; Open ROM file
             BCC   :S2
             LDX   #$00

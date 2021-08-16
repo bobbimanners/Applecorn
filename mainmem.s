@@ -88,9 +88,7 @@ RESET       TSX
 * Copy 512 bytes from BLKBUF to AUXBLK in aux LC
 COPYAUXBLK
             SEI
-            LDA   $C08B              ; R/W LC RAM, bank 1
-            LDA   $C08B
-            STA   $C009              ; Alt ZP (and Alt LC) on
+            >>>   ALTZP              ; Alt ZP & Alt LC on
 
             LDY   #$00
 :L1         LDA   BLKBUF,Y
@@ -112,9 +110,7 @@ COPYAUXBLK
             INY
             BRA   :L2
 
-:S2         STA   $C008              ; Alt ZP off
-            LDA   $C081              ; Bank the ROM back in
-            LDA   $C081
+:S2         >>>   MAINZP             ; Alt ZP off, ROM back in
             CLI
             RTS
 
@@ -339,9 +335,7 @@ TELL        >>>   ENTMAIN
             DW    GMARKPL
 :S1         LDX   MOSFILE+1          ; Pointer to ZP control block
             BCS   :ERR
-            LDA   $C08B              ; R/W LC RAM, bank 1
-            LDA   $C08B
-            STA   $C009              ; Alt ZP on
+            >>>   ALTZP              ; Alt ZP & Alt LC on
             LDA   GMARKPL+2
             STA   $00,X
             LDA   GMARKPL+3
@@ -349,21 +343,15 @@ TELL        >>>   ENTMAIN
             LDA   GMARKPL+4
             STA   $02,X
             STZ   $03,X
-            STA   $C008              ; Alt ZP off
-            LDA   $C081              ; Bank the ROM back in
-            LDA   $C081
+            >>>   MAINZP             ; Alt ZP off, ROM back in
 :EXIT       >>>   XF2AUX,OSARGSRET
 :ERR        LDX   MOSFILE+1          ; Address of ZP control block
-            LDA   $C08B
-            LDA   $C08B
-            STA   $C009
+            >>>   ALTZP              ; Alt ZP & Alt LC on
             STZ   $00,X
             STZ   $01,X
             STZ   $02,X
             STZ   $03,X
-            STZ   $C008
-            LDA   $C081
-            LDA   $C081
+            >>>   MAINZP             ; Alt ZP off, ROM back in
             BRA   :EXIT
 
 * ProDOS file handling for MOS OSFILE LOAD call
