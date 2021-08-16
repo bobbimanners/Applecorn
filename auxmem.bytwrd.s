@@ -1,5 +1,14 @@
+* AUXMEM.BYTWRD.S
+* (c) Bobbi 2021 GPLv3
+*
+* Applecorn OSBYTE and OSWORD handlers
+
 * KERNEL/OSWOSB.S
 *****************
+* OSBYTE and OSWORD dispatch
+*
+* 15-Aug-2021 Added 'set variable' OSBYTEs 1-6
+
 
              XC                           ; 65c02
 
@@ -7,11 +16,15 @@
 * OSBYTE DISPATCH TABLE *
 *************************
 
+BYTEVARBASE  EQU   $190                   ; Base of OSBYTE variables
+
 BYTWRDADDR   DW    BYTE00                 ; OSBYTE   0 - Machine host
              DW    BYTE01                 ; OSBYTE   1 - User flag
              DW    BYTE02                 ; OSBYTE   2 - OSRDCH source
              DW    BYTE03                 ; OSBYTE   3 - OSWRCH dest
-*           DW    BYTE04   ; OSBYTE   4 - Cursor keys
+             DW    BYTE04                 ; OSBYTE   4 - Cursor keys
+             DW    BYTE05                 ; OSBYTE   5 - Printer destination
+             DW    BYTE06                 ; OSBYTE   6 - Printer ignore
 BYTWRDLOW
 BYTESZLO     EQU   BYTWRDLOW-BYTWRDADDR
 BYTELOW      EQU   BYTESZLO/2-1           ; Maximum low OSBYTE
@@ -20,22 +33,22 @@ BYTEHIGH     EQU   $7C                    ; First high OSBYTE
              DW    BYTE7D                 ; OSBYTE 125 - Set Escape
              DW    BYTE7E                 ; OSBYTE 126 - Ack. Escape
              DW    BYTE7F                 ; OSBYTE 127 - Read EOF
-             DW    BYTE80                 ; OSBYTE 128 - ADVAL
-             DW    BYTE81                 ; OSBYTE 129 - INKEY
+             DW    BYTE80                 ; OSBYTE 128 - ADVAL           - MISC.s
+             DW    BYTE81                 ; OSBYTE 129 - INKEY           - CHARIO.s
              DW    BYTE82                 ; OSBYTE 130 - Memory high word
              DW    BYTE83                 ; OSBYTE 131 - MEMBOT
              DW    BYTE84                 ; OSBYTE 132 - MEMTOP
              DW    BYTE85                 ; OSBYTE 133 - MEMTOP for MODE
-             DW    BYTE86                 ; OSBYTE 134 - POS, VPOS
-             DW    BYTE87                 ; OSBYTE 135 - Character, MODE
+             DW    BYTE86                 ; OSBYTE 134 - POS, VPOS       - VDU.s
+             DW    BYTE87                 ; OSBYTE 135 - Character, MODE - VDU.s
              DW    BYTE88                 ; OSBYTE 136 - *CODE
              DW    BYTE89                 ; OSBYTE 137 - *MOTOR
              DW    BYTE8A                 ; OSBYTE 138 - Buffer insert
              DW    BYTE8B                 ; OSBYTE 139 - *OPT
              DW    BYTE8C                 ; OSBYTE 140 - *TAPE
              DW    BYTE8D                 ; OSBYTE 141 - *ROM
-             DW    BYTE8E                 ; OSBYTE 142 - Enter language
-             DW    BYTE8F                 ; OSBYTE 143 - Service call
+             DW    BYTE8E                 ; OSBYTE 142 - Enter language  - INIT.s
+             DW    BYTE8F                 ; OSBYTE 143 - Service call    - INIT.s
 BYTWRDTOP
              DW    BYTEVAR                ; OSBYTE 166+ - Read/Write OSBYTE variable
 * Maximum high OSBYTE
@@ -189,7 +202,6 @@ JMPADDR      JMP   ($00FA)
 * On exit,  Y=length of line, offset to <cr>
 *           CC = Ok, CS = Escape
 *
-
              XC                           ; 65c02
 WORD00       IF    MAXLEN-OSTEXT-2
              LDY   #$04
@@ -204,9 +216,9 @@ WORD00       IF    MAXLEN-OSTEXT-2
              BPL   :WORD00LP2
              INY                          ; Initial line length = zero
              ELSE
-             LDA   (OSCTRL),Y             ; Copy control block 
+             LDA   (OSCTRL),Y             ; Copy control block
              STA   OSTEXT,Y               ; 0,1 => text
-             INY                          ;  2  = MAXLEN
+             INY                          ;  2  = MAXLEN 
              CPY   #$05                   ;  3  = MINCHAR
              BCC   WORD00                 ;  4  = MAXCHAR
              LDY   #$00                   ; Initial line length = zero
@@ -288,16 +300,12 @@ WORD02       RTS                          ; Dummy, do nothing
 
              XC                           ; 65c02
 WORD05       JSR   GETADDR                ; Point to address, set X and Y
-* needs to switch to main memory
              LDA   (OSINTWS)              ; Get byte
-* needs to switch back
              STA   (OSCTRL),Y             ; Store it
              RTS
 WORD06       JSR   GETADDR                ; Point to address, set X and Y
              LDA   (OSCTRL),Y             ; Get byte
-* needs to switch to main memory
              STA   (OSINTWS)              ; Store it
-* needs to switch back
              RTS
 GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
              INY
@@ -306,78 +314,94 @@ GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
              LDY   #$04                   ; Point Y to data byte
              RTS
 
-* KERNEL/BWMISC.S
+* OSBYTE routines
 *****************
-* Here until tidied
-
 
 BYTE00       LDX   #$0A                   ; $00 = identify Host
              RTS
 
-BYTE01       LDA   #$F1                   ; $01 = read/write user flag
-             JMP   BYTEHND
+BYTE88       LDA   #$01                   ; $88 = *CODE
+WORDE0       JMP   (USERV)                ; OSWORD &E0+
 
-BYTE02       RTS                          ; $02 = select input stream
-
-BYTE03       RTS                          ; $03 = select output stream
-
-BYTE7C       LDA   ESCFLAG                ; $7C = clear escape condition
-             AND   #$7F                   ; Clear MSbit
-             STA   ESCFLAG
+* Low OSBYTE converted into Set Variable
+BYTE02       LDA   #$F7                   ; -> &B1
+;
+BYTE09                                    ; -> &C2
+BYTE0A                                    ; -> &C3
+BYTE0B                                    ; -> &C4
+BYTE0C       ADC   #$C9                   ; -> &C5
+;
+BYTE01                                    ; -> &F1
+BYTE05                                    ; -> &F5
+BYTE06       ADC   #$07                   ; -> &F6
+;
+BYTE03                                    ; -> &EC
+BYTE04       ADC   #$E8                   ; -> &ED
+;
+* Read/Write OSBYTE variable
+BYTEVAR      TAY                          ; offset to variable
+             LDA   BYTEVARBASE+0,Y
+             TAX                          ; X=old value
+             AND   OSYREG
+             EOR   OSXREG
+             STA   BYTEVARBASE+0,Y        ; update variable
+             LDA   BYTEVARBASE+1,Y
+             TAY                          ; Y=next value
+* Unimplemented
+BYTE89                                    ; *MOTOR
+BYTE8A                                    ; Buffer insert
+BYTE8C                                    ; *TAPE
+BYTE8D                                    ; *ROM
              RTS
 
-BYTE7D       ROR   ESCFLAG                ; $7D = set escape condition
-             RTS
-
-BYTE7E       LDA   ESCFLAG                ; $7E = ack detection of ESC
-             AND   #$7F                   ; Clear MSB
-             STA   ESCFLAG
-             LDX   #$FF                   ; Means ESC condition cleared
-             RTS
-
-BYTE7F       PHY                          ; $7F = check for EOF
-             JSR   CHKEOF
-             PLY
-             RTS
-
-BYTE82       LDY   #$FF                   ; $82 = read high order address
-             LDX   #$FF                   ; $FFFF for I/O processor
+* Memory layout
+BYTE82                                    ; $82 = read high order address
+*      LDY   #$00
+*      LDX   #$00            ; $0000 for language processor
+* Should return $0000, but BCPL and Lisp playing silly buggers
+             LDY   #$FF                   ; $FFFF for I/O processor
+             LDX   #$FF
              RTS
 
 BYTE83       LDY   #$0E                   ; $83 = read bottom of user mem
              LDX   #$00                   ; $0E00
              RTS
 
+BYTE85                                    ; $85 = top user mem for mode
 BYTE84       LDY   #$80                   ; $84 = read top of user mem
              LDX   #$00
              RTS
 
-BYTE85       LDY   #$80                   ; $85 = top user mem for mode
-             LDX   #$00
-             RTS
+* Move to keyboard stuff
+************************
+BYTE7E       LDX   #$00                   ; $7E = ack detection of ESC
+             BIT   ESCFLAG
+             BPL   BYTE7DOK               ; No Escape pending
+* TO DO: process escape effects
+             DEX                          ; X=$FF, Escape was pending
+BYTE7C       CLC                          ; &7C = clear escape condition
+BYTE7D       ROR   ESCFLAG                ; $7D = set escape condition
+BYTE7DOK     RTS
 
-* BYTE86 and BYTE87 are in AUXMEM.VDU.S
-
-BYTE88       JMP   (USERV)                ; $88 = *CODE
-
-BYTE89       RTS                          ; $89 = *MOTOR
-
-BYTE8A       RTS                          ; $8A = insert val into buf
-
-BYTE8B       LDA   #$00                   ; $8B = *OPT
+* Passed on to filing system
+BYTE8B       LDA   #$00                   ; &00 -> &00 - *OPT
+BYTE7F       AND   #$01                   ; &7F -> &01 - EOF
              JMP   (FSCV)                 ; Hand over to filing system
 
-BYTE8C       RTS                          ; $8C = *TAPE
 
-BYTE8D       RTS                          ; $8D = *ROM
+* TO DO: Move this to AUXMEM.INIT.S
+***********************************
 
 * OSBYTE $8E - Enter language ROM
+*
 BYTE8E       PHP                          ; Save CLC=RESET, SEC=Not RESET
-             LDA   #$08
+             LDA   #$00
              STA   FAULT+0
              LDA   #$80
              STA   FAULT+1
-             JSR   PRERR                  ; Print ROM name with PRERR to set FAULT
+             LDY   #$09
+             JSR   PRERRLP                ; Print ROM name with PRERR to set
+             STY   FAULT+0                ;  FAULT pointing to version string
              JSR   OSNEWL
              JSR   OSNEWL
              PLP                          ; Get entry type back
@@ -386,6 +410,7 @@ BYTE8E       PHP                          ; Save CLC=RESET, SEC=Not RESET
 
 * OSBYTE $8F - Issue service call
 * X=service call, Y=parameter
+*
 BYTE8F       TXA
 SERVICE      LDX   #$0F
              BIT   $8006
@@ -396,11 +421,8 @@ SERVICE      LDX   #$0F
 :SERVSKIP    LDX   #$FF
 :SERVDONE    RTS
 
-BYTEDA       RTS                          ; $DA = clear VDU queue
 
-BYTEEA       LDX   #$00                   ; No tube
-             RTS                          ; $EA = Tube presence
-
+* Test/Debug code
 UNSUPBYTWRD
              LDA   #<OSBYTEM
              LDY   #>OSBYTEM
@@ -421,8 +443,4 @@ OSWORDM      ASC   'OSWORD($'
              DB    $00
 OSBM2        ASC   ').'
              DB    $00
-
-BYTEVAR      LDX   #$00
-             LDY   #$00
-WORDE0       RTS
 
