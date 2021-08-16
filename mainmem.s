@@ -87,6 +87,7 @@ RESET       TSX
 
 * Copy 512 bytes from BLKBUF to AUXBLK in aux LC
 COPYAUXBLK
+            SEI
             LDA   $C08B              ; R/W LC RAM, bank 1
             LDA   $C08B
             STA   $C009              ; Alt ZP (and Alt LC) on
@@ -114,6 +115,7 @@ COPYAUXBLK
 :S2         STA   $C008              ; Alt ZP off
             LDA   $C081              ; Bank the ROM back in
             LDA   $C081
+            CLI
             RTS
 
 * ProDOS file handling for MOS OSFIND OPEN call
