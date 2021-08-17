@@ -14,6 +14,9 @@ START       JSR   ROMMENU
             JSR   SETPRFX
             JSR   DISCONN
 
+            LDA   #$20             ; PAGE2 shadow on ROM3 GS
+            TRB   $C035
+
             JSR   OPENFILE         ; Open ROM file
             BCC   :S2
             LDX   #$00
