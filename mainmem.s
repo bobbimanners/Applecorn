@@ -7,7 +7,7 @@
 
 * Trampoline in main memory used by aux memory IRQ handler
 * to invoke Apple II / ProDOS IRQs in main memory
-A2IRQ       >>>   ENTMAIN
+A2IRQ       >>>   IENTMAIN           ; IENTMAIN does not do CLI
             JSR   A2IRQ2
             >>>   XF2AUX,IRQBRKRET
 A2IRQ2      PHP                      ; Fake things to look like IRQ

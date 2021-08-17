@@ -128,6 +128,25 @@ ENTMAIN     MAC
             CLI               ; Re-enable IRQ after XFER
             EOM
 
+* Macro called on re-entry to aux memory
+* For use in interrupt handlers (no CLI!)
+IENTAUX     MAC
+            LDX   $0101       ; Recover alt SP
+            TXS
+            LDX   STRTBCKL
+            STX   STRTL
+            LDX   STRTBCKH
+            STX   STRTH
+            EOM
+
+* Macro called on re-entry to main memory
+* For use in interrupt handlers (no CLI!)
+IENTMAIN    MAC
+            TXS               ; Main SP already in X
+            LDX   $C081       ; Bank in ROM
+            LDX   $C081
+            EOM
+
 * Enable writing to main memory (for code running in aux)
 WRTMAIN     MAC
             SEI               ; Keeps IRQ handler easy

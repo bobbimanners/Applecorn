@@ -173,15 +173,15 @@ IRQBRKHDLR
 
 :IRQ        >>>   XF2MAIN,A2IRQ  ; Bounce to Apple IRQ handler
 IRQBRKRET
-            >>>   ENTAUX
+            >>>   IENTAUX        ; IENTAUX does not do CLI
             PLA                  ; TODO: Pass on to IRQ1V
             TAX
             PLA
 NULLRTI     RTI
 
 * Invoked from GSBRK in main memory. On IIgs only.
-GSBRKAUX    >>>   ENTAUX
-            JMP   IRQBRKHDLR     ; See if this works!!
+GSBRKAUX    >>>   IENTAUX        ; IENTAUX does not do CLI
+            JMP   IRQBRKHDLR
 
 PRERR       LDY   #$01
 PRERRLP     LDA   (FAULT),Y
