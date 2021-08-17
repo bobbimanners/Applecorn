@@ -82,6 +82,10 @@ DISCONN     LDA   $BF98
 * XFER to AUXMOS ($C000) in aux, AuxZP on, LC on
 RESET       TSX
             STX   $0100
+            LDA   $C058              ; AN0 off
+            LDA   $C05A              ; AN1 off
+            LDA   $C05D              ; AN2 on
+            LDA   $C05F              ; AN3 on
             >>>   XF2AUX,AUXMOS
             RTS
 
