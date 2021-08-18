@@ -14,6 +14,7 @@ BELL        EQU   $FBDD
 PRBYTE      EQU   $FDDA
 COUT1       EQU   $FDED
 CROUT       EQU   $FD8E
+HOME        EQU   $FC58
 AUXMOVE     EQU   $C311
 XFER        EQU   $C314
 
@@ -37,23 +38,6 @@ A2IRQV      EQU   $3FE
 
 * MLI entry point
 MLI         EQU   $BF00
-
-* ProDOS MLI command numbers
-QUITCMD     EQU   $65
-GTIMECMD    EQU   $82
-CREATCMD    EQU   $C0
-DESTCMD     EQU   $C1
-ONLNCMD     EQU   $C5
-SPFXCMD     EQU   $C6
-GPFXCMD     EQU   $C7
-OPENCMD     EQU   $C8
-READCMD     EQU   $CA
-WRITECMD    EQU   $CB
-CLSCMD      EQU   $CC
-FLSHCMD     EQU   $CD
-SMARKCMD    EQU   $CE
-GMARKCMD    EQU   $CF
-GEOFCMD     EQU   $D1
 
 * IO Buffer for reading file (1024 bytes)
 IOBUF0      EQU   $4000       ; For loading ROM, OSFILE, *.

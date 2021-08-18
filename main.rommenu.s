@@ -3,7 +3,8 @@
 *
 * Applecorn ROM menu
 
-ROMMENU     LDA   #<TITLE1    ; Print title
+ROMMENU     JSR   HOME        ; Clear screen
+            LDA   #<TITLE1    ; Print title
             STA   A1L
             LDA   #>TITLE1
             STA   A1H
