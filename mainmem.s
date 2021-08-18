@@ -5,6 +5,25 @@
 * This code is mostly glue between the BBC Micro code
 * which runs in aux mem and Apple II ProDOS.
 
+* ProDOS MLI command numbers
+QUITCMD     EQU   $65
+GTIMECMD    EQU   $82
+CREATCMD    EQU   $C0
+DESTCMD     EQU   $C1
+SFILECMD    EQU   $C3
+GINFOCMD    EQU   $C4
+ONLNCMD     EQU   $C5
+SPFXCMD     EQU   $C6
+GPFXCMD     EQU   $C7
+OPENCMD     EQU   $C8
+READCMD     EQU   $CA
+WRITECMD    EQU   $CB
+CLSCMD      EQU   $CC
+FLSHCMD     EQU   $CD
+SMARKCMD    EQU   $CE
+GMARKCMD    EQU   $CF
+GEOFCMD     EQU   $D1
+
 * Trampoline in main memory used by aux memory IRQ handler
 * to invoke Apple II / ProDOS IRQs in main memory
 A2IRQ       >>>   IENTMAIN           ; IENTMAIN does not do CLI
@@ -390,8 +409,18 @@ LOADFILE    >>>   ENTMAIN
             LDA   FBEXEC             ; If FBEXEC is zero, use addr
             CMP   #$00               ; in the control block
             BEQ   :CBADDR
-                                     ; Otherwise use the file addr
-* TODO Issue GET_FILE_INFO MLI call to get file load addr
+            LDA   #<MOSFILE          ; Otherwise use file addr
+            STA   GINFOPL+1
+            LDA   #>MOSFILE
+            STA   GINFOPL+2
+            JSR   MLI                ; Call GET_FILE_INFO
+            DB    GINFOCMD
+            DW    GINFOPL
+            BCS   :READERR
+            LDA   GINFOPL+5          ; Aux type MSB
+            STA   FBLOAD
+            LDA   GINFOPL+6          ; Aux type LSB
+            STA   FBLOAD+1
 :CBADDR     LDA   FBLOAD
             STA   A4L
             LDA   FBLOAD+1
@@ -712,6 +741,18 @@ GEOFPL      HEX   02                 ; Number of parameters
             DB    $00                ; EOF (24 bit)
             DB    $00
             DB    $00
+
+GINFOPL     HEX   0A                 ; Number of parameters
+            DW    $0000              ; Pointer to filename
+            DB    $00                ; Access
+            DB    $00                ; File type
+            DW    $0000              ; Aux type
+            DB    $00                ; Storage type
+            DW    $0000              ; Blocks used
+            DW    $0000              ; Mod date
+            DW    $0000              ; Mod time
+            DW    $0000              ; Create date
+            DW    $0000              ; Create time
 
 QUITPL      HEX   04                 ; Number of parameters
             DB    $00
