@@ -6,6 +6,7 @@
 * 15-Aug-2021 Optimised address calculations and PRCHRC.
 *             Entry point to move copy cursor.
 *             Start to consolidate VDU workspace.
+* 16-Aug-2021 Added COPY cursor handling.
 
 
 **********************************
@@ -30,6 +31,8 @@ VDUTEXTX    EQU   COL
 VDUTEXTY    EQU   ROW
 VDUCOPYX    EQU   $250+2        ; copy cursor X coord
 VDUCOPYY    EQU   $250+3        ; copy cursor Y coord
+* VDUCOPYCHR  EQU $260+0 ; char underneath cursor when copying
+
 * VDUCURSOR EQU $250+4 ; cursor character
 * VDUMODE   EQU $250+5 ; current MODE
 * VDUCHAR   EQU $250+6 ; VDU command, 1 byte
@@ -42,34 +45,55 @@ VDUCOPYY    EQU   $250+3        ; copy cursor Y coord
 
 
 * Move editing cursor
-* A=cursor key
-MOVECOPY    PHA
+* A=cursor key, CS from caller
+COPYMOVE    PHA
             BIT   VDUSTATUS
-            BVS   MOVECOPY2     ; Edit cursor already on
-            LDX   #1
-MOVECOPY1   LDA   VDUTEXTX,X    ; Initialise copy cursor
-            STA   VDUCOPYX,X
-            DEX
-            BPL   MOVECOPY1
-            LDA   #$40
+            BVS   COPYMOVE2     ; Edit cursor already on
+            JSR   GETCHRC
+            STA   COPYCHAR
+            LDA   CURSORED
+            JSR   PUTCHRC       ; Edit cursor
+            SEC
+            JSR   COPYSWAP2     ; Initialise copy cursor
+            ROR   FLASHER
+            ASL   FLASHER       ; Ensure b0=0
+            LDA   #$42
             ORA   VDUSTATUS
-            STA   VDUSTATUS     ; Turn edit cursor on
-MOVECOPY2   JSR   COPYSWAP      ; Use edit cursor
-            PLA
-            AND   #3
+            STA   VDUSTATUS     ; Turn cursor editing on
+COPYMOVE2   PLA
+            AND   #3            ; Convert to 8/9/10/11
             ORA   #8
-MOVECOPY3   JSR   OUTCHARGO     ; Move edit cursor
-*           JSR   CHARADDR   ; Get character address
-*                            ; Swap cursors back            
-COPYSWAP    LDX   #1
+COPYMOVE3   JMP   OUTCHARGO     ; Move edit cursor
+
+;* Turn editing cursor on/off
+;COPYCURSOR  BIT   VDUSTATUS
+;            BVC   COPYSWAP4  ; Copy cursor not active
+;            PHP              ; Save CS=Turn On, CC=Turn Off
+;            JSR   COPYSWAP1  ; Swap to edit cursor
+;            LDA   COPYCHAR   ; Prepare to turn edit cursor off
+;            PLP
+;            BCC   COPYCURS2  ; Restore character
+;COPYCURS1   JSR   GETCHRC    ; Get character under edit cursor
+;            STA   COPYCHAR
+;            LDA   #$A0       ; Output edit cursor
+;COPYCURS2   JSR   PUTCHRC
+;*                            ; Drop through to swap back
+
+* Swap between edit and copy cursors
+;COPYSWAP    BIT   VDUSTATUS
+;            BVC   COPYSWAP4  ; Edit cursor off
+COPYSWAP1   CLC                 ; CC=Swap TEXT and COPY
+COPYSWAP2   LDX   #1
 COPYSWAPLP  LDY   VDUCOPYX,X
             LDA   VDUTEXTX,X
             STA   VDUCOPYX,X
+            BCS   COPYSWAP3     ; CS=Copy TEXT to COPY
             TYA
             STA   VDUTEXTX,X
-            DEX
+COPYSWAP3   DEX
             BPL   COPYSWAPLP
-            RTS
+COPYSWAP4   RTS
+
 
 * Clear to EOL
 CLREOL      LDA   ROW
@@ -100,6 +124,11 @@ CLREOL      LDA   ROW
             RTS
 
 * Clear the screen
+VDUINIT     STA   $C00F
+            LDA   #'_'
+            STA   CURSOR
+            LDA   #$A0
+            STA   CURSORED
 CLEAR       STZ   ROW
             STZ   COL
 :L1         JSR   CLREOL
@@ -169,14 +198,14 @@ PRCHR6      EOR   #$80          ; Convert character
             RTS
 
 *            PHA
-*            LDA   $C000            ; Kbd data/strobe
+*            LDA   $C000                      ; Kbd data/strobe
 *            BMI   :KEYHIT
 * :RESUME    LDA   ROW
 *            ASL
 *            TAX
-*            LDA   SCNTAB,X         ; LSB of row address
+*            LDA   SCNTAB,X           ; LSB of row address
 *            STA   ZP1
-*            LDA   SCNTAB+1,X       ; MSB of row address
+*            LDA   SCNTAB+1,X         ; MSB of row address
 *            STA   ZP1+1
 *            LDA   COL
 *            BIT   $C01F
@@ -187,25 +216,25 @@ PRCHR6      EOR   #$80          ; Convert character
 *:S1         TAY
 *            PLA
 *            EOR   #$80
-*            STA   (ZP1),Y         ; Screen address
+*            STA   (ZP1),Y                    ; Screen address
 *            >>>   WRTAUX
 *            RTS
-*:KEYHIT     STA   $C010           ; Clear strobe
+*:KEYHIT     STA   $C010                      ; Clear strobe
 *            AND   #$7F
-*            CMP   #$13            ; Ctrl-S
+*            CMP   #$13                       ; Ctrl-S
 *            BEQ   :PAUSE
-*            CMP   #$1B            ; Esc
+*            CMP   #$1B                       ; Esc
 *            BNE   :RESUME
 *:ESC        SEC
-*            ROR   ESCFLAG         ; Set ESCFLAG
+*            ROR   ESCFLAG                    ; Set ESCFLAG
 *            BRA   :RESUME
-*:PAUSE      STA   $C010           ; Clear strobe
-*:L1         LDA   $C000           ; Kbd data/strobe
+*:PAUSE      STA   $C010                      ; Clear strobe
+*:L1         LDA   $C000                      ; Kbd data/strobe
 *            BPL   :L1
 *            AND   #$7F
-*            CMP   #$11            ; Ctrl-Q
+*            CMP   #$11                       ; Ctrl-Q
 *            BEQ   :RESUME
-*            CMP   #$1B            ; Esc
+*            CMP   #$1B                       ; Esc
 *            BEQ   :ESC
 *            BRA   :PAUSE
 
@@ -239,11 +268,11 @@ GETCHROK    RTS
 *            BPL   :S1A     ; 40-col
 *            LSR
 *            BCC   :S1
-*:S1A        STA   $C002    ; Read main memory
+*:S1A        STA   $C002             ; Read main memory
 *:S1         TAY
 *            LDA   (ZP1),Y
 *            EOR   #$80
-*            STA   $C003    ; Read aux mem again
+*            STA   $C003             ; Read aux mem again
 *            TAX
 *            LDY   #$00
 *            BIT   $C01F
@@ -346,23 +375,27 @@ OUTCHARGO   CMP   #$00          ; NULL
             BNE   :T5
             LDA   ROW
             CMP   #23
-            BEQ   SCROLL
+* BEQ SCROLL ; BOBBI
+            BEQ   :TOSCROLL     ; JGH
             INC   ROW
 :IDONE      RTS
 ; BRA   :DONE
+:TOSCROLL   JMP   SCROLL        ; JGH
 :T5         CMP   #$0B          ; Cursor up
             BNE   :T6
             LDA   ROW
             BEQ   :IDONE
             DEC   ROW
-            BRA   :IDONE
+;            BRA   :IDONE
+            RTS
 :T6         CMP   #$0D          ; Carriage return
             BNE   :T7
             LDA   #$BF
             AND   VDUSTATUS
             STA   VDUSTATUS     ; Turn copy cursor off
             STZ   COL
-            BRA   :IDONE
+;            BRA   :IDONE
+            RTS
 :T7         CMP   #$0C          ; Ctrl-L
             BEQ   :T7A
             CMP   #$16          ; MODE
@@ -373,16 +406,35 @@ OUTCHARGO   CMP   #$00          ; NULL
             TAX
             STA   $C00C,X
 :T7A        JSR   CLEAR
-            BRA   :IDONE
+;            BRA   :IDONE
+            RTS
 :T8         CMP   #$1E          ; Home
             BNE   :T9
             STZ   ROW
             STZ   COL
-            BRA   :IDONE
-:T9         CMP   #$7F          ; Delete
+;            BRA   :IDONE
+            RTS
+:T9
+            CMP   #$1F          ; TAB
+            BNE   :T9B
+            LDY   VDUQ+8
+            CPY   #24
+            BCS   :IDONE
+            LDX   VDUQ+7
+            CPX   #80
+            BCS   :IDONE
+            BIT   $C01F
+            BMI   :T9A
+            CPX   #80
+            BCS   :IDONE
+:T9A        STX   COL
+            STY   ROW
+            RTS
+:T9B        CMP   #$7F          ; Delete
             BNE   :T10
             JSR   DELETE
-            BRA   :IDONE
+;            BRA   :IDONE
+            RTS
 :T10        CMP   #$20
             BCC   :IDONE
             JSR   PRCHRC        ; Store char, checking keypress
