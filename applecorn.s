@@ -55,7 +55,7 @@ AUXADDR     EQU   $8000
 
 * Address in aux memory where the MOS shim is located
 AUXMOS1     EQU   $2000       ; Temp staging area in Aux
-EAUXMOS1    EQU   $3000       ; End of staging area
+EAUXMOS1    EQU   $4000       ; End of staging area
 AUXMOS      EQU   $D000       ; Final location in aux LC
 
 * Called by code running in main mem to invoke a
@@ -94,6 +94,7 @@ XF2MAIN     MAC
             EOM
 
 * Macro called on re-entry to aux memory
+* Careful: This enables IRQ - not for use in ISR
 ENTAUX      MAC
             LDX   $0101       ; Recover alt SP
             TXS
@@ -105,6 +106,7 @@ ENTAUX      MAC
             EOM
 
 * Macro called on re-entry to main memory
+* Careful: This enables IRQ - not for use in ISR
 ENTMAIN     MAC
             TXS               ; Main SP already in X
             LDX   $C081       ; Bank in ROM
