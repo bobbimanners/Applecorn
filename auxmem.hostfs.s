@@ -320,7 +320,15 @@ FSCHND      CMP   #$00
             BEQ   FSCCAT              ; A=10 - *INFO
             CMP   #$0C
             BEQ   FSCREN              ; A=12 - *RENAME
-FSCRUN
+
+FSCRUN      STX   OSFILECB            ; Pointer to filename
+            STY   OSFILECB+1
+            LDA   #$FF                ; OSFILE load flag
+            STA   OSFILECB+6          ; Use file's address
+            LDX   #<OSFILECB          ; Pointer to control block
+            LDY   #>OSFILECB
+            JSR   OSFILE
+            RTS
 FSCREN
             LDA   #<OSFSCM
             LDY   #>OSFSCM
