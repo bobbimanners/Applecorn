@@ -417,11 +417,12 @@ LOADFILE    >>>   ENTMAIN
             DB    GINFOCMD
             DW    GINFOPL
             BCS   :READERR
-            LDA   GINFOPL+5          ; Aux type MSB
-            STA   FBLOAD
-            LDA   GINFOPL+6          ; Aux type LSB
-            STA   FBLOAD+1
-:CBADDR     LDA   FBLOAD
+            LDX   GINFOPL+5          ; Aux type LSB
+            STX   FBLOAD
+            LDY   GINFOPL+6          ; Aux type MSB
+            STY   FBLOAD+1
+:CBADDR     JSR   PASSADDR           ; Load addr -> code in aux bank
+            LDA   FBLOAD
             STA   A4L
             LDA   FBLOAD+1
             LDX   :BLOCKS
@@ -447,6 +448,13 @@ LOADFILE    >>>   ENTMAIN
             JSR   CLSFILE
 :EXIT       >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
+
+* Stash address in XY to first two bytes of AUXBLK
+PASSADDR    >>>   ALTZP              ; Alt ZP and LC
+            STX   AUXBLK
+            STY   AUXBLK+1
+            >>>   MAINZP             ; Back to normal
+            RTS
 
 * ProDOS file handling for MOS OSFILE SAVE call
 * Return A=0 if successful
