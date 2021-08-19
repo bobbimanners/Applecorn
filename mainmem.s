@@ -5,13 +5,35 @@
 * This code is mostly glue between the BBC Micro code
 * which runs in aux mem and Apple II ProDOS.
 
+* ProDOS MLI command numbers
+QUITCMD     EQU   $65
+GTIMECMD    EQU   $82
+CREATCMD    EQU   $C0
+DESTCMD     EQU   $C1
+SFILECMD    EQU   $C3
+GINFOCMD    EQU   $C4
+ONLNCMD     EQU   $C5
+SPFXCMD     EQU   $C6
+GPFXCMD     EQU   $C7
+OPENCMD     EQU   $C8
+READCMD     EQU   $CA
+WRITECMD    EQU   $CB
+CLSCMD      EQU   $CC
+FLSHCMD     EQU   $CD
+SMARKCMD    EQU   $CE
+GMARKCMD    EQU   $CF
+GEOFCMD     EQU   $D1
+
 * Trampoline in main memory used by aux memory IRQ handler
 * to invoke Apple II / ProDOS IRQs in main memory
-A2IRQ       >>>   ENTMAIN
+A2IRQ       >>>   IENTMAIN           ; IENTMAIN does not do CLI
             JSR   A2IRQ2
             >>>   XF2AUX,IRQBRKRET
 A2IRQ2      PHP                      ; Fake things to look like IRQ
             JMP   (A2IRQV)           ; Call Apple II ProDOS ISR
+
+* BRK handler in main memory. Used on Apple IIgs only.
+GSBRK       >>>   XF2AUX,GSBRKAUX
 
 * Set prefix if not already set
 SETPRFX     LDA   #GPFXCMD
@@ -79,14 +101,19 @@ DISCONN     LDA   $BF98
 * XFER to AUXMOS ($C000) in aux, AuxZP on, LC on
 RESET       TSX
             STX   $0100
+            LDA   $C058              ; AN0 off
+            LDA   $C05A              ; AN1 off
+            LDA   $C05D              ; AN2 on
+            LDA   $C05F              ; AN3 on
+            LDA   #$20               ; PAGE2 shadow on ROM3 GS
+            TRB   $C035
             >>>   XF2AUX,AUXMOS
             RTS
 
 * Copy 512 bytes from BLKBUF to AUXBLK in aux LC
 COPYAUXBLK
-            LDA   $C08B              ; R/W LC RAM, bank 1
-            LDA   $C08B
-            STA   $C009              ; Alt ZP (and Alt LC) on
+            SEI
+            >>>   ALTZP              ; Alt ZP & Alt LC on
 
             LDY   #$00
 :L1         LDA   BLKBUF,Y
@@ -108,9 +135,8 @@ COPYAUXBLK
             INY
             BRA   :L2
 
-:S2         STA   $C008              ; Alt ZP off
-            LDA   $C081              ; Bank the ROM back in
-            LDA   $C081
+:S2         >>>   MAINZP             ; Alt ZP off, ROM back in
+            CLI
             RTS
 
 * ProDOS file handling for MOS OSFIND OPEN call
@@ -334,9 +360,7 @@ TELL        >>>   ENTMAIN
             DW    GMARKPL
 :S1         LDX   MOSFILE+1          ; Pointer to ZP control block
             BCS   :ERR
-            LDA   $C08B              ; R/W LC RAM, bank 1
-            LDA   $C08B
-            STA   $C009              ; Alt ZP on
+            >>>   ALTZP              ; Alt ZP & Alt LC on
             LDA   GMARKPL+2
             STA   $00,X
             LDA   GMARKPL+3
@@ -344,21 +368,15 @@ TELL        >>>   ENTMAIN
             LDA   GMARKPL+4
             STA   $02,X
             STZ   $03,X
-            STA   $C008              ; Alt ZP off
-            LDA   $C081              ; Bank the ROM back in
-            LDA   $C081
+            >>>   MAINZP             ; Alt ZP off, ROM back in
 :EXIT       >>>   XF2AUX,OSARGSRET
 :ERR        LDX   MOSFILE+1          ; Address of ZP control block
-            LDA   $C08B
-            LDA   $C08B
-            STA   $C009
+            >>>   ALTZP              ; Alt ZP & Alt LC on
             STZ   $00,X
             STZ   $01,X
             STZ   $02,X
             STZ   $03,X
-            STZ   $C008
-            LDA   $C081
-            LDA   $C081
+            >>>   MAINZP             ; Alt ZP off, ROM back in
             BRA   :EXIT
 
 * ProDOS file handling for MOS OSFILE LOAD call
@@ -391,9 +409,23 @@ LOADFILE    >>>   ENTMAIN
             LDA   FBEXEC             ; If FBEXEC is zero, use addr
             CMP   #$00               ; in the control block
             BEQ   :CBADDR
-                                     ; Otherwise use the file addr
-* TODO Issue GET_FILE_INFO MLI call to get file load addr
-:CBADDR     LDA   FBLOAD
+* TO DO: LOAD file <noaddress> still needs to fill in control block
+            LDA   #<MOSFILE          ; Otherwise use file addr
+            STA   GINFOPL+1
+            LDA   #>MOSFILE
+            STA   GINFOPL+2
+            JSR   MLI                ; Call GET_FILE_INFO
+            DB    GINFOCMD
+            DW    GINFOPL
+            BCS   :READERR
+            LDX   GINFOPL+5          ; Aux type LSB
+            STX   FBLOAD+0
+            STX   FBEXEC+0           ; Default to EXEC=LOAD
+            LDY   GINFOPL+6          ; Aux type MSB
+            STY   FBLOAD+1
+            STY   FBEXEC+1
+:CBADDR     JSR   PASSADDR           ; Load addr -> code in aux bank
+            LDA   FBLOAD
             STA   A4L
             LDA   FBLOAD+1
             LDX   :BLOCKS
@@ -420,6 +452,13 @@ LOADFILE    >>>   ENTMAIN
 :EXIT       >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
 
+* Stash address in XY to first two bytes of AUXBLK
+PASSADDR    >>>   ALTZP              ; Alt ZP and LC
+            STX   AUXBLK
+            STY   AUXBLK+1
+            >>>   MAINZP             ; Back to normal
+            RTS
+
 * ProDOS file handling for MOS OSFILE SAVE call
 * Return A=0 if successful
 *        A=1 if unable to create/open
@@ -443,9 +482,9 @@ SAVEFILE    >>>   ENTMAIN
             STA   CREATEPL+3
             LDA   #$06               ; Filetype BIN
             STA   CREATEPL+4
-            LDA   FBLOAD             ; Auxtype = load address
+            LDA   FBSTRT             ; Auxtype = start address
             STA   CREATEPL+5
-            LDA   FBLOAD+1
+            LDA   FBSTRT+1
             STA   CREATEPL+6
             LDA   #$01               ; Storage type - file
             STA   CREATEPL+7
@@ -554,6 +593,7 @@ SAVEFILE    >>>   ENTMAIN
             JSR   CLSFILE
             LDA   #$00               ; Success!
             BCC   :EXIT              ; If close OK
+* TO DO: After SAVE control block XY+10-XY+17 need to be updated
             LDA   #$02               ; Write error
 :EXIT       >>>   XF2AUX,OSFILERET
 :LEN        DW    $0000
@@ -642,12 +682,6 @@ WRTFILE     JSR   MLI
             DW    WRITEPL
             RTS
 
-HELLO       ASC   "Applecorn - (c) Bobbi 2021 GPLv3"
-            HEX   00
-CANTOPEN    ASC   "Unable to open BASIC.ROM"
-            HEX   00
-ROMFILE     STR   "BASIC.ROM"
-
 * ProDOS Parameter lists for MLI calls
 OPENPL      HEX   03                 ; Number of parameters
             DW    $0000              ; Pointer to filename
@@ -719,6 +753,18 @@ GEOFPL      HEX   02                 ; Number of parameters
             DB    $00                ; EOF (24 bit)
             DB    $00
             DB    $00
+
+GINFOPL     HEX   0A                 ; Number of parameters
+            DW    $0000              ; Pointer to filename
+            DB    $00                ; Access
+            DB    $00                ; File type
+            DW    $0000              ; Aux type
+            DB    $00                ; Storage type
+            DW    $0000              ; Blocks used
+            DW    $0000              ; Mod date
+            DW    $0000              ; Mod time
+            DW    $0000              ; Create date
+            DW    $0000              ; Create time
 
 QUITPL      HEX   04                 ; Number of parameters
             DB    $00

@@ -7,25 +7,16 @@
 * to aux memory starting at $08000. Copies Applecorn MOS
 * to aux memory starting at AUXMOS1 and jumps to it.
 * (Note that the MOS code will relocate itself to $D000.)
-START       STZ   :BLOCKS
+START       JSR   ROMMENU
+            STZ   :BLOCKS
             LDX   #$00
-:L1         LDA   HELLO,X          ; Signon message
-            BEQ   :S1
-            JSR   COUT1
-            INX
-            BRA   :L1
 :S1         JSR   CROUT
             JSR   SETPRFX
             JSR   DISCONN
 
-            STA   $C009            ; Alt ZP on
-            STZ   $9F              ; WARMSTRT - set cold!
-            STA   $C008            ; Alt ZP off
+            LDA   #$20             ; PAGE2 shadow on ROM3 GS
+            TRB   $C035
 
-            LDA   #<ROMFILE
-            STA   OPENPL+1
-            LDA   #>ROMFILE
-            STA   OPENPL+2
             JSR   OPENFILE         ; Open ROM file
             BCC   :S2
             LDX   #$00
@@ -84,9 +75,9 @@ START       STZ   :BLOCKS
             LDA   #>MOSSHIM
             STA   A1H
 
-            LDA   #<MOSSHIM+$1000  ; End address of MOS shim
+            LDA   #<MOSSHIM+$2000  ; End address of MOS shim
             STA   A2L
-            LDA   #>MOSSHIM+$1000
+            LDA   #>MOSSHIM+$2000
             STA   A2H
 
             LDA   #<AUXMOS1        ; To AUXMOS1 in aux memory
@@ -104,9 +95,19 @@ START       STZ   :BLOCKS
             EOR   #$A5             ; Checksum
             STA   RSTV+2
 
-            TSX                    ; Save SP at $0100
+            LDA   #<GSBRK          ; Set BRK vector in main mem
+            STA   $3F0
+            LDA   #>GSBRK
+            STA   $3F0+1
+
+            TSX                    ; Save SP at $0100 in aux
+            STA   $C005            ; Write to aux
             STX   $0100
+            STA   $C004            ; Write to main
             >>>   XF2AUX,AUXMOS1
 
 :BLOCKS     DB    0                ; Counter for blocks read
+
+CANTOPEN    ASC   "Unable to open ROM file"
+            DB    $00
 

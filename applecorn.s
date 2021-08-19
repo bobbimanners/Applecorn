@@ -1,8 +1,10 @@
-* Load an Acorn BBC Micro ROM in aux memory and
-* Provide an environment where it can run
+* APPLECORN.S
 * (c) Bobbi 2021 GPLv3
 *
-* Assembled with the Merlin 8 assembler.
+* Load an Acorn BBC Micro ROM in aux memory and
+* Provide an environment where it can run
+*
+* Assembled with the Merlin 8 v2.58 assembler on Apple II.
 
             XC                ; 65c02
             ORG   $2000       ; Load addr of loader in main memory
@@ -12,6 +14,7 @@ BELL        EQU   $FBDD
 PRBYTE      EQU   $FDDA
 COUT1       EQU   $FDED
 CROUT       EQU   $FD8E
+HOME        EQU   $FC58
 AUXMOVE     EQU   $C311
 XFER        EQU   $C314
 
@@ -36,23 +39,6 @@ A2IRQV      EQU   $3FE
 * MLI entry point
 MLI         EQU   $BF00
 
-* ProDOS MLI command numbers
-QUITCMD     EQU   $65
-GTIMECMD    EQU   $82
-CREATCMD    EQU   $C0
-DESTCMD     EQU   $C1
-ONLNCMD     EQU   $C5
-SPFXCMD     EQU   $C6
-GPFXCMD     EQU   $C7
-OPENCMD     EQU   $C8
-READCMD     EQU   $CA
-WRITECMD    EQU   $CB
-CLSCMD      EQU   $CC
-FLSHCMD     EQU   $CD
-SMARKCMD    EQU   $CE
-GMARKCMD    EQU   $CF
-GEOFCMD     EQU   $D1
-
 * IO Buffer for reading file (1024 bytes)
 IOBUF0      EQU   $4000       ; For loading ROM, OSFILE, *.
 IOBUF1      EQU   $4400       ; Four open files for langs
@@ -69,27 +55,19 @@ AUXADDR     EQU   $8000
 
 * Address in aux memory where the MOS shim is located
 AUXMOS1     EQU   $2000       ; Temp staging area in Aux
-EAUXMOS1    EQU   $3000       ; End of staging area
+EAUXMOS1    EQU   $4000       ; End of staging area
 AUXMOS      EQU   $D000       ; Final location in aux LC
-
-* Macro for calls from aux memory to main memory
-XFMAIN      MAC
-            CLC               ; Use main memory
-            CLV               ; Use main ZP and LC
-            JMP   XFER
-            EOM
 
 * Called by code running in main mem to invoke a
 * routine in aux memory
 XF2AUX      MAC
-            PHA
-            LDA   $C08B       ; R/W LC RAM, bank 1
-            LDA   $C08B
-            LDA   #<]1
-            STA   STRTL
-            LDA   #>]1
-            STA   STRTH
-            PLA
+            LDX   $C08B       ; R/W LC RAM, bank 1
+            LDX   $C08B
+            LDX   #<]1
+            STX   STRTL
+            LDX   #>]1
+            STX   STRTH
+            SEI               ; Disable IRQ before XFER
             SEC               ; Use aux memory
             BIT   $FF58       ; Set V: use alt ZP and LC
             JMP   XFER
@@ -98,18 +76,18 @@ XF2AUX      MAC
 * Called by code running in aux mem to invoke a
 * routine in main memory
 XF2MAIN     MAC
+            LDX   STRTL
+            STX   STRTBCKL
+            LDX   STRTH
+            STX   STRTBCKH
+            LDX   #<]1
+            STX   STRTL
+            LDX   #>]1
+            STX   STRTH
+            SEI               ; Disable IRQ before XFER
             TSX
             STX   $0101       ; Save alt SP
-            PHA
-            LDA   STRTL
-            STA   STRTBCKL
-            LDA   STRTH
-            STA   STRTBCKH
-            LDA   #<]1
-            STA   STRTL
-            LDA   #>]1
-            STA   STRTH
-            PLA
+            LDX   $0100       ; Load main SP into X
             CLC               ; Use main mem
             CLV               ; Use main ZP and LC
             JMP   XFER
@@ -119,22 +97,38 @@ XF2MAIN     MAC
 ENTAUX      MAC
             LDX   $0101       ; Recover alt SP
             TXS
-            PHA
-            LDA   STRTBCKL
-            STA   STRTL
-            LDA   STRTBCKH
-            STA   STRTH
-            PLA
+            CLI               ; Force IRQs on regardless of prior state
+            LDX   STRTBCKL
+            STX   STRTL
+            LDX   STRTBCKH
+            STX   STRTH
             EOM
 
 * Macro called on re-entry to main memory
 ENTMAIN     MAC
-            LDX   $0100       ; Recover SP
+            TXS               ; Main SP already in X
+            LDX   $C081       ; Bank in ROM
+            LDX   $C081
+            CLI               ; Force IRQs on regardless of prior state
+            EOM
+
+* Macro called on re-entry to aux memory
+* For use in interrupt handlers (no CLI!)
+IENTAUX     MAC
+            LDX   $0101       ; Recover alt SP
             TXS
-            PHA               ; Preserve parm in A
-            LDA   $C081       ; Bank in ROM
-            LDA   $C081
-            PLA
+            LDX   STRTBCKL
+            STX   STRTL
+            LDX   STRTBCKH
+            STX   STRTH
+            EOM
+
+* Macro called on re-entry to main memory
+* For use in interrupt handlers (no CLI!)
+IENTMAIN    MAC
+            TXS               ; Main SP already in X
+            LDX   $C081       ; Bank in ROM
+            LDX   $C081
             EOM
 
 * Enable writing to main memory (for code running in aux)
@@ -149,8 +143,33 @@ WRTAUX      MAC
             CLI               ; Normal service resumed
             EOM
 
+* Manually enable AltZP (for code running in main)
+ALTZP       MAC
+            SEI               ; Disable IRQ when AltZP on
+            LDA   $C08B       ; R/W LC bank 1
+            LDA   $C08B
+            STA   $C009       ; Alt ZP and LC
+            EOM
+
+* Manually disable AltZP (for code running in main)
+MAINZP      MAC
+            STA   $C008       ; Main ZP and LC
+            LDA   $C081       ; Bank ROM back in
+            LDA   $C081
+            CLI               ; Turn IRQ back on
+            EOM
+
 * Code is all included from PUT files below ...
+* ... order matters!
             PUT   LOADER
+            PUT   MAIN.ROMMENU
             PUT   MAINMEM
-            PUT   AUXMEM
+            PUT   AUXMEM.MOSEQU
+            PUT   AUXMEM.INIT
+            PUT   AUXMEM.VDU
+            PUT   AUXMEM.HOSTFS
+            PUT   AUXMEM.OSCLI
+            PUT   AUXMEM.BYTWRD
+            PUT   AUXMEM.CHARIO
+            PUT   AUXMEM.MISC
 
