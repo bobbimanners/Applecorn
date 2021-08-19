@@ -121,7 +121,7 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             DEX
             BPL   :INITPG2
 
-            JSR   CLEAR                      ; Initialise VDU driver
+            JSR   VDUINIT                    ; Initialise VDU driver
 
             LDA   #<:HELLO
             LDY   #>:HELLO
@@ -140,6 +140,4 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
 :HELLO      DB    $07
             ASC   'Applecorn MOS v0.01'
             DB    $0D,$0D,$00
-
-
 
