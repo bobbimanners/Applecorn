@@ -328,6 +328,7 @@ FSCRUN      STX   OSFILECB            ; Pointer to filename
             LDX   #<OSFILECB          ; Pointer to control block
             LDY   #>OSFILECB
             JSR   OSFILE
+*        JMP  (AUXBLK)   ; DOESN'T WORK AS EXPECTED!!!
             RTS
 FSCREN
             LDA   #<OSFSCM
