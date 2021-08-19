@@ -471,9 +471,9 @@ SAVEFILE    >>>   ENTMAIN
             STA   CREATEPL+3
             LDA   #$06               ; Filetype BIN
             STA   CREATEPL+4
-            LDA   FBLOAD             ; Auxtype = load address
+            LDA   FBSTRT             ; Auxtype = start address
             STA   CREATEPL+5
-            LDA   FBLOAD+1
+            LDA   FBSTRT+1
             STA   CREATEPL+6
             LDA   #$01               ; Storage type - file
             STA   CREATEPL+7
