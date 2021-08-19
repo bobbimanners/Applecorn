@@ -388,11 +388,16 @@ STARSAVE    JSR   CLRCB
 
 * Handle *RUN command
 * On entry, ZP1 points to command line
-STARRUN     JSR   ADDZP1Y
+STARRUN     JSR   CLRCB
+            JSR   EATSPC        ; Eat leading space
+            BCS   SRERR
+            JSR   ADDZP1Y       ; Advance ZP1
             LDX   ZP1+0
             LDY   ZP1+1
             LDA   #$04
 CALLFSCV    JMP   (FSCV)        ; Hand on to filing system
+SRERR       JSR   BEEP
+            RTS
 
 * Clear OSFILE control block to zeros
 CLRCB       LDA   #$00
