@@ -183,6 +183,7 @@ STARHELP    LDA   #<:MSG
             LDA   #<:MSG2
             LDY   #>:MSG2
             JSR   PRSTR
+* TODO: Pass on to filing system
             RTS
 :MSG        DB    $0D
             ASC   'Applecorn MOS v0.01'
@@ -193,7 +194,8 @@ STARHELP    LDA   #<:MSG
 STARQUIT    >>>   XF2MAIN,QUIT
 
 * Handle *CAT / *. command (list directory)
-STARCAT     JMP   FSCCAT
+STARCAT     LDA   #$05
+            JMP   JUMPFSCV      ; Pass to filing system
 
 * Consume spaces in command line. Treat " as space!
 * Return C set if no space found, C clear otherwise
@@ -388,16 +390,14 @@ STARSAVE    JSR   CLRCB
 
 * Handle *RUN command
 * On entry, ZP1 points to command line
-STARRUN     JSR   CLRCB
+STARRUN     LDA   #$04
+JUMPFSCV    PHA
             JSR   EATSPC        ; Eat leading space
-            BCS   SRERR
             JSR   ADDZP1Y       ; Advance ZP1
             LDX   ZP1+0
             LDY   ZP1+1
-            LDA   #$04
+            PLA
 CALLFSCV    JMP   (FSCV)        ; Hand on to filing system
-SRERR       JSR   BEEP
-            RTS
 
 * Clear OSFILE control block to zeros
 CLRCB       LDA   #$00
