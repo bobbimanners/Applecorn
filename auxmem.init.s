@@ -127,16 +127,9 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             LDY   #>:HELLO
             JSR   PRSTR
 
-            LDA   #$09                       ; Print language name at $8009
-            LDY   #$80
-            JSR   PRSTR
-            JSR   OSNEWL
-            JSR   OSNEWL
+            CLC
+            JMP   BYTE8E                     ; Enter language ROM
 
-            CLC                              ; CLC=Entered from RESET
-            LDA   #$01                       ; $01=Entering application code
-            JMP   AUXADDR                    ; Start Acorn ROM
-* No return
 :HELLO      DB    $07
             ASC   'Applecorn MOS v0.01'
             DB    $0D,$0D,$00
