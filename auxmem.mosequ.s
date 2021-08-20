@@ -59,5 +59,5 @@ FSCV        EQU   $21E        ; FSCV misc file ops
 
 OSFILECB    EQU   $2EE        ; OSFILE control block
 
-
+DEFBYTELOW  EQU   219         ; First default OSBYTE value
 

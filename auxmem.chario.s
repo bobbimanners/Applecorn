@@ -1,9 +1,8 @@
-*********************************************************
-* Kernel / Character I/O
-*********************************************************
+* AUXMEM.CHARIO.S
+* (c) Bobbi 2021 GPLv3
+*
+* Applecorn kernel / Character I/O
 
-* KERNEL/CHARIO.S
-*****************
 * Character read and write
 *
 * 14-Aug-2021 Flashing cursor and INKEY sync'd to frame rate
@@ -15,7 +14,6 @@
 *             keys.
 * *BUGS* INKEY doesn't restore cursor on timeout.
 *        KBDREAD has several paths that don't test ESCCHAR.
-
 
 * TEMP:
 FLASHER      EQU   $290
@@ -34,17 +32,9 @@ FX2VAR       EQU   BYTEVARBASE+$B1
 FX3VAR       EQU   BYTEVARBASE+$EC
 FX4VAR       EQU   BYTEVARBASE+$ED
 
-
-** Default keyboard OSBYTE variables
-*DEFBYTELOW  EQU  219              ; First default OSBYTE value
-*DEFBYTE     DB   $09,$1B          ; Default key codes
-*            DB   $01,$D0,$E0,$F0  ; Default key expansion
-*            DB   $01,$80,$90,$00  ; Default key expansion
-*DEFBYTEEND
-
 * TEMP as no *KEY
 * Default keyboard OSBYTE variables
-DEFBYTELOW   EQU   219              ; First default OSBYTE value
+*DEFBYTELOW EQU 219 ; First default OSBYTE value
 DEFBYTE      DB    $09,$1B          ; Default key codes
              DB    $C0,$D0,$E0,$F0  ; Default key expansion
              DB    $80,$90,$A0,$B0  ; Default key expansion

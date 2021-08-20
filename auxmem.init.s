@@ -1,3 +1,8 @@
+* AUXMEM.INIT.S
+* (c) Bobbi 2021 GPL v3
+*
+* Initialization code running in Apple //e aux memory
+
 ***********************************************************
 * BBC Micro 'virtual machine' in Apple //e aux memory
 ***********************************************************
@@ -100,11 +105,12 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             INC   A4H
 :S7         BRA   :L2
 
-:NORELOC                                     ; We should jump up into high memory here
+:NORELOC
 :S8         STA   $C00D                      ; 80 col on
             STA   $C003                      ; Alt charset off
             STA   $C055                      ; PAGE2
 
+MOSHIGH     SEI
             LDX   #$FF
             TXS                              ; Initialise stack
             INX                              ; X=$00
@@ -120,6 +126,13 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             STA   $200,X
             DEX
             BPL   :INITPG2
+
+* DEFBYTELOW=129
+            LDX   #DEFBYTEEND-DEFBYTE-1
+:INITPG3    LDA   DEFBYTE,X                  ; Initialize OSBYTE vars
+            STA   BYTEVARBASE+DEFBYTELOW,X
+            DEX
+            BPL   :INITPG3
 
             JSR   VDUINIT                    ; Initialise VDU driver
 
