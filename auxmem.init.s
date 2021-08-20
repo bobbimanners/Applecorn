@@ -109,6 +109,7 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
 :S8         STA   $C00D                      ; 80 col on
             STA   $C003                      ; Alt charset off
             STA   $C055                      ; PAGE2
+            JMP   MOSHIGH                    ; Ensure running in high mem
 
 MOSHIGH     SEI
             LDX   #$FF
