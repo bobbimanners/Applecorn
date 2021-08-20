@@ -409,6 +409,7 @@ LOADFILE    >>>   ENTMAIN
             LDA   FBEXEC             ; If FBEXEC is zero, use addr
             CMP   #$00               ; in the control block
             BEQ   :CBADDR
+* TODOL Load file (without addr) needs to fill in CB
             LDA   #<MOSFILE          ; Otherwise use file addr
             STA   GINFOPL+1
             LDA   #>MOSFILE
@@ -418,9 +419,11 @@ LOADFILE    >>>   ENTMAIN
             DW    GINFOPL
             BCS   :READERR
             LDX   GINFOPL+5          ; Aux type LSB
-            STX   FBLOAD
+            STX   FBLOAD+0
+            STX   FBEXEC+0           ; Default EXEC=LOAD
             LDY   GINFOPL+6          ; Aux type MSB
             STY   FBLOAD+1
+            STY   FBEXEC+1
 :CBADDR     JSR   PASSADDR           ; Load addr -> code in aux bank
             LDA   FBLOAD
             STA   A4L
@@ -590,6 +593,7 @@ SAVEFILE    >>>   ENTMAIN
             JSR   CLSFILE
             LDA   #$00               ; Success!
             BCC   :EXIT              ; If close OK
+* TODO: After SAVE CB XY+10..XY+17 needs updating
             LDA   #$02               ; Write error
 :EXIT       >>>   XF2AUX,OSFILERET
 :LEN        DW    $0000
