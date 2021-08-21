@@ -409,7 +409,6 @@ LOADFILE    >>>   ENTMAIN
             LDA   FBEXEC             ; If FBEXEC is zero, use addr
             CMP   #$00               ; in the control block
             BEQ   :CBADDR
-* TODO: Load file (without addr) needs to fill in CB
             LDA   #<MOSFILE          ; Otherwise use file addr
             STA   GINFOPL+1
             LDA   #>MOSFILE
@@ -418,15 +417,16 @@ LOADFILE    >>>   ENTMAIN
             DB    GINFOCMD
             DW    GINFOPL
             BCS   :READERR
-            LDX   GINFOPL+5          ; Aux type LSB
-            STX   FBLOAD+0
-            STX   FBEXEC+0           ; Default EXEC=LOAD
-            LDY   GINFOPL+6          ; Aux type MSB
-            STY   FBLOAD+1
-            STY   FBEXEC+1
+            LDA   GINFOPL+5          ; Aux type LSB
+            STA   FBLOAD+0
+            LDA   GINFOPL+6          ; Aux type MSB
+            STA   FBLOAD+1
 :CBADDR     LDA   FBLOAD
             STA   A4L
+            STA   FBEXEC             ; EXEC = LOAD
             LDA   FBLOAD+1
+            STA   A4H
+            STA   FBEXEC+1
             LDX   :BLOCKS
 :L2         CPX   #$00
             BEQ   :S2
