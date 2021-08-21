@@ -1,8 +1,7 @@
-* FILESYS.S
-*********************************************************
+* AUXMEM.HOSTFS.S
+* (c) Bobbi 2021 GPL v3
+*
 * AppleMOS Host File System
-*********************************************************
-
 
 * OSFIND - open/close a file for byte access
 FINDHND     PHX
@@ -172,7 +171,9 @@ FILEHND     PHX
             PHA
 
             STX   ZP1                 ; LSB of parameter block
+            STX   CBPTR
             STY   ZP1+1               ; MSB of parameter block
+            STY   CBPTR+1
             LDA   #<FILEBLK
             STA   ZP2
             LDA   #>FILEBLK
@@ -247,7 +248,19 @@ FILEHND     PHX
 :S2         >>>   XF2MAIN,LOADFILE
 OSFILERET
             >>>   ENTAUX
-            PLY                       ; Value of A on entry
+            PHA
+            LDA   CBPTR               ; Copy OSFILE CB to :CBPTR addr
+            STA   ZP1
+            LDA   CBPTR+1
+            STA   ZP1+1
+            LDY   #$00
+:L3         LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
+            STA   (ZP1),Y
+            INY
+            CPY   #18                 ; 18 bytes in control block
+            BNE   :L3
+            PLA
+            PLY                       ; Value of A on OSFILE entry
             CPY   #$FF                ; LOAD
             BNE   :S4                 ; Deal with return from SAVE
 
@@ -291,6 +304,7 @@ OSFILERET
             PLX
             RTS
 
+CBPTR       DW    $0000
 OSFILEM     ASC   'OSFILE($'
             DB    $00
 OSFILEM2    ASC   ')'
@@ -328,7 +342,7 @@ FSCRUN      STX   OSFILECB            ; Pointer to filename
             LDX   #<OSFILECB          ; Pointer to control block
             LDY   #>OSFILECB
             JSR   OSFILE
-*        JMP  (AUXBLK)   ; DOESN'T WORK AS EXPECTED!!!
+            JMP   (OSFILECB+6)        ; Jump to EXEC addr
             RTS
 FSCREN
             LDA   #<OSFSCM
