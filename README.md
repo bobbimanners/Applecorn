@@ -11,11 +11,15 @@ The language ROMs run as-is, without any modification required.
 
 ## Hardware Requirements
 
-Enhanced (65C02) Apple //e with 128KB of memory, or compatible system.
+The minimum requirement for Applecorn is an Apple II system with 128KB
+of memory and a 65C02 processor.  This includes the following:
 
-Applecorn should work on the //c, //c+ also.  Please let me know if you
-are able to test it on one of these systems.  (Applecorn does not work
-properly on the Apple IIgs, but we hope to support the GS eventually!)
+- Apple //e Enhanced (but not the original \]\[e, which has a 6502.)
+- Apple //c and //c+
+- Apple IIgs
+  - You must enable the Alt Text Mode CDA!
+  - ROM1: Only `MODE 1` (40 cols) works
+  - ROM3: Both `MODE 0` and `MODE 1` work
 
 ## How to Run the Software
 
@@ -57,18 +61,6 @@ is set to `&0E0`.
   - Acornsoft BCPL
 - I have not yet investigated two-ROM languages such as Logo or
   ISO Pascal.  It may be possible to support these also.
-
-### Compatible Apple II Systems
-
-The minimum requirement for Applecorn is an Apple II system with 128KB
-of memory and a 65C02 processor.  This includes the following:
-
-- Apple //e Enhanced (but not the original \]\[e, which has a 6502.)
-- Apple //c and //c+
-- Apple IIgs
-  - You must enable the Alt Text Mode CDA!
-  - ROM1: Only `MODE 1` (40 cols) works
-  - ROM3: Both `MODE 0` and `MODE 1` work
 
 ### Video Modes
 
