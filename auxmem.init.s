@@ -128,13 +128,7 @@ MOSHIGH     SEI
             DEX
             BPL   :INITPG2
 
-* DEFBYTELOW=129
-            LDX   #DEFBYTEEND-DEFBYTE-1
-:INITPG3    LDA   DEFBYTE,X                  ; Initialize OSBYTE vars
-            STA   BYTEVARBASE+DEFBYTELOW,X
-            DEX
-            BPL   :INITPG3
-
+            JSR   KBDINIT
             JSR   VDUINIT                    ; Initialise VDU driver
 
             LDA   #<:HELLO
