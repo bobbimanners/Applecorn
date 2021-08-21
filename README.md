@@ -94,6 +94,15 @@ the ROM after Ctrl-Reset.  Any user program in aux memory will be untouched.
 For ROMs such as BASIC or COMAL, the `OLD` command can be used to recover the
 program in memory.
 
+### Special VDU Features
+
+- `Ctrl-S` will pause the screen and `Ctrl-Q` will resume scrolling.
+- The BBC Micro 'Copy Editor' function is supported.  Use the Apple II
+  cursor keys to move the copy cursor and the `Tab` key to copy a character
+  from the copy cursor to the insert cursor.
+- BBC Micro function keys are supported.  Use Open Apple with the number
+  keys for the unshifted function keys.
+
 ### Star Commands
 
 `*QUIT` - Terminate Applecorn and quit to ProDOS.  Because the 'BBC Micro'
@@ -314,9 +323,6 @@ Applecorn currently has the following limitations:
   languages to work correctly.  For example in BBC BASIC the following
   commands work: `OPENIN`, `OPENOUT`, `OPENUP`, `BGET#` `BPUT#` `PTR#=`,
   `EOF#`, `EXT#`.
-- Missing operations include `OSGBPB` and `OSFSC`.  These are required by
-  the BCPL language system, so currently it is not possible to load the
-  BCPL compiler for example.
 - The VDU driver is quite primitive at present.  Is supports 80 column
   text mode (`MODE 0`) and 40 column text mode (`MODE 1`).  There is
   currently no graphics support.
