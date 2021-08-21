@@ -1,8 +1,10 @@
 * AUXMEM.CHARIO.S
 * (c) Bobbi 2021 GPLv3
 *
-* Applecorn kernel / Character I/O
+* AppleMOS Character I/O
 
+* KERNEL/CHARIO.S
+*****************
 * Character read and write
 *
 * 14-Aug-2021 Flashing cursor and INKEY sync'd to frame rate
@@ -12,14 +14,19 @@
 * 16-Aug-2021 Copy cursor and Edit cursor visible.
 * 17-Aug-2021 OSBYTE 4 for cursors, OSBYTE 221-228 for topbit
 *             keys.
-* *BUGS* INKEY doesn't restore cursor on timeout.
-*        KBDREAD has several paths that don't test ESCCHAR.
-*        If screen scrolls, copy cursor on wrong line
+* 21-Aug-2021 FIXED: If screen scrolls, copy cursor ends on
+*             wrong line.
+*             FIXED: KBDREAD has several paths that don't
+*             test ESCHAR.
+*             FIXED: INKEY doesn't restore cursor on timeout.
+*             The three separate cursors can be set seperately.
 
-* TEMP:
+
+* TEMP, move to VDU.S
 FLASHER      EQU   $290
 CURSOR       EQU   $291
 CURSORED     EQU   $292
+CURSORCP     EQU   $293
 OLDCHAR      EQU   $294
 COPYCHAR     EQU   $295
 
@@ -28,25 +35,12 @@ FXESCCHAR    EQU   BYTEVARBASE+220
 FXKEYBASE    EQU   BYTEVARBASE+221
 FXESCON      EQU   BYTEVARBASE+229
 FXESCEFFECT  EQU   BYTEVARBASE+230
+FX200VAR     EQU   BYTEVARBASE+200
 FX254VAR     EQU   BYTEVARBASE+254
 FX2VAR       EQU   BYTEVARBASE+$B1
 FX3VAR       EQU   BYTEVARBASE+$EC
 FX4VAR       EQU   BYTEVARBASE+$ED
 
-* TEMP as no *KEY
-* Default keyboard OSBYTE variables
-DEFBYTELOW   EQU   219                       ; First default OSBYTE value
-DEFBYTE      DB    $09,$1B                   ; Default key codes
-             DB    $C0,$D0,$E0,$F0           ; Default key expansion
-             DB    $80,$90,$A0,$B0           ; Default key expansion
-DEFBYTEEND
-
-KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
-:INITPG3     LDA   DEFBYTE,X                 ; Initialize OSBYTE vars
-             STA   BYTEVARBASE+DEFBYTELOW,X
-             DEX
-             BPL   :INITPG3
-             RTS
 
 * OSWRCH handler
 ****************
@@ -65,6 +59,33 @@ WRCHHND      PHA
              PLA
              RTS
 
+
+* Character Input
+*****************
+* Default keyboard OSBYTE variables
+*DEFBYTELOW  EQU  219              ; First default OSBYTE value
+*DEFBYTE     DB   $09,$1B          ; Default key codes
+*            DB   $01,$D0,$E0,$F0  ; Default key expansion
+*            DB   $01,$80,$90,$00  ; Default key expansion
+*DEFBYTEEND
+
+* TEMP as no *KEY
+* Default keyboard OSBYTE variables
+DEFBYTELOW   EQU   219                       ; First default OSBYTE value
+DEFBYTE      DB    $09,$1B                   ; Default key codes
+             DB    $C0,$D0,$E0,$F0           ; Default key expansion
+             DB    $80,$90,$A0,$B0           ; Default key expansion
+DEFBYTEEND
+
+KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
+:KBDINITLP   LDA   DEFBYTE,X                 ; Initialise KBD OSBYTE variables
+             STA   BYTEVARBASE+DEFBYTELOW,X
+             DEX
+             BPL   :KBDINITLP
+             LDA   #$C0
+             STA   FX254VAR                  ; Also returns default MODE=0
+             RTS
+
 * OSRDCH/INKEY handler
 **********************
 * Read a character from current input
@@ -74,17 +95,6 @@ WRCHHND      PHA
 RDCHHND      LDA   #$80                      ; flag=wait forever
              PHY
              TAY
-* TEST
-             LDA   FXESCCHAR
-             BNE   INKEYGO
-*            LDA   #'_'
-*            STA   CURSOR
-*            LDA   #$A0
-*            STA   CURSORED
-* ^ moved to VDU.S
-             LDA   #$1B
-             STA   FXESCCHAR
-* TEST
              BRA   INKEYGO                   ; Wait forever for input
 
 ; XY<$8000 - wait for a keypress
@@ -92,7 +102,7 @@ INKEY        PHY                             ; Dummy PHY to balance RDCH
 INKEYGO      PHX                             ; Save registers
              PHY
 ;
-             BIT   VDUSTATUS
+             BIT   VDUSTATUS                 ; Enable editing cursor
              BVC   INKEYGO2                  ; No editing cursor
              JSR   GETCHRC                   ; Get character under cursor
              STA   COPYCHAR                  ; Save char under edit cursor
@@ -102,20 +112,6 @@ INKEYGO      PHX                             ; Save registers
 INKEYGO2     JSR   GETCHRC                   ; Get character under cursor
              STA   OLDCHAR
 ;
-
-;* This can be optimised
-;            JSR   GETCHRC    ; Get character under cursor
-;            STA   OLDCHAR
-;            BIT   VDUSTATUS
-;            BVC   INKEYGO2   ; No editing cursor
-;            STA   COPYCHAR   ; Save char under edit cursor
-;            LDA   CURSORED
-;            JSR   PUTCHRC    ; Display edit cursor
-;            JSR   COPYSWAP1  ; Swap to copy cursor
-;            JSR   GETCHRC    ; Get character under copy cursor
-;            STA   OLDCHAR
-;*
-;INKEYGO2
              CLI
              BRA   INKEY1                    ; Turn cursor on
 ;
@@ -134,6 +130,9 @@ INKEY0       ADC   FLASHER
              BIT   FLASHER
              BMI   INKEY2                    ; Remove cursor
 INKEY1       LDA   CURSOR                    ; Add cursor
+             BIT   VDUSTATUS
+             BVC   INKEY2
+             LDA   CURSORCP
 INKEY2       JSR   PUTCHRC                   ; Toggle cursor
 INKEY3       LDA   ESCFLAG
              BMI   INKEYOK                   ; Escape pending, return it
@@ -159,36 +158,31 @@ INKEYDEC     DEX
              BNE   INKEYLP1                  ; Not 0, loop back
              TYA
              BNE   INKEYLP1                  ; Not 0, loop back
+;
+             PHY
+             JSR   INKEYOFF                  ; Restore cursors
+             PLY
+;
              DEY                             ; Y=$FF
              TYA                             ; A=$FF
              PLX                             ; Drop dummy PHY
-             RTS                             ; CS from above
+             SEC
+             RTS
 ; Timeout: CS, AY=$FFFF, becomes XY=$FFFF
 
 INKEYOK      PHA
 ;
-             LDA   OLDCHAR
-             JSR   PUTCHRC                   ; Remove cursor
-             BIT   VDUSTATUS
-             BVC   INKEYOK2                  ; No editing cursor
-             JSR   COPYSWAP1                 ; Swap cursor back
-             LDA   COPYCHAR
-             JSR   PUTCHRC                   ; Remove edit cursor
-INKEYOK2
+             JSR   INKEYOFF                  ; Restore cursors
 ;
-;* This can be optimised
-;            BIT   VDUSTATUS
-;            BVC   INKEYOK2   ; No editing cursor
-;            LDA   OLDCHAR
-;            JSR   PUTCHRC    ; Remove copy cursor
-;            JSR   COPYSWAP1  ; Swap cursor back
-;            LDA   COPYCHAR
-;            BRA   INKEYOK3   ; Restore char under edit cursor
-;*
-;INKEYOK2    LDA   OLDCHAR    ;  and swap cursor back
-;INKEYOK3    JSR   PUTCHRC    ; Remove edit cursor
+*            LDA   OLDCHAR    ; Remove editing cursor
+*            JSR   PUTCHRC    ; Remove cursor
+*            BIT   VDUSTATUS
+*            BVC   INKEYOK2   ; No editing cursor
+*            JSR   COPYSWAP1  ; Swap cursor back
+*            LDA   COPYCHAR
+*            JSR   PUTCHRC    ; Remove edit cursor
 ;
-             PLA
+INKEYOK2     PLA
              PLY                             ; <$80=INKEY or $80=RDCH
              PLX                             ; Restore X
              PLY                             ; <$80=INKEY or restore=RDCH
@@ -197,9 +191,16 @@ INKEYOK2
              ASL   A                         ; Cy=Escape flag
              PLA                             ; Get char back
              RTS
-; Character read: CC, A=char, X=???, Y<$80
-; Escape:         CS, A=??  , X=???, Y<$80
+* Character read: CC, A=char, X=???, Y<$80
+* Escape:         CS, A=??  , X=???, Y<$80
 
+INKEYOFF     LDA   OLDCHAR                   ; Remove editing cursor
+             BIT   VDUSTATUS
+             BVC   INKEYOFF2                 ; No editing cursor
+             JSR   PUTCHRC                   ; Remove cursor
+             JSR   COPYSWAP1                 ; Swap cursor back
+             LDA   COPYCHAR                  ; Remove edit cursor
+INKEYOFF2    JMP   PUTCHRC
 
 BYTE81       TYA
              BMI   NEGINKEY                  ; XY<0, scan for keypress
@@ -218,9 +219,12 @@ BYTE81DONE   RTS
 *          Y=$1B, X=???, CS  - escape
 *          Y=$00, X=char, CC - keypress
 
-NEGINKEY     LDX   #$00                      ; Unimplemented
+NEGINKEY     CPX   #$01
+             LDX   #$00                      ; Unimplemented
              LDY   #$00
-             CLC
+             BCS   NEGINKEY0
+             LDX   #$20                      ; INKEY-256
+NEGINKEY0    CLC
              RTS
 
 
@@ -228,7 +232,7 @@ NEGINKEY     LDX   #$00                      ; Unimplemented
 *******************
 
 * KEYREAD
-*************************
+************************
 * Test for and read from input,
 * expanding keyboard special keys
 *
@@ -308,8 +312,6 @@ KEYSOFT      TYA
 * Process cursor keys
 KEYCURSOR    CMP   #$C9
              BEQ   KEYCOPY
-;            CMP   #$CC
-;            BCC   KEYREADOK  ; Not cursor key
              PHA
              LDA   OLDCHAR
              JSR   PUTCHRC                   ; Remove cursor
@@ -335,7 +337,7 @@ KEYCOPY      LDA   FXTABCHAR                 ; Prepare TAB if no copy cursor
 
 
 * KBDREAD
-*************************
+************************
 * Test for and fetch key from keyboard
 *
 * On exit, CS=no keypress
@@ -358,46 +360,50 @@ KBDTEST      LDA   $C000                     ; VS here to test for keypress
              BIT   $C062
              BMI   KBDRALT                   ; Right Apple pressed
              CMP   #$09
-             BEQ   KBDTAB                    ; 
+             BEQ   KBDTAB                    ; TAB is dual action TAB/COPY
              CMP   #$08
-             BCC   KBDESC                    ; <$08 not cursor key
+             BCC   KBDCHKESC                 ; <$08 not cursor key
              CMP   #$0C
-             BCC   KBDCURSR
+             BCC   KBDCURSR                  ; $08-$0B are cursor keys
              CMP   #$15
-             BEQ   KBDCUR15
-* Test for Escape key
-KBDESC       CMP   FXESCCHAR                 ; Current ESCAPE char?
-*           CMP   #27        ; TEMP
-             BNE   KBDNOESC                  ; No
-             LDX   FXESCON                   ; Is ESCAPE enabled?
-             BNE   KBDNOESC                  ; No
-             ROR   ESCFLAG                   ; Set Escape flag
-KBDNOESC     CLC                             ; CLC=Ok
-KBDDONE      RTS
+             BNE   KBDCHKESC                 ; $15 is cursor key
+;
+KBDCUR15     LDA   #$0D                      ; Convert RGT to $09
+KBDTAB       SBC   #$04                      ; Convert TAB to &C9
+KBDCURSR     CLC
+             ADC   #$C4                      ; Cursor keys $C0+x
+             BRA   KBDCHKESC
 
 KBDRALT                                      ; Right Apple key pressed
 KBDLALT      CMP   #$40                      ; Left Apple key pressed
              BCS   KBDCTRL
              CMP   #$30
-             BCC   KBDFUNOK                  ; <'0'
+             BCC   KBDCHKESC                 ; <'0'
              CMP   #$3A
-             BCS   KBDOK                     ; >'9'
+             BCS   KBDCHKESC                 ; >'9'
 KBDFUNC      AND   #$0F                      ; Convert Apple-Num to function key
              ORA   #$80
              BIT   $C062
-             BPL   KBDFUNOK                  ; Left+Digit       -> $8x
+             BPL   KBDCHKESC                 ; Left+Digit       -> $8x
              ORA   #$90                      ; Right+Digit      -> $9x
              BIT   $C061
-             BPL   KBDFUNOK
+             BPL   KBDCHKESC
              EOR   #$30                      ; Left+Right+Digit -> $Ax
-KBDFUNOK     RTS
-KBDCTRL      AND   #$1F                      ; Apple-Letter -> Ctrl-Letter
-KBDOK        CLC
-             RTS
+             BRA   KBDCHKESC
 
-KBDTAB       LDA   #$11                      ; Convert TAB to $C9, expanded later
-KBDCUR15     SBC   #$0C                      ; Convert RGT to $09
-KBDCURSR     CLC
-             ADC   #$C4                      ; Cursor keys $CC-$CF
-             RTS                             ; CLC=Ok set earlier
+KBDCTRL      AND   #$1F                      ; Apple-Letter -> Ctrl-Letter
+;
+* Test for Escape key
+KBDCHKESC    TAX                             ; X=keycode
+             EOR   FXESCCHAR                 ; Current ESCAPE char?
+             ORA   FXESCON                   ; Is ESCAPE an ASCII char?
+             BNE   KBDNOESC                  ; Not ESCAPE or ESCAPE=ASCII
+             LDA   FX200VAR                  ; Is ESCAPE ignored?
+             LSR   A                         ; Check bit 0
+             BCS   KBDDONE                   ; ESCAPE completely ignored
+             SEC
+             ROR   ESCFLAG                   ; Set Escape flag
+KBDNOESC     TXA                             ; A=keycode
+             CLC                             ; CLC=Ok
+KBDDONE      RTS
 
