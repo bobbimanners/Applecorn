@@ -107,7 +107,7 @@ MSG5        ASC   " 5. Acornsoft MicroProlog"
             DB    $00
 ROM5        STR   "MPROLOG310.ROM"
 
-MSG6        ASC   " 6. Acornsoft BCPL - Not working yet"
+MSG6        ASC   " 6. Acornsoft BCPL"
             DB    $00
 ROM6        STR   "BCPL7.0.ROM"
 
