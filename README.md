@@ -235,6 +235,7 @@ AUX BANK:
   - Acornsoft FORTH
   - Acornsoft Lisp
   - Acornsoft MicroProlog
+  - Acornsoft BCPL
 
 ## Limitations
 
