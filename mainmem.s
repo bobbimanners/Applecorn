@@ -599,7 +599,6 @@ SAVEFILE    >>>   ENTMAIN
             JSR   CLSFILE
             LDA   #$00               ; Success!
             BCC   :EXIT              ; If close OK
-* TODO: After SAVE CB XY+10..XY+17 needs updating
             LDA   #$02               ; Write error
 :EXIT       JSR   COPYFB             ; Copy FILEBLK to aux mem
             >>>   XF2AUX,OSFILERET
