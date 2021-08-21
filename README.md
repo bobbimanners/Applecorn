@@ -4,18 +4,26 @@
 
 Applecorn is a ProDOS application for the Apple //e Enhanced which provides
 an environment for Acorn BBC Microcomputer language ROMs to run.  This
-allows BBC BASIC and other Acorn languages to run on the Apple //e.
+allows BBC BASIC and other Acorn languages to run on the Apple //e and
+compatible systems.
 
 The language ROMs run as-is, without any modification required.
 
-
 ## Hardware Requirements
 
-Enhanced (65C02) Apple //e with 128KB of memory.
+The minimum requirement for Applecorn is an Apple II system with 128KB
+of memory and a 65C02 processor.  This includes the following:
+
+- Apple //e Enhanced (but not the original \]\[e, which has a 6502.)
+- Apple //c and //c+
+- Apple IIgs
+  - You must enable the Alt Text Mode CDA!
+  - ROM1: Only `MODE 1` (40 cols) works
+  - ROM3: Both `MODE 0` and `MODE 1` work
 
 ## How to Run the Software
 
-Boot the diskette `applecorn.po` which is a 143KB Disk ][ bootable ProDOS
+Boot the diskette `applecorn.po` which is an 800KB bootable ProDOS
 diskette.  I use version 2.4.2 of ProDOS for my testing, but the software
 should run on other versions of ProDOS.
 
@@ -23,20 +31,121 @@ Run `BASIC.SYSTEM` and at the Applesoft BASIC prompt type:
 ```
 BRUN APPLECORN
 ```
-to start the software.
+to start the software.  Alternatively, you can simply select `APPLECORN`
+in the ProDOS 2.4.2 Bitsy Bye file browser.
 
-Applecorn will then load the content of the file `BASIC.ROM` from the
-diskette.  This is a 16KB file containing BBC BASIC v2 from the BBC Micro.
+When first started, Applecorn will display a ROM selection menu.  Choose
+the language ROM you wish to load by pressing the associated number key.
+Applecorn will then load the requested ROM file from the diskette.  Each
+of these files is a dump of a 16KB BBC Micro language ROM.
+
 Once the ROM has loaded, it will automatically be started and you will
-see the `>` prompt of BBC BASIC.
+see the prompt.  For BBC BASIC, the prompt character is `>`.
+
+Most of the BBC Micro languages (including BBC BASIC) prefer upper case
+input.  You may want to keep Caps Lock enabled most of the time!
 
 32 Kilobytes of space is available for your programs and variables. `PAGE`
 is set to `&0E0`.
 
+## 'Applecorn MOS' Features
+
+### Compatible ROMs
+- In principle any Acorn language ROM should work.
+- Currently I have verified operation with:
+  - BBC BASIC
+  - Acornsoft COMAL
+  - Acornsoft FORTH
+  - Acornsoft Lisp
+  - Acornsoft MicroProlog
+  - Acornsoft BCPL
+- I have not yet investigated two-ROM languages such as Logo or
+  ISO Pascal.  It may be possible to support these also.
+
+### Video Modes
+
+Two text video modes are currently supported:
+- 80x24 `MODE 0`
+- 40x24 `MODE 1`
+
+We plan to support HGR graphics eventually.
+
+### Escape Key
+
+The BBC Micro uses interrupts extensively and the Escape key is handled
+asynchronously.  The language ROM code simply checks an 'escape flag' in
+zero page ($FF) from time to time to detect if Escape has been pressed.
+
+The Apple //e does not use interrupts in its keyboard handling and the basic
+machine include no sources of interrupts at all (there is no system timer.)
+This prevents Escape from being handled in the same manner.
+
+As a partial workaround, Applecorn checks whether the Escape key is pressed
+from time to time when it has control, but there are cases where a program
+can run forever without ever making a MOS call.  In these cases the only
+way to interrupt the program is to press Ctrl-Reset.
+
+### Ctrl-Reset
+
+The Ctrl-Reset key combination is the only asynchronously handled keyboard
+event on the Apple //e.  Applecorn sets up a reset handler which will restart
+the ROM after Ctrl-Reset.  Any user program in aux memory will be untouched.
+
+For ROMs such as BASIC or COMAL, the `OLD` command can be used to recover the
+program in memory.
+
+### Special VDU Features
+
+- `Ctrl-S` will pause the screen and `Ctrl-Q` will resume scrolling.
+- The BBC Micro 'Copy Editor' function is supported.  Use the Apple II
+  cursor keys to move the copy cursor and the `Tab` key to copy a character
+  from the copy cursor to the insert cursor.
+- BBC Micro function keys are supported.  Use Open Apple with the number
+  keys for the unshifted function keys.
+
+### Star Commands
+
+`*QUIT` - Terminate Applecorn and quit to ProDOS.  Because the 'BBC Micro'
+lives in auxiliary memory, you can usually restart Applecorn by running it
+again and recover your program with `OLD`.
+
+`*HELP` - Prints out information similar to the same command on the BBC micro.
+Specifically it lists the version of Applecorn MOS and the name of the current
+language ROM.
+
+`*CAT` (or `*.`) - Simple listing of the files in the current directory.
+
+`*DIR pathname` - Allows the current directory to be changed to any ProDOS
+path.  For example `*DIR /H1/APPLECORN`.
+
+`*LOAD filename SSSS` - Load file `filename` into memory at hex address
+`SSSS`. If the address `SSSS` is omitted then the file is loaded to the
+address stored in its aux filetype.
+
+`*SAVE filename SSSS EEEE` - Save memory from hex address `SSSS` to hex
+address `EEEE` into file `filename`.  The start address `SSSS` is
+recorded in the aux filetype.
+
+`*RUN filename` - Load file `filename` into memory at the address stored
+in its aux filetype and jump to to it.  This is used for loading and
+starting machine code programs.
+
 ## How to Build
 
 Applecorn is built natively on the Apple //e using the Merlin 8 assembler
-v2.58.
+v2.58.  It may also be built using Merlin-32 on Windows, Linux or Mac if
+preferred.
+
+In Merlin-8:
+- Press `D` for disk commands and enter the prefix of the build directory:
+  `PFX /APPLECORN`
+- Press `L` to load a file and enter the filename `APPLECORN`.
+- Merlin will enter the editor automatically (or press `E`).  Issue the
+  following command a the editor's `:` prompt: `asm`
+- Once assembly is complete, enter the command `q` to quit the editor,
+  then select `O` to save the object file and enter the filename
+  `APPLECORN`.
+- Press `Q` to quit Merlin-8.
 
 ## Theory of Operation
 
@@ -190,7 +299,7 @@ AUX BANK:
   from $d000 up in aux memory.  (The main bank LC memory contains ProDOS.)
 - Applecorn copies its own 'Applecorn MOS' code to $d000 in aux memory and
   relocates the MOS entry vectors to high memory.
-- An 80 column screen is configured using PAGE2 memory from $800 to $bfff
+- An 80 column screen is configured using PAGE2 memory from $800 to $bff
   in both main and aux memory.  This conveniently just fits in above page 7,
   which is the highest page used as Acorn language ROM workspace.
 - The only real difference between the Apple //e aux memory map and that of
@@ -202,71 +311,27 @@ AUX BANK:
   above.  For the aux bank, the LC is always banked in since no Apple monitor
   or BASIC ROM routines are called, so this is omitted from the diagram.
 
-## 'Applecorn MOS' Features
-
-- In principle any Acorn language ROM should work.
-- Currently I have verified operation with:
-  - BBC BASIC
-  - Acornsoft COMAL
-  - Acornsoft FORTH
-  - Acornsoft MicroProlog
-
 ## Limitations
 
 Applecorn currently has the following limitations:
-
-- A number of MOS calls relating to file I/O are not yet implemented including
-  `OSFIND`, `OSGBPB`. `OSBPUT`, `OSBGET`, `OSARGS`.  This means that file
-  operations such as the BBC BASIC `OPENIN` and `OPENOUT` do not work in the
-  Acorn languages.  `OSFILE` is (partially) implemented however, so BASIC and
-  COMAL can `LOAD` and `SAVE` programs.
-- The VDU driver is quite primitive at present.  In particular it only
-  supports 80 column text mode.  There is currently no graphics support.
-- Only a few `OSBYTE` calls are implemented.  More will be added in due
-  course.
-- The only implemented `OSWORD` call is A=&00, to read a line of input from
-  the console.  More will be added as needs arise.
+- Not all MOS calls are implemented.
+- There is file I/O support for file-orientated (`OSFILE`) file
+  operations.  This allows `LOAD` and `SAVE` to work in languages such as
+  BASIC or COMAL.
+- There is also support for the character orientated operations (`OSFIND`,
+  `OSBGET` `OSBPUT`) which allows all the disk file operations in the Acorn
+  languages to work correctly.  For example in BBC BASIC the following
+  commands work: `OPENIN`, `OPENOUT`, `OPENUP`, `BGET#` `BPUT#` `PTR#=`,
+  `EOF#`, `EXT#`.
+- The VDU driver is quite primitive at present.  Is supports 80 column
+  text mode (`MODE 0`) and 40 column text mode (`MODE 1`).  There is
+  currently no graphics support.
+- Only a limited number of `OSBYTE` and `OSWORD` calls are implemented.
+  More will be added in due course.
 - Special BBC Micro functions such as sound, A/D interfaces, programmable
   function keys and so on are currently not supported.
 - The Applecorn MOS command line is currently quite limited.  More commands
-  will be added in due course (for example `*FX`, `*LOAD`, `*SAVE` etc.).
+  will be added in due course.
 
-### Escape
 
-The BBC Micro uses interrupts extensively and the Escape key is handled
-asynchronously.  The language ROM code simply checks an 'escape flag' in
-zero page ($FF) from time to time to detect if Escape has been pressed.
-
-The Apple //e does not use interrupts in its keyboard handling and the basic
-machine include no sources of interrupts at all (there is no system timer.)
-This prevents Escape from being handled in the same manner.
-
-As a partial workaround, Applecorn checks whether the Escape key is pressed
-from time to time when it has control, but there are cases where a program
-can run forever without ever making a MOS call.  In these cases the only
-way to interrupt the program is to press Ctrl-Reset.
-
-### Ctrl-Reset
-
-The Ctrl-Reset key combination is the only asynchronously handled keyboard
-event on the Apple //e.  Applecorn sets up a reset handler which will restart
-the ROM after Ctrl-Reset.  Any user program in aux memory will be untouched.
-
-For ROMs such as BASIC or COMAL, the `OLD` command can be used to recover the
-program in memory.
-
-### Star Commands
-
-`*QUIT` - Terminate Applecorn and quit to ProDOS.  Because the 'BBC Micro'
-lives in auxiliary memory, you can usually restart Applecorn by running it
-again and recover your program with `OLD`.
-
-`*HELP` - Prints out information similar to the same command on the BBC micro.
-Specifically it lists the version of Applecorn MOS and the name of the current
-language ROM.
-
-`*CAT` (or `*.`) - Simple listing of the files in the current directory.
-
-`*DIR pathname` - Allows the current directory to be changed to any ProDOS
-path.  For example `*DIR /H1/APPLECORN`.
 

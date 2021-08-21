@@ -94,10 +94,11 @@ XF2MAIN     MAC
             EOM
 
 * Macro called on re-entry to aux memory
+* Careful: This enables IRQ - not for use in ISR
 ENTAUX      MAC
             LDX   $0101       ; Recover alt SP
             TXS
-            CLI               ; Force IRQs on regardless of prior state
+            CLI               ; Re-enable IRQ after XFER
             LDX   STRTBCKL
             STX   STRTL
             LDX   STRTBCKH
@@ -105,11 +106,12 @@ ENTAUX      MAC
             EOM
 
 * Macro called on re-entry to main memory
+* Careful: This enables IRQ - not for use in ISR
 ENTMAIN     MAC
             TXS               ; Main SP already in X
             LDX   $C081       ; Bank in ROM
             LDX   $C081
-            CLI               ; Force IRQs on regardless of prior state
+            CLI               ; Re-enable IRQ after XFER
             EOM
 
 * Macro called on re-entry to aux memory
@@ -137,7 +139,7 @@ WRTMAIN     MAC
             STA   $C004       ; Write to main memory
             EOM
 
-* Go back to writing to aux (for code runnign in aux)
+* Go back to writing to aux (for code running in aux)
 WRTAUX      MAC
             STA   $C005       ; Write to aux memory
             CLI               ; Normal service resumed

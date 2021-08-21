@@ -409,7 +409,7 @@ LOADFILE    >>>   ENTMAIN
             LDA   FBEXEC             ; If FBEXEC is zero, use addr
             CMP   #$00               ; in the control block
             BEQ   :CBADDR
-* TO DO: LOAD file <noaddress> still needs to fill in control block
+* TODO: Load file (without addr) needs to fill in CB
             LDA   #<MOSFILE          ; Otherwise use file addr
             STA   GINFOPL+1
             LDA   #>MOSFILE
@@ -420,12 +420,11 @@ LOADFILE    >>>   ENTMAIN
             BCS   :READERR
             LDX   GINFOPL+5          ; Aux type LSB
             STX   FBLOAD+0
-            STX   FBEXEC+0           ; Default to EXEC=LOAD
+            STX   FBEXEC+0           ; Default EXEC=LOAD
             LDY   GINFOPL+6          ; Aux type MSB
             STY   FBLOAD+1
             STY   FBEXEC+1
-:CBADDR     JSR   PASSADDR           ; Load addr -> code in aux bank
-            LDA   FBLOAD
+:CBADDR     LDA   FBLOAD
             STA   A4L
             LDA   FBLOAD+1
             LDX   :BLOCKS
@@ -449,14 +448,21 @@ LOADFILE    >>>   ENTMAIN
 :EOF2       LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-:EXIT       >>>   XF2AUX,OSFILERET
+:EXIT       JSR   COPYFB             ; Copy FILEBLK to auxmem
+            >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
 
-* Stash address in XY to first two bytes of AUXBLK
-PASSADDR    >>>   ALTZP              ; Alt ZP and LC
-            STX   AUXBLK
-            STY   AUXBLK+1
+* Copy FILEBLK to AUXBLK in aux memory
+COPYFB      LDX   #$00
+:L1         LDA   FILEBLK,X
+            TAY
+            >>>   ALTZP              ; Alt ZP and LC
+            TYA
+            STA   AUXBLK,X
             >>>   MAINZP             ; Back to normal
+            INX
+            CPX   #18                ; 18 bytes in FILEBLK
+            BNE   :L1
             RTS
 
 * ProDOS file handling for MOS OSFILE SAVE call
@@ -593,9 +599,10 @@ SAVEFILE    >>>   ENTMAIN
             JSR   CLSFILE
             LDA   #$00               ; Success!
             BCC   :EXIT              ; If close OK
-* TO DO: After SAVE control block XY+10-XY+17 need to be updated
+* TODO: After SAVE CB XY+10..XY+17 needs updating
             LDA   #$02               ; Write error
-:EXIT       >>>   XF2AUX,OSFILERET
+:EXIT       JSR   COPYFB             ; Copy FILEBLK to aux mem
+            >>>   XF2AUX,OSFILERET
 :LEN        DW    $0000
 :BLOCKS     DB    $00
 

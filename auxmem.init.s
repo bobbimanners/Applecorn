@@ -1,3 +1,8 @@
+* AUXMEM.INIT.S
+* (c) Bobbi 2021 GPL v3
+*
+* Initialization code running in Apple //e aux memory
+
 ***********************************************************
 * BBC Micro 'virtual machine' in Apple //e aux memory
 ***********************************************************
@@ -101,54 +106,46 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
 :S7         BRA   :L2
 
 :NORELOC
-:S8         STA   $C00D           ; 80 col on
-            STA   $C003           ; Alt charset off
-            STA   $C055           ; PAGE2
-            JMP   MOSHIGH         ; Ensure executing in high memory here
+:S8         STA   $C00D                      ; 80 col on
+            STA   $C003                      ; Alt charset off
+            STA   $C055                      ; PAGE2
+            JMP   MOSHIGH                    ; Ensure running in high mem
 
 MOSHIGH     SEI
             LDX   #$FF
-            TXS                   ; Initialise stack
-            INX                   ; X=$00
+            TXS                              ; Initialise stack
+            INX                              ; X=$00
             TXA
-:SCLR       STA   $0000,X         ; Clear Kernel memory
+:SCLR       STA   $0000,X                    ; Clear Kernel memory
             STA   $0200,X
             STA   $0300,X
             INX
             BNE   :SCLR
 
             LDX   #ENDVEC-DEFVEC-1
-:INITPG2    LDA   DEFVEC,X        ; Set up vectors
+:INITPG2    LDA   DEFVEC,X                   ; Set up vectors
             STA   $200,X
             DEX
             BPL   :INITPG2
 
-* DEFBYTELOW=219
-            LDX   #DEFBYTEEND-DEFBYTE-1
-:INITPG3    LDA   DEFBYTE,X       ; Initialise OSBYTE variables
-            STA   BYTEVARBASE+DEFBYTELOW,X
-            DEX
-            BPL   :INITPG3
+** DEFBYTELOW=129
+*            LDX   #DEFBYTEEND-DEFBYTE-1
+*:INITPG3    LDA   DEFBYTE,X                  ; Initialize OSBYTE vars
+*            STA   BYTEVARBASE+DEFBYTELOW,X
+*            DEX
+*            BPL   :INITPG3
+* ^^ Moved to KBD driver
 
-            JSR   VDUINIT         ; Initialise VDU driver
-;            JSR CLEAR
+            JSR   KBDINIT                    ; Initialise KBD driver
+            JSR   VDUINIT                    ; Initialise VDU driver
 
             LDA   #<:HELLO
             LDY   #>:HELLO
             JSR   PRSTR
-            CLC
-            JMP   BYTE8E
 
-;            LDA   #$09           ; Print language name at $8009
-;            LDY   #$80
-;            JSR   PRSTR
-;            JSR   OSNEWL
-;            JSR   OSNEWL
-;
-;            CLC                  ; CLC=Entered from RESET
-;            LDA   #$01           ; $01=Entering application code
-;            JMP   AUXADDR        ; Start Acorn ROM
-* No return
+            CLC
+            JMP   BYTE8E                     ; Enter language ROM
+
 :HELLO      DB    $07
             ASC   'Applecorn MOS v0.01'
             DB    $0D,$0D,$00
