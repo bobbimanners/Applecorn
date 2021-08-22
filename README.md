@@ -130,6 +130,8 @@ recorded in the aux filetype.
 in its aux filetype and jump to to it.  This is used for loading and
 starting machine code programs.
 
+`*DELETE filename` - Delete file `filename` from disk.
+
 ## How to Build
 
 Applecorn is built natively on the Apple //e using the Merlin 8 assembler
