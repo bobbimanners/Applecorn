@@ -10,6 +10,7 @@ QUITCMD     EQU   $65
 GTIMECMD    EQU   $82
 CREATCMD    EQU   $C0
 DESTCMD     EQU   $C1
+RENCMD      EQU   $C2
 SFILECMD    EQU   $C3
 GINFOCMD    EQU   $C4
 ONLNCMD     EQU   $C5
@@ -151,6 +152,24 @@ DESTROY     LDA   #<MOSFILE          ; Attempt to destroy file
             JSR   MLI
             DB    DESTCMD
             DW    DESTPL
+            RTS
+
+* ProDOS file handling to rename a file
+RENFILE     >>>   ENTMAIN
+            JSR   RENAME
+            >>>   XF2AUX,STARRENRET
+
+RENAME      LDA   #<MOSFILE
+            STA   RENPL+1
+            LDA   #>MOSFILE
+            STA   RENPL+2
+            LDA   #<MOSFILE2
+            STA   RENPL+3
+            LDA   #>MOSFILE2
+            STA   RENPL+4
+            JSR   MLI
+            DB    RENCMD
+            DW    RENPL
             RTS
 
 * ProDOS file handling for MOS OSFIND OPEN call
@@ -717,6 +736,10 @@ CREATEPL    HEX   07                 ; Number of parameters
 DESTPL      HEX   01                 ; Number of parameters
             DW    $0000              ; Pointer to filename
 
+RENPL       HEX   02                 ; Number of parameters
+            DW    $0000              ; Pointer to existing name
+            DW    $0000              ; Pointer to new filename
+
 READPL      HEX   04                 ; Number of parameters
             DB    $00                ; Reference number
             DW    BLKBUF             ; Pointer to data buffer
@@ -785,7 +808,12 @@ QUITPL      HEX   04                 ; Number of parameters
             DW    $0000
 
 * Buffer for Acorn MOS filename
-MOSFILE     DS    64                 ; 64 bytes max prefix/file len
+* Pascal string
+MOSFILE     DS    65                 ; 64 bytes max prefix/file len
+
+* Buffer for second filename (for rename)
+* Pascal string
+MOSFILE2    DS    65                 ; 64 bytes max prefix/file len
 
 * Acorn MOS format OSFILE param list
 FILEBLK
