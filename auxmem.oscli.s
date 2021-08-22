@@ -64,7 +64,7 @@ CLIHND      PHX
             JSR   STRCMP
             BCS   :S5
             JSR   STARLOAD
-            BRA   :EXIT
+            BRA   :IEXIT
 :S5         LDA   #<:SAVE
             STA   ZP2
             LDA   #>:SAVE
@@ -81,7 +81,15 @@ CLIHND      PHX
             BCS   :S7
             JSR   STARRUN
             BRA   :EXIT
-:S7         LDA   #<:HELP
+:S7         LDA   #<:DELETE
+            STA   ZP2
+            LDA   #>:DELETE
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :S8
+            JSR   STARDEL
+            BRA   :EXIT
+:S8         LDA   #<:HELP
             STA   ZP2
             LDA   #>:HELP
             STA   ZP2+1
@@ -91,9 +99,6 @@ CLIHND      PHX
             BRA   :EXIT
 :ASKROM     LDA   $8006         ; Check for service entry
             BPL   :UNSUPP       ; No service entry
-*            LDA   $8003     ; Check for service entry
-*            CMP   #$4C      ; Not a JMP?
-*            BNE   :UNSUPP   ; Only BASIC has no srvc entry
             LDA   ZP1           ; String in (OSLPTR),Y
             STA   OSLPTR
             LDA   ZP1+1
@@ -141,6 +146,8 @@ CLIHND      PHX
 :SAVE       ASC   'SAVE'
             DB    $00
 :RUN        ASC   'RUN'
+            DB    $00
+:DELETE     ASC   'DELETE'
             DB    $00
 :HELP       ASC   'HELP'
             DB    $00
@@ -398,6 +405,25 @@ JUMPFSCV    PHA
             LDY   ZP1+1
             PLA
 CALLFSCV    JMP   (FSCV)        ; Hand on to filing system
+
+* Handle *DELETE command
+* On entry, ZP1 points to command line
+STARDEL     JSR   EATSPC        ; Eat leading space
+            JSR   ADDZP1Y       ; Advance ZP1
+            LDA   ZP1
+            STA   OSFILECB+0
+            LDA   ZP1+1
+            STA   OSFILECB+1
+            JSR   EATWORD
+            LDA   #$0D
+            STA   (ZP1),Y       ; Terminate filename
+            LDX   #<OSFILECB
+            LDY   #>OSFILECB
+            LDA   #$06          ; OSFILE delete command
+            JSR   OSFILE
+            RTS
+:ERR        JSR   BEEP
+            RTS
 
 * Clear OSFILE control block to zeros
 CLRCB       LDA   #$00

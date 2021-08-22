@@ -227,10 +227,11 @@ FILEHND     PHX
 
             PLA                       ; Get action back
             PHA
-            BEQ   :S1                 ; A=00 -> SAVE
+            BEQ   :SAVE               ; A=00 -> SAVE
             CMP   #$FF
-            BEQ   :S2                 ; A=FF -> LOAD
-
+            BEQ   :LOAD               ; A=FF -> LOAD
+            CMP   #$06
+            BEQ   :DELETE             ; A=06 -> DELET
             LDA   #<OSFILEM           ; If not implemented, print msg
             LDY   #>OSFILEM
             JSR   PRSTR
@@ -244,8 +245,9 @@ FILEHND     PHX
             PLY
             PLX
             RTS
-:S1         >>>   XF2MAIN,SAVEFILE
-:S2         >>>   XF2MAIN,LOADFILE
+:SAVE       >>>   XF2MAIN,SAVEFILE
+:LOAD       >>>   XF2MAIN,LOADFILE
+:DELETE     >>>   XF2MAIN,DELFILE
 OSFILERET
             >>>   ENTAUX
             PHA

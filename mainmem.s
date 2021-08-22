@@ -139,21 +139,27 @@ COPYAUXBLK
             CLI
             RTS
 
-* ProDOS file handling for MOS OSFIND OPEN call
-* Options in A: $40 'r', $80 'w', $C0 'rw'
-OFILE       >>>   ENTMAIN
-            PHA                      ; Preserve arg for later
-            CMP   #$80               ; Write mode
-            BNE   :S0
+* ProDOS file handling to delete a file
+DELFILE     >>>   ENTMAIN
+            JSR   DESTROY
+            >>>   XF2AUX,OSFILERET
 
-            LDA   #<MOSFILE          ; Attempt to destroy file
+DESTROY     LDA   #<MOSFILE          ; Attempt to destroy file
             STA   DESTPL+1
             LDA   #>MOSFILE
             STA   DESTPL+2
             JSR   MLI
             DB    DESTCMD
             DW    DESTPL
+            RTS
 
+* ProDOS file handling for MOS OSFIND OPEN call
+* Options in A: $40 'r', $80 'w', $C0 'rw'
+OFILE       >>>   ENTMAIN
+            PHA                      ; Preserve arg for later
+            CMP   #$80               ; Write mode
+            BNE   :S0
+            JSR   DESTROY
             LDA   #<MOSFILE          ; Attempt to create file
             STA   CREATEPL+1
             STA   OPENPL+1
