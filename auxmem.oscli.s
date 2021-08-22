@@ -72,6 +72,7 @@ CLIHND      PHX
             JSR   STRCMP
             BCS   :S6
             JSR   STARSAVE
+            BRA   :IEXIT
 :S6         LDA   #<:RUN
             STA   ZP2
             LDA   #>:RUN

@@ -478,7 +478,9 @@ LOADFILE    >>>   ENTMAIN
 :BLOCKS     DB    $00
 
 * Copy FILEBLK to AUXBLK in aux memory
-COPYFB      LDX   #$00
+* Preserves A
+COPYFB      PHA
+            LDX   #$00
 :L1         LDA   FILEBLK,X
             TAY
             >>>   ALTZP              ; Alt ZP and LC
@@ -488,6 +490,7 @@ COPYFB      LDX   #$00
             INX
             CPX   #18                ; 18 bytes in FILEBLK
             BNE   :L1
+            PLA
             RTS
 
 * ProDOS file handling for MOS OSFILE SAVE call
