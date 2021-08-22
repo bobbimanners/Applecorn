@@ -157,7 +157,7 @@ DESTROY     LDA   #<MOSFILE          ; Attempt to destroy file
 * ProDOS file handling to rename a file
 RENFILE     >>>   ENTMAIN
             JSR   RENAME
-            >>>   XF2AUX,STARRENRET
+** >>> XF2AUX,STARRENRET  **** TODO FIX THIS!!!
 
 RENAME      LDA   #<MOSFILE
             STA   RENPL+1
