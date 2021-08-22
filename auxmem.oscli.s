@@ -9,21 +9,21 @@
 *
 CLIHND      PHX
             PHY
-            STX   ZP1+0         ; Pointer to CLI
+            STX   ZP1+0            ; Pointer to CLI
             STY   ZP1+1
 :L1         LDA   (ZP1)
-            CMP   #'*'          ; Trim any leading stars
+            CMP   #'*'             ; Trim any leading stars
             BEQ   :NEXT
-            CMP   #' '          ; Trim any leading spaces
+            CMP   #' '             ; Trim any leading spaces
             BEQ   :NEXT
             BRA   :TRIMMED
 :NEXT       INC   ZP1
             BNE   :L1
             INC   ZP1+1
             BRA   :L1
-:TRIMMED    CMP   #'|'          ; | is comment
-            BEQ   :IEXIT
-            CMP   #$0D          ; Carriage return
+:TRIMMED    CMP   #'|'             ; | is comment
+            BEQ   :IEXIT2
+            CMP   #$0D             ; Carriage return
             BEQ   :IEXIT
             LDA   #<:QUIT
             STA   ZP2
@@ -32,7 +32,7 @@ CLIHND      PHX
             JSR   STRCMP
             BCS   :S1
             JSR   STARQUIT
-            BRA   :IEXIT
+:IEXIT2     BRA   :IEXIT
 :S1         LDA   #<:CAT
             STA   ZP2
             LDA   #>:CAT
@@ -72,7 +72,6 @@ CLIHND      PHX
             JSR   STRCMP
             BCS   :S6
             JSR   STARSAVE
-:IEXIT      BRA   :EXIT
 :S6         LDA   #<:RUN
             STA   ZP2
             LDA   #>:RUN
@@ -81,6 +80,7 @@ CLIHND      PHX
             BCS   :S7
             JSR   STARRUN
             BRA   :EXIT
+:IEXIT      BRA   :EXIT
 :S7         LDA   #<:DELETE
             STA   ZP2
             LDA   #>:DELETE
@@ -89,7 +89,15 @@ CLIHND      PHX
             BCS   :S8
             JSR   STARDEL
             BRA   :EXIT
-:S8         LDA   #<:HELP
+:S8         LDA   #<:RENAME
+            STA   ZP2
+            LDA   #>:RENAME
+            STA   ZP2+1
+            JSR   STRCMP
+            BCS   :S9
+            JSR   STARREN
+            BRA   :EXIT
+:S9         LDA   #<:HELP
             STA   ZP2
             LDA   #>:HELP
             STA   ZP2+1
@@ -97,18 +105,18 @@ CLIHND      PHX
             BCS   :ASKROM
             JSR   STARHELP
             BRA   :EXIT
-:ASKROM     LDA   $8006         ; Check for service entry
-            BPL   :UNSUPP       ; No service entry
-            LDA   ZP1           ; String in (OSLPTR),Y
+:ASKROM     LDA   $8006            ; Check for service entry
+            BPL   :UNSUPP          ; No service entry
+            LDA   ZP1              ; String in (OSLPTR),Y
             STA   OSLPTR
             LDA   ZP1+1
             STA   OSLPTR+1
             LDY   #$00
-            LDA   #$04          ; Service 4 Unrecognized Cmd
-            LDX   #$0F          ; ROM slot
-            JSR   $8003         ; Service entry point
-            TAX                 ; Check return
-            BEQ   :EXIT         ; Call claimed
+            LDA   #$04             ; Service 4 Unrecognized Cmd
+            LDX   #$0F             ; ROM slot
+            JSR   $8003            ; Service entry point
+            TAX                    ; Check return
+            BEQ   :EXIT            ; Call claimed
 
 :UNSUPP     LDA   #<:OSCLIM
             LDY   #>:OSCLIM
@@ -149,6 +157,8 @@ CLIHND      PHX
             DB    $00
 :DELETE     ASC   'DELETE'
             DB    $00
+:RENAME     ASC   'RENAME'
+            DB    $00
 :HELP       ASC   'HELP'
             DB    $00
 :OSCLIM     ASC   'OSCLI('
@@ -184,7 +194,7 @@ STRCMP      LDY   #$00
 STARHELP    LDA   #<:MSG
             LDY   #>:MSG
             JSR   PRSTR
-            LDA   #$09          ; Language name
+            LDA   #$09             ; Language name
             LDY   #$80
             JSR   PRSTR
             LDA   #<:MSG2
@@ -202,22 +212,22 @@ STARQUIT    >>>   XF2MAIN,QUIT
 
 * Handle *CAT / *. command (list directory)
 STARCAT     LDA   #$05
-            JMP   JUMPFSCV      ; Pass to filing system
+            JMP   JUMPFSCV         ; Pass to filing system
 
 * Consume spaces in command line. Treat " as space!
 * Return C set if no space found, C clear otherwise
 * Command line pointer in (ZP1),Y
-EATSPC      LDA   (ZP1),Y       ; Check first char is ...
-            CMP   #' '          ; ... space
+EATSPC      LDA   (ZP1),Y          ; Check first char is ...
+            CMP   #' '             ; ... space
             BEQ   :START
-            CMP   #'"'          ; Or quote mark
+            CMP   #'"'             ; Or quote mark
             BEQ   :START
             BRA   :NOTFND
 :START      INY
-:L1         LDA   (ZP1),Y       ; Eat any additional ...
-            CMP   #' '          ; ... spaces
+:L1         LDA   (ZP1),Y          ; Eat any additional ...
+            CMP   #' '             ; ... spaces
             BEQ   :CONT
-            CMP   #'"'          ; Or quote marks
+            CMP   #'"'             ; Or quote marks
             BNE   :DONE
 :CONT       INY
             BRA   :L1
@@ -234,7 +244,7 @@ EATWORD     LDA   (ZP1),Y
             BEQ   :SPC
             CMP   #'"'
             BEQ   :SPC
-            CMP   #$0D          ; Carriage return
+            CMP   #$0D             ; Carriage return
             BEQ   :EOL
             INY
             BRA   EATWORD
@@ -257,18 +267,18 @@ ADDZP1Y     CLC
 * Decode ASCII hex digit in A
 * Returns with carry set if bad char, C clear otherwise
 HEXDIGIT    CMP   #'F'+1
-            BCS   :BADCHAR      ; char > 'F'
+            BCS   :BADCHAR         ; char > 'F'
             CMP   #'A'
             BCC   :S1
-            SEC                 ; 'A' <= char <= 'F'
+            SEC                    ; 'A' <= char <= 'F'
             SBC   #'A'-10
             CLC
             RTS
 :S1         CMP   #'9'+1
-            BCS   :BADCHAR      ; '9' < char < 'A'
+            BCS   :BADCHAR         ; '9' < char < 'A'
             CMP   #'0'
-            BCC   :BADCHAR      ; char < '0'
-            SEC                 ; '0' <= char <= '9'
+            BCC   :BADCHAR         ; char < '0'
+            SEC                    ; '0' <= char <= '9'
             SBC   #'0'
             CLC
             RTS
@@ -278,24 +288,24 @@ HEXDIGIT    CMP   #'F'+1
 * Decode hex constant on command line
 * On entry, ZP1 points to command line
 HEXCONST    LDX   #$00
-:L1         STZ   :BUF,X        ; Clear :BUF
+:L1         STZ   :BUF,X           ; Clear :BUF
             INX
             CPX   #$04
             BNE   :L1
             LDX   #$00
             LDY   #$00
-:L2         LDA   (ZP1),Y       ; Parse hex digits into
-            JSR   HEXDIGIT      ; :BUF, left aligned
+:L2         LDA   (ZP1),Y          ; Parse hex digits into
+            JSR   HEXDIGIT         ; :BUF, left aligned
             BCS   :NOTHEX
             STA   :BUF,X
             INY
             INX
             CPX   #$04
             BNE   :L2
-            LDA   (ZP1),Y       ; Peek at next char
-:NOTHEX     CPX   #$00          ; Was it the first digit?
-            BEQ   :ERR          ; If so, bad hex constant
-            CMP   #' '          ; If whitespace, then okay
+            LDA   (ZP1),Y          ; Peek at next char
+:NOTHEX     CPX   #$00             ; Was it the first digit?
+            BEQ   :ERR             ; If so, bad hex constant
+            CMP   #' '             ; If whitespace, then okay
             BEQ   :OK
             CMP   #$0D
             BEQ   :OK
@@ -320,38 +330,38 @@ HEXCONST    LDX   #$00
 :ZEROPAD    DB    $00,$00,$00
 :BUF        DB    $00,$00,$00,$00
 
-ADDRBUF     DW    $0000         ; Used by HEXCONST
+ADDRBUF     DW    $0000            ; Used by HEXCONST
 
 * Handle *LOAD command
 * On entry, ZP1 points to command line
 STARLOAD    JSR   CLRCB
-            JSR   EATSPC        ; Eat leading spaces
+            JSR   EATSPC           ; Eat leading spaces
             BCS   :ERR
-            JSR   ADDZP1Y       ; Advance ZP1
-            LDA   ZP1           ; Pointer to filename
+            JSR   ADDZP1Y          ; Advance ZP1
+            LDA   ZP1              ; Pointer to filename
             STA   OSFILECB
             LDA   ZP1+1
             STA   OSFILECB+1
-            JSR   EATWORD       ; Advance past filename
-            BCS   :NOADDR       ; No load address given
-            LDA   #$0D          ; Carriage return
-            STA   (ZP1),Y       ; Terminate filename
+            JSR   EATWORD          ; Advance past filename
+            BCS   :NOADDR          ; No load address given
+            LDA   #$0D             ; Carriage return
+            STA   (ZP1),Y          ; Terminate filename
             INY
-            JSR   EATSPC        ; Eat any whitespace
-            JSR   ADDZP1Y       ; Update ZP1
+            JSR   EATSPC           ; Eat any whitespace
+            JSR   ADDZP1Y          ; Update ZP1
             JSR   HEXCONST
-            BCS   :ERR          ; Bad hex constant
+            BCS   :ERR             ; Bad hex constant
             LDA   ADDRBUF
-            STA   OSFILECB+2    ; Load address LSB
+            STA   OSFILECB+2       ; Load address LSB
             LDA   ADDRBUF+1
-            STA   OSFILECB+3    ; Load address MSB
+            STA   OSFILECB+3       ; Load address MSB
 :OSFILE     LDX   #<OSFILECB
             LDY   #>OSFILECB
-            LDA   #$FF          ; OSFILE load flag
+            LDA   #$FF             ; OSFILE load flag
             JSR   OSFILE
 :END        RTS
-:NOADDR     LDA   #$FF          ; Set OSFILECB+6 to non-zero
-            STA   OSFILECB+6    ; Means use the file's addr
+:NOADDR     LDA   #$FF             ; Set OSFILECB+6 to non-zero
+            STA   OSFILECB+6       ; Means use the file's addr
             BRA   :OSFILE
 :ERR        JSR   BEEP
             RTS
@@ -359,37 +369,37 @@ STARLOAD    JSR   CLRCB
 * Handle *SAVE command
 * On entry, ZP1 points to command line
 STARSAVE    JSR   CLRCB
-            JSR   EATSPC        ; Eat leading space
+            JSR   EATSPC           ; Eat leading space
             BCS   :ERR
-            JSR   ADDZP1Y       ; Advance ZP1
-            LDA   ZP1           ; Pointer to filename
+            JSR   ADDZP1Y          ; Advance ZP1
+            LDA   ZP1              ; Pointer to filename
             STA   OSFILECB
             LDA   ZP1+1
             STA   OSFILECB+1
             JSR   EATWORD
-            BCS   :ERR          ; No start address given
-            LDA   #$0D          ; Carriage return
-            STA   (ZP1),Y       ; Terminate filename
+            BCS   :ERR             ; No start address given
+            LDA   #$0D             ; Carriage return
+            STA   (ZP1),Y          ; Terminate filename
             INY
-            JSR   EATSPC        ; Eat any whitespace
-            JSR   ADDZP1Y       ; Update ZP1
+            JSR   EATSPC           ; Eat any whitespace
+            JSR   ADDZP1Y          ; Update ZP1
             JSR   HEXCONST
-            BCS   :ERR          ; Bad start address
+            BCS   :ERR             ; Bad start address
             LDA   ADDRBUF
             STA   OSFILECB+10
             LDA   ADDRBUF+1
             STA   OSFILECB+11
-            JSR   EATSPC        ; Eat any whitespace
-            JSR   ADDZP1Y       ; Update ZP1
+            JSR   EATSPC           ; Eat any whitespace
+            JSR   ADDZP1Y          ; Update ZP1
             JSR   HEXCONST
-            BCS   :ERR          ; Bad end address
+            BCS   :ERR             ; Bad end address
             LDA   ADDRBUF
             STA   OSFILECB+14
             LDA   ADDRBUF+1
             STA   OSFILECB+15
             LDX   #<OSFILECB
             LDY   #>OSFILECB
-            LDA   #$00          ; OSFILE save flag
+            LDA   #$00             ; OSFILE save flag
             JSR   OSFILE
 :END        RTS
 :ERR        JSR   BEEP
@@ -399,30 +409,74 @@ STARSAVE    JSR   CLRCB
 * On entry, ZP1 points to command line
 STARRUN     LDA   #$04
 JUMPFSCV    PHA
-            JSR   EATSPC        ; Eat leading space
-            JSR   ADDZP1Y       ; Advance ZP1
+            JSR   EATSPC           ; Eat leading space
+            JSR   ADDZP1Y          ; Advance ZP1
             LDX   ZP1+0
             LDY   ZP1+1
             PLA
-CALLFSCV    JMP   (FSCV)        ; Hand on to filing system
+CALLFSCV    JMP   (FSCV)           ; Hand on to filing system
 
 * Handle *DELETE command
 * On entry, ZP1 points to command line
-STARDEL     JSR   EATSPC        ; Eat leading space
-            JSR   ADDZP1Y       ; Advance ZP1
+STARDEL     JSR   EATSPC           ; Eat leading space
+            JSR   ADDZP1Y          ; Advance ZP1
             LDA   ZP1
             STA   OSFILECB+0
             LDA   ZP1+1
             STA   OSFILECB+1
             JSR   EATWORD
             LDA   #$0D
-            STA   (ZP1),Y       ; Terminate filename
+            STA   (ZP1),Y          ; Terminate filename
             LDX   #<OSFILECB
             LDY   #>OSFILECB
-            LDA   #$06          ; OSFILE delete command
+            LDA   #$06             ; OSFILE delete command
             JSR   OSFILE
             RTS
 :ERR        JSR   BEEP
+            RTS
+
+* Handle *RENAME command
+* On entry, ZP1 points to command line
+STARREN     JSR   EATSPC           ; Eat leading space
+            JSR   ADDZP1Y          ; Advance ZP1
+            LDY   #$00
+:L1         LDA   (ZP1),Y          ; Copy arg1 -> MOSFILE
+            CMP   #' '
+            BEQ   :ENDARG1
+            CMP   #$0D             ; Carriage return
+            BEQ   :ERR
+            INY
+            >>>   WRTMAIN
+            STA   MOSFILE,Y
+            >>>   WRTAUX
+            BRA   :L1
+:ENDARG1    >>>   WRTMAIN
+            STY   MOSFILE          ; Length of arg1
+            >>>   WRTAUX
+            JSR   EATSPC           ; Eat space between args
+            JSR   ADDZP1Y          ; Advance ZP1
+            LDY   #$00
+:L2         LDA   (ZP1),Y          ; Copy arg2 -> MOSFILE
+            CMP   #' '
+            BEQ   :ENDARG2
+            CMP   #$0D
+            BEQ   :ENDARG2
+            INY
+            >>>   WRTMAIN
+            STA   MOSFILE2,Y
+            >>>   WRTAUX
+            BRA   :L2
+:ENDARG2    >>>   WRTMAIN
+            STY   MOSFILE2         ; Length of arg2
+            >>>   WRTAUX
+            >>>   XF2MAIN,RENFILE
+:ERR
+* TODO: Handle errors
+            JSR   BEEP
+            RTS
+
+STARRENRET
+            >>>   ENTAUX
             RTS
 
 * Clear OSFILE control block to zeros
