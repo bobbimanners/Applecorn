@@ -444,8 +444,6 @@ PRONEENT    TAX
 * Handle *DIR (directory change) command
 * On entry, ZP1 points to command line
 STARDIR     JSR   EATSPC              ; Eat leading spaces
-            BCC   :S1                 ; If no space found
-            RTS                       ; No argument
 :S1         LDX   #$01
 :L3         LDA   (ZP1),Y
             CMP   #$0D
