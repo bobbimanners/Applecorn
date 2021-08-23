@@ -285,8 +285,12 @@ STARDRIVE
 STARBASIC
 STARKEY      RTS
 
-STARCHDIR    STX   ZP1+0         ; TEMP
-             STY   ZP1+1         ; TEMP
+STARCHDIR
+             LDA   OSLPTR        ; TEMP
+             STA   ZP1           ; TEMP
+             LDA   OSLPTR+1      ; TEMP
+             STA   ZP1+1         ; TEMP
+             JSR   ADDZP1Y       ; TEMP
              LDY   #$00          ; TEMP
              JMP   STARDIR       ; TEMP
 
