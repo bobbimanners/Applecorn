@@ -277,6 +277,8 @@ LPTRtoXY     CLC
 STARFILE     AND   #$7F
              STX   OSFILECB+0
              STY   OSFILECB+1
+             LDX   #<OSFILECB
+             LDY   #>OSFILECB
              JMP   OSFILE
 
 STARDRIVE
