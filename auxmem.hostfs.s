@@ -336,7 +336,6 @@ OSFILEM2    ASC   ')'
 *  On exit,  A=preserved if unimplemented
 *            A=modified if implemented
 *            X,Y=any return values
-* 
 FSCHND      CMP   #$00
             BEQ   FSOPT               ; A=0  - *OPT
             CMP   #$01
@@ -354,6 +353,13 @@ FSCHND      CMP   #$00
             CMP   #$0C
             BEQ   FSCREN              ; A=12 - *RENAME
 
+            PHA
+            LDA   #<OSFSCM
+            LDY   #>OSFSCM
+            JSR   PRSTR
+            PLA
+            RTS
+
 FSCRUN      STX   OSFILECB            ; Pointer to filename
             STY   OSFILECB+1
             LDA   #$FF                ; OSFILE load flag
@@ -367,9 +373,6 @@ FSCRUN      STX   OSFILECB            ; Pointer to filename
 :CALL       JMP   (OSFILECB+6)        ; Jump to EXEC addr
             RTS
 FSCREN
-            LDA   #<OSFSCM
-            LDY   #>OSFSCM
-            JSR   PRSTR
             RTS
 OSFSCM      ASC   'OSFSC.'
             DB    $00
