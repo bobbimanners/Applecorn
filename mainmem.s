@@ -762,8 +762,6 @@ SETPFX      >>>   ENTMAIN
             JSR   MLI
             DB    SPFXCMD
             DW    SPFXPL
-            BCC   :S1
-            JSR   BELL               ; Beep on error
 :S1         >>>   XF2AUX,STARDIRRET
 
 * Create disk file
