@@ -5,6 +5,9 @@
 * This code is mostly glue between the BBC Micro code
 * which runs in aux mem and Apple II ProDOS.
 
+* 24-Aug-2021 AUXTYPE set from load address
+
+
 * ProDOS MLI command numbers
 QUITCMD     EQU   $65
 GTIMECMD    EQU   $82
@@ -540,9 +543,9 @@ SAVEFILE    >>>   ENTMAIN
             STA   CREATEPL+3
             LDA   #$06               ; Filetype BIN
             STA   CREATEPL+4
-            LDA   FBSTRT             ; Auxtype = start address
+            LDA   FBLOAD             ; Auxtype = load address
             STA   CREATEPL+5
-            LDA   FBSTRT+1
+            LDA   FBLOAD+1
             STA   CREATEPL+6
             LDA   #$01               ; Storage type - file
             STA   CREATEPL+7
