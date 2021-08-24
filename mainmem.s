@@ -141,13 +141,22 @@ COPYAUXBLK
             RTS
 
 * ProDOS file handling to delete a file
-* Return A=0 not found, A=1 file, A=2 dir
+* Return A=0 not found, A=FF other err
+*        A=1 file deleted, A=2 dir deleted
 DELFILE     >>>   ENTMAIN
             JSR   UPDFB              ; Update FILEBLK
             JSR   COPYFB             ; Copy back to aux mem
             JSR   DESTROY
             BCC   :DELETED
-            LDA   #$00               ; 'Not found'
+            CMP   #$44               ; Path not found
+            BEQ   :NOTFND
+            CMP   #$45               ; Volume dir not found
+            BEQ   :NOTFND
+            CMP   #$46               ; File not found
+            BEQ   :NOTFND
+            LDA   #$FF               ; Some other error
+            BRA   :EXIT
+:NOTFND     LDA   #$00               ; 'Not found'
             BRA   :EXIT
 :DELETED    LDA   GINFOPL+7          ; Storage type
             CMP   #$0D               ; Directory
