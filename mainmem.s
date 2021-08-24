@@ -147,7 +147,7 @@ DELFILE     >>>   ENTMAIN
             JSR   COPYFB             ; Copy back to aux mem
             JSR   DESTROY
             BCC   :DELETED
-            LDA   $00                ; 'Not found'
+            LDA   #$00               ; 'Not found'
             BRA   :EXIT
 :DELETED    LDA   GINFOPL+7          ; Storage type
             CMP   #$0D               ; Directory
