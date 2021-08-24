@@ -301,7 +301,7 @@ OSFILERET
             ASC   'Write error'
             BRK
 
-:S6         LDA   #$00
+:S6         LDA   #$01                ; Short-term hack
 :EXIT       PLY
             PLX
             RTS
@@ -344,7 +344,10 @@ FSCRUN      STX   OSFILECB            ; Pointer to filename
             LDX   #<OSFILECB          ; Pointer to control block
             LDY   #>OSFILECB
             JSR   OSFILE
-            JMP   (OSFILECB+6)        ; Jump to EXEC addr
+            JSR   :CALL
+            LDA   #$00                ; A=0 on return
+            RTS
+:CALL       JMP   (OSFILECB+6)        ; Jump to EXEC addr
             RTS
 FSCREN
             LDA   #<OSFSCM
