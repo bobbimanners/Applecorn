@@ -516,9 +516,9 @@ SAVEFILE    >>>   ENTMAIN
             STA   CREATEPL+3
             LDA   #$06               ; Filetype BIN
             STA   CREATEPL+4
-            LDA   FBSTRT             ; Auxtype = start address
+            LDA   FBLOAD             ; Auxtype = start address
             STA   CREATEPL+5
-            LDA   FBSTRT+1
+            LDA   FBLOAD+1
             STA   CREATEPL+6
             LDA   #$01               ; Storage type - file
             STA   CREATEPL+7
@@ -537,10 +537,11 @@ SAVEFILE    >>>   ENTMAIN
             SEC                      ; Compute file length
             LDA   FBEND
             SBC   FBSTRT
-            STA   :LEN
+            STA   FILELEN
             LDA   FBEND+1
             SBC   FBSTRT+1
-            STA   :LEN+1
+            STA   FILELEN+1
+            JSR   UPDLENCB           ; Update file len in CB
 :L1         LDA   FBSTRT             ; Setup for first block
             STA   A1L
             STA   A2L
@@ -567,12 +568,12 @@ SAVEFILE    >>>   ENTMAIN
 
 :FWD1       BRA   :CANTOPEN          ; Forwarding call from above
 
-:S1         LDA   :LEN+1             ; MSB of length remaining
+:S1         LDA   FILELEN+1          ; MSB of length remaining
             CMP   #$02
             BCS   :S2                ; MSB of len >= 2 (not last)
             CMP   #$00               ; If no bytes left ...
             BNE   :S3
-            LDA   :LEN
+            LDA   FILELEN
             BNE   :S3
             BRA   :NORMALEND
 
@@ -580,9 +581,9 @@ SAVEFILE    >>>   ENTMAIN
             STA   A2L
             LDA   FBEND+1
             STA   A2H
-            LDA   :LEN
+            LDA   FILELEN
             STA   WRITEPL+4          ; Remaining bytes to write
-            LDA   :LEN+1
+            LDA   FILELEN+1
             STA   WRITEPL+5
 
 :S2         LDA   #<BLKBUF
@@ -604,12 +605,12 @@ SAVEFILE    >>>   ENTMAIN
             BRA   :L1
 
 :UPDLEN     SEC                      ; Update length remaining
-            LDA   :LEN
+            LDA   FILELEN
             SBC   WRITEPL+4
-            STA   :LEN
-            LDA   :LEN+1
+            STA   FILELEN
+            LDA   FILELEN+1
             SBC   WRITEPL+5
-            STA   :LEN+1
+            STA   FILELEN+1
             BRA   :ENDLOOP
 
 :CANTOPEN
@@ -628,10 +629,33 @@ SAVEFILE    >>>   ENTMAIN
             LDA   #$00               ; Success!
             BCC   :EXIT              ; If close OK
             LDA   #$02               ; Write error
+            LDA   #<MOSFILE
+            STA   GINFOPL+1
+            LDA   #>MOSFILE
+            STA   GINFOPL+2
+            JSR   MLI                ; Call GET_FILE_INFO
+            DB    GINFOCMD
+            DW    GINFOPL
+            BCS   :EXIT
+            LDA   #$02               ; Write error
 :EXIT       JSR   COPYFB             ; Copy FILEBLK to aux mem
             >>>   XF2AUX,OSFILERET
-:LEN        DW    $0000
 :BLOCKS     DB    $00
+FILELEN     DW    $0000
+
+* Update file length in copy of OSFILE CB in main mem
+UPDLENCB    LDA   FILELEN            ; Update CB with file len
+            STA   FBSTRT+0
+            LDA   FILELEN+1
+            STA   FBSTRT+1
+            STZ   FBSTRT+2
+            STZ   FBSTRT+3
+            STZ   FBEND+1
+            STZ   FBEND+2
+            STZ   FBEND+3
+            LDA   #$33               ; WHY?
+            STA   FBEND
+            RTS
 
 * Quit to ProDOS
 QUIT        INC   $3F4               ; Invalidate powerup byte
