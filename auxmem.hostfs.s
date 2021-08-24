@@ -295,17 +295,28 @@ OSFILERET
             BRK
 
 :SS1        CMP   #$02                ; Unable to write
-            BNE   :EXIT
+            BNE   :SS2
             BRK
             DB    $CA                 ; $CA = Premature end, 'Data lost'
             ASC   'Write error'
             BRK
 
-:NOTLS      CMP   #$00                ; Unable to delete
-            BNE   :EXIT
+:SS2        LDA   #$01                ; Return code - file found
+
+:NOTLS      CMP   #$00                ; File was not found
+            BNE   :SD1
             BRK
             DB    $D6                 ; $D6 = File not found
-            ASC   'File not found'
+            ASC   'Not found'
+            BRK
+
+:SD1        CMP   #$FF                ; Some other error
+            BNE   :EXIT               ; A=0 or 1 already
+            BRK
+            DB    $D6                 ; TODO: Better error code?
+            ASC   'Can'
+            DB    $27
+            ASC   't delete'
             BRK
 
 :EXIT       PLY
