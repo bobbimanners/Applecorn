@@ -481,5 +481,11 @@ STARDIR     JSR   EATSPC              ; Eat leading spaces
             >>>   XF2MAIN,SETPFX
 STARDIRRET
             >>>   ENTAUX
-            RTS
+            CMP   #$00
+            BEQ   :EXIT
+            BRK
+            DB    $CE                 ; Bad directory
+            ASC   'Bad dir'
+            BRK
+:EXIT       RTS
 
