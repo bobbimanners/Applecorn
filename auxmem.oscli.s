@@ -365,9 +365,9 @@ STARLOAD    PHA                   ; Entered with A=$FF - LOAD
 ; replace with with GSREAD
             LDA   (OSLPTR),Y
             CMP   #34
-            BEQ   STARLDSV0
+            BEQ   STARLDSVA
             LDA   #32
-            STA   OSTEMP
+STARLDSVA   STA   OSTEMP
 STARLDSV0
             INY
             LDA   (OSLPTR),Y
