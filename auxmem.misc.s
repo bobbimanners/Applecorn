@@ -1,7 +1,7 @@
-* MISC.S
-********
-* Misc functions and API entry block
+* AUXMEM.MISC.S
+* (c) Bobbi 2021 GPLv3
 *
+* Misc functions and API entry block
 
 * OSBYTE $80 - ADVAL
 ************************************

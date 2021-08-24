@@ -10,6 +10,7 @@ QUITCMD     EQU   $65
 GTIMECMD    EQU   $82
 CREATCMD    EQU   $C0
 DESTCMD     EQU   $C1
+RENCMD      EQU   $C2
 SFILECMD    EQU   $C3
 GINFOCMD    EQU   $C4
 ONLNCMD     EQU   $C5
@@ -139,21 +140,66 @@ COPYAUXBLK
             CLI
             RTS
 
-* ProDOS file handling for MOS OSFIND OPEN call
-* Options in A: $40 'r', $80 'w', $C0 'rw'
-OFILE       >>>   ENTMAIN
-            PHA                      ; Preserve arg for later
-            CMP   #$80               ; Write mode
-            BNE   :S0
+* ProDOS file handling to delete a file
+* Return A=0 not found, A=FF other err
+*        A=1 file deleted, A=2 dir deleted
+DELFILE     >>>   ENTMAIN
+            JSR   UPDFB              ; Update FILEBLK
+            JSR   COPYFB             ; Copy back to aux mem
+            JSR   DESTROY
+            BCC   :DELETED
+            CMP   #$44               ; Path not found
+            BEQ   :NOTFND
+            CMP   #$45               ; Volume dir not found
+            BEQ   :NOTFND
+            CMP   #$46               ; File not found
+            BEQ   :NOTFND
+            LDA   #$FF               ; Some other error
+            BRA   :EXIT
+:NOTFND     LDA   #$00               ; 'Not found'
+            BRA   :EXIT
+:DELETED    LDA   GINFOPL+7          ; Storage type
+            CMP   #$0D               ; Directory
+            BEQ   :DIRDEL
+            LDA   #$01               ; 'File deleted'
+            BRA   :EXIT
+:DIRDEL     LDA   #$02               ; 'Dir deleted'
+:EXIT       >>>   XF2AUX,OSFILERET
 
-            LDA   #<MOSFILE          ; Attempt to destroy file
+DESTROY     LDA   #<MOSFILE          ; Attempt to destroy file
             STA   DESTPL+1
             LDA   #>MOSFILE
             STA   DESTPL+2
             JSR   MLI
             DB    DESTCMD
             DW    DESTPL
+            RTS
 
+* ProDOS file handling to rename a file
+RENFILE     >>>   ENTMAIN
+            JSR   RENAME
+** >>> XF2AUX,STARRENRET  **** TODO FIX THIS!!!
+
+RENAME      LDA   #<MOSFILE
+            STA   RENPL+1
+            LDA   #>MOSFILE
+            STA   RENPL+2
+            LDA   #<MOSFILE2
+            STA   RENPL+3
+            LDA   #>MOSFILE2
+            STA   RENPL+4
+            JSR   MLI
+            DB    RENCMD
+            DW    RENPL
+            RTS
+
+* ProDOS file handling for MOS OSFIND OPEN call
+* Options in A: $40 'r', $80 'w', $C0 'rw'
+OFILE       >>>   ENTMAIN
+            PHA                      ; Preserve arg for later
+            CMP   #$80               ; Write mode
+            BNE   :S0
+            JSR   DESTROY
             LDA   #<MOSFILE          ; Attempt to create file
             STA   CREATEPL+1
             STA   OPENPL+1
@@ -409,7 +455,6 @@ LOADFILE    >>>   ENTMAIN
             LDA   FBEXEC             ; If FBEXEC is zero, use addr
             CMP   #$00               ; in the control block
             BEQ   :CBADDR
-* TODO: Load file (without addr) needs to fill in CB
             LDA   #<MOSFILE          ; Otherwise use file addr
             STA   GINFOPL+1
             LDA   #>MOSFILE
@@ -418,15 +463,16 @@ LOADFILE    >>>   ENTMAIN
             DB    GINFOCMD
             DW    GINFOPL
             BCS   :READERR
-            LDX   GINFOPL+5          ; Aux type LSB
-            STX   FBLOAD+0
-            STX   FBEXEC+0           ; Default EXEC=LOAD
-            LDY   GINFOPL+6          ; Aux type MSB
-            STY   FBLOAD+1
-            STY   FBEXEC+1
+            LDA   GINFOPL+5          ; Aux type LSB
+            STA   FBLOAD+0
+            LDA   GINFOPL+6          ; Aux type MSB
+            STA   FBLOAD+1
 :CBADDR     LDA   FBLOAD
             STA   A4L
+            STA   FBEXEC             ; EXEC = LOAD
             LDA   FBLOAD+1
+            STA   A4H
+            STA   FBEXEC+1
             LDX   :BLOCKS
 :L2         CPX   #$00
             BEQ   :S2
@@ -443,17 +489,22 @@ LOADFILE    >>>   ENTMAIN
             PHA
             BRA   :EXIT
 :READERR    LDA   #$02               ; Read error
+            PHA
             BRA   :EOF2
 :EOF        LDA   #$00               ; Success
 :EOF2       LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-:EXIT       JSR   COPYFB             ; Copy FILEBLK to auxmem
+:EXIT       JSR   UPDFB              ; Update FILEBLK
+            JSR   COPYFB             ; Copy FILEBLK to auxmem
+            PLA                      ; Get return code back
             >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
 
 * Copy FILEBLK to AUXBLK in aux memory
-COPYFB      LDX   #$00
+* Preserves A
+COPYFB      PHA
+            LDX   #$00
 :L1         LDA   FILEBLK,X
             TAY
             >>>   ALTZP              ; Alt ZP and LC
@@ -463,6 +514,7 @@ COPYFB      LDX   #$00
             INX
             CPX   #18                ; 18 bytes in FILEBLK
             BNE   :L1
+            PLA
             RTS
 
 * ProDOS file handling for MOS OSFILE SAVE call
@@ -509,10 +561,10 @@ SAVEFILE    >>>   ENTMAIN
             SEC                      ; Compute file length
             LDA   FBEND
             SBC   FBSTRT
-            STA   :LEN
+            STA   :LENREM
             LDA   FBEND+1
             SBC   FBSTRT+1
-            STA   :LEN+1
+            STA   :LENREM+1
 :L1         LDA   FBSTRT             ; Setup for first block
             STA   A1L
             STA   A2L
@@ -539,12 +591,12 @@ SAVEFILE    >>>   ENTMAIN
 
 :FWD1       BRA   :CANTOPEN          ; Forwarding call from above
 
-:S1         LDA   :LEN+1             ; MSB of length remaining
+:S1         LDA   :LENREM+1          ; MSB of length remaining
             CMP   #$02
             BCS   :S2                ; MSB of len >= 2 (not last)
             CMP   #$00               ; If no bytes left ...
             BNE   :S3
-            LDA   :LEN
+            LDA   :LENREM
             BNE   :S3
             BRA   :NORMALEND
 
@@ -552,9 +604,9 @@ SAVEFILE    >>>   ENTMAIN
             STA   A2L
             LDA   FBEND+1
             STA   A2H
-            LDA   :LEN
+            LDA   :LENREM
             STA   WRITEPL+4          ; Remaining bytes to write
-            LDA   :LEN+1
+            LDA   :LENREM+1
             STA   WRITEPL+5
 
 :S2         LDA   #<BLKBUF
@@ -576,12 +628,12 @@ SAVEFILE    >>>   ENTMAIN
             BRA   :L1
 
 :UPDLEN     SEC                      ; Update length remaining
-            LDA   :LEN
+            LDA   :LENREM
             SBC   WRITEPL+4
-            STA   :LEN
-            LDA   :LEN+1
+            STA   :LENREM
+            LDA   :LENREM+1
             SBC   WRITEPL+5
-            STA   :LEN+1
+            STA   :LENREM+1
             BRA   :ENDLOOP
 
 :CANTOPEN
@@ -599,12 +651,67 @@ SAVEFILE    >>>   ENTMAIN
             JSR   CLSFILE
             LDA   #$00               ; Success!
             BCC   :EXIT              ; If close OK
-* TODO: After SAVE CB XY+10..XY+17 needs updating
             LDA   #$02               ; Write error
-:EXIT       JSR   COPYFB             ; Copy FILEBLK to aux mem
+            LDA   #<MOSFILE
+            STA   GINFOPL+1
+            LDA   #>MOSFILE
+            STA   GINFOPL+2
+            JSR   MLI                ; Call GET_FILE_INFO
+            DB    GINFOCMD
+            DW    GINFOPL
+            BCS   :EXIT
+            LDA   #$02               ; Write error
+:EXIT       JSR   UPDFB              ; Update FILEBLK
+            JSR   COPYFB             ; Copy FILEBLK to aux mem
             >>>   XF2AUX,OSFILERET
-:LEN        DW    $0000
 :BLOCKS     DB    $00
+:LENREM     DW    $0000              ; Remaining length
+
+* Update FILEBLK before returning to aux memory
+UPDFB       LDA   #<MOSFILE
+            STA   OPENPL+1
+            STA   GINFOPL+1
+            LDA   #>MOSFILE
+            STA   OPENPL+2
+            STA   GINFOPL+2
+            JSR   MLI                ; Call GET_FILE_INFO
+            DB    GINFOCMD
+            DW    GINFOPL
+            BCS   :ERR
+            LDA   GINFOPL+5          ; Aux type LSB
+            STA   FBLOAD
+            STA   FBEXEC
+            LDA   GINFOPL+6          ; Aux type MSB
+            STA   FBLOAD+1
+            STA   FBEXEC+1
+            STZ   FBLOAD+2
+            STZ   FBLOAD+3
+            STZ   FBEXEC+2
+            STZ   FBEXEC+3
+            JSR   OPENFILE           ; Open file
+            BCS   :ERR
+            LDA   OPENPL+5           ; File ref number
+            STA   GMARKPL+1
+            JSR   MLI                ; Call GET_EOF MLI
+            DB    GEOFCMD
+            DW    GMARKPL            ; MARK parms same as EOF
+            LDA   GMARKPL+2
+            STA   FBSTRT+0
+            LDA   GMARKPL+3
+            STA   FBSTRT+1
+            LDA   GMARKPL+4
+            STA   FBSTRT+2
+            STZ   FBSTRT+3
+            LDA   #$33               ; 'W/R' attribs
+            STA   FBEND+0
+            STZ   FBEND+1
+            STZ   FBEND+2
+            STZ   FBEND+3
+            LDA   #$33               ; W/R attributes
+            LDA   OPENPL+5           ; File ref numbre
+            STA   CLSPL+1
+            JSR   CLSFILE
+:ERR        RTS
 
 * Quit to ProDOS
 QUIT        INC   $3F4               ; Invalidate powerup byte
@@ -655,8 +762,6 @@ SETPFX      >>>   ENTMAIN
             JSR   MLI
             DB    SPFXCMD
             DW    SPFXPL
-            BCC   :S1
-            JSR   BELL               ; Beep on error
 :S1         >>>   XF2AUX,STARDIRRET
 
 * Create disk file
@@ -711,6 +816,10 @@ CREATEPL    HEX   07                 ; Number of parameters
 
 DESTPL      HEX   01                 ; Number of parameters
             DW    $0000              ; Pointer to filename
+
+RENPL       HEX   02                 ; Number of parameters
+            DW    $0000              ; Pointer to existing name
+            DW    $0000              ; Pointer to new filename
 
 READPL      HEX   04                 ; Number of parameters
             DB    $00                ; Reference number
@@ -780,7 +889,12 @@ QUITPL      HEX   04                 ; Number of parameters
             DW    $0000
 
 * Buffer for Acorn MOS filename
-MOSFILE     DS    64                 ; 64 bytes max prefix/file len
+* Pascal string
+MOSFILE     DS    65                 ; 64 bytes max prefix/file len
+
+* Buffer for second filename (for rename)
+* Pascal string
+MOSFILE2    DS    65                 ; 64 bytes max prefix/file len
 
 * Acorn MOS format OSFILE param list
 FILEBLK

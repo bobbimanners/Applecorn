@@ -103,6 +103,17 @@ program in memory.
 - BBC Micro function keys are supported.  Use Open Apple with the number
   keys for the unshifted function keys.
 
+### HostFS
+
+Applecorn's HostFS uses the ProDOS MLI to service all Acorn MOS filesystem
+calls.  This means that Applecorn works directly with ProDOS volumes, such
+as floppy disks, mass storage devices and even network connected drives
+using ADT's VEDrive.
+
+Since Acorn's DFS allows filenames beginning with a digit, while ProDOS
+requires names to begin with an alphabetic character, Applecorn prefixes
+any filenames beginning with a digit with the letter 'N'.
+
 ### Star Commands
 
 `*QUIT` - Terminate Applecorn and quit to ProDOS.  Because the 'BBC Micro'
@@ -129,6 +140,11 @@ recorded in the aux filetype.
 `*RUN filename` - Load file `filename` into memory at the address stored
 in its aux filetype and jump to to it.  This is used for loading and
 starting machine code programs.
+
+`*DELETE filename` - Delete file `filename` from disk.
+
+`*RENAME oldfilename newfilename` - Rename file `oldfilename` to
+`newfilename`.
 
 ## How to Build
 

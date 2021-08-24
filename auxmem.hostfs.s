@@ -227,10 +227,11 @@ FILEHND     PHX
 
             PLA                       ; Get action back
             PHA
-            BEQ   :S1                 ; A=00 -> SAVE
+            BEQ   :SAVE               ; A=00 -> SAVE
             CMP   #$FF
-            BEQ   :S2                 ; A=FF -> LOAD
-
+            BEQ   :LOAD               ; A=FF -> LOAD
+            CMP   #$06
+            BEQ   :DELETE             ; A=06 -> DELET
             LDA   #<OSFILEM           ; If not implemented, print msg
             LDY   #>OSFILEM
             JSR   PRSTR
@@ -244,8 +245,9 @@ FILEHND     PHX
             PLY
             PLX
             RTS
-:S1         >>>   XF2MAIN,SAVEFILE
-:S2         >>>   XF2MAIN,LOADFILE
+:SAVE       >>>   XF2MAIN,SAVEFILE
+:LOAD       >>>   XF2MAIN,LOADFILE
+:DELETE     >>>   XF2MAIN,DELFILE
 OSFILERET
             >>>   ENTAUX
             PHA
@@ -261,8 +263,8 @@ OSFILERET
             BNE   :L3
             PLA
             PLY                       ; Value of A on OSFILE entry
-            CPY   #$FF                ; LOAD
-            BNE   :S4                 ; Deal with return from SAVE
+            CPY   #$FF                ; See if command was LOAD
+            BNE   :NOTLOAD            ; Deal with return from SAVE
 
             CMP   #$01                ; No file found
             BNE   :SL1
@@ -281,8 +283,8 @@ OSFILERET
 :SL2        LDA   #$01                ; Return code - file found
             BRA   :EXIT
 
-:S4         CPY   #$00                ; Return from SAVE
-            BNE   :S6
+:NOTLOAD    CPY   #$00                ; See if command was SAVE
+            BNE   :NOTLS              ; Not LOAD or SAVE
             CMP   #$01                ; Unable to create or open
             BNE   :SS1
             BRK
@@ -293,13 +295,30 @@ OSFILERET
             BRK
 
 :SS1        CMP   #$02                ; Unable to write
-            BNE   :S6
+            BNE   :SS2
             BRK
             DB    $CA                 ; $CA = Premature end, 'Data lost'
             ASC   'Write error'
             BRK
 
-:S6         LDA   #$00
+:SS2        LDA   #$01                ; Return code - file found
+
+:NOTLS      CMP   #$00                ; File was not found
+            BNE   :SD1
+            BRK
+            DB    $D6                 ; $D6 = File not found
+            ASC   'Not found'
+            BRK
+
+:SD1        CMP   #$FF                ; Some other error
+            BNE   :EXIT               ; A=0 or 1 already
+            BRK
+            DB    $D6                 ; TODO: Better error code?
+            ASC   'Can'
+            DB    $27
+            ASC   't delete'
+            BRK
+
 :EXIT       PLY
             PLX
             RTS
@@ -335,6 +354,14 @@ FSCHND      CMP   #$00
             CMP   #$0C
             BEQ   FSCREN              ; A=12 - *RENAME
 
+FSCREN
+FSCUKN      LDA   #<OSFSCM
+            LDY   #>OSFSCM
+            JSR   PRSTR
+            RTS
+OSFSCM      ASC   'OSFSC.'
+            DB    $00
+
 FSCRUN      STX   OSFILECB            ; Pointer to filename
             STY   OSFILECB+1
             LDA   #$FF                ; OSFILE load flag
@@ -342,15 +369,11 @@ FSCRUN      STX   OSFILECB            ; Pointer to filename
             LDX   #<OSFILECB          ; Pointer to control block
             LDY   #>OSFILECB
             JSR   OSFILE
-            JMP   (OSFILECB+6)        ; Jump to EXEC addr
+            JSR   :CALL
+            LDA   #$00                ; A=0 on return
             RTS
-FSCREN
-            LDA   #<OSFSCM
-            LDY   #>OSFSCM
-            JSR   PRSTR
+:CALL       JMP   (OSFILECB+6)        ; Jump to EXEC addr
             RTS
-OSFSCM      ASC   'OSFSC.'
-            DB    $00
 
 * Performs OSFSC *OPT function
 FSOPT       RTS                       ; No FS options for now
@@ -442,8 +465,6 @@ PRONEENT    TAX
 * Handle *DIR (directory change) command
 * On entry, ZP1 points to command line
 STARDIR     JSR   EATSPC              ; Eat leading spaces
-            BCC   :S1                 ; If no space found
-            RTS                       ; No argument
 :S1         LDX   #$01
 :L3         LDA   (ZP1),Y
             CMP   #$0D
@@ -461,5 +482,11 @@ STARDIR     JSR   EATSPC              ; Eat leading spaces
             >>>   XF2MAIN,SETPFX
 STARDIRRET
             >>>   ENTAUX
-            RTS
+            CMP   #$00
+            BEQ   :EXIT
+            BRK
+            DB    $CE                 ; Bad directory
+            ASC   'Bad dir'
+            BRK
+:EXIT       RTS
 
