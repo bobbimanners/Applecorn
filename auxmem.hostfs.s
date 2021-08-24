@@ -263,8 +263,8 @@ OSFILERET
             BNE   :L3
             PLA
             PLY                       ; Value of A on OSFILE entry
-            CPY   #$FF                ; LOAD
-            BNE   :S4                 ; Deal with return from SAVE
+            CPY   #$FF                ; See if command was LOAD
+            BNE   :NOTLOAD            ; Deal with return from SAVE
 
             CMP   #$01                ; No file found
             BNE   :SL1
@@ -283,8 +283,8 @@ OSFILERET
 :SL2        LDA   #$01                ; Return code - file found
             BRA   :EXIT
 
-:S4         CPY   #$00                ; Return from SAVE
-            BNE   :S6
+:NOTLOAD    CPY   #$00                ; See if command was SAVE
+            BNE   :NOTLS              ; Not LOAD or SAVE
             CMP   #$01                ; Unable to create or open
             BNE   :SS1
             BRK
@@ -295,13 +295,19 @@ OSFILERET
             BRK
 
 :SS1        CMP   #$02                ; Unable to write
-            BNE   :S6
+            BNE   :EXIT
             BRK
             DB    $CA                 ; $CA = Premature end, 'Data lost'
             ASC   'Write error'
             BRK
 
-:S6         LDA   #$01                ; Short-term hack
+:NOTLS      CMP   #$00                ; Unable to delete
+            BNE   :EXIT
+            BRK
+            DB    $D6                 ; $D6 = File not found
+            ASC   'File not found'
+            BRK
+
 :EXIT       PLY
             PLX
             RTS

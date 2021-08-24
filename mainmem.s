@@ -141,9 +141,21 @@ COPYAUXBLK
             RTS
 
 * ProDOS file handling to delete a file
+* Return A=0 not found, A=1 file, A=2 dir
 DELFILE     >>>   ENTMAIN
+            JSR   UPDFB              ; Update FILEBLK
+            JSR   COPYFB             ; Copy back to aux mem
             JSR   DESTROY
-            >>>   XF2AUX,OSFILERET
+            BCC   :DELETED
+            LDA   $00                ; 'Not found'
+            BRA   :EXIT
+:DELETED    LDA   GINFOPL+7          ; Storage type
+            CMP   #$0D               ; Directory
+            BEQ   :DIRDEL
+            LDA   #$01               ; 'File deleted'
+            BRA   :EXIT
+:DIRDEL     LDA   #$02               ; 'Dir deleted'
+:EXIT       >>>   XF2AUX,OSFILERET
 
 DESTROY     LDA   #<MOSFILE          ; Attempt to destroy file
             STA   DESTPL+1
