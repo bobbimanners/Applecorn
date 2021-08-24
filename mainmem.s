@@ -473,7 +473,8 @@ LOADFILE    >>>   ENTMAIN
 :EOF2       LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-:EXIT       JSR   COPYFB             ; Copy FILEBLK to auxmem
+:EXIT       JSR   UPDFB              ; Update FILEBLK
+            JSR   COPYFB             ; Copy FILEBLK to auxmem
             >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
 
@@ -516,9 +517,9 @@ SAVEFILE    >>>   ENTMAIN
             STA   CREATEPL+3
             LDA   #$06               ; Filetype BIN
             STA   CREATEPL+4
-            LDA   FBLOAD             ; Auxtype = start address
+            LDA   FBSTRT             ; Auxtype = start address
             STA   CREATEPL+5
-            LDA   FBLOAD+1
+            LDA   FBSTRT+1
             STA   CREATEPL+6
             LDA   #$01               ; Storage type - file
             STA   CREATEPL+7
@@ -538,11 +539,9 @@ SAVEFILE    >>>   ENTMAIN
             LDA   FBEND
             SBC   FBSTRT
             STA   :LENREM
-            STA   FILELEN
             LDA   FBEND+1
             SBC   FBSTRT+1
             STA   :LENREM+1
-            STA   FILELEN+1
 :L1         LDA   FBSTRT             ; Setup for first block
             STA   A1L
             STA   A2L
@@ -639,26 +638,57 @@ SAVEFILE    >>>   ENTMAIN
             DW    GINFOPL
             BCS   :EXIT
             LDA   #$02               ; Write error
-:EXIT       JSR   UPDLENFB           ; Update length in FILEBLK
+:EXIT       JSR   UPDFB              ; Update FILEBLK
             JSR   COPYFB             ; Copy FILEBLK to aux mem
             >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
 :LENREM     DW    $0000              ; Remaining length
-FILELEN     DW    $0000              ; Total length
 
-* Update file length in FILEBLK
-UPDLENFB    LDA   FILELEN            ; Update CB with file len
+* Update FILEBLK before returning to aux memory
+UPDFB       LDA   #<MOSFILE
+            STA   OPENPL+1
+            STA   GINFOPL+1
+            LDA   #>MOSFILE
+            STA   OPENPL+2
+            STA   GINFOPL+2
+            JSR   MLI                ; Call GET_FILE_INFO
+            DB    GINFOCMD
+            DW    GINFOPL
+            BCS   :ERR
+            LDA   GINFOPL+5          ; Aux type LSB
+            STA   FBLOAD
+            STA   FBEXEC
+            LDA   GINFOPL+6          ; Aux type MSB
+            STA   FBLOAD+1
+            STA   FBEXEC+1
+            STZ   FBLOAD+2
+            STZ   FBLOAD+3
+            STZ   FBEXEC+2
+            STZ   FBEXEC+3
+            JSR   OPENFILE           ; Open file
+            BCS   :ERR
+            LDA   OPENPL+5           ; File ref number
+            STA   GMARKPL+1
+            JSR   MLI                ; Call GET_EOF MLI
+            DB    GEOFCMD
+            DW    GMARKPL            ; MARK parms same as EOF
+            LDA   GMARKPL+2
             STA   FBSTRT+0
-            LDA   FILELEN+1
+            LDA   GMARKPL+3
             STA   FBSTRT+1
-            STZ   FBSTRT+2
+            LDA   GMARKPL+4
+            STA   FBSTRT+2
             STZ   FBSTRT+3
+            LDA   #$33               ; 'W/R' attribs
+            STA   FBEND+0
             STZ   FBEND+1
             STZ   FBEND+2
             STZ   FBEND+3
             LDA   #$33               ; W/R attributes
-            STA   FBEND
-            RTS
+            LDA   OPENPL+5           ; File ref numbre
+            STA   CLSPL+1
+            JSR   CLSFILE
+:ERR        RTS
 
 * Quit to ProDOS
 QUIT        INC   $3F4               ; Invalidate powerup byte
