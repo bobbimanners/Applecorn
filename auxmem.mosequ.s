@@ -1,8 +1,9 @@
-* MOSEQU.S
-*******************************
-* BBC MOS WORKSPACE LOCATIONS *
-*******************************
+* AUXMEM.MOSEQU.S
+* (c) Bobbi 2021 GPLv3
+*
+* Constant definitions for AppleMOS
 
+* BBC MOS WORKSPACE LOCATIONS
 * $00-$8F Language workspace
 * $90-$9F Network workspace
 * $A0-$A7 NMI workspace

@@ -1,5 +1,4 @@
 * AUXMEM.OSCLI.S
-****************
 * (c) BOBBI 2021 GPLv3
 *
 * Handle OSCLI system calls
@@ -170,7 +169,6 @@ CLIUNKNOWN   LDA   #$04
              LDA   #$03          ; FSC 3 = unknown command
 STARFSC      AND   #$7F          ; A=command, XY=>parameters
 STARFSC2     JSR   CALLFSCV      ; Hand on to filing system
-* TO DO: hostfs.s needs to return A=0
              TAX
              BEQ   CLIDONE
              RTS                 ; *TEMP*
