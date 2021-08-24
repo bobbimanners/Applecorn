@@ -537,11 +537,12 @@ SAVEFILE    >>>   ENTMAIN
             SEC                      ; Compute file length
             LDA   FBEND
             SBC   FBSTRT
+            STA   :LENREM
             STA   FILELEN
             LDA   FBEND+1
             SBC   FBSTRT+1
+            STA   :LENREM+1
             STA   FILELEN+1
-            JSR   UPDLENCB           ; Update file len in CB
 :L1         LDA   FBSTRT             ; Setup for first block
             STA   A1L
             STA   A2L
@@ -568,12 +569,12 @@ SAVEFILE    >>>   ENTMAIN
 
 :FWD1       BRA   :CANTOPEN          ; Forwarding call from above
 
-:S1         LDA   FILELEN+1          ; MSB of length remaining
+:S1         LDA   :LENREM+1          ; MSB of length remaining
             CMP   #$02
             BCS   :S2                ; MSB of len >= 2 (not last)
             CMP   #$00               ; If no bytes left ...
             BNE   :S3
-            LDA   FILELEN
+            LDA   :LENREM
             BNE   :S3
             BRA   :NORMALEND
 
@@ -581,9 +582,9 @@ SAVEFILE    >>>   ENTMAIN
             STA   A2L
             LDA   FBEND+1
             STA   A2H
-            LDA   FILELEN
+            LDA   :LENREM
             STA   WRITEPL+4          ; Remaining bytes to write
-            LDA   FILELEN+1
+            LDA   :LENREM+1
             STA   WRITEPL+5
 
 :S2         LDA   #<BLKBUF
@@ -605,12 +606,12 @@ SAVEFILE    >>>   ENTMAIN
             BRA   :L1
 
 :UPDLEN     SEC                      ; Update length remaining
-            LDA   FILELEN
+            LDA   :LENREM
             SBC   WRITEPL+4
-            STA   FILELEN
-            LDA   FILELEN+1
+            STA   :LENREM
+            LDA   :LENREM+1
             SBC   WRITEPL+5
-            STA   FILELEN+1
+            STA   :LENREM+1
             BRA   :ENDLOOP
 
 :CANTOPEN
@@ -638,13 +639,15 @@ SAVEFILE    >>>   ENTMAIN
             DW    GINFOPL
             BCS   :EXIT
             LDA   #$02               ; Write error
-:EXIT       JSR   COPYFB             ; Copy FILEBLK to aux mem
+:EXIT       JSR   UPDLENFB           ; Update length in FILEBLK
+            JSR   COPYFB             ; Copy FILEBLK to aux mem
             >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
-FILELEN     DW    $0000
+:LENREM     DW    $0000              ; Remaining length
+FILELEN     DW    $0000              ; Total length
 
-* Update file length in copy of OSFILE CB in main mem
-UPDLENCB    LDA   FILELEN            ; Update CB with file len
+* Update file length in FILEBLK
+UPDLENFB    LDA   FILELEN            ; Update CB with file len
             STA   FBSTRT+0
             LDA   FILELEN+1
             STA   FBSTRT+1
@@ -653,7 +656,7 @@ UPDLENCB    LDA   FILELEN            ; Update CB with file len
             STZ   FBEND+1
             STZ   FBEND+2
             STZ   FBEND+3
-            LDA   #$33               ; WHY?
+            LDA   #$33               ; W/R attributes
             STA   FBEND
             RTS
 
