@@ -489,6 +489,7 @@ LOADFILE    >>>   ENTMAIN
             PHA
             BRA   :EXIT
 :READERR    LDA   #$02               ; Read error
+            PHA
             BRA   :EOF2
 :EOF        LDA   #$00               ; Success
 :EOF2       LDA   OPENPL+5           ; File ref num
@@ -496,6 +497,7 @@ LOADFILE    >>>   ENTMAIN
             JSR   CLSFILE
 :EXIT       JSR   UPDFB              ; Update FILEBLK
             JSR   COPYFB             ; Copy FILEBLK to auxmem
+            PLA                      ; Get return code back
             >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
 
