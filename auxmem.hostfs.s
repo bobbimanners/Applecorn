@@ -231,7 +231,9 @@ FILEHND     PHX
             CMP   #$FF
             BEQ   :LOAD               ; A=FF -> LOAD
             CMP   #$06
-            BEQ   :DELETE             ; A=06 -> DELET
+            BEQ   :DELETE             ; A=06 -> DELETE
+            CMP   #$08
+            BEQ   :MKDIR              ; A=08 -> MKDIR
             LDA   #<OSFILEM           ; If not implemented, print msg
             LDY   #>OSFILEM
             JSR   PRSTR
@@ -248,6 +250,7 @@ FILEHND     PHX
 :SAVE       >>>   XF2MAIN,SAVEFILE
 :LOAD       >>>   XF2MAIN,LOADFILE
 :DELETE     >>>   XF2MAIN,DELFILE
+:MKDIR      >>>   XF2MAIN,MAKEDIR
 OSFILERET
             >>>   ENTAUX
             PHA
@@ -264,7 +267,7 @@ OSFILERET
             PLA
             PLY                       ; Value of A on OSFILE entry
             CPY   #$FF                ; See if command was LOAD
-            BNE   :NOTLOAD            ; Deal with return from SAVE
+            BNE   :NOTLOAD
 
             CMP   #$01                ; No file found
             BNE   :SL1
@@ -303,7 +306,9 @@ OSFILERET
 
 :SS2        LDA   #$01                ; Return code - file found
 
-:NOTLS      CMP   #$00                ; File was not found
+:NOTLS      CPY   #$06                ; Was it DELETE?
+            BNE   :NOTLSD             ; Was LOAD/SAVE/DELETE
+            CMP   #$00                ; File was not found
             BNE   :SD1
             BRK
             DB    $D6                 ; $D6 = File not found
@@ -318,6 +323,20 @@ OSFILERET
             DB    $27
             ASC   't delete'
             BRK
+
+:NOTLSD     CPY   #$08                ; Was it CDIR?
+            BNE   :EXIT
+            CMP   #$00                ; A=0 means dir was created
+            BEQ   :SC1
+
+            BRK
+            DB    $C0                 ; Guess - IS THIS REASONABLE??
+            ASC   'Can'
+            DB    $27
+            ASC   't create'
+            BRK
+
+:SC1        LDA   #$02                ; Guess I return 2 for dir??
 
 :EXIT       PLY
             PLX
