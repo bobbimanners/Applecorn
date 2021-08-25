@@ -391,7 +391,8 @@ FSCRUN      STX   OSFILECB            ; Pointer to filename
             RTS
 :CALL       JMP   (OSFILECB+6)        ; Jump to EXEC addr
             RTS
-FSCREN
+FSCREN      JSR   XYtoLPTR            ; Pointer to command line
+            JSR   RENAME
             RTS
 OSFSCM      ASC   'OSFSC.'
             DB    $00
@@ -482,6 +483,43 @@ PRONEENT    TAX
             CPY   #$15
             BNE   :S2
 :EXIT       RTS
+
+* Perform FSCV $0C RENAME function
+* Parameter string in OSLPTR
+RENAME      LDY   #$00
+:ARG1       LDA   (OSLPTR),Y
+            CMP   #$20                ; Space
+            BEQ   :ENDARG1
+            CMP   #$0D                ; Carriage return
+            BEQ   RENERR
+            INY
+            >>>   WRTMAIN
+            STA   MOSFILE,Y
+            >>>   WRTAUX
+            BRA   :ARG1
+:ENDARG1    >>>   WRTMAIN
+            STY   MOSFILE             ; Length of Pascal string
+            >>>   WRTAUX
+            JSR   SKIPSPC
+            JSR   LPTRtoXY            ; Update LPTR and set Y=0
+            JSR   XYtoLPTR            ; ...
+:ARG2       LDA   (OSLPTR),Y
+            CMP   #$0D                ; Carriage return
+            BEQ   :ENDARG2
+            INY
+            >>>   WRTMAIN
+            STA   MOSFILE2,Y
+            >>>   WRTAUX
+            BRA   :ARG2
+:ENDARG2    >>>   WRTMAIN
+            STY   MOSFILE2            ; Length of Pascal string
+            >>>   WRTAUX
+            >>>   XF2MAIN,RENFILE
+RENRET
+            >>>   ENTAUX
+RENERR
+* TODO Error handling!!
+            RTS
 
 * Handle *DIR (directory change) command
 * On entry, ZP1 points to command line

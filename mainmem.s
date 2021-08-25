@@ -202,10 +202,10 @@ MAKEDIR     >>>   ENTMAIN
 
 * ProDOS file handling to rename a file
 RENFILE     >>>   ENTMAIN
-            JSR   RENAME
-** >>> XF2AUX,STARRENRET  **** TODO FIX THIS!!!
+            JSR   DORENAME
+            >>>   XF2AUX,RENRET
 
-RENAME      LDA   #<MOSFILE
+DORENAME    LDA   #<MOSFILE
             STA   RENPL+1
             LDA   #>MOSFILE
             STA   RENPL+2
