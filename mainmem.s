@@ -175,6 +175,31 @@ DESTROY     LDA   #<MOSFILE          ; Attempt to destroy file
             DW    DESTPL
             RTS
 
+* ProDOS file handling to create a directory
+MAKEDIR     >>>   ENTMAIN
+            LDA   #<MOSFILE
+            STA   CREATEPL+1
+            LDA   #>MOSFILE
+            STA   CREATEPL+2
+            LDA   #$C3               ; 'Default access'
+            STA   CREATEPL+3         ; ->Access
+            LDA   #$0F               ; 'Directory'
+            STA   CREATEPL+4         ; ->File type
+            STZ   CREATEPL+5         ; Aux type LSB
+            STZ   CREATEPL+6         ; Aux type MSB
+            LDA   #$0D               ; 'Directory'
+            STA   CREATEPL+7         ; ->Storage type
+            LDA   $BF90              ; Current date
+            STA   CREATEPL+8
+            LDA   $BF91
+            STA   CREATEPL+9
+            LDA   $BF92              ; Current time
+            STA   CREATEPL+10
+            LDA   $BF93
+            STA   CREATEPL+11
+            JSR   CRTFILE
+:EXIT       >>>   XF2AUX,OSFILERET
+
 * ProDOS file handling to rename a file
 RENFILE     >>>   ENTMAIN
             JSR   RENAME
