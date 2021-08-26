@@ -491,7 +491,7 @@ RENAME      LDY   #$00
             CMP   #$20                ; Space
             BEQ   :ENDARG1
             CMP   #$0D                ; Carriage return
-            BEQ   RENERR
+            BEQ   :RENSYN
             INY
             >>>   WRTMAIN
             STA   MOSFILE,Y
@@ -504,6 +504,8 @@ RENAME      LDY   #$00
             JSR   LPTRtoXY            ; Update LPTR and set Y=0
             JSR   XYtoLPTR            ; ...
 :ARG2       LDA   (OSLPTR),Y
+            CMP   #$20                ; Space
+            BEQ   :ENDARG2
             CMP   #$0D                ; Carriage return
             BEQ   :ENDARG2
             INY
@@ -515,11 +517,41 @@ RENAME      LDY   #$00
             STY   MOSFILE2            ; Length of Pascal string
             >>>   WRTAUX
             >>>   XF2MAIN,RENFILE
+:RENSYN     BRK
+            DB    $DC
+            ASC   'Syntax: RENAME <old fname> <new fname>'
+            BRK
 RENRET
             >>>   ENTAUX
-RENERR
-* TODO Error handling!!
+            CMP   #$44                ; Path not found
+            BEQ   :NOTFND
+            CMP   #$45                ; Vol dir not found
+            BEQ   :NOTFND
+            CMP   #$46                ; File not found
+            BEQ   :NOTFND
+            CMP   #$47                ; Duplicate filename
+            BEQ   :EXISTS
+            CMP   #$4E                ; Access error
+            BEQ   :LOCKED
+            CMP   #$00
+            BNE   :OTHER              ; All other errors
             RTS
+:NOTFND     BRK
+            DB    $D6
+            ASC   'Not found'
+            BRK
+:EXISTS     BRK
+            DB    $C4
+            ASC   'Exists'
+            BRK
+:LOCKED     BRK
+            DB    $C3
+            ASC   'Locked'
+            BRK
+:OTHER      BRK
+            DB    $C7
+            ASC   'Disc error'
+            BRK
 
 * Handle *DIR (directory change) command
 * On entry, ZP1 points to command line
