@@ -559,16 +559,21 @@ RENRET
 STARDIR     JSR   EATSPC              ; Eat leading spaces
 :S1         LDX   #$01
 :L3         LDA   (ZP1),Y
-            CMP   #$0D
-            BEQ   :S3
+            CMP   #$21                ; Check for CR or space
+            BCC   :S2
             >>>   WRTMAIN
             STA   MOSFILE,X
             >>>   WRTAUX
             INY
             INX
             BRA   :L3
-:S3         DEX
-            >>>   WRTMAIN
+:S2         DEX
+            BNE   :S3
+            BRK
+            DB    $DC
+            ASC   'Syntax: DIR <pathname>'
+            BRK
+:S3         >>>   WRTMAIN
             STX   MOSFILE             ; Length byte
             >>>   WRTAUX
             >>>   XF2MAIN,SETPFX
