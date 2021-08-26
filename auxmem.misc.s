@@ -2,6 +2,8 @@
 * (c) Bobbi 2021 GPLv3
 *
 * Misc functions and API entry block
+* TO DO: Write GSINIT/GSREAD
+
 
 * OSBYTE $80 - ADVAL
 ************************************
@@ -50,18 +52,18 @@ ADVALBUF    INX
 *         (------------- - 10 ) / 5
 *         (8 * frequency      )
 
-* BEEPX     EQU   57    ; note=C5
-BEEPX       EQU   116            ; note=C4
+* BEEPX     EQU   #57        ; note=C5
+BEEPX       EQU   #116           ; note=C4
 BEEP        PHA
             PHX
             PHY
             LDY   #$00           ;       duration
 :L1         LDX   #BEEPX         ; 2cy   pitch      2cy
-*------------------------------------------------
+*------------------------------------------------------
 :L2         DEX                  ; 2cy      BEEPX * 2cy
             BNE   :L2            ; 3cy/2cy  (BEEPX-1) * 3cy + 1 * 2cy
-*------------------------------------------------
-*                                   BEEPX*5-1cy
+*------------------------------------------------------
+*                                       BEEPX*5-1cy
             LDA   $C030          ; 4cy        BEEPX*5+5
             DEY                  ; 2cy        BEEPX*5+7
             BNE   :L1            ; 3cy/2cy    BEEPX*5+10
@@ -70,29 +72,29 @@ BEEP        PHA
             PLA
             RTS
 
-* Delay approx 1/100 sec
-************************
-* Enter at DELAY with CS to test keyboard
-* Enter at CENTI to ignore keyboard
-*
-CENTI       CLC                  ; Don't test keyboard
-DELAY       PHX                  ; 3cy
-            PHY                  ; 3cy
-            LDY   #10            ; 2cy     10 * 1/1000s
-*------------------------------------------------
-:L1         LDX   #$48           ; 2cy     $48 gives about 1/1000s
-:L2         BCC   :L3            ; 2cy/3cy Don't test kbd
-            LDA   $C000          ; 4cy
-            BMI   :L5            ; 2cy     keypress, exit early
-:L3         DEX                  ; 2cy
-            BNE   :L2            ; 3cy/2cy -> 72*(2+2+4+2+2+3)-1
-*                            ;          = 1079 -> 0.00105s
-*------------------------------------------------
-:L4         DEY                  ; 2cy
-            BNE   :L1            ; 3cy/2cy
-:L5         PLY                  ; 4cy
-            PLX                  ; 4cy
-            RTS                  ; 6cy
+** Delay approx 1/100 sec
+*************************
+** Enter at DELAY with CS to test keyboard
+** Enter at CENTI to ignore keyboard
+**
+*CENTI       CLC              ; Don't test keyboard
+*DELAY       PHX              ; 3cy
+*            PHY              ; 3cy
+*            LDY   #10        ; 2cy     10 * 1/1000s
+**------------------------------------------------
+*:L1         LDX   #$48       ; 2cy     $48 gives about 1/1000s
+*:L2         BCC   :L3        ; 2cy/3cy Don't test kbd
+*            LDA   $C000      ; 4cy
+*            BMI   :L5        ; 2cy     keypress, exit early
+*:L3         DEX              ; 2cy
+*            BNE   :L2        ; 3cy/2cy -> 72*(2+2+4+2+2+3)-1
+**                            ;          = 1079 -> 0.00105s
+**------------------------------------------------
+*:L4         DEY              ; 2cy
+*            BNE   :L1        ; 3cy/2cy
+*:L5         PLY              ; 4cy
+*            PLX              ; 4cy
+*            RTS              ; 6cy
 
 * Print string pointed to by X,Y to the screen
 OUTSTR      TXA
@@ -124,8 +126,6 @@ OUTHEX      PHA
             JSR   PRNIB
             PLA
             AND   #$0F           ; Continue into PRNIB
-*           JSR   PRNIB
-*           RTS
 
 * Print hex nibble in A
 PRNIB       CMP   #$0A
@@ -142,9 +142,13 @@ PRNIB       CMP   #$0A
 * Interrupt Handlers, MOS redirection vectors etc.
 **********************************************************
 
+* Invoked from GSBRK in main memory. On IIgs only.
+GSBRKAUX    >>>   IENTAUX        ; IENTAUX does not do CLI
+* Continue into IRQBRKHDLR
+* TO DO: Check, IENTAUX modifies X
+
 * IRQ/BRK handler
-IRQBRKHDLR
-            PHA
+IRQBRKHDLR  PHA
 * Mustn't enable IRQs within the IRQ handler
 * Do not use WRTMAIN/WRTAUX macros
             STA   $C004          ; Write to main memory
@@ -178,10 +182,6 @@ IRQBRKRET
             TAX
             PLA
 NULLRTI     RTI
-
-* Invoked from GSBRK in main memory. On IIgs only.
-GSBRKAUX    >>>   IENTAUX        ; IENTAUX does not do CLI
-            JMP   IRQBRKHDLR
 
 PRERR       LDY   #$01
 PRERRLP     LDA   (FAULT),Y
@@ -312,4 +312,6 @@ MOSVEND
 
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      DS    $200
+
+
 

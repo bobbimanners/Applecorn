@@ -109,7 +109,7 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
 :S8         STA   $C00D                      ; 80 col on
             STA   $C003                      ; Alt charset off
             STA   $C055                      ; PAGE2
-            JMP   MOSHIGH                    ; Ensure running in high mem
+            JMP   MOSHIGH                    ; Ensure executing in high memory here
 
 MOSHIGH     SEI
             LDX   #$FF
@@ -128,17 +128,25 @@ MOSHIGH     SEI
             DEX
             BPL   :INITPG2
 
-            JSR   KBDINIT
+            JSR   KBDINIT                    ; Returns A=startup MODE
             JSR   VDUINIT                    ; Initialise VDU driver
-
-            LDA   #<:HELLO
-            LDY   #>:HELLO
-            JSR   PRSTR
-
+            JSR   PRHELLO
+            LDA   #7
+            JSR   OSWRCH
+            JSR   OSNEWL
             CLC
-            JMP   BYTE8E                     ; Enter language ROM
+            JMP   BYTE8E
 
-:HELLO      DB    $07
-            ASC   'Applecorn MOS v0.01'
-            DB    $0D,$0D,$00
+PRHELLO     LDA   #<HELLO
+            LDY   #>HELLO
+            JSR   PRSTR
+            JMP   OSNEWL
+
+BYTE00XX    BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
+            LDX   #$0A                       ; $00 = identify Host
+            RTS                              ; %000x1xxx host type, 'A'pple
+BYTE00A     BRK
+            DB    $F7
+HELLO       ASC   'Applecorn MOS v0.01'
+            DB    $00                        ; Unify MOS messages
 

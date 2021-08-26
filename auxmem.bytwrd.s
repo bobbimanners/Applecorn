@@ -2,10 +2,6 @@
 * (c) Bobbi 2021 GPLv3
 *
 * Applecorn OSBYTE and OSWORD handlers
-
-* KERNEL/OSWOSB.S
-*****************
-* OSBYTE and OSWORD dispatch
 *
 * 15-Aug-2021 Added 'set variable' OSBYTEs 1-6
 
@@ -65,13 +61,13 @@ OSWBASE      DW    WORD00                 ; OSWORD  0 - Read input line
              DW    WORD04                 ; OSWORD  4 - Write interval timer
              DW    WORD05                 ; OSWORD  5 - Read I/O memory
              DW    WORD06                 ; OSWORD  6 - Write I/O memory
-*           DW    WORD07   ; OSWORD  7 - SOUND
-*           DW    WORD08   ; OSWORD  8 - ENVELOPE
-*           DW    WORD09   ; OSWORD  9 - POINT
-*           DW    WORD0A   ; OSWORD 10 - Read character bitmap
-*           DW    WORD0B   ; OSWORD 11 - Read palette
-*           DW    WORD0C   ; OSWORD 12 - Write palette
-*           DW    WORD0D   ; OSWORD 13 - Read coordinates
+*          DW    WORD07   ; OSWORD  7 - SOUND
+*          DW    WORD08   ; OSWORD  8 - ENVELOPE
+*          DW    WORD09   ; OSWORD  9 - POINT
+*          DW    WORD0A   ; OSWORD 10 - Read character bitmap
+*          DW    WORD0B   ; OSWORD 11 - Read palette
+*          DW    WORD0C   ; OSWORD 12 - Write palette
+*          DW    WORD0D   ; OSWORD 13 - Read coordinates
 OSWEND
              DW    WORDE0                 ; OSWORD &E0+ - User OSWORD
 
@@ -142,12 +138,12 @@ BYTEGO3      ORA   #$80                   ; Will become CS=OSBYTE call
 
 BYTWRDCALL   ASL   A                      ; Index into dispatch table
              TAY                          ; Y=offset into dispatch table
-*           BIT   FXNETCLAIM      ; Check Econet intercept flag
-*           BPL   BYTWRDNONET     ; No intercept, skip past
-*           TXA                   ; Set A=BYTE or WORD call
-*           CLV                   ; Clear V
-*           JSR   CALLNET         ; Call Econet with X=call type
-*           BVS   BYTWRDEXIT      ; V now set, claimed by NETV
+*          BIT   FXNETCLAIM      ; Check Econet intercept flag
+*          BPL   BYTWRDNONET     ; No intercept, skip past
+*          TXA                   ; Set A=BYTE or WORD call
+*          CLV                   ; Clear V
+*          JSR   CALLNET         ; Call Econet with X=call type
+*          BVS   BYTWRDEXIT      ; V now set, claimed by NETV
 
 BYTWRDNONET  LDA   BYTWRDADDR+1,Y         ; Get routine address
              STA   OSINTWS+1
@@ -172,20 +168,35 @@ BYTWRDGO     JSR   JMPADDR                ; Call the routine
 * X,Y,Cy from routine returned to caller
 
 BYTWRDEXIT   ROR   A                      ; Move Carry to A
-             PLP                          ; Restore original flags
+             PLP                          ; Restore original flags and IRQs
              ROL   A                      ; Move Carry back to flags
              PLA                          ; Restore A
              CLV                          ; Clear V = Actioned
              RTS
 
 BYTWRDFAIL
-*           JSR   SERVICE         ; Offer to sideways ROMs
-*           LDX   OSXREG          ; Get returned X
-*           CMP   #$00
-*           BEQ   BYTWRDEXIT      ; Claimed, return
+* TEST code for VIEW
+             CPX   #$07
+             BNE   BYTFAIL0
+             CMP   #$76
+             BEQ   BYTE76
+             CMP   #$A0
+             BNE   BYTFAIL0
+             LDY   #79                    ; Read VDU variable $09,$0A
+             LDX   #23
+             BRA   BYTWRDEXIT
+BYTE76
+             LDX   $00
+             BRA   BYTWRDEXIT
+* TEST
+BYTFAIL0
+*          JSR   SERVICE         ; Offer to sideways ROMs
+*          LDX   OSXREG          ; Get returned X
+*          CMP   #$00
+*          BEQ   BYTWRDEXIT      ; Claimed, return
              JSR   UNSUPBYTWRD            ; *DEBUG*
              LDX   #$FF                   ; X=&FF if unclaimed
-             PLP                          ; Restore IRQs
+             PLP                          ; Restore original flags and IRQs
              PLA                          ; Restore A
              BIT   SETV                   ; Set V = Not actioned
              RTS
@@ -202,7 +213,7 @@ JMPADDR      JMP   ($00FA)
 * On exit,  Y=length of line, offset to <cr>
 *           CC = Ok, CS = Escape
 *
-             XC                           ; 65c02
+
 WORD00       IF    MAXLEN-OSTEXT-2
              LDY   #$04
 :WORD00LP1   LDA   (OSCTRL),Y             ; Copy MAXLEN, MINCH, MAXCH to workspace
@@ -216,14 +227,14 @@ WORD00       IF    MAXLEN-OSTEXT-2
              BPL   :WORD00LP2
              INY                          ; Initial line length = zero
              ELSE
-             LDA   (OSCTRL),Y             ; Copy control block
+             LDA   (OSCTRL),Y             ; Copy control block 
              STA   OSTEXT,Y               ; 0,1 => text
              INY                          ;  2  = MAXLEN 
              CPY   #$05                   ;  3  = MINCHAR
              BCC   WORD00                 ;  4  = MAXCHAR
              LDY   #$00                   ; Initial line length = zero
              FIN
-*           STY   FXLINES         ; Reset line counter
+*          STY   FXLINES         ; Reset line counter
              CLI
              BEQ   :WORD00LP              ; Enter main loop
 
@@ -234,17 +245,20 @@ WORD00       IF    MAXLEN-OSTEXT-2
 
 :WORD00LP    JSR   OSRDCH
              BCS   :WORD00ESC             ; Escape
-*           TAX                   ; Save character in X
-*           LDA   FXVAR03         ; Get FX3 destination
-*           ROR   A
-*           ROR   A               ; Move bit 1 into Carry
-*           TXA                   ; Get character back
-*           BCS   :WORD00TEST     ; VDU disabled, ignore
-*           LDX   FXVDUQLEN       ; Get length of VDU queue
-*           BNE   :WORD00ECHO     ; Not zero, just print
+*          TAX                   ; Save character in X
+*          LDA   FXVAR03         ; Get FX3 destination
+*          ROR   A
+*          ROR   A               ; Move bit 1 into Carry
+*          TXA                   ; Get character back
+*          BCS   :WORD00TEST     ; VDU disabled, ignore
+*          LDX   FXVDUQLEN       ; Get length of VDU queue
+*          BNE   :WORD00ECHO     ; Not zero, just print
 :WORD00TEST  CMP   #$7F                   ; Delete
+             BEQ   :WORD00DEL
+             CMP   #$08                   ; If KBD has no DELETE key
              BNE   :WORD00CHAR
-             CPY   #$00
+             LDA   #$7F
+:WORD00DEL   CPY   #$00
              BEQ   :WORD00LP              ; Nothing to delete
              DEY                          ; Back up one character
              BCS   :WORD00ECHO            ; Loop back to print DEL
@@ -269,7 +283,7 @@ WORD00       IF    MAXLEN-OSTEXT-2
              BCS   :WORD00ECHO            ; >MAXCHAR, don't step to next
 
 :WORD00CR    JSR   OSNEWL
-*           JSR   CALLNET         ; Call Econet Vector, A=13
+*          JSR   CALLNET         ; Call Econet Vector, A=13
 :WORD00ESC   LDA   ESCFLAG                ; Get Escape flag
              ROL   A                      ; Carry=Escape state
              RTS
@@ -297,47 +311,62 @@ WORD02       RTS                          ; Dummy, do nothing
 * On entry, (OSCTRL)+0 address
 *           (OSCTRL)+4 byte read or written
 *           Y=0, A=(OSCTRL)
-
-             XC                           ; 65c02
-WORD05       JSR   GETADDR                ; Point to address, set X and Y
-             LDA   (OSINTWS)              ; Get byte
+* IRQs are disabled, so we don't have to preserve IRQ state
+*
+WORD05       JSR   GETADDR                ; Point to address, set Y=>data
+             BNE   WORD05A
+             STA   $C002                  ; Switch to main memory
+WORD05A      LDA   (OSINTWS)              ; Get byte
+             STA   $C003                  ; Back to aux memory
              STA   (OSCTRL),Y             ; Store it
              RTS
-WORD06       JSR   GETADDR                ; Point to address, set X and Y
+
+WORD06       JSR   GETADDR                ; Point to address, set Y=>data
+             PHP
              LDA   (OSCTRL),Y             ; Get byte
-             STA   (OSINTWS)              ; Store it
+             PLP
+             BNE   WORD06A
+             STA   $C004                  ; Switch to main memory
+WORD06A      STA   (OSINTWS)              ; Store it
+             STA   $C005                  ; Back to aux memory
              RTS
+
 GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
              INY
              LDA   (OSCTRL),Y
              STA   OSINTWS+1
-             LDY   #$04                   ; Point Y to data byte
+             INY
+             INY
+             LDA   (OSCTRL),Y             ; Get address high byte
+             INY                          ; Point Y to data byte
+             CMP   #$80                   ; *TO DO* Needs an appropriate value
              RTS
 
 * OSBYTE routines
 *****************
 
+* TO DO: move to init.s
 BYTE00       LDX   #$0A                   ; $00 = identify Host
-             RTS
+             RTS                          ; %000x1xxx host type, 'A'pple
 
 BYTE88       LDA   #$01                   ; $88 = *CODE
 WORDE0       JMP   (USERV)                ; OSWORD &E0+
 
 * Low OSBYTE converted into Set Variable
 BYTE02       LDA   #$F7                   ; -> &B1
-;
+*
 BYTE09                                    ; -> &C2
 BYTE0A                                    ; -> &C3
 BYTE0B                                    ; -> &C4
 BYTE0C       ADC   #$C9                   ; -> &C5
-;
+*
 BYTE01                                    ; -> &F1
 BYTE05                                    ; -> &F5
 BYTE06       ADC   #$07                   ; -> &F6
-;
+*
 BYTE03                                    ; -> &EC
 BYTE04       ADC   #$E8                   ; -> &ED
-;
+*
 * Read/Write OSBYTE variable
 BYTEVAR      TAY                          ; offset to variable
              LDA   BYTEVARBASE+0,Y
@@ -358,7 +387,8 @@ BYTE8D                                    ; *ROM
 BYTE82                                    ; $82 = read high order address
 *      LDY   #$00
 *      LDX   #$00            ; $0000 for language processor
-* Should return $0000, but BCPL and Lisp playing silly buggers
+* Should return $0000, but BCPL and Lisp try to move up to $F800
+* overwriting Apple II stuff
              LDY   #$FF                   ; $FFFF for I/O processor
              LDX   #$FF
              RTS
@@ -386,7 +416,7 @@ BYTE7DOK     RTS
 * Passed on to filing system
 BYTE8B       LDA   #$00                   ; &00 -> &00 - *OPT
 BYTE7F       AND   #$01                   ; &7F -> &01 - EOF
-             JMP   (FSCV)                 ; Hand over to filing system
+CALLFSCV     JMP   (FSCV)                 ; Hand over to filing system
 
 
 * TO DO: Move this to AUXMEM.INIT.S
@@ -433,9 +463,18 @@ UNSUPBYTWRD
 UNSUPGO      JSR   PRSTR
              LDA   OSAREG
              JSR   OUTHEX
+*            LDA   #$2C
+*            LDA   OSXREG
+*            JSR   OUTHEX
+*            LDA   #$2C
+*            LDA   OSYREG
+*            JSR   OUTHEX
              LDA   #<OSBM2
              LDY   #>OSBM2
-             JMP   PRSTR
+             JSR   PRSTR
+*            JSR   OSRDCH
+             LDA   OSAREG
+             RTS
 
 OSBYTEM      ASC   'OSBYTE($'
              DB    $00
@@ -443,4 +482,6 @@ OSWORDM      ASC   'OSWORD($'
              DB    $00
 OSBM2        ASC   ').'
              DB    $00
+
+
 

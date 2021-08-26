@@ -97,11 +97,11 @@ RDCHHND      LDA   #$80                      ; flag=wait forever
              TAY
              BRA   INKEYGO                   ; Wait forever for input
 
-; XY<$8000 - wait for a keypress
+* XY<$8000 - wait for a keypress
 INKEY        PHY                             ; Dummy PHY to balance RDCH
 INKEYGO      PHX                             ; Save registers
              PHY
-;
+*
              BIT   VDUSTATUS                 ; Enable editing cursor
              BVC   INKEYGO2                  ; No editing cursor
              JSR   GETCHRC                   ; Get character under cursor
@@ -111,10 +111,10 @@ INKEYGO      PHX                             ; Save registers
              JSR   COPYSWAP1                 ; Swap to copy cursor
 INKEYGO2     JSR   GETCHRC                   ; Get character under cursor
              STA   OLDCHAR
-;
+*
              CLI
              BRA   INKEY1                    ; Turn cursor on
-;
+*
 INKEYLP1     PHX
 INKEYLP2     PHY
 INKEYLP      CLC
@@ -138,7 +138,7 @@ INKEY3       LDA   ESCFLAG
              BMI   INKEYOK                   ; Escape pending, return it
 INKEY4       JSR   KEYREAD                   ; Test for input, all can be trashed
              BCC   INKEYOK                   ; Char returned, return it
-;
+*
 * VBLK pulses at 50Hz, changes at 100Hz
 * (60Hz in US, will need tweeking)
              LDX   $C019                     ; Get initial VBLK state
@@ -147,7 +147,7 @@ INKEY5       BIT   $C000
              TXA
              EOR   $C019
              BPL   INKEY5                    ; Wait for VBLK change
-;
+*
              PLY
              BMI   INKEYLP2                  ; Loop forever
              PLX
@@ -158,22 +158,22 @@ INKEYDEC     DEX
              BNE   INKEYLP1                  ; Not 0, loop back
              TYA
              BNE   INKEYLP1                  ; Not 0, loop back
-;
+*
              PHY
              JSR   INKEYOFF                  ; Restore cursors
              PLY
-;
+*
              DEY                             ; Y=$FF
              TYA                             ; A=$FF
              PLX                             ; Drop dummy PHY
              SEC
              RTS
-; Timeout: CS, AY=$FFFF, becomes XY=$FFFF
+* Timeout: CS, AY=$FFFF, becomes XY=$FFFF
 
 INKEYOK      PHA
-;
+*
              JSR   INKEYOFF                  ; Restore cursors
-;
+*
 *            LDA   OLDCHAR    ; Remove editing cursor
 *            JSR   PUTCHRC    ; Remove cursor
 *            BIT   VDUSTATUS
@@ -181,7 +181,7 @@ INKEYOK      PHA
 *            JSR   COPYSWAP1  ; Swap cursor back
 *            LDA   COPYCHAR
 *            JSR   PUTCHRC    ; Remove edit cursor
-;
+*
 INKEYOK2     PLA
              PLY                             ; <$80=INKEY or $80=RDCH
              PLX                             ; Restore X
@@ -223,7 +223,7 @@ NEGINKEY     CPX   #$01
              LDX   #$00                      ; Unimplemented
              LDY   #$00
              BCS   NEGINKEY0
-             LDX   #$20                      ; INKEY-256
+             LDX   #$2E                      ; INKEY-256 = $2E = Apple IIe
 NEGINKEY0    CLC
              RTS
 
@@ -263,7 +263,7 @@ KEYREAD
 *
              JSR   KBDREAD                   ; Fetch character from KBD "buffer"
              BCS   KEYREADOK                 ; Nothing pending
-;
+*
              TAY
              BPL   KEYREADOK                 ; Not top-bit key
              AND   #$CF
@@ -281,7 +281,7 @@ KEYREAD
 KEYREADOKY   TYA
 KEYREADOK1   CLC
 KEYREADOK    RTS
-;
+*
 * Process soft key
 KEYSOFT1     LDX   FX254VAR
              CPX   #$C0
@@ -367,7 +367,7 @@ KBDTEST      LDA   $C000                     ; VS here to test for keypress
              BCC   KBDCURSR                  ; $08-$0B are cursor keys
              CMP   #$15
              BNE   KBDCHKESC                 ; $15 is cursor key
-;
+*
 KBDCUR15     LDA   #$0D                      ; Convert RGT to $09
 KBDTAB       SBC   #$04                      ; Convert TAB to &C9
 KBDCURSR     CLC
@@ -392,7 +392,7 @@ KBDFUNC      AND   #$0F                      ; Convert Apple-Num to function key
              BRA   KBDCHKESC
 
 KBDCTRL      AND   #$1F                      ; Apple-Letter -> Ctrl-Letter
-;
+*
 * Test for Escape key
 KBDCHKESC    TAX                             ; X=keycode
              EOR   FXESCCHAR                 ; Current ESCAPE char?
@@ -406,4 +406,6 @@ KBDCHKESC    TAX                             ; X=keycode
 KBDNOESC     TXA                             ; A=keycode
              CLC                             ; CLC=Ok
 KBDDONE      RTS
+
+
 

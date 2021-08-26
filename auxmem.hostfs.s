@@ -251,6 +251,8 @@ FILEHND     PHX
 :LOAD       >>>   XF2MAIN,LOADFILE
 :DELETE     >>>   XF2MAIN,DELFILE
 :MKDIR      >>>   XF2MAIN,MAKEDIR
+
+* On return here, A<$80 just return to caller, A>$7F generate error
 OSFILERET
             >>>   ENTAUX
             PHA
@@ -258,23 +260,23 @@ OSFILERET
             STA   ZP1
             LDA   CBPTR+1
             STA   ZP1+1
-            LDY   #$00
+            LDY   #$02
 :L3         LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
             STA   (ZP1),Y
             INY
             CPY   #18                 ; 18 bytes in control block
             BNE   :L3
             PLA
-            PLY                       ; Value of A on OSFILE entry
+* BMI   :L4
+* JMP   :EXIT ; ret<$80, return it to user
+
+:L4         PLY                       ; Value of A on OSFILE entry
             CPY   #$FF                ; See if command was LOAD
-            BNE   :NOTLOAD
+            BNE   :NOTLOAD            ; Deal with return from SAVE
 
             CMP   #$01                ; No file found
             BNE   :SL1
-            BRK
-            DB    $D6                 ; $D6 = Object not found
-            ASC   'File not found'
-            BRK
+            BRA   ERRNOTFND
 
 :SL1        CMP   #$02                ; Read error
             BNE   :SL2
@@ -306,14 +308,13 @@ OSFILERET
 
 :SS2        LDA   #$01                ; Return code - file found
 
-:NOTLS      CPY   #$06                ; Was it DELETE?
-            BNE   :NOTLSD             ; Was LOAD/SAVE/DELETE
-            CMP   #$00                ; File was not found
+:NOTLS      CMP   #$00                ; File was not found
             BNE   :SD1
-            BRK
-            DB    $D6                 ; $D6 = File not found
-            ASC   'Not found'
-            BRK
+            JMP   :EXIT
+*            BRK
+*            DB    $D6                 ; $D6 = File not found
+*            ASC   'Not found'
+*            BRK
 
 :SD1        CMP   #$FF                ; Some other error
             BNE   :EXIT               ; A=0 or 1 already
@@ -327,25 +328,30 @@ OSFILERET
 :NOTLSD     CPY   #$08                ; Was it CDIR?
             BNE   :EXIT
             CMP   #$00                ; A=0 means dir was created
-            BEQ   :SC1
+            BNE   ERREXISTS
 
-            BRK
-            DB    $C0                 ; Guess - IS THIS REASONABLE??
-            ASC   'Can'
-            DB    $27
-            ASC   't create'
-            BRK
-
-:SC1        LDA   #$02                ; Guess I return 2 for dir??
+:SC1        LDA   #$02                ; A=2 - dir exists or was created
 
 :EXIT       PLY
             PLX
             RTS
 
+ERRNOTFND   BRK
+            DB    $D6                 ; $D6 = Object not found
+            ASC   'File not found'
+            BRK
+
+ERREXISTS   BRK
+            DB    $C4                 ; Can't create a dir if a file is
+            ASC   'File exists'       ; already there
+            BRK
+
 CBPTR       DW    $0000
 OSFILEM     ASC   'OSFILE($'
             DB    $00
 OSFILEM2    ASC   ')'
+            DB    $00
+OSFSCM      ASC   'OSFSC.'
             DB    $00
 
 * OSFSC - miscellanous file system calls
@@ -355,6 +361,8 @@ OSFILEM2    ASC   ')'
 *  On exit,  A=preserved if unimplemented
 *            A=modified if implemented
 *            X,Y=any return values
+* 
+* TO DO: use jump table
 FSCHND      CMP   #$00
             BEQ   FSOPT               ; A=0  - *OPT
             CMP   #$01
@@ -372,7 +380,7 @@ FSCHND      CMP   #$00
             CMP   #$0C
             BEQ   FSCREN              ; A=12 - *RENAME
 
-            PHA
+FSCUKN      PHA
             LDA   #<OSFSCM
             LDY   #>OSFSCM
             JSR   PRSTR
@@ -391,16 +399,15 @@ FSCRUN      STX   OSFILECB            ; Pointer to filename
             RTS
 :CALL       JMP   (OSFILECB+6)        ; Jump to EXEC addr
             RTS
+
 FSCREN      JSR   XYtoLPTR            ; Pointer to command line
             JSR   RENAME
             RTS
-OSFSCM      ASC   'OSFSC.'
-            DB    $00
 
 * Performs OSFSC *OPT function
 FSOPT       RTS                       ; No FS options for now
 
-* Performs OSBYTE $7F EOF function
+* Performs OSFSC Read EOF function
 * File ref number is in X
 CHKEOF      >>>   WRTMAIN
             STX   MOSFILE             ; File reference number
@@ -416,7 +423,8 @@ CHKEOFRET
 FSCCAT      >>>   XF2MAIN,CATALOG
 STARCATRET
             >>>   ENTAUX
-            JMP   OSNEWL
+            JSR   OSNEWL
+            LDA   #0                  ; 0=OK
             RTS
 
 * Print one block of a catalog. Called by CATALOG
@@ -536,18 +544,11 @@ RENRET
             CMP   #$00
             BNE   :OTHER              ; All other errors
             RTS
-:NOTFND     BRK
-            DB    $D6
-            ASC   'Not found'
-            BRK
-:EXISTS     BRK
-            DB    $C4
-            ASC   'Exists'
-            BRK
+:NOTFND     JMP   ERRNOTFND
+:EXISTS     JMP   ERREXISTS
 :LOCKED     BRK
             DB    $C3
             ASC   'Locked'
-            BRK
 :OTHER      BRK
             DB    $C7
             ASC   'Disc error'
