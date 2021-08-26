@@ -10,6 +10,7 @@
 
 * COMMAND TABLE
 ***************
+* Table structure is: { string, byte OR $80, destword-1 } $00
 * fsc commands
 CMDTABLE     ASC   'CAT'              ; Must be first command so matches '*.'
              DB    $85
@@ -52,6 +53,8 @@ CMDTABLE     ASC   'CAT'              ; Must be first command so matches '*.'
              ASC   'DRIVE'
              DB    $C1
              DW    STARDRIVE-1        ; Should be a FSC call, XY=>params
+* ACCESS <file> <access>
+* TITLE (<drive>) <title>
 * osbyte commands
              ASC   'FX'
              DB    $80
@@ -168,10 +171,8 @@ STARFSC2     PHA
              PLA
 STARFSC      AND   #$7F               ; A=command, XY=>parameters
              JSR   CALLFSCV           ; Hand on to filing system
-* TO DO: hostfs.s needs to return A=0
              TAX
-             BEQ   CLIDONE
-             RTS                      ; *TEMP*
+             BEQ   CLIDONE            ; A=0, FSC call implemented
 ERRBADCMD    BRK
              DB    $FE
              ASC   'Bad command'
@@ -183,7 +184,8 @@ ERRBADADD    BRK
              ASC   'Bad address'
              BRK
 
-CALLFSCV     JMP   (FSCV)             ; Hand on to filing system
+* CALLFSCV    JMP (FSCV)                     ; Hand on to filing system
+* Moved to BYTWRD
 
 
 * *FX num(,num(,num))
@@ -293,10 +295,10 @@ SKIPCOMMA    LDA   (OSLPTR),Y
              BNE   SKIPSPC
 *
 * Skip spaces
-SKIPSPCLP    INY                      ; Step past space or comma
+SKIPSPC1     INY                      ; Step past a character
 SKIPSPC      LDA   (OSLPTR),Y
              CMP   #' '
-             BEQ   SKIPSPCLP
+             BEQ   SKIPSPC1
              CMP   #$0D               ; Return EQ=<cr>
              RTS
 
@@ -319,20 +321,21 @@ XYtoLPTR     STX   OSLPTR+0
 * Print *HELP text
 * These needs tidying a bit
 STARHELP     PHY
-             LDA   #<HELPMSG
-             LDY   #>HELPMSG
-             JSR   PRSTR
+             JSR   PRHELLO            ; Unifiy version message
+*            LDA   #<:MSG
+*            LDY   #>:MSG
+*            JSR   PRSTR
              PLY
              PHY
              LDA   (OSLPTR),Y
-             CMP   #'.'
+             CMP   #'.'               ; *HELP .
              BEQ   STARHELP1
              INY
              EOR   (OSLPTR),Y
              INY
              EOR   (OSLPTR),Y
              AND   #$DF
-             CMP   #$51
+             CMP   #$51               ; *HELP MOS
              BNE   STARHELP5
 STARHELP1    LDX   #0
              LDA   #32
@@ -360,18 +363,19 @@ STARHELP5    LDA   $8006
              BMI   STARHELP6          ; Use ROM's service entry
              JSR   OSNEWL
              LDA   #$09               ; Language name
-             LDY   #$80
-             JSR   PRSTR
-             LDA   #<HELPMSG2
-             LDY   #>HELPMSG2
-             JSR   PRSTR
+             LDY   #$80               ; *TO DO* make this and BYTE8E
+             JSR   PRSTR              ;  use same code
+             JSR   OSNEWL
+*            LDA   #<:MSG2
+*            LDY   #>:MSG2
+*            JSR   PRSTR
 STARHELP6    PLY
              LDA   #9
              JMP   SERVICE            ; Pass to sideways ROM(s)
-HELPMSG      DB    $0D
-             ASC   'Applecorn MOS v0.01'
-             DB    $0D,$00
-HELPMSG2     DB    $0D,$00
+*:MSG        DB    $0D
+*            ASC   'Applecorn MOS v0.01'
+*            DB    $0D,$00
+*:MSG2       DB    $0D,$00
 
 * Handle *QUIT command
 STARQUIT     >>>   XF2MAIN,QUIT
@@ -394,7 +398,7 @@ STARLDSV0
              CMP   OSTEMP
              BNE   STARLDSV0          ; Step past filename
 * ^^^^
-             JSR   SKIPSPCLP          ; Skip following spaces
+             JSR   SKIPSPC1           ; Skip following spaces
              BNE   STARLDSV3          ; *load/save name addr 
 STARLDSV1    LDA   #$FF               ; $FF=load to file's address
 STARLOAD2
@@ -427,7 +431,7 @@ STARSAVE4
              CMP   #'+'
              PHP
              BNE   STARSAVE5          ; Not start+length
-             JSR   SKIPSPCLP          ; Step past '+' and spaces
+             JSR   SKIPSPC1           ; Step past '+' and spaces
 STARSAVE5
              LDX   #OSFILECB+14-$200
              JSR   SCANHEX            ; Get end or length
@@ -472,7 +476,10 @@ STARFILE     EOR   #$80
              STY   OSFILECB+1
              LDX   #<OSFILECB
              LDY   #>OSFILECB
-             JMP   OSFILE
+             JSR   OSFILE
+             TAX
+             BNE   STARDONE
+             JMP   ERRNOTFND
 
 STARCHDIR    STX   ZP1+0              ; TEMP
              STY   ZP1+1              ; TEMP
@@ -481,13 +488,8 @@ STARCHDIR    STX   ZP1+0              ; TEMP
 
 STARDRIVE
 STARBASIC
-STARKEY      RTS
-
-
-
-** Handle *CAT / *. command (list directory)
-*STARCAT     LDA   #$05
-*            JMP   JUMPFSCV   ; Hand on to filing system
+STARKEY
+STARDONE     RTS
 
 
 * Code that calls this will need to be replaced with calls
@@ -514,4 +516,7 @@ EATSPC       LDA   (ZP1),Y            ; Check first char is ...
              RTS
 :NOTFND      SEC
              RTS
+
+
+
 

@@ -1,8 +1,7 @@
-* VDU.S
+* AUXMEM.VDU.S
 * (c) Bobbi 2021 GPLv3
 *
 * Apple //e VDU Driver for 40/80 column mode (PAGE2)
-
 *
 * 15-Aug-2021 Optimised address calculations and PRCHRC.
 *             Entry point to move copy cursor.
@@ -21,7 +20,7 @@ VDUSTATUS   EQU   $D0           ; $D0  VDU status
 VDUZP1      EQU   VDUSTATUS+1   ; $D1
 * VDUTEXTX    EQU   VDUSTATUS+2  ; $D2  text column
 * VDUTEXTY    EQU   VDUSTATUS+3  ; $D3  text row
-VDUADDR     EQU   VDUSTATUS+4   ; $D4  addr of current char cell
+VDUADDR     EQU   VDUSTATUS+4   ; $D4  address of current char cell
 
 FXVDUQLEN   EQU   $D1           ; TEMP HACK
 VDUCHAR     EQU   $D6           ; TEMP HACK
@@ -68,7 +67,7 @@ COPYMOVE2   PLA
             ORA   #8
 COPYMOVE3   JMP   OUTCHARGO     ; Move edit cursor
 
-* Turn editing cursor on/off
+** Turn editing cursor on/off
 *COPYCURSOR  BIT   VDUSTATUS
 *            BVC   COPYSWAP4  ; Copy cursor not active
 *            PHP              ; Save CS=Turn On, CC=Turn Off
@@ -80,11 +79,11 @@ COPYMOVE3   JMP   OUTCHARGO     ; Move edit cursor
 *            STA   COPYCHAR
 *            LDA   #$A0       ; Output edit cursor
 *COPYCURS2   JSR   PUTCHRC
-*                            ; Drop through to swap back
+**                            ; Drop through to swap back
 
 * Swap between edit and copy cursors
-;COPYSWAP    BIT   VDUSTATUS
-;            BVC   COPYSWAP4  ; Edit cursor off
+*COPYSWAP    BIT   VDUSTATUS
+*            BVC   COPYSWAP4  ; Edit cursor off
 COPYSWAP1   CLC                 ; CC=Swap TEXT and COPY
 COPYSWAP2   LDX   #1
 COPYSWAPLP  LDY   VDUCOPYX,X
@@ -208,14 +207,14 @@ PRCHR6      STA   (VDUADDR),Y   ; Store it
             RTS
 
 *            PHA
-*            LDA   $C000             ; Kbd data/strobe
+*            LDA   $C000                      ; Kbd data/strobe
 *            BMI   :KEYHIT
 * :RESUME    LDA   ROW
 *            ASL
 *            TAX
-*            LDA   SCNTAB,X          ; LSB of row address
+*            LDA   SCNTAB,X                   ; LSB of row address
 *            STA   ZP1
-*            LDA   SCNTAB+1,X        ; MSB of row address
+*            LDA   SCNTAB+1,X                 ; MSB of row address
 *            STA   ZP1+1
 *            LDA   COL
 *            BIT   $C01F
@@ -285,11 +284,11 @@ GETCHROK    RTS
 *            BPL   :S1A     ; 40-col
 *            LSR
 *            BCC   :S1
-*:S1A        STA   $C002            ; Read main memory
+*:S1A        STA   $C002                      ; Read main memory
 *:S1         TAY
 *            LDA   (ZP1),Y
 *            EOR   #$80
-*            STA   $C003            ; Read aux mem again
+*            STA   $C003                      ; Read aux mem again
 *            TAX
 *            LDY   #$00
 *            BIT   $C01F
@@ -395,14 +394,14 @@ OUTCHARGO   CMP   #$00          ; NULL
             BEQ   :TOSCROLL     ; JGH
             INC   ROW
 :IDONE      RTS
-; BRA   :DONE
+* BRA   :DONE
 :TOSCROLL   JMP   SCROLL        ; JGH
 :T5         CMP   #$0B          ; Cursor up
             BNE   :T6
             LDA   ROW
             BEQ   :IDONE
             DEC   ROW
-;            BRA   :IDONE
+*            BRA   :IDONE
             RTS
 :T6         CMP   #$0D          ; Carriage return
             BNE   :T7
@@ -410,7 +409,7 @@ OUTCHARGO   CMP   #$00          ; NULL
             AND   VDUSTATUS
             STA   VDUSTATUS     ; Turn copy cursor off
             STZ   COL
-;            BRA   :IDONE
+*            BRA   :IDONE
             RTS
 :T7         CMP   #$0C          ; Ctrl-L
             BEQ   :T7A
@@ -423,13 +422,13 @@ OUTCHARGO   CMP   #$00          ; NULL
             TAX
             STA   $C00C,X
 :T7A        JSR   CLEAR
-*        BRA   :IDONE
+*            BRA   :IDONE
             RTS
 :T8         CMP   #$1E          ; Home
             BNE   :T9
             STZ   ROW
             STZ   COL
-*        BRA   :IDONE
+*            BRA   :IDONE
             RTS
 :T9
             CMP   #$1F          ; TAB
@@ -450,7 +449,7 @@ OUTCHARGO   CMP   #$00          ; NULL
 :T9B        CMP   #$7F          ; Delete
             BNE   :T10
             JSR   DELETE
-;            BRA   :IDONE
+*            BRA   :IDONE
             RTS
 :T10        CMP   #$20
             BCC   :IDONE
@@ -478,13 +477,13 @@ VDU09       LDA   COL
             BEQ   SCROLL
             INC   ROW
 :DONE       RTS
-;           BRA   :DONE
+*           BRA   :DONE
 :S2         INC   COL
             BRA   :DONE
 SCROLL      JSR   SCROLLER
 *            STZ   COL
             JSR   CLREOL
-;:DONE
+*:DONE
             RTS
 
 * Scroll whole screen one line
@@ -534,4 +533,6 @@ SCR1LINE    ASL                 ; Dest addr->ZP1
 SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
             DW    $828,$8A8,$928,$9A8,$A28,$AA8,$B28,$BA8
             DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
+
+
 

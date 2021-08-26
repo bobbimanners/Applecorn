@@ -5,6 +5,9 @@
 * This code is mostly glue between the BBC Micro code
 * which runs in aux mem and Apple II ProDOS.
 
+* 24-Aug-2021 AUXTYPE set from load address
+
+
 * ProDOS MLI command numbers
 QUITCMD     EQU   $65
 GTIMECMD    EQU   $82
@@ -198,6 +201,7 @@ MAKEDIR     >>>   ENTMAIN
             LDA   $BF93
             STA   CREATEPL+11
             JSR   CRTFILE
+            LDA   #$02
 :EXIT       >>>   XF2AUX,OSFILERET
 
 * ProDOS file handling to rename a file
@@ -454,6 +458,7 @@ TELL        >>>   ENTMAIN
 * Return A=0 if successful
 *        A=1 if file not found
 *        A=2 if read error
+* TO DO: change to $01, $80, some other $80+n
 LOADFILE    >>>   ENTMAIN
             STZ   :BLOCKS
             LDA   #<MOSFILE
@@ -546,6 +551,7 @@ COPYFB      PHA
 * Return A=0 if successful
 *        A=1 if unable to create/open
 *        A=2 if error during save
+* TO DO: change to $01, $80, some other $80+n
 SAVEFILE    >>>   ENTMAIN
             LDA   #<MOSFILE          ; Attempt to destroy file
             STA   DESTPL+1
@@ -565,9 +571,9 @@ SAVEFILE    >>>   ENTMAIN
             STA   CREATEPL+3
             LDA   #$06               ; Filetype BIN
             STA   CREATEPL+4
-            LDA   FBSTRT             ; Auxtype = start address
+            LDA   FBLOAD             ; Auxtype = load address
             STA   CREATEPL+5
-            LDA   FBSTRT+1
+            LDA   FBLOAD+1
             STA   CREATEPL+6
             LDA   #$01               ; Storage type - file
             STA   CREATEPL+7
@@ -713,6 +719,24 @@ UPDFB       LDA   #<MOSFILE
             STZ   FBLOAD+3
             STZ   FBEXEC+2
             STZ   FBEXEC+3
+            LDA   GINFOPL+3          ; Access byte
+            CMP   #$40               ; Locked?
+            AND   #$03               ; ------wr
+            PHP
+            STA   FBEND+0
+            ASL   A                  ; -----wr-
+            ASL   A                  ; ----wr--
+            ASL   A                  ; ---wr---
+            ASL   A                  ; --wr----
+            PLP
+            BCS   :UPDFB2
+            ORA   #$08               ; --wrl---
+:UPDFB2     ORA   FBEND+0            ; --wrl-wr
+            STA   FBEND+0
+            STZ   FBEND+1            ; TO DO: get mdate
+            STZ   FBEND+2
+            STZ   FBEND+3
+
             JSR   OPENFILE           ; Open file
             BCS   :ERR
             LDA   OPENPL+5           ; File ref number
@@ -727,12 +751,6 @@ UPDFB       LDA   #<MOSFILE
             LDA   GMARKPL+4
             STA   FBSTRT+2
             STZ   FBSTRT+3
-            LDA   #$33               ; 'W/R' attribs
-            STA   FBEND+0
-            STZ   FBEND+1
-            STZ   FBEND+2
-            STZ   FBEND+3
-            LDA   #$33               ; W/R attributes
             LDA   OPENPL+5           ; File ref numbre
             STA   CLSPL+1
             JSR   CLSFILE
@@ -928,8 +946,12 @@ FBLOAD      DW    $0000              ; Load address
             DW    $0000
 FBEXEC      DW    $0000              ; Exec address
             DW    $0000
-FBSTRT      DW    $0000              ; Start address for SAVE
+FBSIZE
+FBSTRT      DW    $0000              ; Size / Start address for SAVE
             DW    $0000
-FBEND       DW    $0000              ; End address for SAVE
+FBATTR
+FBEND       DW    $0000              ; Attributes / End address for SAVE
             DW    $0000
+
+
 

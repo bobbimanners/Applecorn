@@ -1,9 +1,11 @@
 * AUXMEM.MOSEQU.S
 * (c) Bobbi 2021 GPLv3
 *
-* Constant definitions for AppleMOS
 
-* BBC MOS WORKSPACE LOCATIONS
+*******************************
+* BBC MOS WORKSPACE LOCATIONS *
+*******************************
+
 * $00-$8F Language workspace
 * $90-$9F Network workspace
 * $A0-$A7 NMI workspace
@@ -31,7 +33,7 @@ OSXREG      EQU   OSAREG+1    ; $F0   X  register
 OSYREG      EQU   OSXREG+1    ; $F1   Y  register
 OSCTRL      EQU   OSXREG      ; $F0  (XY)=>control block
 OSLPTR      EQU   $F2         ; $F2 => command line
-;
+*
 OSINTWS     EQU   $FA         ; $FA  IRQ ZP pointer, use when IRQs off
 OSINTA      EQU   $FC         ; $FC  IRQ register A store
 FAULT       EQU   $FD         ; $FD  Error message pointer
@@ -39,7 +41,7 @@ ESCFLAG     EQU   $FF         ; $FF  Escape status
 
 
 * $0200-$0235 Vectors
-* $0236-$028F OSBYTE variable
+* $0236-$028F OSBYTE variables
 * $0290-$02ED
 * $02EE-$02FF MOS control block
 
@@ -59,4 +61,6 @@ FINDV       EQU   $21C        ; OSFIND vector
 FSCV        EQU   $21E        ; FSCV misc file ops
 
 OSFILECB    EQU   $2EE        ; OSFILE control block
+
+
 
