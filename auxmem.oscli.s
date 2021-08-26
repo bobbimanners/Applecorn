@@ -1,5 +1,4 @@
 * AUXMEM.OSCLI.S
-****************
 * (c) BOBBI 2021 GPLv3
 *
 * Handle OSCLI system calls
@@ -11,48 +10,70 @@
 
 * COMMAND TABLE
 ***************
+* Table structure is: { string, byte OR $80, destword-1 } $00
 * fsc commands
-CMDTABLE    ASC   'CAT',$85       ; Must be first command so matches '*.'
+CMDTABLE    ASC   'CAT'           ; Must be first command so matches '*.'
+            DB    $85
             DW    STARFSC-1       ; CAT    -> FSC 5, XY=>params
-            ASC   'RUN',$84
+            ASC   'RUN'
+            DB    $84
             DW    STARFSC-1       ; RUN    -> FSC 4, XY=>params
-            ASC   'EX',$89
+            ASC   'EX'
+            DB    $89
             DW    STARFSC-1       ; EX     -> FSC 9, XY=>params
-            ASC   'INFO',$8A
+            ASC   'INFO'
+            DB    $8A
             DW    STARFSC-1       ; INFO   -> FSC 10, XY=>params
-            ASC   'RENAME',$8C
+            ASC   'RENAME'
+            DB    $8C
             DW    STARFSC-1       ; RENAME -> FSC 12, XY=>params
 * osfile commands
-            ASC   'LOAD',$FF
+            ASC   'LOAD'
+            DB    $FF
             DW    STARLOAD-1      ; LOAD   -> OSFILE FF, CBLK=>filename
-            ASC   'SAVE',$FF
+            ASC   'SAVE'
+            DB    $FF
             DW    STARSAVE-1      ; SAVE   -> OSFILE 00, CBLK=>filename
-            ASC   'DELETE',$86
+            ASC   'DELETE'
+            DB    $86
             DW    STARFILE-1      ; DELETE -> OSFILE 06, CBLK=>filename
-            ASC   'MKDIR',$88
+            ASC   'MKDIR'
+            DB    $88
             DW    STARFILE-1      ; MKDIR  -> OSFILE 08, CBLK=>filename
-            ASC   'CDIR',$88
+            ASC   'CDIR'
+            DB    $88
             DW    STARFILE-1      ; CDIR   -> OSFILE 08, CBLK=>filename
 * other filing commands
-            ASC   'CHDIR',$C0
+            ASC   'CHDIR'
+            DB    $C0
             DW    STARCHDIR-1     ; Should be a FSC call, XY=>params
-            ASC   'DIR',$C0
+            ASC   'DIR'
+            DB    $C0
             DW    STARCHDIR-1     ; Should be a FSC call, XY=>params
-            ASC   'DRIVE',$C1
+            ASC   'DRIVE'
+            DB    $C1
             DW    STARDRIVE-1     ; Should be a FSC call, XY=>params
+* ACCESS <file> <access>
+* TITLE (<drive>) <title>
 * osbyte commands
-            ASC   'FX',&80
+            ASC   'FX'
+            DB    $80
             DW    STARFX-1        ; FX     -> OSBYTE A,X,Y    (LPTR)=>params
-            ASC   'OPT',$8B
+            ASC   'OPT'
+            DB    $8B
             DW    STARBYTE-1      ; OPT    -> OSBYTE &8B,X,Y  XY=>params
 * others
-            ASC   'QUIT',$80
+            ASC   'QUIT'
+            DB    $80
             DW    STARQUIT-1      ; QUIT   -> (LPTR)=>params
-            ASC   'HELP',$80
+            ASC   'HELP'
+            DB    $80
             DW    STARHELP-1      ; HELP   -> (LPTR)=>params
-            ASC   'BASIC',$80
+            ASC   'BASIC'
+            DB    $80
             DW    STARBASIC-1     ; BASIC  -> (LPTR)=>params
-            ASC   'KEY',$80
+            ASC   'KEY'
+            DB    $80
             DW    STARKEY-1       ; KEY    -> (LPTR)=>params
 * terminator
             DB    $00
@@ -85,7 +106,7 @@ CLILP2      LDA   (OSLPTR),Y
             DEY
             JSR   LPTRtoXY        ; Add Y to LPTR
             JSR   XYtoLPTR        ; LPTR=>start of actual command
-;
+*
 * Search command table
             LDX   #0              ; Start of command table
 CLILP4      LDY   #0              ; Start of command line
@@ -150,10 +171,8 @@ STARFSC2    PHA
             PLA
 STARFSC     AND   #$7F            ; A=command, XY=>parameters
             JSR   CALLFSCV        ; Hand on to filing system
-* TO DO: hostfs.s needs to return A=0
             TAX
-            BEQ   CLIDONE
-            RTS   ; *TEMP*
+            BEQ   CLIDONE         ; A=0, FSC call implemented
 ERRBADCMD   BRK
             DB    $FE
             ASC   'Bad command'
@@ -165,7 +184,8 @@ ERRBADADD   BRK
             ASC   'Bad address'
             BRK
 
-CALLFSCV    JMP (FSCV)                     ; Hand on to filing system
+* CALLFSCV    JMP (FSCV)                     ; Hand on to filing system
+* Moved to BYTWRD
 
 
 * *FX num(,num(,num))
@@ -273,12 +293,12 @@ ERRBADADD1  JMP   ERRBADADD
 SKIPCOMMA   LDA   (OSLPTR),Y
             CMP   #$2C
             BNE   SKIPSPC
-;
+*
 * Skip spaces
-SKIPSPCLP   INY              ; Step past space or comma
+SKIPSPC1    INY              ; Step past a character
 SKIPSPC     LDA   (OSLPTR),Y
             CMP   #' '
-            BEQ   SKIPSPCLP
+            BEQ   SKIPSPC1
             CMP   #$0D       ; Return EQ=<cr>
             RTS
 
@@ -301,20 +321,21 @@ XYtoLPTR    STX   OSLPTR+0
 * Print *HELP text
 * These needs tidying a bit
 STARHELP    PHY
-            LDA   #<:MSG
-            LDY   #>:MSG
-            JSR   PRSTR
+            JSR   PRHELLO    ; Unifiy version message
+;            LDA   #<:MSG
+;            LDY   #>:MSG
+;            JSR   PRSTR
             PLY
             PHY
             LDA   (OSLPTR),Y
-            CMP   #'.'
+            CMP   #'.'       ; *HELP .
             BEQ   STARHELP1
             INY
             EOR   (OSLPTR),Y
             INY
             EOR   (OSLPTR),Y
             AND   #$DF
-            CMP   #$51
+            CMP   #$51       ; *HELP MOS
             BNE   STARHELP5
 STARHELP1   LDX   #0
             LDA   #32
@@ -342,18 +363,19 @@ STARHELP5   LDA   $8006
             BMI   STARHELP6  ; Use ROM's service entry
             JSR   OSNEWL
             LDA   #$09       ; Language name
-            LDY   #$80
-            JSR   PRSTR
-            LDA   #<:MSG2
-            LDY   #>:MSG2
-            JSR   PRSTR
+            LDY   #$80       ; *TO DO* make this and BYTE8E
+            JSR   PRSTR      ;  use same code
+            JSR   OSNEWL
+;            LDA   #<:MSG2
+;            LDY   #>:MSG2
+;            JSR   PRSTR
 STARHELP6   PLY
             LDA   #9
             JMP   SERVICE    ; Pass to sideways ROM(s)
-:MSG        DB    $0D
-            ASC   'Applecorn MOS v0.01'
-            DB    $0D,$00
-:MSG2       DB    $0D,$00
+;:MSG        DB    $0D
+;            ASC   'Applecorn MOS v0.01'
+;            DB    $0D,$00
+;:MSG2       DB    $0D,$00
 
 * Handle *QUIT command
 STARQUIT    >>>   XF2MAIN,QUIT
@@ -376,7 +398,7 @@ STARLDSV0
             CMP   OSTEMP
             BNE   STARLDSV0       ; Step past filename
 ; ^^^^
-            JSR   SKIPSPCLP       ; Skip following spaces
+            JSR   SKIPSPC1        ; Skip following spaces
             BNE   STARLDSV3       ; *load/save name addr 
 STARLDSV1   LDA   #$FF            ; $FF=load to file's address
 STARLOAD2
@@ -409,7 +431,7 @@ STARSAVE4
             CMP   #'+'
             PHP
             BNE   STARSAVE5       ; Not start+length
-            JSR   SKIPSPCLP       ; Step past '+' and spaces
+            JSR   SKIPSPC1        ; Step past '+' and spaces
 STARSAVE5
             LDX   #OSFILECB+14-$200
             JSR   SCANHEX         ; Get end or length
@@ -426,10 +448,10 @@ STARSAVE6
             AND   #3
             BNE   STARSAVE6
 STARSAVE7
-; load =start
-; exec =start
-; start=start
-; end  =end or start+length
+* load =start
+* exec =start
+* start=start
+* end  =end or start+length
             JSR   SKIPSPC
             BEQ   STARSAVE10      ; No more, do it
             LDX   #OSFILECB+6-$200
@@ -445,7 +467,7 @@ STARSAVE10
 STARLDSVGO
             LDX   OSLPTR+0
             LDY   OSLPTR+1
-;
+*
 
 * Commands passed to OSFILE
 ***************************
@@ -454,7 +476,10 @@ STARFILE    EOR   #$80
             STY   OSFILECB+1
             LDX   #<OSFILECB
             LDY   #>OSFILECB
-            JMP   OSFILE
+            JSR   OSFILE
+            TAX
+            BNE   STARDONE
+            JMP   ERRNOTFND
 
 STARCHDIR   STX   ZP1+0      ; TEMP
             STY   ZP1+1      ; TEMP
@@ -463,18 +488,13 @@ STARCHDIR   STX   ZP1+0      ; TEMP
 
 STARDRIVE
 STARBASIC
-STARKEY     RTS
+STARKEY
+STARDONE    RTS
 
 
- 
-;* Handle *CAT / *. command (list directory)
-;STARCAT     LDA   #$05
-;            JMP   JUMPFSCV   ; Hand on to filing system
-
-
-; Code that calls this will need to be replaced with calls
-;  to SKIPSPC and GSREAD
-;
+* Code that calls this will need to be replaced with calls
+*  to SKIPSPC and GSREAD
+*
 * Consume spaces in command line. Treat " as space!
 * Return C set if no space found, C clear otherwise
 * Command line pointer in (ZP1),Y
@@ -496,207 +516,5 @@ EATSPC      LDA   (ZP1),Y    ; Check first char is ...
             RTS
 :NOTFND     SEC
             RTS
-
-;* Consume chars in command line until space or " is found
-;* Command line pointer in (ZP1),Y
-;* Returns with carry set if EOL
-;EATWORD     LDA   (ZP1),Y
-;            CMP   #' '
-;            BEQ   :SPC
-;            CMP   #'"'
-;            BEQ   :SPC
-;            CMP   #$0D       ; Carriage return
-;            BEQ   :EOL
-;            INY
-;            BRA   EATWORD
-;:SPC        CLC
-;            RTS
-;:EOL        SEC
-;            RTS
-;
-;* Add Y to ZP1 pointer. Clear Y.
-;ADDZP1Y     CLC
-;            TYA
-;            ADC   ZP1
-;            STA   ZP1
-;            LDA   #$00
-;            ADC   ZP1+1
-;            STA   ZP1+1
-;            LDY   #$00
-;            RTS
-;
-;* Decode ASCII hex digit in A
-;* Returns with carry set if bad char, C clear otherwise
-;HEXDIGIT    CMP   #'F'+1
-;            BCS   :BADCHAR                   ; char > 'F'
-;            CMP   #'A'
-;            BCC   :S1
-;            SEC                              ; 'A' <= char <= 'F'
-;            SBC   #'A'-10
-;            CLC
-;            RTS
-;:S1         CMP   #'9'+1
-;            BCS   :BADCHAR                   ; '9' < char < 'A'
-;            CMP   #'0'
-;            BCC   :BADCHAR                   ; char < '0'
-;            SEC                              ; '0' <= char <= '9'
-;            SBC   #'0'
-;            CLC
-;            RTS
-;:BADCHAR    SEC
-;            RTS
-;
-;* Decode hex constant on command line
-;* On entry, ZP1 points to command line
-;HEXCONST    LDX   #$00
-;:L1         STZ   :BUF,X                     ; Clear :BUF
-;            INX
-;            CPX   #$04
-;            BNE   :L1
-;            LDX   #$00
-;            LDY   #$00
-;:L2         LDA   (ZP1),Y                    ; Parse hex digits into
-;            JSR   HEXDIGIT                   ; :BUF, left aligned
-;            BCS   :NOTHEX
-;            STA   :BUF,X
-;            INY
-;            INX
-;            CPX   #$04
-;            BNE   :L2
-;            LDA   (ZP1),Y                    ; Peek at next char
-;:NOTHEX     CPX   #$00                       ; Was it the first digit?
-;            BEQ   :ERR                       ; If so, bad hex constant
-;            CMP   #' '                       ; If whitespace, then okay
-;            BEQ   :OK
-;            CMP   #$0D
-;            BEQ   :OK
-;:ERR        SEC
-;            RTS
-;:OK         LDA   :BUF-4,X
-;            ASL
-;            ASL
-;            ASL
-;            ASL
-;            ORA   :BUF-3,X
-;            STA   ADDRBUF+1
-;            LDA   :BUF-2,X
-;            ASL
-;            ASL
-;            ASL
-;            ASL
-;            ORA   :BUF-1,X
-;            STA   ADDRBUF
-;            CLC
-;            RTS
-;:ZEROPAD    DB    $00,$00,$00
-;:BUF        DB    $00,$00,$00,$00
-;
-;ADDRBUF     DW    $0000                      ; Used by HEXCONST
-;
-;* Handle *LOAD command
-;STARLOAD
-;* TEMP
-;            STX   ZP1+0    ;  need (ZP1),Y=>parameters
-;            STY   ZP1+1
-;            LDY   #$00
-;* TEMP
-;* On entry, ZP1 points to command line
-;            JSR   CLRCB
-;;            JSR   EATSPC                     ; Eat leading spaces
-;;            BCS   :ERR
-;            JSR   ADDZP1Y                    ; Advance ZP1
-;            LDA   ZP1                        ; Pointer to filename
-;            STA   OSFILECB
-;            LDA   ZP1+1
-;            STA   OSFILECB+1
-;            JSR   EATWORD                    ; Advance past filename
-;            BCS   :NOADDR                    ; No load address given
-;            LDA   #$0D                       ; Carriage return
-;            STA   (ZP1),Y                    ; Terminate filename
-;            INY
-;            JSR   EATSPC                     ; Eat any whitespace
-;            JSR   ADDZP1Y                    ; Update ZP1
-;            JSR   HEXCONST
-;            BCS   :ERR                       ; Bad hex constant
-;            LDA   ADDRBUF
-;            STA   OSFILECB+2                 ; Load address LSB
-;            LDA   ADDRBUF+1
-;            STA   OSFILECB+3                 ; Load address MSB
-;:OSFILE     LDX   #<OSFILECB
-;            LDY   #>OSFILECB
-;            LDA   #$FF                       ; OSFILE load flag
-;            JSR   OSFILE
-;:END        RTS
-;:NOADDR     LDA   #$FF                       ; Set OSFILECB+6 to non-zero
-;            STA   OSFILECB+6                 ; Means use the file's addr
-;            BRA   :OSFILE
-;:ERR        JMP   ERRBADADD
-;
-;* Handle *SAVE command
-;STARSAVE
-;* TEMP
-;            STX   ZP1+0    ;  need (ZP1),Y=>parameters
-;            STY   ZP1+1
-;            LDY   #$00
-;* TEMP
-;* On entry, ZP1 points to command line
-;            JSR   CLRCB
-;;            JSR   EATSPC                     ; Eat leading space
-;;            BCS   :ERR
-;            JSR   ADDZP1Y                    ; Advance ZP1
-;            LDA   ZP1                        ; Pointer to filename
-;            STA   OSFILECB
-;            LDA   ZP1+1
-;            STA   OSFILECB+1
-;            JSR   EATWORD
-;            BCS   :ERR                       ; No start address given
-;            LDA   #$0D                       ; Carriage return
-;            STA   (ZP1),Y                    ; Terminate filename
-;            INY
-;            JSR   EATSPC                     ; Eat any whitespace
-;            JSR   ADDZP1Y                    ; Update ZP1
-;            JSR   HEXCONST
-;            BCS   :ERR                       ; Bad start address
-;            LDA   ADDRBUF
-;            STA   OSFILECB+10
-;            LDA   ADDRBUF+1
-;            STA   OSFILECB+11
-;            JSR   EATSPC                     ; Eat any whitespace
-;            JSR   ADDZP1Y                    ; Update ZP1
-;            JSR   HEXCONST
-;            BCS   :ERR                       ; Bad end address
-;            LDA   ADDRBUF
-;            STA   OSFILECB+14
-;            LDA   ADDRBUF+1
-;            STA   OSFILECB+15
-;            LDX   #<OSFILECB
-;            LDY   #>OSFILECB
-;            LDA   #$00                       ; OSFILE save flag
-;            JSR   OSFILE
-;:END        RTS
-;:ERR        JMP   ERRBADADD
-;
-;* Handle *RUN command
-;* On entry, ZP1 points to command line
-;STARRUN     LDA #$04
-;JUMPFSCV    PHA
-;            JSR   EATSPC                     ; Eat leading spaces
-;            JSR   ADDZP1Y
-;            LDX   ZP1+0
-;            LDY   ZP1+1
-;            PLA
-;            AND   #$7F       ; A=command, XY=>parameters
-;CALLFSCV    JMP (FSCV)                     ; Hand on to filing system
-;
-;* Clear OSFILE control block to zeros
-;CLRCB       LDA   #$00
-;            LDX   #$00
-;:L1         STA   OSFILECB,X
-;            INX
-;            CPX   #18
-;            BNE   :L1
-;            RTS
-
-
 
 

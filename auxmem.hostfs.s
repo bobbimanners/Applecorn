@@ -231,7 +231,9 @@ FILEHND     PHX
             CMP   #$FF
             BEQ   :LOAD               ; A=FF -> LOAD
             CMP   #$06
-            BEQ   :DELETE             ; A=06 -> DELET
+            BEQ   :DELETE             ; A=06 -> DELETE
+            CMP   #$08
+            BEQ   :MKDIR              ; A=08 -> MKDIR
             LDA   #<OSFILEM           ; If not implemented, print msg
             LDY   #>OSFILEM
             JSR   PRSTR
@@ -248,6 +250,9 @@ FILEHND     PHX
 :SAVE       >>>   XF2MAIN,SAVEFILE
 :LOAD       >>>   XF2MAIN,LOADFILE
 :DELETE     >>>   XF2MAIN,DELFILE
+:MKDIR      >>>   XF2MAIN,MAKEDIR
+
+* On return here, A<$80 just return to caller, A>$7F generate error
 OSFILERET
             >>>   ENTAUX
             PHA
@@ -255,25 +260,28 @@ OSFILERET
             STA   ZP1
             LDA   CBPTR+1
             STA   ZP1+1
-            LDY   #$00
+            LDY   #$02
 :L3         LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
             STA   (ZP1),Y
             INY
             CPY   #18                 ; 18 bytes in control block
             BNE   :L3
             PLA
-            PLY                       ; Value of A on OSFILE entry
+* BMI   :L4
+* JMP   :EXIT ; ret<$80, return it to user
+
+:L4         PLY                       ; Value of A on OSFILE entry
             CPY   #$FF                ; See if command was LOAD
             BNE   :NOTLOAD            ; Deal with return from SAVE
 
             CMP   #$01                ; No file found
-            BNE   :SL1
-            BRK
+            BNE   SL1
+ERRNOTFND   BRK
             DB    $D6                 ; $D6 = Object not found
             ASC   'File not found'
             BRK
 
-:SL1        CMP   #$02                ; Read error
+SL1         CMP   #$02                ; Read error
             BNE   :SL2
             BRK
             DB    $CA                 ; $CA = Premature end, 'Data lost'
@@ -305,10 +313,11 @@ OSFILERET
 
 :NOTLS      CMP   #$00                ; File was not found
             BNE   :SD1
-            BRK
-            DB    $D6                 ; $D6 = File not found
-            ASC   'Not found'
-            BRK
+            JMP   :EXIT
+;            BRK
+;            DB    $D6                 ; $D6 = File not found
+;            ASC   'Not found'
+;            BRK
 
 :SD1        CMP   #$FF                ; Some other error
             BNE   :EXIT               ; A=0 or 1 already
@@ -319,14 +328,28 @@ OSFILERET
             ASC   't delete'
             BRK
 
+:NOTLSD     CPY   #$08                ; Was it CDIR?
+            BNE   :EXIT
+            CMP   #$00                ; A=0 means dir was created
+            BNE   ERREXISTS
+
+:SC1        LDA   #$02                ; A=2 - dir exists or was created
+
 :EXIT       PLY
             PLX
             RTS
+
+ERREXISTS   BRK
+            DB    $C4                 ; Can't create a dir if a file is
+            ASC   'File exists'       ; already there
+            BRK
 
 CBPTR       DW    $0000
 OSFILEM     ASC   'OSFILE($'
             DB    $00
 OSFILEM2    ASC   ')'
+            DB    $00
+OSFSCM      ASC   'OSFSC.'
             DB    $00
 
 * OSFSC - miscellanous file system calls
@@ -337,6 +360,7 @@ OSFILEM2    ASC   ')'
 *            A=modified if implemented
 *            X,Y=any return values
 * 
+* TO DO: use jump table
 FSCHND      CMP   #$00
             BEQ   FSOPT               ; A=0  - *OPT
             CMP   #$01
@@ -354,13 +378,12 @@ FSCHND      CMP   #$00
             CMP   #$0C
             BEQ   FSCREN              ; A=12 - *RENAME
 
-FSCREN
-FSCUKN      LDA   #<OSFSCM
+FSCUKN      PHA
+            LDA   #<OSFSCM
             LDY   #>OSFSCM
             JSR   PRSTR
+            PLA
             RTS
-OSFSCM      ASC   'OSFSC.'
-            DB    $00
 
 FSCRUN      STX   OSFILECB            ; Pointer to filename
             STY   OSFILECB+1
@@ -375,10 +398,14 @@ FSCRUN      STX   OSFILECB            ; Pointer to filename
 :CALL       JMP   (OSFILECB+6)        ; Jump to EXEC addr
             RTS
 
+FSCREN      JSR   XYtoLPTR            ; Pointer to command line
+            JSR   RENAME
+            RTS
+
 * Performs OSFSC *OPT function
 FSOPT       RTS                       ; No FS options for now
 
-* Performs OSBYTE $7F EOF function
+* Performs OSFSC Read EOF function
 * File ref number is in X
 CHKEOF      >>>   WRTMAIN
             STX   MOSFILE             ; File reference number
@@ -394,7 +421,8 @@ CHKEOFRET
 FSCCAT      >>>   XF2MAIN,CATALOG
 STARCATRET
             >>>   ENTAUX
-            JMP   OSNEWL
+            JSR   OSNEWL
+            LDA   #0                  ; 0=OK
             RTS
 
 * Print one block of a catalog. Called by CATALOG
@@ -461,6 +489,68 @@ PRONEENT    TAX
             CPY   #$15
             BNE   :S2
 :EXIT       RTS
+
+* Perform FSCV $0C RENAME function
+* Parameter string in OSLPTR
+RENAME      LDY   #$00
+:ARG1       LDA   (OSLPTR),Y
+            CMP   #$20                ; Space
+            BEQ   :ENDARG1
+            CMP   #$0D                ; Carriage return
+            BEQ   :RENSYN
+            INY
+            >>>   WRTMAIN
+            STA   MOSFILE,Y
+            >>>   WRTAUX
+            BRA   :ARG1
+:ENDARG1    >>>   WRTMAIN
+            STY   MOSFILE             ; Length of Pascal string
+            >>>   WRTAUX
+            JSR   SKIPSPC
+            JSR   LPTRtoXY            ; Update LPTR and set Y=0
+            JSR   XYtoLPTR            ; ...
+:ARG2       LDA   (OSLPTR),Y
+            CMP   #$20                ; Space
+            BEQ   :ENDARG2
+            CMP   #$0D                ; Carriage return
+            BEQ   :ENDARG2
+            INY
+            >>>   WRTMAIN
+            STA   MOSFILE2,Y
+            >>>   WRTAUX
+            BRA   :ARG2
+:ENDARG2    >>>   WRTMAIN
+            STY   MOSFILE2            ; Length of Pascal string
+            >>>   WRTAUX
+            >>>   XF2MAIN,RENFILE
+:RENSYN     BRK
+            DB    $DC
+            ASC   'Syntax: RENAME <old fname> <new fname>'
+            BRK
+RENRET
+            >>>   ENTAUX
+            CMP   #$44                ; Path not found
+            BEQ   :NOTFND
+            CMP   #$45                ; Vol dir not found
+            BEQ   :NOTFND
+            CMP   #$46                ; File not found
+            BEQ   :NOTFND
+            CMP   #$47                ; Duplicate filename
+            BEQ   :EXISTS
+            CMP   #$4E                ; Access error
+            BEQ   :LOCKED
+            CMP   #$00
+            BNE   :OTHER              ; All other errors
+            RTS
+:NOTFND     JMP   ERRNOTFND
+:EXISTS     JMP   ERREXISTS
+:LOCKED     BRK
+            DB    $C3
+            ASC   'Locked'
+:OTHER      BRK
+            DB    $C7
+            ASC   'Disc error'
+            BRK
 
 * Handle *DIR (directory change) command
 * On entry, ZP1 points to command line

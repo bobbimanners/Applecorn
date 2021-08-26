@@ -178,12 +178,38 @@ DESTROY     LDA   #<MOSFILE          ; Attempt to destroy file
             DW    DESTPL
             RTS
 
+* ProDOS file handling to create a directory
+MAKEDIR     >>>   ENTMAIN
+            LDA   #<MOSFILE
+            STA   CREATEPL+1
+            LDA   #>MOSFILE
+            STA   CREATEPL+2
+            LDA   #$C3               ; 'Default access'
+            STA   CREATEPL+3         ; ->Access
+            LDA   #$0F               ; 'Directory'
+            STA   CREATEPL+4         ; ->File type
+            STZ   CREATEPL+5         ; Aux type LSB
+            STZ   CREATEPL+6         ; Aux type MSB
+            LDA   #$0D               ; 'Directory'
+            STA   CREATEPL+7         ; ->Storage type
+            LDA   $BF90              ; Current date
+            STA   CREATEPL+8
+            LDA   $BF91
+            STA   CREATEPL+9
+            LDA   $BF92              ; Current time
+            STA   CREATEPL+10
+            LDA   $BF93
+            STA   CREATEPL+11
+            JSR   CRTFILE
+            LDA   #$02
+:EXIT       >>>   XF2AUX,OSFILERET
+
 * ProDOS file handling to rename a file
 RENFILE     >>>   ENTMAIN
-            JSR   RENAME
-** >>> XF2AUX,STARRENRET  **** TODO FIX THIS!!!
+            JSR   DORENAME
+            >>>   XF2AUX,RENRET
 
-RENAME      LDA   #<MOSFILE
+DORENAME    LDA   #<MOSFILE
             STA   RENPL+1
             LDA   #>MOSFILE
             STA   RENPL+2
@@ -432,6 +458,7 @@ TELL        >>>   ENTMAIN
 * Return A=0 if successful
 *        A=1 if file not found
 *        A=2 if read error
+* TO DO: change to $01, $80, some other $80+n
 LOADFILE    >>>   ENTMAIN
             STZ   :BLOCKS
             LDA   #<MOSFILE
@@ -524,6 +551,7 @@ COPYFB      PHA
 * Return A=0 if successful
 *        A=1 if unable to create/open
 *        A=2 if error during save
+* TO DO: change to $01, $80, some other $80+n
 SAVEFILE    >>>   ENTMAIN
             LDA   #<MOSFILE          ; Attempt to destroy file
             STA   DESTPL+1
@@ -691,6 +719,24 @@ UPDFB       LDA   #<MOSFILE
             STZ   FBLOAD+3
             STZ   FBEXEC+2
             STZ   FBEXEC+3
+            LDA   GINFOPL+3          ; Access byte
+            CMP   #$40               ; Locked?
+            AND   #$03               ; ------wr
+            PHP
+            STA   FBEND+0
+            ASL   A                  ; -----wr-
+            ASL   A                  ; ----wr--
+            ASL   A                  ; ---wr---
+            ASL   A                  ; --wr----
+            PLP
+            BCS   :UPDFB2
+            ORA   #$08               ; --wrl---
+:UPDFB2     ORA   FBEND+0            ; --wrl-wr
+            STA   FBEND+0
+            STZ   FBEND+1            ; TO DO: get mdate
+            STZ   FBEND+2
+            STZ   FBEND+3
+
             JSR   OPENFILE           ; Open file
             BCS   :ERR
             LDA   OPENPL+5           ; File ref number
@@ -705,12 +751,6 @@ UPDFB       LDA   #<MOSFILE
             LDA   GMARKPL+4
             STA   FBSTRT+2
             STZ   FBSTRT+3
-            LDA   #$33               ; 'W/R' attribs
-            STA   FBEND+0
-            STZ   FBEND+1
-            STZ   FBEND+2
-            STZ   FBEND+3
-            LDA   #$33               ; W/R attributes
             LDA   OPENPL+5           ; File ref numbre
             STA   CLSPL+1
             JSR   CLSFILE
@@ -906,8 +946,10 @@ FBLOAD      DW    $0000              ; Load address
             DW    $0000
 FBEXEC      DW    $0000              ; Exec address
             DW    $0000
-FBSTRT      DW    $0000              ; Start address for SAVE
+FBSIZE
+FBSTRT      DW    $0000              ; Size / Start address for SAVE
             DW    $0000
-FBEND       DW    $0000              ; End address for SAVE
+FBATTR
+FBEND       DW    $0000              ; Attributes / End address for SAVE
             DW    $0000
 
