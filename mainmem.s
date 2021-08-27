@@ -143,8 +143,9 @@ COPYAUXBLK
             RTS
 
 * ProDOS file handling to delete a file
-* Return A=0 not found, A=FF other err
-*        A=1 file deleted, A=2 dir deleted
+* Called by AppleMOS OSFILE
+* Return A=1 file deleted, A=2 dir deleted
+*        A=80 not found, A=81 can't delete
 DELFILE     >>>   ENTMAIN
             JSR   UPDFB              ; Update FILEBLK
             JSR   COPYFB             ; Copy back to aux mem
@@ -156,9 +157,9 @@ DELFILE     >>>   ENTMAIN
             BEQ   :NOTFND
             CMP   #$46               ; File not found
             BEQ   :NOTFND
-            LDA   #$FF               ; Some other error
+            LDA   #$81               ; Some other error
             BRA   :EXIT
-:NOTFND     LDA   #$00               ; 'Not found'
+:NOTFND     LDA   #$80               ; 'Not found'
             BRA   :EXIT
 :DELETED    LDA   GINFOPL+7          ; Storage type
             CMP   #$0D               ; Directory
@@ -178,6 +179,11 @@ DESTROY     LDA   #<MOSFILE          ; Attempt to destroy file
             RTS
 
 * ProDOS file handling to create a directory
+* Invoked by AppleMOS OSFILE
+* Return A=02 on success (ie: 'directory')
+*        A=80 Already exists
+*        A=81 Bad name
+*        A=82 Can't create
 MAKEDIR     >>>   ENTMAIN
             LDA   #<MOSFILE
             STA   CREATEPL+1
@@ -200,7 +206,18 @@ MAKEDIR     >>>   ENTMAIN
             LDA   $BF93
             STA   CREATEPL+11
             JSR   CRTFILE
-            LDA   #$02
+            BCC   :OK
+            CMP   #$47               ; Duplicate filename
+            BEQ   :DUPE
+            CMP   #$40               ; Bad pathname
+            BEQ   :BADNAME
+            LDA   #$82
+            BRA   :EXIT
+:DUPE       LDA   #$80
+            BRA   :EXIT
+:BADNAME    LDA   #$81
+            BRA   :EXIT
+:OK         LDA   #$02
 :EXIT       >>>   XF2AUX,OSFILERET
 
 * ProDOS file handling to rename a file
@@ -454,10 +471,10 @@ TELL        >>>   ENTMAIN
             BRA   :EXIT
 
 * ProDOS file handling for MOS OSFILE LOAD call
-* Return A=0 if successful
-*        A=1 if file not found
-*        A=2 if read error
-* TO DO: change to $01, $80, some other $80+n
+* Invoked by AppleMOS OSFILE
+* Return A=01 if successful (meaning 'file')
+*        A=80 if file not found
+*        A=81 if read error
 LOADFILE    >>>   ENTMAIN
             STZ   :BLOCKS
             LDA   #<MOSFILE
@@ -514,13 +531,14 @@ LOADFILE    >>>   ENTMAIN
             JSR   AUXMOVE
             INC   :BLOCKS
             BRA   :L1
-:NOTFND     LDA   #$01               ; Nothing found
+:NOTFND     LDA   #$80               ; Nothing found
             PHA
             BRA   :EXIT
-:READERR    LDA   #$02               ; Read error
+:READERR    LDA   #$81               ; Read error
             PHA
             BRA   :EOF2
-:EOF        LDA   #$00               ; Success
+:EOF        LDA   #$01               ; Success ('File')
+            PHA
 :EOF2       LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
@@ -547,10 +565,10 @@ COPYFB      PHA
             RTS
 
 * ProDOS file handling for MOS OSFILE SAVE call
-* Return A=0 if successful
-*        A=1 if unable to create/open
-*        A=2 if error during save
-* TO DO: change to $01, $80, some other $80+n
+* Invoked by AppleMOS OSFILE
+* Return A=01 if successful (ie: 'file')
+*        A=80 if unable to create/open
+*        A=81 if error during save
 SAVEFILE    >>>   ENTMAIN
             LDA   #<MOSFILE          ; Attempt to destroy file
             STA   DESTPL+1
@@ -667,23 +685,29 @@ SAVEFILE    >>>   ENTMAIN
             BRA   :ENDLOOP
 
 :CANTOPEN
-            LDA   #$01               ; Can't open/create
+            LDA   #$80               ; Can't open/create
+            PHA
             BRA   :EXIT
 :WRITEERR
             LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-            LDA   #$02               ; Write error
+            LDA   #$81               ; Write error
+            PHA
             BRA   :EXIT
 :NORMALEND
             LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-            LDA   #$00               ; Success!
-            BCC   :EXIT              ; If close OK
-            LDA   #$02               ; Write error
+            BCC   :OK                ; If close OK
+            LDA   #$81               ; Write error
+            PHA
+            BRA   :EXIT
+:OK         LDA   #$01               ; Success ('File')
+            PHA
 :EXIT       JSR   UPDFB              ; Update FILEBLK
             JSR   COPYFB             ; Copy FILEBLK to aux mem
+            PLA
             >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
 :LENREM     DW    $0000              ; Remaining length
