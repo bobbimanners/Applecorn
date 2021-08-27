@@ -267,30 +267,28 @@ OSFILERET
             CPY   #18                 ; 18 bytes in control block
             BNE   :L3
             PLA
-* BMI   :L4
-* JMP   :EXIT ; ret<$80, return it to user
+
+            BMI   :L4
+            PLY                       ; Discard val of A on entry
+            JMP   :EXIT               ; ret<$80, return it to user
 
 :L4         PLY                       ; Value of A on OSFILE entry
             CPY   #$FF                ; See if command was LOAD
-            BNE   :NOTLOAD            ; Deal with return from SAVE
+            BNE   :NOTLOAD
 
-            CMP   #$01                ; No file found
+            CMP   #$80                ; No file found
             BNE   :SL1
             BRA   ERRNOTFND
 
-:SL1        CMP   #$02                ; Read error
-            BNE   :SL2
-            BRK
+:SL1        BRK                       ; Must be A=$81
             DB    $CA                 ; $CA = Premature end, 'Data lost'
             ASC   'Read error'
             BRK
 
-:SL2        LDA   #$01                ; Return code - file found
-            BRA   :EXIT
-
 :NOTLOAD    CPY   #$00                ; See if command was SAVE
             BNE   :NOTLS              ; Not LOAD or SAVE
-            CMP   #$01                ; Unable to create or open
+
+            CMP   #$80                ; Unable to create or open
             BNE   :SS1
             BRK
             DB    $C0                 ; $C0 = Can't create file to save
@@ -299,16 +297,15 @@ OSFILERET
             ASC   't save file'
             BRK
 
-:SS1        CMP   #$02                ; Unable to write
-            BNE   :SS2
-            BRK
+:SS1        BRK                       ; Must be A=$81
             DB    $CA                 ; $CA = Premature end, 'Data lost'
             ASC   'Write error'
             BRK
 
-:SS2        LDA   #$01                ; Return code - file found
+:NOTLS      CPY   #$06                ; See if command was DELETE
+            BNE   :NOTLSD
 
-:NOTLS      CMP   #$00                ; File was not found
+            CMP   #$80                ; File was not found
             BNE   :SD1
             JMP   :EXIT
 *            BRK
@@ -316,9 +313,7 @@ OSFILERET
 *            ASC   'Not found'
 *            BRK
 
-:SD1        CMP   #$FF                ; Some other error
-            BNE   :EXIT               ; A=0 or 1 already
-            BRK
+:SD1        BRK                       ; Must be A=$81
             DB    $D6                 ; TODO: Better error code?
             ASC   'Can'
             DB    $27
@@ -327,10 +322,25 @@ OSFILERET
 
 :NOTLSD     CPY   #$08                ; Was it CDIR?
             BNE   :EXIT
-            CMP   #$00                ; A=0 means dir was created
-            BNE   ERREXISTS
 
-:SC1        LDA   #$02                ; A=2 - dir exists or was created
+            CMP   #$80                ; A=80 dir already exists
+            BEQ   :EXISTS
+            CMP   #$81                ; A=81 bad name
+            BNE   :SC1
+
+            BRK
+            DB    $CC
+            ASC   'Bad name'
+            BRK
+
+:SC1        BRK
+            DB    $C0
+            ASC   'Can'
+            DB    27
+            ASC   't create dir'
+            BRK
+
+:EXISTS     LDA   #$02                ; A=2 - dir exists or was created
 
 :EXIT       PLY
             PLX
