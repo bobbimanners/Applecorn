@@ -7,7 +7,6 @@
 
 * 24-Aug-2021 AUXTYPE set from load address
 
-
 * ProDOS MLI command numbers
 QUITCMD     EQU   $65
 GTIMECMD    EQU   $82
@@ -683,15 +682,6 @@ SAVEFILE    >>>   ENTMAIN
             LDA   #$00               ; Success!
             BCC   :EXIT              ; If close OK
             LDA   #$02               ; Write error
-            LDA   #<MOSFILE
-            STA   GINFOPL+1
-            LDA   #>MOSFILE
-            STA   GINFOPL+2
-            JSR   MLI                ; Call GET_FILE_INFO
-            DB    GINFOCMD
-            DW    GINFOPL
-            BCS   :EXIT
-            LDA   #$02               ; Write error
 :EXIT       JSR   UPDFB              ; Update FILEBLK
             JSR   COPYFB             ; Copy FILEBLK to aux mem
             >>>   XF2AUX,OSFILERET
@@ -952,6 +942,4 @@ FBSTRT      DW    $0000              ; Size / Start address for SAVE
 FBATTR
 FBEND       DW    $0000              ; Attributes / End address for SAVE
             DW    $0000
-
-
 
