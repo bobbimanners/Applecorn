@@ -47,10 +47,10 @@ SETPRFX     LDA   #GPFXCMD
             LDX   $0300
             BNE   RTSINST
             LDA   $BF30
-            STA   ONLPL+1            ; Device number
+            STA   ONLNPL+1           ; Device number
             JSR   MLI
             DB    ONLNCMD
-            DW    ONLPL
+            DW    ONLNPL
             LDA   $0301
             AND   #$0F
             TAX
@@ -810,28 +810,47 @@ CATALOGRET
             >>>   ENTMAIN
             BRA   CATREENTRY
 
-* Set the prefix
-SETPFX      >>>   ENTMAIN
-* LDA MOSFILE ; Length
-* CMP #$01
-* BNE :S1 ; Not one char
-            LDA   MOSFILE+1          ; First char of dirname
+* Preprocess path in MOSFILE, handling '^' character
+* '^' means parent dir (eg: '^/SOMEDIR'))
+* Carry set on error, clear otherwise
+PREPATH     LDA   MOSFILE+1          ; First char of dirname
             CMP   #$5E               ; '^' char
-            BNE   :S1                ; Not '^'
+            BEQ   :CARET             ; If '^'
+            CMP   #$3A               ; ':' char
+            BEQ   :COLON
+            BRA   :EXIT              ; Nothing to do
+:CARET      JSR   GETPREF            ; Current prfx -> MOSFILE2
             JSR   PARENT             ; Parent dir -> MOSFILE2
-            LDA   #<MOSFILE2
-            STA   SPFXPL+1
-            LDA   #>MOSFILE2
-            STA   SPFXPL+2
-            BRA   :S2
-:S1         LDA   #<MOSFILE
+            JSR   DEL1CHAR           ; Delete '^' from MOSFILE
+            LDA   MOSFILE            ; Is there more?
+            BEQ   :PARENT            ; Only '^'
+            LDA   MOSFILE+1          ; What is next char?
+            CMP   #$2F               ; Is it slash?
+            BNE   :ERR
+:PARENT     JSR   APPMF2             ; Append MOSFILE->MOSFILE2
+            JSR   COPYMF2            ; Copy back to MOSFILE
+:EXIT       CLC
+            RTS
+:COLON
+* TODO: Handle :SD for slot/drive here
+            BRA   :ERR
+:ERR        SEC
+            RTS
+
+* Set prefix. Used by *DIR to change directory
+SETPFX      >>>   ENTMAIN
+            JSR   PREPATH            ; Preprocess path
+            BCS   :ERR
+            LDA   #<MOSFILE
             STA   SPFXPL+1
             LDA   #>MOSFILE
             STA   SPFXPL+2
-:S2         JSR   MLI
+            JSR   MLI                ; SET_PREFIX
             DB    SPFXCMD
             DW    SPFXPL
-            >>>   XF2AUX,STARDIRRET
+:EXIT       >>>   XF2AUX,STARDIRRET
+:ERR        LDA   #$40               ; Invalid pathname syn
+            BRA   :EXIT
 
 * Create disk file
 CRTFILE     JSR   MLI
@@ -869,10 +888,9 @@ GETPREF     JSR   MLI
             DW    GPFXPL
             RTS
 
-* Put parent directory in MOSFILE2
-* If already at top level, parent is current dir
-PARENT      JSR   GETPREF
-            LDX   MOSFILE2           ; Length of string
+* Convert path in MOSFILE2 by removing leaf dir to leave
+* parent directory. If already at top, return unchanged.
+PARENT      LDX   MOSFILE2           ; Length of string
             BEQ   :EXIT              ; Prefix len zero
             DEX                      ; Ignore trailing '/'
 :L1         LDA   MOSFILE2,X
@@ -886,7 +904,74 @@ PARENT      JSR   GETPREF
             STX   MOSFILE2           ; Truncate string
 :EXIT       RTS
 
+* Convert slot/drive to prefix
+* Expect slot number (1..7) in A, drive (0..1) in X
+* Puts prefix (or empty string) in MOSFILE
+DRV2PFX     ASL
+            ASL
+            ASL
+            ASL
+            STX   :TEMP
+            ORA   :TEMP
+            STA   ONLNPL+1           ; Device number
+            JSR   MLI                ; Call ON_LINE
+            DB    ONLNCMD
+            DW    ONLNPL             ; Buffer set to $301
+            LDA   $301               ; Slot/Drive/Length
+            AND   #$08               ; Mask to get length
+            STA   MOSFILE            ; Store length
+            TAX
+:L1         CPX   #$00               ; Copy -> MOSFILE
+            BEQ   :EXIT
+            LDA   $301,X
+            STA   MOSFILE,X
+            DEX
+            BRA   :L1
+:EXIT       RTS
+:TEMP       DB    $00
+
+* Delete first char of MOSFILE
+DEL1CHAR    LDX   MOSFILE            ; Length
+            BEQ   :EXIT              ; Nothing to delete
+            LDY   #$02               ; Second char
+:L1         CPY   MOSFILE
+            BEQ   :S2                ; If Y=MOSFILE okay
+            BCS   :S1                ; If Y>MOSFILE done
+:S2         LDA   MOSFILE,Y
+            STA   MOSFILE-1,Y
+            INY
+            BRA   :L1
+:S1         DEC   MOSFILE
+:EXIT       RTS
+
+* Append MOSFILE to MOSFILE2
+APPMF2      LDY   MOSFILE2           ; Length of MOSFILE2
+            LDX   #$00               ; Index into MOSFILE
+:L1         CPX   MOSFILE            ; Length of MOSFILE
+            BEQ   :DONE
+            LDA   MOSFILE+1,X
+            STA   MOSFILE2+1,Y
+            INX
+            INY
+            BRA   :L1
+:DONE       STY   MOSFILE2           ; Update length MOSFILE2
+            RTS
+
+* Copy MOSFILE2 to MOSFILE
+COPYMF2     LDX   #$00
+:L1         CPX   MOSFILE2
+            BEQ   :DONE
+            LDA   MOSFILE2+1,X
+            STA   MOSFILE+1,X
+            INX
+            BRA   :L1
+:DONE       STX   MOSFILE
+            RTS
+
+******************************************************
 * ProDOS Parameter lists for MLI calls
+******************************************************
+
 OPENPL      HEX   03                 ; Number of parameters
             DW    $0000              ; Pointer to filename
             DW    IOBUF0             ; Pointer to IO buffer
@@ -937,7 +1022,7 @@ CLSPL       HEX   01                 ; Number of parameters
 FLSHPL      HEX   01                 ; Number of parameters
             DB    $00                ; Reference number
 
-ONLPL       HEX   02                 ; Number of parameters
+ONLNPL      HEX   02                 ; Number of parameters
             DB    $00                ; Unit num
             DW    $301               ; Buffer
 
@@ -984,7 +1069,7 @@ QUITPL      HEX   04                 ; Number of parameters
 * Pascal string
 MOSFILE     DS    65                 ; 64 bytes max prefix/file len
 
-* Buffer for second filename (for rename)
+* Buffer for second filename
 * Pascal string
 MOSFILE2    DS    65                 ; 64 bytes max prefix/file len
 
