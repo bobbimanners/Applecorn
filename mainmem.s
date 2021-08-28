@@ -813,27 +813,28 @@ CATALOGRET
 * Preprocess path in MOSFILE, handling '^' character
 * '^' means parent dir (eg: '^/SOMEDIR'))
 * Carry set on error, clear otherwise
-PREPATH     LDA   MOSFILE+1          ; First char of dirname
+PREPATH     JSR   GETPREF            ; Current pfx -> MOSFILE2
+:REENTER    LDA   MOSFILE+1          ; First char of dirname
             CMP   #$5E               ; '^' char
             BEQ   :CARET             ; If '^'
-            CMP   #$3A               ; ':' char
-            BEQ   :COLON
-            BRA   :EXIT              ; Nothing to do
-:CARET      JSR   GETPREF            ; Current prfx -> MOSFILE2
-            JSR   PARENT             ; Parent dir -> MOSFILE2
+            CMP   #$2F               ; '/' char - abs path
+            BEQ   :EXIT              ; Nothing to do
+            BRA   :PARENT
+:CARET      JSR   PARENT             ; Parent dir -> MOSFILE2
             JSR   DEL1CHAR           ; Delete '^' from MOSFILE
             LDA   MOSFILE            ; Is there more?
             BEQ   :PARENT            ; Only '^'
+            CMP   #$02               ; Len at least two?
+            BCC   :ERR               ; Nope!
             LDA   MOSFILE+1          ; What is next char?
             CMP   #$2F               ; Is it slash?
-            BNE   :ERR
+            BNE   :ERR               ; Nope!
+            JSR   DEL1CHAR           ; Delete '/' from MOSFILE
+            BRA   :REENTER           ; Go again!
 :PARENT     JSR   APPMF2             ; Append MOSFILE->MOSFILE2
             JSR   COPYMF2            ; Copy back to MOSFILE
 :EXIT       CLC
             RTS
-:COLON
-* TODO: Handle :SD for slot/drive here
-            BRA   :ERR
 :ERR        SEC
             RTS
 
@@ -900,8 +901,7 @@ PARENT      LDX   MOSFILE2           ; Length of string
             CPX   #$01
             BNE   :L1
             BRA   :EXIT              ; No slash found
-:FOUND      DEX
-            STX   MOSFILE2           ; Truncate string
+:FOUND      STX   MOSFILE2           ; Truncate string
 :EXIT       RTS
 
 * Convert slot/drive to prefix
