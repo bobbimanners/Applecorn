@@ -781,14 +781,10 @@ QUIT        INC   $3F4               ; Invalidate powerup byte
 * Obtain catalog of current PREFIX dir
 CATALOG     >>>   ENTMAIN
 
-            JSR   MLI                ; Fetch prefix into BLKBUF
-            DB    GPFXCMD
-            DW    GPFXPL
-            BNE   CATEXIT            ; If prefix not set
-
-            LDA   #<BLKBUF
+            JSR   GETPREF            ; Fetch prefix into MOSFILE2
+            LDA   #<MOSFILE2
             STA   OPENPL+1
-            LDA   #>BLKBUF
+            LDA   #>MOSFILE2
             STA   OPENPL+2
             JSR   OPENFILE
             BCS   CATEXIT            ; Can't open dir
@@ -816,10 +812,26 @@ CATALOGRET
 
 * Set the prefix
 SETPFX      >>>   ENTMAIN
-            JSR   MLI
+* LDA MOSFILE ; Length
+* CMP #$01
+* BNE :S1 ; Not one char
+            LDA   MOSFILE+1          ; First char of dirname
+            CMP   #$5E               ; '^' char
+            BNE   :S1                ; Not '^'
+            JSR   PARENT             ; Parent dir -> MOSFILE2
+            LDA   #<MOSFILE2
+            STA   SPFXPL+1
+            LDA   #>MOSFILE2
+            STA   SPFXPL+2
+            BRA   :S2
+:S1         LDA   #<MOSFILE
+            STA   SPFXPL+1
+            LDA   #>MOSFILE
+            STA   SPFXPL+2
+:S2         JSR   MLI
             DB    SPFXCMD
             DW    SPFXPL
-:S1         >>>   XF2AUX,STARDIRRET
+            >>>   XF2AUX,STARDIRRET
 
 * Create disk file
 CRTFILE     JSR   MLI
@@ -850,6 +862,29 @@ WRTFILE     JSR   MLI
             DB    WRITECMD
             DW    WRITEPL
             RTS
+
+* Put PREFIX in MOSFILE2
+GETPREF     JSR   MLI
+            DB    GPFXCMD
+            DW    GPFXPL
+            RTS
+
+* Put parent directory in MOSFILE2
+* If already at top level, parent is current dir
+PARENT      JSR   GETPREF
+            LDX   MOSFILE2           ; Length of string
+            BEQ   :EXIT              ; Prefix len zero
+            DEX                      ; Ignore trailing '/'
+:L1         LDA   MOSFILE2,X
+            CMP   #$2F               ; Slash '/'
+            BEQ   :FOUND
+            DEX
+            CPX   #$01
+            BNE   :L1
+            BRA   :EXIT              ; No slash found
+:FOUND      DEX
+            STX   MOSFILE2           ; Truncate string
+:EXIT       RTS
 
 * ProDOS Parameter lists for MLI calls
 OPENPL      HEX   03                 ; Number of parameters
@@ -910,7 +945,7 @@ GSPFXPL     HEX   01                 ; Number of parameters
             DW    $300               ; Buffer
 
 GPFXPL      HEX   01                 ; Number of parameters
-            DW    BLKBUF             ; Buffer
+            DW    MOSFILE2           ; Buffer
 
 SPFXPL      HEX   01                 ; Number of parameters
             DW    MOSFILE            ; Buffer
