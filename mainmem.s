@@ -839,7 +839,34 @@ CATALOGRET
 * Also allows '^' as '^' is illegal character
 * Carry set on error, clear otherwise
 * TO DO: drv: prefix, drv:/dir/file
-PREPATH      JSR   GETPREF            ; Current pfx -> MOSFILE2
+PREPATH      LDX   MOSFILE            ; Length
+             BEQ   :EXIT              ; If zero length
+             LDA   MOSFILE+1          ; 1st char of filename
+             CMP   #$3A               ; Is it ':'?
+             BNE   :NOTCLN            ; Nope
+             CPX   #$03               ; Len at least 3?
+             BCC   :ERR               ; Nope!
+             LDA   MOSFILE+3          ; Drive
+             SEC
+             SBC   #'1'
+             TAX
+             LDA   MOSFILE+2          ; Slot
+             SEC
+             SBC   #'0'
+             JSR   DRV2PFX            ; Slt/Drv->pfx in MOSFILE2
+             JSR   DEL1CHAR           ; Delete ':' from MOSFILE
+             JSR   DEL1CHAR           ; Delete the two digits
+             JSR   DEL1CHAR
+             LDA   MOSFILE            ; Is there more?
+             BEQ   :APPEND            ; Only ':sd'
+             CMP   #$02               ; Len at least 2?
+             BCC   :ERR               ; Nope!
+             LDA   MOSFILE+1          ; 1st char of filename
+             CMP   #$2F               ; '/'
+             BNE   :ERR
+             JSR   DEL1CHAR           ; Delete '/' from MOSFILE
+             BRA   :APPEND
+:NOTCLN      JSR   GETPREF            ; Current pfx -> MOSFILE2
 :REENTER     LDA   MOSFILE+1          ; First char of dirname
              CMP   #'.'
              BEQ   :UPDIR1
@@ -847,7 +874,7 @@ PREPATH      JSR   GETPREF            ; Current pfx -> MOSFILE2
              BEQ   :CARET             ; If '^'
              CMP   #$2F               ; '/' char - abs path
              BEQ   :EXIT              ; Nothing to do
-             BRA   :PARENT
+             BRA   :APPEND
 
 :UPDIR1      LDA   MOSFILE+2
              CMP   #'.'               ; '..'
@@ -856,7 +883,7 @@ PREPATH      JSR   GETPREF            ; Current pfx -> MOSFILE2
 :CARET       JSR   DEL1CHAR           ; Delete '^' from MOSFILE
              JSR   PARENT             ; Parent dir -> MOSFILE2
              LDA   MOSFILE            ; Is there more?
-             BEQ   :PARENT            ; Only '^'
+             BEQ   :APPEND            ; Only '^'
              CMP   #$02               ; Len at least two?
              BCC   :ERR               ; Nope!
              LDA   MOSFILE+1          ; What is next char?
@@ -864,7 +891,7 @@ PREPATH      JSR   GETPREF            ; Current pfx -> MOSFILE2
              BNE   :ERR               ; Nope!
              JSR   DEL1CHAR           ; Delete '/' from MOSFILE
              BRA   :REENTER           ; Go again!
-:PARENT      JSR   APPMF2             ; Append MOSFILE->MOSFILE2
+:APPEND      JSR   APPMF2             ; Append MOSFILE->MOSFILE2
              JSR   COPYMF2            ; Copy back to MOSFILE
 :EXIT        CLC
              RTS
@@ -939,29 +966,34 @@ PARENT       LDX   MOSFILE2           ; Length of string
 
 * Convert slot/drive to prefix
 * Expect slot number (1..7) in A, drive (0..1) in X
-* Puts prefix (or empty string) in MOSFILE
+* Puts prefix (or empty string) in MOSFILE2
 DRV2PFX      ASL
              ASL
              ASL
              ASL
-             STX   :TEMP
-             ORA   :TEMP
-             STA   ONLNPL+1           ; Device number
+             CPX   #$00
+             BEQ   :S1                ; Drive 1
+             ORA   #$80               ; Drive 2
+:S1          STA   ONLNPL+1           ; Device number
              JSR   MLI                ; Call ON_LINE
              DB    ONLNCMD
              DW    ONLNPL             ; Buffer set to $301
              LDA   $301               ; Slot/Drive/Length
-             AND   #$08               ; Mask to get length
-             STA   MOSFILE            ; Store length
+             AND   #$0F               ; Mask to get length
              TAX
-:L1          CPX   #$00               ; Copy -> MOSFILE
+             INC                      ; Plus '/' at each end
+             INC
+             STA   MOSFILE2           ; Store length
+             LDA   #$2F               ; '/'
+             STA   MOSFILE2+1
+             STA   MOSFILE2+2,X
+:L1          CPX   #$00               ; Copy -> MOSFILE2
              BEQ   :EXIT
              LDA   $301,X
-             STA   MOSFILE,X
+             STA   MOSFILE2+1,X
              DEX
              BRA   :L1
 :EXIT        RTS
-:TEMP        DB    $00
 
 * Delete first char of MOSFILE
 DEL1CHAR     LDX   MOSFILE            ; Length
@@ -1118,6 +1150,4 @@ FBSTRT       DW    $0000              ; Size / Start address for SAVE
 FBATTR
 FBEND        DW    $0000              ; Attributes / End address for SAVE
              DW    $0000
-
-
 
