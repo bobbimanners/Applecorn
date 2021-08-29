@@ -2,6 +2,18 @@
 * (c) Bobbi 2021 GPL v3
 *
 * AppleMOS Host File System
+* 29-Aug-2021 Generalised CHKERROR routone, checks for and
+*             translates ProDOS errors into Acorn errors
+* Set &E0=&FF for testing to report ProDOS errors
+
+
+FSXREG      EQU   $B0
+FSYREG      EQU   $B1
+FSAREG      EQU   $B2
+FSCTRL      EQU   FSXREG
+FSPTR1      EQU   $B4
+FSPTR2      EQU   $B6
+
 
 * OSFIND - open/close a file for byte access
 FINDHND     PHX
@@ -157,6 +169,7 @@ OSARGSRET
             PLA
             RTS
 
+
 * OSFILE - perform actions on entire files
 * On entry, A=action
 *           XY=>control block
@@ -232,27 +245,31 @@ FILEHND     PHX
             BEQ   :LOAD               ; A=FF -> LOAD
             CMP   #$06
             BEQ   :DELETE             ; A=06 -> DELETE
+*            BCC   :INFO               ; A=01-05 -> INFO
             CMP   #$08
             BEQ   :MKDIR              ; A=08 -> MKDIR
-            LDA   #<OSFILEM           ; If not implemented, print msg
-            LDY   #>OSFILEM
-            JSR   PRSTR
-            PLA
-            PHA
-            JSR   OUTHEX
-            LDA   #<OSFILEM2
-            LDY   #>OSFILEM2
-            JSR   PRSTR
+*            LDA   #<OSFILEM           ; If not implemented, print msg
+*            LDY   #>OSFILEM
+*            JSR   PRSTR
+*            PLA
+*            PHA
+*            JSR   OUTHEX
+*            LDA   #<OSFILEM2
+*            LDY   #>OSFILEM2
+*            JSR   PRSTR
             PLA                       ; Not implemented, return unchanged
             PLY
             PLX
             RTS
+:INFO
+* TO DO     >>>   XF2MAIN,INFOFILE
+
 :SAVE       >>>   XF2MAIN,SAVEFILE
 :LOAD       >>>   XF2MAIN,LOADFILE
 :DELETE     >>>   XF2MAIN,DELFILE
 :MKDIR      >>>   XF2MAIN,MAKEDIR
 
-* On return here, A<$80 just return to caller, A>$7F generate error
+* On return here, A<$20 return to caller, A>$1F ProDOS error
 OSFILERET
             >>>   ENTAUX
             PHA
@@ -267,84 +284,89 @@ OSFILERET
             CPY   #18                 ; 18 bytes in control block
             BNE   :L3
             PLA
+            PLY                       ; Original action
+            JSR   CHKERROR            ; Check if error returned
+            PLY                       ; No error, return to caller
+            PLX
+            RTS
 
-            BMI   :L4
-            PLY                       ; Discard val of A on entry
-            JMP   :EXIT               ; ret<$80, return it to user
-
-:L4         PLY                       ; Value of A on OSFILE entry
-            CPY   #$FF                ; See if command was LOAD
-            BNE   :NOTLOAD
-
-            CMP   #$80                ; No file found
-            BNE   :SL1
-            BRA   ERRNOTFND
-
-:SL1        BRK                       ; Must be A=$81
-            DB    $CA                 ; $CA = Premature end, 'Data lost'
-            ASC   'Read error'
-            BRK
-
-:NOTLOAD    CPY   #$00                ; See if command was SAVE
-            BNE   :NOTLS              ; Not LOAD or SAVE
-
-            CMP   #$80                ; Unable to create or open
-            BNE   :SS1
-            BRK
-            DB    $C0                 ; $C0 = Can't create file to save
-            ASC   'Can'
-            DB    $27
-            ASC   't save file'
-            BRK
-
-:SS1        BRK                       ; Must be A=$81
-            DB    $CA                 ; $CA = Premature end, 'Data lost'
-            ASC   'Write error'
-            BRK
-
-:NOTLS      CPY   #$06                ; See if command was DELETE
-            BNE   :NOTLSD
-
-            CMP   #$80                ; File was not found
-            BNE   :SD1
-            JMP   :EXIT
+*            BMI   :L4
+*            PLY                       ; Discard val of A on entry
+*            JMP   :EXIT               ; ret<$80, return it to user
+*
+*:L4         PLY                       ; Value of A on OSFILE entry
+*            CPY   #$FF                ; See if command was LOAD
+*            BNE   :NOTLOAD
+*
+*            CMP   #$80                ; No file found
+*            BNE   :SL1
+*            BRA   ERRNOTFND
+*
+*:SL1        BRK                       ; Must be A=$81
+*            DB    $CA                 ; $CA = Premature end, 'Data lost'
+*            ASC   'Read error'
+*            BRK
+*
+*:NOTLOAD    CPY   #$00                ; See if command was SAVE
+*            BNE   :NOTLS              ; Not LOAD or SAVE
+*
+*            CMP   #$80                ; Unable to create or open
+*            BNE   :SS1
+*            BRK
+*            DB    $C0                 ; $C0 = Can't create file to save
+*            ASC   'Can'
+*            DB    $27
+*            ASC   't save file'
+*            BRK
+*
+*:SS1        BRK                       ; Must be A=$81
+*            DB    $CA                 ; $CA = Premature end, 'Data lost'
+*            ASC   'Write error'
+*            BRK
+*
+*:NOTLS      CPY   #$06                ; See if command was DELETE
+*            BNE   :NOTLSD
+*
+*            CMP   #$80                ; File was not found
+*            BNE   :SD1
+*            JMP   :EXIT
 *            BRK
 *            DB    $D6                 ; $D6 = File not found
 *            ASC   'Not found'
 *            BRK
-
-:SD1        BRK                       ; Must be A=$81
-            DB    $D6                 ; TODO: Better error code?
-            ASC   'Can'
-            DB    $27
-            ASC   't delete'
-            BRK
-
-:NOTLSD     CPY   #$08                ; Was it CDIR?
-            BNE   :EXIT
-
-            CMP   #$80                ; A=80 dir already exists
-            BEQ   :EXISTS
-            CMP   #$81                ; A=81 bad name
-            BNE   :SC1
-
-            BRK
-            DB    $CC
-            ASC   'Bad name'
-            BRK
-
-:SC1        BRK
-            DB    $C0
-            ASC   'Can'
-            DB    27
-            ASC   't create dir'
-            BRK
-
-:EXISTS     LDA   #$02                ; A=2 - dir exists or was created
-
-:EXIT       PLY
-            PLX
-            RTS
+*
+*:SD1        BRK                       ; Must be A=$81
+*            DB    $D6                 ; TODO: Better error code?
+*            ASC   'Can'
+*            DB    $27
+*            ASC   't delete'
+*            BRK
+*
+*:NOTLSD     CPY   #$08                ; Was it CDIR?
+*            BNE   :EXIT
+*
+*            CMP   #$80                ; A=80 dir already exists
+*            BEQ   :EXISTS
+*            CMP   #$81                ; A=81 bad name
+*            BNE   :SC1
+*
+*            BRK
+*            DB    $CC
+*            ASC   'Bad name'
+*            BRK
+*
+*:SC1        BRK
+*            DB    $C0
+*            ASC   'Can'
+*            DB    27
+*            ASC   't create dir'
+*            BRK
+*
+*:EXISTS     LDA   #$02                ; A=2 - dir exists or was created
+*
+*:EXIT       PLY
+*            PLX
+*            RTS
 
 ERRNOTFND   BRK
             DB    $D6                 ; $D6 = Object not found
@@ -364,6 +386,7 @@ OSFILEM2    ASC   ')'
 OSFSCM      ASC   'OSFSC.'
             DB    $00
 
+
 * OSFSC - miscellanous file system calls
 *****************************************
 *  On entry, A=action, XY=>command line
@@ -373,7 +396,21 @@ OSFSCM      ASC   'OSFSC.'
 *            X,Y=any return values
 * 
 * TO DO: use jump table
-FSCHND      CMP   #$00
+FSCHND
+            CMP   #$40
+            BEQ   FSCCHDIR
+            CMP   #$41
+            BEQ   FSCDRIVE
+            CMP   #$42
+            BEQ   FSCFREE
+            CMP   #$43
+            BEQ   FSCACCESS
+            CMP   #$42
+            BEQ   FSCTITLE
+
+            CMP   #$0C
+            BEQ   FSCREN              ; A=12 - *RENAME
+            CMP   #$00
             BEQ   FSOPT               ; A=0  - *OPT
             CMP   #$01
             BEQ   CHKEOF              ; A=1  - Read EOF
@@ -387,15 +424,16 @@ FSCHND      CMP   #$00
             BEQ   FSCCAT              ; A=9  - *EX
             CMP   #$0A
             BEQ   FSCCAT              ; A=10 - *INFO
-            CMP   #$0C
-            BEQ   FSCREN              ; A=12 - *RENAME
-
+FSCDRIVE
+FSCFREE
+FSCACCESS
+FSCTITLE
 FSCUKN      PHA
             LDA   #<OSFSCM
             LDY   #>OSFSCM
             JSR   PRSTR
             PLA
-            RTS
+FSCNULL     RTS
 
 FSCRUN      STX   OSFILECB            ; Pointer to filename
             STY   OSFILECB+1
@@ -414,6 +452,11 @@ FSCREN      JSR   XYtoLPTR            ; Pointer to command line
             JSR   RENAME
             RTS
 
+FSCCHDIR    STX   ZP1+0
+            STY   ZP1+1
+            LDY   #$00
+            JMP   STARDIR1
+
 * Performs OSFSC *OPT function
 FSOPT       RTS                       ; No FS options for now
 
@@ -430,11 +473,21 @@ CHKEOFRET
 
 * Perform CAT
 * A=5 *CAT, A=9 *EX, A=10 *INFO
-FSCCAT      >>>   XF2MAIN,CATALOG
+FSCCAT
+            CMP   #10                 ; *TEMP*
+            BEQ   CATDONE             ; *TEMP*
+            ASL   A
+            ASL   A
+            ASL   A                   ; 0101xxxx=*CAT
+            ASL   A                   ; 1001xxxx=*EX
+            STA   FSAREG              ; 1010xxxx=*INFO
+            >>>   XF2MAIN,CATALOG
 STARCATRET
             >>>   ENTAUX
+            LDA   VDUTEXTX
+            BEQ   CATDONE
             JSR   OSNEWL
-            LDA   #0                  ; 0=OK
+CATDONE     LDA   #0                  ; 0=OK
             RTS
 
 * Print one block of a catalog. Called by CATALOG
@@ -466,7 +519,8 @@ PRONEBLK    >>>   ENTAUX
 
 * Print a single directory entry
 * On entry: A = dirent index in AUXBLK
-PRONEENT    TAX
+PRONEENT    PHP
+            TAX
             LDA   #<AUXBLK+4          ; Skip pointers
             STA   ZP3
             LDA   #>AUXBLK+4
@@ -484,7 +538,7 @@ PRONEENT    TAX
             BRA   :L1
 :S1         LDY   #$00
             LDA   (ZP3),Y
-            BEQ   :EXIT               ; Inactive entry
+            BEQ   :EXIT1              ; Inactive entry
             AND   #$0F                ; Len of filename
             TAX
             LDY   #$01
@@ -495,12 +549,76 @@ PRONEENT    TAX
             DEX
             INY
             BRA   :L2
-:S2         LDA   #$20
-            JSR   OSWRCH
+:S2         PLP
+            BCS   :EXIT
+            LDA   #$20
+            BIT   FSAREG
+            BPL   :S2LP
+            INY
+            INY
+            INY
+            INY
+:S2LP       JSR   OSWRCH
             INY
             CPY   #$15
-            BNE   :S2
+            BNE   :S2LP
+            BIT   FSAREG
+            BPL   :EXIT
+            LDY   #$21
+            LDX   #3
+            LDA   #0
+            JSR   PRADDR0
+            LDA   #'+'
+            JSR   OSWRCH
+            LDY   #$17
+            JSR   PRADDR
+            JSR   PRSPACE
+            LDY   #$00
+            LDA   (ZP3),Y
+            AND   #$F0
+            CMP   #$D0
+            BNE   :NOTDIR
+            LDA   #'D'
+            JSR   OSWRCH
+            JSR   PRLOCK
+            JMP   OSNEWL
+:NOTDIR     JSR   PRLOCK
+            LDA   (ZP3),Y
+            LSR   A
+            PHP
+            AND   #1
+            BEQ   :NOWR
+            LDA   #'W'
+            JSR   OSWRCH
+:NOWR       PLP
+            BCC   :NOWR
+            LDA   #'R'
+            JSR   OSWRCH
+:NORD
+*            JSR   PRSPACE
+*            LDY   #$22
+*            LDX   #2
+*            JSR   PRADDRLP
+            JMP   OSNEWL
+:EXIT1      PLP
 :EXIT       RTS
+
+PRLOCK      LDY   #$1E
+            LDA   (ZP3),Y
+            CMP   #$40
+            BCS   PRADDROK
+            LDA   #'L'
+            JMP   OSWRCH
+
+PRADDR      LDX   #3
+PRADDRLP    LDA   (ZP3),Y
+PRADDR0     JSR   OUTHEX
+            DEY
+            DEX
+            BNE   PRADDRLP
+PRADDROK    RTS
+PRSPACE     LDA   #' '
+            JMP   OSWRCH
 
 * Perform FSCV $0C RENAME function
 * Parameter string in OSLPTR
@@ -541,12 +659,14 @@ RENAME      LDY   #$00
             BRK
 RENRET
             >>>   ENTAUX
-            CMP   #$44                ; Path not found
-            BEQ   :NOTFND
-            CMP   #$45                ; Vol dir not found
-            BEQ   :NOTFND
-            CMP   #$46                ; File not found
-            BEQ   :NOTFND
+*           JSR   CHKERROR
+            JSR   CHKNOTFND
+*            CMP   #$44                ; Path not found
+*            BEQ   :NOTFND
+*            CMP   #$45                ; Vol dir not found
+*            BEQ   :NOTFND
+*            CMP   #$46                ; File not found
+*            BEQ   :NOTFND
             CMP   #$47                ; Duplicate filename
             BEQ   :EXISTS
             CMP   #$4E                ; Access error
@@ -567,6 +687,7 @@ RENRET
 * Handle *DIR (directory change) command
 * On entry, ZP1 points to command line
 STARDIR     JSR   EATSPC              ; Eat leading spaces
+STARDIR1
 :S1         LDX   #$01
 :L3         LDA   (ZP1),Y
             CMP   #$21                ; Check for CR or space
@@ -589,6 +710,7 @@ STARDIR     JSR   EATSPC              ; Eat leading spaces
             >>>   XF2MAIN,SETPFX
 STARDIRRET
             >>>   ENTAUX
+            JSR   CHKERROR
             CMP   #$00
             BEQ   :EXIT
             BRK
@@ -596,4 +718,175 @@ STARDIRRET
             ASC   'Bad dir'
             BRK
 :EXIT       RTS
+
+* Move this somewhere
+CHKERROR    CMP   #$20
+            BCS   MKERROR
+            RTS
+
+*ERREXISTS   LDA   #$47 ; File exists
+*ERRNOTFND   LDA   #$46 ; File not found
+
+MKERROR
+            BIT   $E0
+            BPL   MKERROR1            ; *TEST*
+            PHA
+            LDX   #15
+MKERRLP
+            LDA   ERRMSG,X
+            STA   $100,X
+            DEX
+            BPL   MKERRLP
+            PLA
+            PHA
+            LSR   A
+            LSR   A
+            LSR   A
+            LSR   A
+            JSR   ERRHEX
+            STA   $109
+            PLA
+            JSR   ERRHEX
+            STA   $10A
+            JMP   $100
+ERRHEX
+            AND   #15
+            CMP   #10
+            BCC   ERRHEX1
+            ADC   #6
+ERRHEX1
+            ADC   #48
+            RTS
+ERRMSG
+            BRK
+            DB    $FF
+            ASC   'TEST: $00'
+            BRK
+MKERROR1
+            CMP   #$40
+            BCS   MKERROR2
+            ADC   #$31
+MKERROR2
+            SEC
+            SBC   #$40
+            CMP   #$20
+            BCC   MKERROR3
+            LDA   #$18                ; I/O error
+MKERROR3
+            ASL   A
+            TAX
+            LDA   MKERROR4+1,X
+            PHA
+            LDA   MKERROR4+0,X
+            PHA
+            PHP
+            RTI
+MKERROR4
+            DW    ERROR40,ERROR41,ERROR42,ERROR43,ERROR44,ERROR45,ERROR46,ERROR47
+            DW    ERROR48,ERROR49,ERROR4A,ERROR4B,ERROR4C,ERROR4D,ERROR4E,ERROR4F
+            DW    ERROR50,ERROR51,ERROR52,ERROR53,ERROR54,ERROR55,ERROR56,ERROR57
+            DW    ERROR27,ERROR28,ERROR5A,ERROR5B,ERROR2B,ERROR5D,ERROR5E,ERROR2E
+
+* $40 - Invalid pathname syntax.            Bad filename
+* $41 - Duplicate filename. (additional)    Directory exists
+* $42 - File Control Block table full.      Too many open
+* $43 - Invalid reference number.           Channel not open
+* $44 - Path not found.                     File not found
+* $45 - Volume directory not found.         Disk not found
+* $46 - File not found.                     File not found
+* $47 - Duplicate filename. (see also $41)  File exists
+* $48 - Overrun error.                      Disk full
+* $49 - Volume directory full.              Directory full
+* $4A - Incompatible file format.           Disk not recognised
+* $4B - Unsupported storage_type.           Disk not recognised
+* $4C - End of file has been encountered.   End of file
+* $4D - Position out of range.              Past end of file
+* $4E - Access error. (see also $4F)        RD/WR: Insufficient access
+* $4F - Access error. (additional)          REN/DEL: Locked
+* $50 - File is open.                       Can't - file open
+* $51 - Directory count error.              Broken directory
+* $52 - Not a ProDOS disk.                  Disk not recognised
+* $53 - Invalid parameter.                  Invalid parameter
+* $54 - (Dir not empty when deleting)       Dir not empty
+* $55 - Volume Control Block table full.
+* $56 - Bad buffer address.
+* $57 - Duplicate volume.
+* ($58) $27  - I/O error
+* ($59) $28  - No device connected                 Disk not present
+*  $5A ($29) - Bit map disk address is impossible. Sector not found
+*  $5B  $2A  -
+* ($5C) $2B  - Disk write protected.               Disk write protected
+*  $5D ($2C) - (EOF during load or save)           Data lost
+*  $5E ($2D) - (Couldn't open to save)             Can't save
+* ($5F) $2E  - Disk switched                       Disk changed
+*
+
+*       AcornOS                     ProDOS
+ERROR40     DW    $CC00
+            ASC   'Bad filename'      ; $40 - Invalid pathname syntax
+ERROR41     DW    $C400
+            ASC   'Directory exists'  ; $41 - Duplicate filename (split from $47)
+ERROR42     DW    $C000
+            ASC   'Too many open'     ; $42 - File Control Block table full
+ERROR43     DW    $DE00
+            ASC   'Channel not open'  ; $43 - Invalid reference number
+ERROR44                               ; $44 - Path not found
+ERROR46     DW    $D600
+            ASC   'File not found'    ; $46 - File not found
+ERROR45     DW    $D600
+            ASC   'Disk not found'    ; $45 - Volume directory not found
+ERROR47     DW    $C400
+            ASC   'File exists'       ; $47 - Duplicate filename (see also $41)
+ERROR48     DW    $C600
+            ASC   'Disk full'         ; $48 - Overrun error
+ERROR49     DW    $B300
+            ASC   'Directory full'    ; $49 - Volume directory full
+ERROR4A                               ; $4A - Incompatible file format
+ERROR4B                               ; $4B - Unsupported storage_type
+ERROR52     DW    $C800
+            ASC   'Disk not recognised'  ; $52 - Not a ProDOS disk
+ERROR4C     DW    $DF00
+            ASC   'End of file'       ; $4C - End of file has been encountered
+ERROR4D     DW    $C100
+            ASC   'Not open for update'  ; $4D - Position out of range
+ERROR4E     DW    $BD00
+            ASC   'Insufficient access'  ; $4E - Access error (see also $4F)
+ERROR4F     DW    $C300
+            ASC   'Locked'            ; $4F - Access error (split from $4E)
+ERROR50     DW    $C200
+            ASC   'Can'
+            DB    $27
+            ASC   't - file open'     ; $50 - File is open
+ERROR51     DW    $A800
+            ASC   'Broken directory'  ; $51 - Directory count error
+ERROR53     DW    $DC00
+            ASC   'Invalid parameter'  ; $53 - Invalid parameter
+ERROR54     DW    $D400
+            ASC   'Directory not empty'  ; $54 - Directory not empty
+ERROR55     DW    $FF00
+            ASC   'ProDOS: VCB full'  ; $55 - Volume Control Block table full
+ERROR56     DW    $FF00
+            ASC   'ProDOS: Bad addr'  ; $56 - Bad buffer address
+ERROR57     DW    $FF00
+            ASC   'ProDOS: Dup volm'  ; $57 - Duplicate volume
+ERROR5B                               ; spare
+ERROR27     DW    $FF00
+            ASC   'I/O error'         ; $27 - I/O error
+ERROR28     DW    $D200
+            ASC   'Disk not present'  ; $28 - No device detected/connected
+ERROR5A     DW    $FF00
+            ASC   'Sector not found'  ; $5A - Bit map disk address is impossible
+ERROR2B     DW    $C900
+            ASC   'Disk write protected'  ; $2B - Disk write protected
+ERROR5D     DW    $CA00
+            ASC   'Data lost'         ; $5D - EOF during LOAD or SAVE
+ERROR5E     DW    $C000
+            ASC   'Can'
+            DB    $27
+            ASC   't save'            ; $5E - Couldn't open for save
+ERROR2E     DW    $C800
+            ASC   'Disk changed'      ; $2E - Disk switched
+            DB    $00
+
+
 
