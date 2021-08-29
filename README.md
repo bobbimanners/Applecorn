@@ -127,7 +127,19 @@ language ROM.
 `*CAT` (or `*.`) - Simple listing of the files in the current directory.
 
 `*DIR pathname` - Allows the current directory to be changed to any ProDOS
-path.  For example `*DIR /H1/APPLECORN`.
+path.  `^` may be used to specify the parent directory.  A colon followed
+by a digit representing the slot and a digit representing the drive, may
+be used to specify a physical drive.  `*CHDIR` is a synonym.
+Some examples:
+
+   - `*DIR /H1/APPLECORN` - absolute path
+   - `*DIR APPLECORN` - relative path
+   - `*DIR ^` - go to parent dir
+   - `*DIR ^/^` - go up two levels
+   - `*DIR ^/SIBLING` - move to sibling directory
+   - `*DIR :61` - set directory to volume in slot 6, drive 1
+   - `*DIR :71/UTILS` - set directory to the `UTILS` subdir on the volume
+      in slot 7, drive 1.
 
 `*LOAD filename SSSS` - Load file `filename` into memory at hex address
 `SSSS`. If the address `SSSS` is omitted then the file is loaded to the
@@ -146,11 +158,20 @@ starting machine code programs.
 `*RENAME oldfilename newfilename` - Rename file `oldfilename` to
 `newfilename`.
 
+`*CDIR dirname` - create directory `dirname`.  `*MKDIR` is a synonym.
+
+`*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
+
+`*OPT` - sets file system options.  Currently does not do anything.
+
 ## How to Build
 
 Applecorn is built natively on the Apple //e using the Merlin 8 assembler
 v2.58.  It may also be built using Merlin-32 on Windows, Linux or Mac if
-preferred.
+preferred.  (Note: I am currently using Merlin-16 3.53 on my 65816-equipped
+//e.  This version permits sligtly longer comments so it may be necessary
+to trim some comments to get the code to compile in Merlin 8.  Applecorn
+may also be built using Merlin-32 on Windows, Linux or MacOS.)
 
 In Merlin-8:
 - Press `D` for disk commands and enter the prefix of the build directory:
@@ -158,9 +179,7 @@ In Merlin-8:
 - Press `L` to load a file and enter the filename `APPLECORN`.
 - Merlin will enter the editor automatically (or press `E`).  Issue the
   following command a the editor's `:` prompt: `asm`
-- Once assembly is complete, enter the command `q` to quit the editor,
-  then select `O` to save the object file and enter the filename
-  `APPLECORN`.
+- Once assembly is complete, enter the command `q` to quit the editor.
 - Press `Q` to quit Merlin-8.
 
 ## Theory of Operation

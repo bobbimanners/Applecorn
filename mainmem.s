@@ -7,7 +7,6 @@
 
 * 24-Aug-2021 AUXTYPE set from load address
 
-
 * ProDOS MLI command numbers
 QUITCMD     EQU   $65
 GTIMECMD    EQU   $82
@@ -48,10 +47,10 @@ SETPRFX     LDA   #GPFXCMD
             LDX   $0300
             BNE   RTSINST
             LDA   $BF30
-            STA   ONLPL+1            ; Device number
+            STA   ONLNPL+1           ; Device number
             JSR   MLI
             DB    ONLNCMD
-            DW    ONLPL
+            DW    ONLNPL
             LDA   $0301
             AND   #$0F
             TAX
@@ -144,8 +143,9 @@ COPYAUXBLK
             RTS
 
 * ProDOS file handling to delete a file
-* Return A=0 not found, A=FF other err
-*        A=1 file deleted, A=2 dir deleted
+* Called by AppleMOS OSFILE
+* Return A=1 file deleted, A=2 dir deleted
+*        A=80 not found, A=81 can't delete
 DELFILE     >>>   ENTMAIN
             JSR   UPDFB              ; Update FILEBLK
             JSR   COPYFB             ; Copy back to aux mem
@@ -157,9 +157,9 @@ DELFILE     >>>   ENTMAIN
             BEQ   :NOTFND
             CMP   #$46               ; File not found
             BEQ   :NOTFND
-            LDA   #$FF               ; Some other error
+            LDA   #$81               ; Some other error
             BRA   :EXIT
-:NOTFND     LDA   #$00               ; 'Not found'
+:NOTFND     LDA   #$80               ; 'Not found'
             BRA   :EXIT
 :DELETED    LDA   GINFOPL+7          ; Storage type
             CMP   #$0D               ; Directory
@@ -179,6 +179,11 @@ DESTROY     LDA   #<MOSFILE          ; Attempt to destroy file
             RTS
 
 * ProDOS file handling to create a directory
+* Invoked by AppleMOS OSFILE
+* Return A=02 on success (ie: 'directory')
+*        A=80 Already exists
+*        A=81 Bad name
+*        A=82 Can't create
 MAKEDIR     >>>   ENTMAIN
             LDA   #<MOSFILE
             STA   CREATEPL+1
@@ -201,7 +206,18 @@ MAKEDIR     >>>   ENTMAIN
             LDA   $BF93
             STA   CREATEPL+11
             JSR   CRTFILE
-            LDA   #$02
+            BCC   :OK
+            CMP   #$47               ; Duplicate filename
+            BEQ   :DUPE
+            CMP   #$40               ; Bad pathname
+            BEQ   :BADNAME
+            LDA   #$82
+            BRA   :EXIT
+:DUPE       LDA   #$80
+            BRA   :EXIT
+:BADNAME    LDA   #$81
+            BRA   :EXIT
+:OK         LDA   #$02
 :EXIT       >>>   XF2AUX,OSFILERET
 
 * ProDOS file handling to rename a file
@@ -455,10 +471,10 @@ TELL        >>>   ENTMAIN
             BRA   :EXIT
 
 * ProDOS file handling for MOS OSFILE LOAD call
-* Return A=0 if successful
-*        A=1 if file not found
-*        A=2 if read error
-* TO DO: change to $01, $80, some other $80+n
+* Invoked by AppleMOS OSFILE
+* Return A=01 if successful (meaning 'file')
+*        A=80 if file not found
+*        A=81 if read error
 LOADFILE    >>>   ENTMAIN
             STZ   :BLOCKS
             LDA   #<MOSFILE
@@ -515,13 +531,14 @@ LOADFILE    >>>   ENTMAIN
             JSR   AUXMOVE
             INC   :BLOCKS
             BRA   :L1
-:NOTFND     LDA   #$01               ; Nothing found
+:NOTFND     LDA   #$80               ; Nothing found
             PHA
             BRA   :EXIT
-:READERR    LDA   #$02               ; Read error
+:READERR    LDA   #$81               ; Read error
             PHA
             BRA   :EOF2
-:EOF        LDA   #$00               ; Success
+:EOF        LDA   #$01               ; Success ('File')
+            PHA
 :EOF2       LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
@@ -548,10 +565,10 @@ COPYFB      PHA
             RTS
 
 * ProDOS file handling for MOS OSFILE SAVE call
-* Return A=0 if successful
-*        A=1 if unable to create/open
-*        A=2 if error during save
-* TO DO: change to $01, $80, some other $80+n
+* Invoked by AppleMOS OSFILE
+* Return A=01 if successful (ie: 'file')
+*        A=80 if unable to create/open
+*        A=81 if error during save
 SAVEFILE    >>>   ENTMAIN
             LDA   #<MOSFILE          ; Attempt to destroy file
             STA   DESTPL+1
@@ -668,32 +685,29 @@ SAVEFILE    >>>   ENTMAIN
             BRA   :ENDLOOP
 
 :CANTOPEN
-            LDA   #$01               ; Can't open/create
+            LDA   #$80               ; Can't open/create
+            PHA
             BRA   :EXIT
 :WRITEERR
             LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-            LDA   #$02               ; Write error
+            LDA   #$81               ; Write error
+            PHA
             BRA   :EXIT
 :NORMALEND
             LDA   OPENPL+5           ; File ref num
             STA   CLSPL+1
             JSR   CLSFILE
-            LDA   #$00               ; Success!
-            BCC   :EXIT              ; If close OK
-            LDA   #$02               ; Write error
-            LDA   #<MOSFILE
-            STA   GINFOPL+1
-            LDA   #>MOSFILE
-            STA   GINFOPL+2
-            JSR   MLI                ; Call GET_FILE_INFO
-            DB    GINFOCMD
-            DW    GINFOPL
-            BCS   :EXIT
-            LDA   #$02               ; Write error
+            BCC   :OK                ; If close OK
+            LDA   #$81               ; Write error
+            PHA
+            BRA   :EXIT
+:OK         LDA   #$01               ; Success ('File')
+            PHA
 :EXIT       JSR   UPDFB              ; Update FILEBLK
             JSR   COPYFB             ; Copy FILEBLK to aux mem
+            PLA
             >>>   XF2AUX,OSFILERET
 :BLOCKS     DB    $00
 :LENREM     DW    $0000              ; Remaining length
@@ -767,14 +781,10 @@ QUIT        INC   $3F4               ; Invalidate powerup byte
 * Obtain catalog of current PREFIX dir
 CATALOG     >>>   ENTMAIN
 
-            JSR   MLI                ; Fetch prefix into BLKBUF
-            DB    GPFXCMD
-            DW    GPFXPL
-            BNE   CATEXIT            ; If prefix not set
-
-            LDA   #<BLKBUF
+            JSR   GETPREF            ; Fetch prefix into MOSFILE2
+            LDA   #<MOSFILE2
             STA   OPENPL+1
-            LDA   #>BLKBUF
+            LDA   #>MOSFILE2
             STA   OPENPL+2
             JSR   OPENFILE
             BCS   CATEXIT            ; Can't open dir
@@ -800,12 +810,76 @@ CATALOGRET
             >>>   ENTMAIN
             BRA   CATREENTRY
 
-* Set the prefix
+* Preprocess path in MOSFILE, handling:
+* 1) ':' drive/slot prefix (eg: ':61' for sl6 dr1)
+* 2) '^' for parent dir (eg: '^/SOMEDIR'))
+* Carry set on error, clear otherwise
+PREPATH     LDX   MOSFILE            ; Length
+            BEQ   :EXIT              ; If zero length
+            LDA   MOSFILE+1          ; First char of dirname
+            CMP   #$3A               ; Is it ':'?
+            BNE   :NOTCLN            ; Nope!
+            CPX   #$03               ; Len at least three?
+            BCC   :ERR               ; Nope!
+            LDA   MOSFILE+3          ; Drive
+            SEC
+            SBC   #'1'
+            TAX
+            LDA   MOSFILE+2          ; Slot
+            SEC
+            SBC   #'0'
+            JSR   DRV2PFX            ; Slt/Drv->pxf in MOSFILE2
+            JSR   DEL1CHAR           ; Delete ':' from MOSFILE
+            JSR   DEL1CHAR           ; Delete two digits
+            JSR   DEL1CHAR
+            LDA   MOSFILE            ; Is there more?
+            BEQ   :APPEND            ; Only ':sd'
+            CMP   #$02               ; Len at least two?
+            BCC   :ERR               ; Nope!
+            LDA   MOSFILE+1          ; First char of dirname
+            CMP   #$2F               ; '/' char
+            BNE   :ERR
+            JSR   DEL1CHAR           ; Delete '/' from MOSFILE
+            BRA   :APPEND
+:NOTCLN     JSR   GETPREF            ; Current pfx -> MOSFILE2
+:REENTER    LDA   MOSFILE+1          ; First char of dirname
+            CMP   #$5E               ; '^' char
+            BEQ   :CARET             ; If '^'
+            CMP   #$2F               ; '/' char - abs path
+            BEQ   :EXIT              ; Nothing to do
+            BRA   :APPEND
+:CARET      JSR   PARENT             ; Parent dir -> MOSFILE2
+            JSR   DEL1CHAR           ; Delete '^' from MOSFILE
+            LDA   MOSFILE            ; Is there more?
+            BEQ   :APPEND            ; Only '^'
+            CMP   #$02               ; Len at least two?
+            BCC   :ERR               ; Nope!
+            LDA   MOSFILE+1          ; What is next char?
+            CMP   #$2F               ; Is it slash?
+            BNE   :ERR               ; Nope!
+            JSR   DEL1CHAR           ; Delete '/' from MOSFILE
+            BRA   :REENTER           ; Go again!
+:APPEND     JSR   APPMF2             ; Append MOSFILE->MOSFILE2
+            JSR   COPYMF2            ; Copy back to MOSFILE
+:EXIT       CLC
+            RTS
+:ERR        SEC
+            RTS
+
+* Set prefix. Used by *DIR to change directory
 SETPFX      >>>   ENTMAIN
-            JSR   MLI
+            JSR   PREPATH            ; Preprocess path
+            BCS   :ERR
+            LDA   #<MOSFILE
+            STA   SPFXPL+1
+            LDA   #>MOSFILE
+            STA   SPFXPL+2
+            JSR   MLI                ; SET_PREFIX
             DB    SPFXCMD
             DW    SPFXPL
-:S1         >>>   XF2AUX,STARDIRRET
+:EXIT       >>>   XF2AUX,STARDIRRET
+:ERR        LDA   #$40               ; Invalid pathname syn
+            BRA   :EXIT
 
 * Create disk file
 CRTFILE     JSR   MLI
@@ -837,7 +911,100 @@ WRTFILE     JSR   MLI
             DW    WRITEPL
             RTS
 
+* Put PREFIX in MOSFILE2
+GETPREF     JSR   MLI
+            DB    GPFXCMD
+            DW    GPFXPL
+            RTS
+
+* Convert path in MOSFILE2 by removing leaf dir to leave
+* parent directory. If already at top, return unchanged.
+PARENT      LDX   MOSFILE2           ; Length of string
+            BEQ   :EXIT              ; Prefix len zero
+            DEX                      ; Ignore trailing '/'
+:L1         LDA   MOSFILE2,X
+            CMP   #$2F               ; Slash '/'
+            BEQ   :FOUND
+            DEX
+            CPX   #$01
+            BNE   :L1
+            BRA   :EXIT              ; No slash found
+:FOUND      STX   MOSFILE2           ; Truncate string
+:EXIT       RTS
+
+* Convert slot/drive to prefix
+* Expect slot number (1..7) in A, drive (0..1) in X
+* Puts prefix (or empty string) in MOSFILE2
+DRV2PFX     ASL
+            ASL
+            ASL
+            ASL
+            CPX   #$00
+            BEQ   :S1                ; Drive 1
+            ORA   #$80               ; Drive 2
+:S1         STA   ONLNPL+1           ; Device number
+            JSR   MLI                ; Call ON_LINE
+            DB    ONLNCMD
+            DW    ONLNPL             ; Buffer set to $301
+            LDA   $301               ; Slot/Drive/Length
+            AND   #$0F               ; Mask to get length
+            TAX
+            INC                      ; Plus '/' at each end
+            INC
+            STA   MOSFILE2           ; Store length
+            LDA   #$2F               ; Slash
+            STA   MOSFILE2+1
+            STA   MOSFILE2+2,X
+:L1         CPX   #$00               ; Copy -> MOSFILE2
+            BEQ   :EXIT
+            LDA   $301,X
+            STA   MOSFILE2+1,X
+            DEX
+            BRA   :L1
+:EXIT       RTS
+
+* Delete first char of MOSFILE
+DEL1CHAR    LDX   MOSFILE            ; Length
+            BEQ   :EXIT              ; Nothing to delete
+            LDY   #$02               ; Second char
+:L1         CPY   MOSFILE
+            BEQ   :S2                ; If Y=MOSFILE okay
+            BCS   :S1                ; If Y>MOSFILE done
+:S2         LDA   MOSFILE,Y
+            STA   MOSFILE-1,Y
+            INY
+            BRA   :L1
+:S1         DEC   MOSFILE
+:EXIT       RTS
+
+* Append MOSFILE to MOSFILE2
+APPMF2      LDY   MOSFILE2           ; Length of MOSFILE2
+            LDX   #$00               ; Index into MOSFILE
+:L1         CPX   MOSFILE            ; Length of MOSFILE
+            BEQ   :DONE
+            LDA   MOSFILE+1,X
+            STA   MOSFILE2+1,Y
+            INX
+            INY
+            BRA   :L1
+:DONE       STY   MOSFILE2           ; Update length MOSFILE2
+            RTS
+
+* Copy MOSFILE2 to MOSFILE
+COPYMF2     LDX   #$00
+:L1         CPX   MOSFILE2
+            BEQ   :DONE
+            LDA   MOSFILE2+1,X
+            STA   MOSFILE+1,X
+            INX
+            BRA   :L1
+:DONE       STX   MOSFILE
+            RTS
+
+******************************************************
 * ProDOS Parameter lists for MLI calls
+******************************************************
+
 OPENPL      HEX   03                 ; Number of parameters
             DW    $0000              ; Pointer to filename
             DW    IOBUF0             ; Pointer to IO buffer
@@ -888,7 +1055,7 @@ CLSPL       HEX   01                 ; Number of parameters
 FLSHPL      HEX   01                 ; Number of parameters
             DB    $00                ; Reference number
 
-ONLPL       HEX   02                 ; Number of parameters
+ONLNPL      HEX   02                 ; Number of parameters
             DB    $00                ; Unit num
             DW    $301               ; Buffer
 
@@ -896,7 +1063,7 @@ GSPFXPL     HEX   01                 ; Number of parameters
             DW    $300               ; Buffer
 
 GPFXPL      HEX   01                 ; Number of parameters
-            DW    BLKBUF             ; Buffer
+            DW    MOSFILE2           ; Buffer
 
 SPFXPL      HEX   01                 ; Number of parameters
             DW    MOSFILE            ; Buffer
@@ -935,7 +1102,7 @@ QUITPL      HEX   04                 ; Number of parameters
 * Pascal string
 MOSFILE     DS    65                 ; 64 bytes max prefix/file len
 
-* Buffer for second filename (for rename)
+* Buffer for second filename
 * Pascal string
 MOSFILE2    DS    65                 ; 64 bytes max prefix/file len
 

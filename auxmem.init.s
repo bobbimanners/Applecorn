@@ -106,30 +106,30 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
 :S7         BRA   :L2
 
 :NORELOC
-:S8         STA   $C00D           ; 80 col on
-            STA   $C003           ; Alt charset off
-            STA   $C055           ; PAGE2
-            JMP   MOSHIGH         ; Ensure executing in high memory here
+:S8         STA   $C00D                      ; 80 col on
+            STA   $C003                      ; Alt charset off
+            STA   $C055                      ; PAGE2
+            JMP   MOSHIGH                    ; Ensure executing in high memory here
 
 MOSHIGH     SEI
             LDX   #$FF
-            TXS                   ; Initialise stack
-            INX                   ; X=$00
+            TXS                              ; Initialise stack
+            INX                              ; X=$00
             TXA
-:SCLR       STA   $0000,X         ; Clear Kernel memory
+:SCLR       STA   $0000,X                    ; Clear Kernel memory
             STA   $0200,X
             STA   $0300,X
             INX
             BNE   :SCLR
 
             LDX   #ENDVEC-DEFVEC-1
-:INITPG2    LDA   DEFVEC,X        ; Set up vectors
+:INITPG2    LDA   DEFVEC,X                   ; Set up vectors
             STA   $200,X
             DEX
             BPL   :INITPG2
 
-            JSR   KBDINIT         ; Returns A=startup MODE
-            JSR   VDUINIT         ; Initialise VDU driver
+            JSR   KBDINIT                    ; Returns A=startup MODE
+            JSR   VDUINIT                    ; Initialise VDU driver
             JSR   PRHELLO
             LDA   #7
             JSR   OSWRCH
@@ -137,16 +137,16 @@ MOSHIGH     SEI
             CLC
             JMP   BYTE8E
 
-PRHELLO     LDA   #<:HELLO
-            LDY   #>:HELLO
+PRHELLO     LDA   #<HELLO
+            LDY   #>HELLO
             JSR   PRSTR
             JMP   OSNEWL
 
-BYTE00XX    BEQ   BYTE00A    ; OSBYTE 0,0 - generate error
-            LDX   #$0A       ; $00 = identify Host
-            RTS              ; %000x1xxx host type, 'A'pple
+BYTE00XX    BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
+            LDX   #$0A                       ; $00 = identify Host
+            RTS                              ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-:HELLO      ASC   'Applecorn MOS v0.01'
-            DB    $00        ; Unify MOS messages
+HELLO       ASC   'Applecorn MOS v0.01'
+            DB    $00                        ; Unify MOS messages
 
