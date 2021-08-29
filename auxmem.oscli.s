@@ -46,13 +46,17 @@ CMDTABLE     ASC   'CAT'              ; Must be first command so matches '*.'
 * other filing commands
              ASC   'CHDIR'
              DB    $C0
-             DW    STARCHDIR-1        ; Should be a FSC call, XY=>params
+             DW    STARFSC-1          ; Should be a FSC 3 call, XY=>params
+             ASC   'CD'
+             DB    $C0
+             DW    STARFSC-1          ; Should be a FSC 3 call, XY=>params
              ASC   'DIR'
              DB    $C0
-             DW    STARCHDIR-1        ; Should be a FSC call, XY=>params
+             DW    STARFSC-1          ; Should be a FSC 3 call, XY=>params
              ASC   'DRIVE'
              DB    $C1
-             DW    STARDRIVE-1        ; Should be a FSC call, XY=>params
+             DW    STARFSC-1          ; Should be a FSC 3 call, XY=>params
+* FREE (<drive>)
 * ACCESS <file> <access>
 * TITLE (<drive>) <title>
 * osbyte commands
@@ -75,6 +79,9 @@ CMDTABLE     ASC   'CAT'              ; Must be first command so matches '*.'
              ASC   'KEY'
              DB    $80
              DW    STARKEY-1          ; KEY    -> (LPTR)=>params
+* DUMP <file>
+* TYPE <file>
+* BUILD <file>
 * terminator
              DB    $00
 
@@ -183,9 +190,6 @@ ERRBADADD    BRK
              DB    $FC
              ASC   'Bad address'
              BRK
-
-* CALLFSCV    JMP (FSCV)                     ; Hand on to filing system
-* Moved to BYTWRD
 
 
 * *FX num(,num(,num))
@@ -481,12 +485,11 @@ STARFILE     EOR   #$80
              BNE   STARDONE
              JMP   ERRNOTFND
 
-STARCHDIR    STX   ZP1+0              ; TEMP
-             STY   ZP1+1              ; TEMP
-             LDY   #$00               ; TEMP
-             JMP   STARDIR            ; TEMP
+*STARCHDIR    STX   ZP1+0              ; TEMP
+*             STY   ZP1+1              ; TEMP
+*             LDY   #$00               ; TEMP
+*             JMP   STARDIR            ; TEMP
 
-STARDRIVE
 STARBASIC
 STARKEY
 STARDONE     RTS
