@@ -40,18 +40,6 @@ A2IRQV      EQU   $3FE
 MLI         EQU   $BF00
 
 * IO Buffer for reading file (1024 bytes)
-*IOBUF0      EQU   $4000       ; For loading/saving, OSFILE, *.
-*IOBUF1      EQU   $4400       ; Four open files for langs
-*IOBUF2      EQU   $4800
-*IOBUF3      EQU   $4C00
-*IOBUF4      EQU   $5000
-
-*IOBUF0      EQU   $5000       ; For loading/saving, OSFILE, *.
-*IOBUF1      EQU   $5400       ; Four open files for langs
-*IOBUF2      EQU   $5800
-*IOBUF3      EQU   $5C00
-*IOBUF4      EQU   $6000
-
 IOBUF0      EQU   $0C00       ; For loading/saving, OSFILE, *.
 IOBUF1      EQU   $1000       ; Four open files for langs
 IOBUF2      EQU   $1400
@@ -59,11 +47,8 @@ IOBUF3      EQU   $1800
 IOBUF4      EQU   $1C00
 
 * 512 byte buffer sufficient for one disk block
-*BLKBUF      EQU   $5200
-*BLKBUFEND   EQU   $5400
-
-BLKBUF      EQU   $6200       ; Is this ever used at same time
-BLKBUFEND   EQU   $6400       ;  as IOBUF0?
+BLKBUF      EQU   $5000       ; Can't use $400 as ProDOS uses
+BLKBUFEND   EQU   $5200       ;  'hidden' bytes within screen
 
 * Address in aux memory where ROM will be loaded
 AUXADDR     EQU   $8000
@@ -190,5 +175,6 @@ MAINZP      MAC
             PUT   AUXMEM.CHARIO
             PUT   AUXMEM.MISC
 
+* Automatically save the object file:
             SAV   APPLECORN
 

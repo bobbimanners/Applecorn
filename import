@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# For importing JGH's files into Github
+
+for i in *.s; do
+	fromdos $i
+	sed -i s/^\;/\*/ $i
+	cadius outdentfile $i
+	cadius sethighbit $i
+	mv $i $i#040000
+	cadius deletefile applecorn.po /APPLECORN/$i
+	cadius addfile applecorn.po /APPLECORN $i#040000
+done
+

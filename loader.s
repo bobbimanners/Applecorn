@@ -6,8 +6,9 @@
 * Loads Acorn ROM file (16KB) from disk and writes it
 * to aux memory starting at $08000. Copies Applecorn MOS
 * to aux memory starting at AUXMOS1 and jumps to it.
-* (Note that the MOS code will relocate itself to $D000.)
+* (Note that the MOS code will copy itself to $D000.)
 START       JSR   ROMMENU
+
             STZ   :BLOCKS
             LDX   #$00
 :S1         JSR   CROUT

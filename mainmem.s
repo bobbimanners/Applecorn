@@ -9,8 +9,32 @@
 * 27-Aug-2021 Delete and MkDir return ProDOS result to caller
 * 29-Aug-2021 All calls (seem to) return ProDOS result to caller
 * Set ?&E0=255 for testing to report ProDOS result
+* 30-Aug-2021 INFOFILE semi-implemented, UPDFB returns moddate
 * Lots of tidying up possible once confirmed code working
+* *BUG* LOAD loads full 512 bytes from last sector even when < 512
 
+
+* ProDOS string buffers
+RTCBUF       EQU   $0200              ; Use by RTC calls, 40 bytes
+*                                 ; $0228-$023D
+DRVBUF1      EQU   $023E
+DRVBUF2      EQU   $023F              ; Prefix on current drive, len+64
+CMDPATH      EQU   $0280              ; Path used to start Applecorn
+
+* Filename string buffers
+MOSFILE1     EQU   $0300              ; length + 64 bytes
+MOSFILE2     EQU   $0341              ; length + 64 bytes
+MOSFILE      EQU   MOSFILE1
+*                 $0382           ; $3C bytes here
+*
+FILEBLK      EQU   $03BE
+FBPTR        EQU   FILEBLK+0          ; Pointer to name (in aux)
+FBLOAD       EQU   FILEBLK+2          ; Load address
+FBEXEC       EQU   FILEBLK+6          ; Exec address
+FBSIZE       EQU   FILEBLK+10         ; Size
+FBSTRT       EQU   FILEBLK+10         ; Start address for SAVE
+FBATTR       EQU   FILEBLK+14         ; Attributes
+FBEND        EQU   FILEBLK+14         ; End address for SAVE
 
 * ProDOS MLI command numbers
 QUITCMD      EQU   $65
@@ -49,20 +73,20 @@ SETPRFX      LDA   #GPFXCMD
 :L1          JSR   MLI
 :OPC7        DB    $00
              DW    GSPFXPL
-             LDX   $0300
+             LDX   DRVBUF1            ; was $0300
              BNE   RTSINST
              LDA   $BF30
              STA   ONLNPL+1           ; Device number
              JSR   MLI
              DB    ONLNCMD
              DW    ONLNPL
-             LDA   $0301
+             LDA   DRVBUF2            ; was $0301
              AND   #$0F
              TAX
              INX
-             STX   $0300
+             STX   DRVBUF1            ; was $0300
              LDA   #$2F
-             STA   $0301
+             STA   DRVBUF2            ; was $0301
              DEC   :OPC7
              BNE   :L1
 RTSINST      RTS
@@ -88,16 +112,16 @@ DISCONN      LDA   $BF98
              BPL   :L1
              BMI   :S1
 :S3          LDA   $BF32,Y
-             STA   $0302
+             STA   DRVBUF2+1          ; was $0302
 :L2          LDA   $BF33,Y
              STA   $BF32,Y
              BEQ   :S4
              INY
              BNE   :L2
 :S4          LDA   $BF26
-             STA   $0300
+             STA   DRVBUF1            ; was $0300
              LDA   $BF27
-             STA   $0301
+             STA   DRVBUF2            ; was $0301
              LDA   $BF10
              STA   $BF26
              LDA   $BF11
@@ -147,11 +171,24 @@ COPYAUXBLK
              CLI
              RTS
 
+* TO DO: All OSFILE calls combined and dispatch in here
+*        All start with PREPATH, UPDFB, COPYFB then branch
+*        to relevent routine.
+
+
+INFOFILE     >>>   ENTMAIN
+* TO DO: call PREPATH to check for drive, up, etc
+             JSR   UPDFB              ; Update FILEBLK
+             JSR   COPYFB             ; Copy back to aux mem
+             >>>   XF2AUX,OSFILERET
+
+
 * ProDOS file handling to delete a file
 * Called by AppleMOS OSFILE
 * Return A=0 no object, A=1 file deleted, A=2 dir deleted
 *        A>$1F ProDOS error
 DELFILE      >>>   ENTMAIN
+* TO DO: call PREPATH to check for drive, up, etc
              JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy back to aux mem
              PHA                      ; Save object type
@@ -190,23 +227,26 @@ DESTROY      LDA   #<MOSFILE          ; Attempt to destroy file
 * Return A=02 on success (ie: 'directory')
 *        A>$1F ProDOS error, translated by OSFILE handler
 MAKEDIR      >>>   ENTMAIN
+* TO DO: call PREPATH to check for drive, up, etc
              JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy back to aux mem
              CMP   #$02
              BEQ   :EXIT              ; Dir already exists
 * Make into a subroutine
+             LDA   #$0D               ; 'Directory'
+             STA   CREATEPL+7         ; ->Storage type
+             LDA   #$0F               ; 'Directory'
+             STA   CREATEPL+4         ; ->File type
+* subroutine....
              LDA   #<MOSFILE
              STA   CREATEPL+1
              LDA   #>MOSFILE
              STA   CREATEPL+2
              LDA   #$C3               ; 'Default access'
              STA   CREATEPL+3         ; ->Access
-             LDA   #$0F               ; 'Directory'
-             STA   CREATEPL+4         ; ->File type
              STZ   CREATEPL+5         ; Aux type LSB
              STZ   CREATEPL+6         ; Aux type MSB
-             LDA   #$0D               ; 'Directory'
-             STA   CREATEPL+7         ; ->Storage type
+* Don't we have to make a call to update BF90-BF93?
              LDA   $BF90              ; Current date
              STA   CREATEPL+8
              LDA   $BF91
@@ -216,6 +256,7 @@ MAKEDIR      >>>   ENTMAIN
              LDA   $BF93
              STA   CREATEPL+11
              JSR   CRTFILE
+* ...
              BCS   :EXIT              ; Failed, exit with ProDOS result
              JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy FILEBLK to aux mem
@@ -245,10 +286,15 @@ DORENAME     LDA   #<MOSFILE
 OFILE        >>>   ENTMAIN
              PHA                      ; Preserve arg for later
 * TO DO: Mustn't write to a directory
+* TO DO: call PREPATH to check for drive, up, etc
              CMP   #$80               ; Write mode
              BNE   :S0
              JSR   DESTROY
 * Make into a subroutine
+             LDA   #$01               ; Storage type - file
+             STA   CREATEPL+7
+             LDA   #$06               ; Filetype BIN
+             STA   CREATEPL+4
              LDA   #<MOSFILE          ; Attempt to create file
              STA   CREATEPL+1
              STA   OPENPL+1
@@ -257,14 +303,10 @@ OFILE        >>>   ENTMAIN
              STA   OPENPL+2
              LDA   #$C3               ; Access unlocked
              STA   CREATEPL+3
-             LDA   #$06               ; Filetype BIN
-             STA   CREATEPL+4
              LDA   #$00               ; Auxtype
              STA   CREATEPL+5
              LDA   #$00
              STA   CREATEPL+6
-             LDA   #$01               ; Storage type - file
-             STA   CREATEPL+7
              LDA   $BF90              ; Current date
              STA   CREATEPL+8
              LDA   $BF91
@@ -274,7 +316,7 @@ OFILE        >>>   ENTMAIN
              LDA   $BF93
              STA   CREATEPL+11
              JSR   CRTFILE
-
+* ...
 :S0          LDA   #$00               ; Look for empty slot
              JSR   FINDBUF
              STX   BUFIDX
@@ -474,12 +516,14 @@ TELL         >>>   ENTMAIN
              >>>   MAINZP             ; Alt ZP off, ROM back in
              BRA   :EXIT
 
+
 * ProDOS file handling for MOS OSFILE LOAD call
 * Invoked by AppleMOS OSFILE
 * Return A=01 if successful (meaning 'file')
 *        A>$1F ProDOS error, translated by FILERET
 * TO DO: If object not a file, return $46 - File not found
 LOADFILE     >>>   ENTMAIN
+* TO DO: call PREPATH to check for drive, up, etc
              STZ   :BLOCKS
              LDA   #<MOSFILE
              STA   OPENPL+1
@@ -530,6 +574,8 @@ LOADFILE     >>>   ENTMAIN
              INC
              DEX
              BRA   :L2
+* *BUG* This is copy all 512 bytes of last block instead of
+* just the bytes used
 :S2          STA   A4H
              SEC                      ; Main -> AUX
              JSR   AUXMOVE
@@ -574,6 +620,7 @@ COPYFB       PHA
 *        A>$1F ProDOS error translated by FILERET
 * TO DO: If dir exists, return $41
 SAVEFILE     >>>   ENTMAIN
+* TO DO: call PREPATH to check for drive, up, etc
 * TO DO: MUSTN'T OVERWITE A DIRECTORY
              LDA   #<MOSFILE          ; Attempt to destroy file
              STA   DESTPL+1
@@ -584,6 +631,11 @@ SAVEFILE     >>>   ENTMAIN
              DW    DESTPL
              STZ   :BLOCKS
 * TO DO: Make this a subroutine
+             LDA   #$01               ; Storage type - file
+             STA   CREATEPL+7
+             LDA   #$06               ; Filetype BIN
+             STA   CREATEPL+4
+* subroutine....
              LDA   #<MOSFILE
              STA   CREATEPL+1
              STA   OPENPL+1
@@ -592,14 +644,10 @@ SAVEFILE     >>>   ENTMAIN
              STA   OPENPL+2
              LDA   #$C3               ; Access unlocked
              STA   CREATEPL+3
-             LDA   #$06               ; Filetype BIN
-             STA   CREATEPL+4
              LDA   FBLOAD             ; Auxtype = load address
              STA   CREATEPL+5
              LDA   FBLOAD+1
              STA   CREATEPL+6
-             LDA   #$01               ; Storage type - file
-             STA   CREATEPL+7
              LDA   $BF90              ; Current date
              STA   CREATEPL+8
              LDA   $BF91
@@ -609,6 +657,7 @@ SAVEFILE     >>>   ENTMAIN
              LDA   $BF93
              STA   CREATEPL+11
              JSR   CRTFILE
+* ...
              BCS   :FWD1              ; :CANTOPEN error
              JSR   OPENFILE
              BCS   :FWD1              ; :CANTOPEN error
@@ -728,8 +777,10 @@ UPDFB        LDA   #<MOSFILE
              JSR   MLI                ; Call GET_FILE_INFO
              DB    GINFOCMD
              DW    GINFOPL
-             BCS   :ERR
-             LDA   GINFOPL+5          ; Aux type LSB
+             BCC   :UPDFB1
+             JMP   CHKNOTFND
+
+:UPDFB1      LDA   GINFOPL+5          ; Aux type LSB
              STA   FBLOAD
              STA   FBEXEC
              LDA   GINFOPL+6          ; Aux type MSB
@@ -739,6 +790,7 @@ UPDFB        LDA   #<MOSFILE
              STZ   FBEXEC+2
              STZ   FBLOAD+3
              STZ   FBEXEC+3
+*
              LDA   GINFOPL+3          ; Access byte
              CMP   #$40               ; Locked?
              AND   #$03               ; ------wr
@@ -753,8 +805,37 @@ UPDFB        LDA   #<MOSFILE
              ORA   #$08               ; --wrl---
 :UPDFB2      ORA   FBATTR+0           ; --wrl-wr
              STA   FBATTR+0
-             STZ   FBATTR+1           ; TO DO: get mdate
-             STZ   FBATTR+2
+*
+             LDA   GINFOPL+11         ; yyyyyyym
+             PHA
+             ROR   A                  ; ?yyyyyyy m
+             LDA   GINFOPL+10         ; mmmddddd m
+             PHA
+             ROR   A                  ; mmmmdddd
+             LSR   A                  ; -mmmmddd
+             LSR   A                  ; --mmmmdd
+             LSR   A                  ; ---mmmmd
+             LSR   A                  ; ----mmmm
+             STA   FBATTR+2
+             PLA                      ; mmmddddd
+             AND   #31                ; ---ddddd
+             STA   FBATTR+1
+             PLA                      ; yyyyyyym
+             SEC
+             SBC   #81*2              ; Offset from 1981
+             BCS   :UPDFB3            ; 1981-1999 -> 00-18
+             ADC   #100*2             ; 2000-2080 -> 19-99
+:UPDFB3      PHA                      ; yyyyyyym
+             AND   #$E0               ; yyy-----
+             ORA   FBATTR+1           ; yyyddddd
+             STA   FBATTR+1
+             PLA                      ; yyyyyyym
+             AND   #$FE               ; yyyyyyy0
+             ASL   A                  ; yyyyyy00
+             ASL   A                  ; yyyyy000
+             ASL   A                  ; yyyy0000
+             ORA   FBATTR+2           ; yyyymmmm
+             STA   FBATTR+2
              STZ   FBATTR+3
 
              JSR   OPENFILE           ; Open file
@@ -777,9 +858,9 @@ UPDFB        LDA   #<MOSFILE
              LDA   #$01               ; Prepare A=file
              LDX   GINFOPL+7
              CPX   #$0D               ; Is it a directory?
-             BNE   :UPDFB3
+             BNE   :UPDFB5
              LDA   #$02               ; Return A=directory
-:UPDFB3      RTS
+:UPDFB5      RTS
 
 :ERR
 CHKNOTFND    CMP   #$44               ; Convert ProDOS 'not found'
@@ -838,35 +919,7 @@ CATALOGRET
 * dir/file.ext filesystem, so '..' means parent dir (eg: '../SOMEDIR')
 * Also allows '^' as '^' is illegal character
 * Carry set on error, clear otherwise
-* TO DO: drv: prefix, drv:/dir/file
-PREPATH      LDX   MOSFILE            ; Length
-             BEQ   :EXIT              ; If zero length
-             LDA   MOSFILE+1          ; 1st char of filename
-             CMP   #$3A               ; Is it ':'?
-             BNE   :NOTCLN            ; Nope
-             CPX   #$03               ; Len at least 3?
-             BCC   :ERR               ; Nope!
-             LDA   MOSFILE+3          ; Drive
-             SEC
-             SBC   #'1'
-             TAX
-             LDA   MOSFILE+2          ; Slot
-             SEC
-             SBC   #'0'
-             JSR   DRV2PFX            ; Slt/Drv->pfx in MOSFILE2
-             JSR   DEL1CHAR           ; Delete ':' from MOSFILE
-             JSR   DEL1CHAR           ; Delete the two digits
-             JSR   DEL1CHAR
-             LDA   MOSFILE            ; Is there more?
-             BEQ   :APPEND            ; Only ':sd'
-             CMP   #$02               ; Len at least 2?
-             BCC   :ERR               ; Nope!
-             LDA   MOSFILE+1          ; 1st char of filename
-             CMP   #$2F               ; '/'
-             BNE   :ERR
-             JSR   DEL1CHAR           ; Delete '/' from MOSFILE
-             BRA   :APPEND
-:NOTCLN      JSR   GETPREF            ; Current pfx -> MOSFILE2
+PREPATH      JSR   GETPREF            ; Current pfx -> MOSFILE2
 :REENTER     LDA   MOSFILE+1          ; First char of dirname
              CMP   #'.'
              BEQ   :UPDIR1
@@ -874,7 +927,7 @@ PREPATH      LDX   MOSFILE            ; Length
              BEQ   :CARET             ; If '^'
              CMP   #$2F               ; '/' char - abs path
              BEQ   :EXIT              ; Nothing to do
-             BRA   :APPEND
+             BRA   :PARENT
 
 :UPDIR1      LDA   MOSFILE+2
              CMP   #'.'               ; '..'
@@ -883,7 +936,7 @@ PREPATH      LDX   MOSFILE            ; Length
 :CARET       JSR   DEL1CHAR           ; Delete '^' from MOSFILE
              JSR   PARENT             ; Parent dir -> MOSFILE2
              LDA   MOSFILE            ; Is there more?
-             BEQ   :APPEND            ; Only '^'
+             BEQ   :PARENT            ; Only '^'
              CMP   #$02               ; Len at least two?
              BCC   :ERR               ; Nope!
              LDA   MOSFILE+1          ; What is next char?
@@ -891,7 +944,7 @@ PREPATH      LDX   MOSFILE            ; Length
              BNE   :ERR               ; Nope!
              JSR   DEL1CHAR           ; Delete '/' from MOSFILE
              BRA   :REENTER           ; Go again!
-:APPEND      JSR   APPMF2             ; Append MOSFILE->MOSFILE2
+:PARENT      JSR   APPMF2             ; Append MOSFILE->MOSFILE2
              JSR   COPYMF2            ; Copy back to MOSFILE
 :EXIT        CLC
              RTS
@@ -966,34 +1019,39 @@ PARENT       LDX   MOSFILE2           ; Length of string
 
 * Convert slot/drive to prefix
 * Expect slot number (1..7) in A, drive (0..1) in X
-* Puts prefix (or empty string) in MOSFILE2
-DRV2PFX      ASL
-             ASL
-             ASL
-             ASL
-             CPX   #$00
-             BEQ   :S1                ; Drive 1
-             ORA   #$80               ; Drive 2
-:S1          STA   ONLNPL+1           ; Device number
+* Puts prefix (or empty string) in MOSFILE
+DRV2PFX
+*            ASL
+*            ASL
+*            ASL
+*            ASL
+*            STX   :TEMP              ; Gets 0SSS000D
+*            ORA   :TEMP              ; Shouldn't this be DSSS00000 ?
+
+             CLC                      ; Cy=0 A=00000sss
+             ROR   A                  ;    s   000000ss
+             ROR   A                  ;    s   s000000s
+             ROR   A                  ;    s   ss000000
+             ROR   A                  ;    s   sss00000
+             CPX   #1                 ;    d   sss00000
+             ROR   A                  ;    0   dsss0000
+
+             STA   ONLNPL+1           ; Device number
              JSR   MLI                ; Call ON_LINE
              DB    ONLNCMD
-             DW    ONLNPL             ; Buffer set to $301
-             LDA   $301               ; Slot/Drive/Length
+             DW    ONLNPL             ; Buffer set to DRVBUF2 (was $301)
+             LDA   DRVBUF2            ; was $301 ; Slot/Drive/Length
              AND   #$0F               ; Mask to get length
+             STA   MOSFILE            ; Store length
              TAX
-             INC                      ; Plus '/' at each end
-             INC
-             STA   MOSFILE2           ; Store length
-             LDA   #$2F               ; '/'
-             STA   MOSFILE2+1
-             STA   MOSFILE2+2,X
-:L1          CPX   #$00               ; Copy -> MOSFILE2
+:L1          CPX   #$00               ; Copy -> MOSFILE
              BEQ   :EXIT
-             LDA   $301,X
-             STA   MOSFILE2+1,X
-             DEX
+             LDA   DRVBUF2,X          ; was $301,X
+             STA   MOSFILE,X          ; Should be able to read
+             DEX                      ;  directly to MOSFILE
              BRA   :L1
 :EXIT        RTS
+* :TEMP       DB    $00
 
 * Delete first char of MOSFILE
 DEL1CHAR     LDX   MOSFILE            ; Length
@@ -1088,10 +1146,10 @@ FLSHPL       HEX   01                 ; Number of parameters
 
 ONLNPL       HEX   02                 ; Number of parameters
              DB    $00                ; Unit num
-             DW    $301               ; Buffer
+             DW    DRVBUF2            ; was $301 ; Buffer
 
 GSPFXPL      HEX   01                 ; Number of parameters
-             DW    $300               ; Buffer
+             DW    DRVBUF1            ; was $300 ; Buffer
 
 GPFXPL       HEX   01                 ; Number of parameters
              DW    MOSFILE2           ; Buffer
@@ -1129,25 +1187,25 @@ QUITPL       HEX   04                 ; Number of parameters
              DB    $00
              DW    $0000
 
-* Buffer for Acorn MOS filename
-* Pascal string
-MOSFILE      DS    65                 ; 64 bytes max prefix/file len
+** Buffer for Acorn MOS filename
+** Pascal string
+*MOSFILE     DS    65                 ; 64 bytes max prefix/file len
+*
+** Buffer for second filename (for rename)
+** Pascal string
+*MOSFILE2    DS    65                 ; 64 bytes max prefix/file len
 
-* Buffer for second filename (for rename)
-* Pascal string
-MOSFILE2     DS    65                 ; 64 bytes max prefix/file len
-
-* Acorn MOS format OSFILE param list
-FILEBLK
-FBPTR        DW    $0000              ; Pointer to name (in aux)
-FBLOAD       DW    $0000              ; Load address
-             DW    $0000
-FBEXEC       DW    $0000              ; Exec address
-             DW    $0000
-FBSIZE
-FBSTRT       DW    $0000              ; Size / Start address for SAVE
-             DW    $0000
-FBATTR
-FBEND        DW    $0000              ; Attributes / End address for SAVE
-             DW    $0000
+** Acorn MOS format OSFILE param list
+*FILEBLK
+*FBPTR       DW    $0000              ; Pointer to name (in aux)
+*FBLOAD      DW    $0000              ; Load address
+*            DW    $0000
+*FBEXEC      DW    $0000              ; Exec address
+*            DW    $0000
+*FBSIZE
+*FBSTRT      DW    $0000              ; Size / Start address for SAVE
+*            DW    $0000
+*FBATTR
+*FBEND       DW    $0000              ; Attributes / End address for SAVE
+*            DW    $0000
 
