@@ -103,13 +103,20 @@ OUTSTR      TXA
 PRSTR       STA   OSTEXT+0       ;  String in A,Y
             STY   OSTEXT+1
 :L1         LDA   (OSTEXT)       ; Ptr to string in ZP3
-            BEQ   :S1
+            BEQ   PRSTROK
             JSR   OSASCI
             INC   OSTEXT
             BNE   :L1
             INC   OSTEXT+1
             BRA   :L1
-:S1         RTS
+PRSTROK     RTS
+
+* Print NL if not already at column 0
+FORCENL     LDA   #$86
+            JSR   OSBYTE
+            TXA
+            BEQ   PRSTROK
+            JMP   OSNEWL
 
 * Print XY in hex
 OUT2HEX     TYA
