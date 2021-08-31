@@ -334,6 +334,9 @@ SKIPSPC      LDA   (OSLPTR),Y
              CMP   #$0D               ; Return EQ=<cr>
              RTS
 
+* Skip a word parameter
+SKIPWORD     RTS
+
 * Convert (LPTR),Y to XY
 LPTRtoXY     CLC
              TYA
@@ -390,7 +393,10 @@ STARHELP3    LDA   #32
              INX
              INX
              BNE   STARHELPLP1
-STARHELP4    JSR   OSNEWL
+STARHELP4    LDA   #$08
+             JSR   OSWRCH
+             JSR   OSWRCH
+             JSR   FORCENL
 STARHELP5    LDA   $8006
              BMI   STARHELP6          ; Use ROM's service entry
              JSR   OSNEWL

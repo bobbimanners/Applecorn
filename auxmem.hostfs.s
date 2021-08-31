@@ -566,9 +566,7 @@ FSCCAT
             >>>   XF2MAIN,CATALOG
 STARCATRET
             >>>   ENTAUX
-            LDA   VDUTEXTX
-            BEQ   CATDONE
-            JSR   OSNEWL
+            JSR   FORCENL
 CATDONE     LDA   #0                  ; 0=OK
             RTS
 
@@ -741,30 +739,31 @@ RENAME      LDY   #$00
             BRK
 RENRET
             >>>   ENTAUX
-*           JSR   CHKERROR
-*** JSR CHKNOTFND     ;;; NOPE: THIS IS MAINMEM FUNC!!!
-            CMP   #$44                ; Path not found
-            BEQ   :NOTFND
-            CMP   #$45                ; Vol dir not found
-            BEQ   :NOTFND
-            CMP   #$46                ; File not found
-            BEQ   :NOTFND
-            CMP   #$47                ; Duplicate filename
-            BEQ   :EXISTS
-            CMP   #$4E                ; Access error
-            BEQ   :LOCKED
-            CMP   #$00
-            BNE   :OTHER              ; All other errors
+            JSR   CHKERROR
+**** JSR CHKNOTFND     ;;; NOPE: THIS IS MAINMEM FUNC!!!
+*            CMP   #$44                ; Path not found
+*            BEQ   :NOTFND
+*            CMP   #$45                ; Vol dir not found
+*            BEQ   :NOTFND
+*            CMP   #$46                ; File not found
+*            BEQ   :NOTFND
+*            CMP   #$47                ; Duplicate filename
+*            BEQ   :EXISTS
+*            CMP   #$4E                ; Access error
+*            BEQ   :LOCKED
+*            CMP   #$00
+*            BNE   :OTHER              ; All other errors
+            LDA   #$00
             RTS
-:NOTFND     JMP   ERRNOTFND
-:EXISTS     JMP   ERREXISTS
-:LOCKED     BRK
-            DB    $C3
-            ASC   'Locked'
-:OTHER      BRK
-            DB    $C7
-            ASC   'Disc error'
-            BRK
+*:NOTFND     JMP   ERRNOTFND
+*:EXISTS     JMP   ERREXISTS
+*:LOCKED     BRK
+*            DB    $C3
+*            ASC   'Locked'
+*:OTHER      BRK
+*            DB    $C7
+*            ASC   'Disc error'
+*            BRK
 
 * Handle *DIR (directory change) command
 * On entry, ZP1 points to command line
@@ -970,4 +969,6 @@ ERROR5E     DW    $C000
 ERROR2E     DW    $C800
             ASC   'Disk changed'      ; $2E - Disk switched
             DB    $00
+
+
 
