@@ -132,7 +132,8 @@ address, length and permissions.
 `*DIR pathname` - Allows the current directory to be changed to any ProDOS
 path.  `^` may be used to specify the parent directory.  A colon followed
 by a digit representing the slot and a digit representing the drive, may
-be used to specify a physical drive.  `*CHDIR` is a synonym.
+be used to specify a physical drive.  `*CD` and `*CHDIR` are synonyms for
+`*DIR`.
 Some examples:
 
    - `*DIR /H1/APPLECORN` - absolute path
