@@ -742,13 +742,13 @@ RENAME      LDY   #$00
 RENRET
             >>>   ENTAUX
 *           JSR   CHKERROR
-            JSR   CHKNOTFND
-*            CMP   #$44                ; Path not found
-*            BEQ   :NOTFND
-*            CMP   #$45                ; Vol dir not found
-*            BEQ   :NOTFND
-*            CMP   #$46                ; File not found
-*            BEQ   :NOTFND
+*** JSR CHKNOTFND     ;;; NOPE: THIS IS MAINMEM FUNC!!!
+            CMP   #$44                ; Path not found
+            BEQ   :NOTFND
+            CMP   #$45                ; Vol dir not found
+            BEQ   :NOTFND
+            CMP   #$46                ; File not found
+            BEQ   :NOTFND
             CMP   #$47                ; Duplicate filename
             BEQ   :EXISTS
             CMP   #$4E                ; Access error
@@ -970,6 +970,4 @@ ERROR5E     DW    $C000
 ERROR2E     DW    $C800
             ASC   'Disk changed'      ; $2E - Disk switched
             DB    $00
-
-
 
