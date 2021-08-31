@@ -5,6 +5,8 @@
 * 29-Aug-2021 Generalised CHKERROR routone, checks for and
 *             translates ProDOS errors into Acorn errors
 * Set &E0=&FF for testing to report ProDOS errors
+* 30-Aug-2021 FSC commands moved to here
+*             Command line set by *RUN, and read by OSARGS
 
 
 FSXREG      EQU   $B0
@@ -13,6 +15,7 @@ FSAREG      EQU   $B2
 FSCTRL      EQU   FSXREG
 FSPTR1      EQU   $B4
 FSPTR2      EQU   $B6
+FSCMDLINE   EQU   $CE
 
 
 * OSFIND - open/close a file for byte access
@@ -100,31 +103,54 @@ OSBGETRET
 
 * OSARGS - adjust file arguments
 * On entry, A=action
+*      Y<>0 A=FF Flush channel Y
+*           A=00 Read  PTR#Y
+*           A=01 Write PTR#Y
+*           A=02 Read  EXT#Y
+*           A=03 Write EXT#Y
+*      Y=0  A=FF Flush all channels
+*           A=00 Return filing system number in A
+*           A=01 Read command line address
 *           X=>4 byte ZP control block
 *           Y=file handle
-ARGSHND     PHA
-            PHX
+* On exit,  A=0  - implemented (except ARGS 0,0)
+*           A   - preserved=unimplemented
+*           X,Y - preserved
+*           control block updated for 'read' calls
+*           control block preserved otherwise
+*
+ARGSHND     PHX
             PHY
+            PHA
             CPY   #$00
             BNE   :HASFILE
             CMP   #$00                ; Y=0,A=0 => current file sys
             BNE   :S1
-            PLY
-            PLX
             PLA
             LDA   #105                ; 105=AppleFS filing system
+            PLY
+            PLX
             RTS
+
 :S1         CMP   #$01                ; Y=0,A=1 => addr of CLI
             BNE   :S2
-* TODO: Implement this for *RUN and *command
-            JSR   BEEP
-            BRA   :IEXIT
+            LDA   FSCMDLINE+0
+            STA   $00,X
+            LDA   FSCMDLINE+1
+            STA   $01,X
+            LDA   #$FF
+            STA   $02,X
+            STA   $03,X
+            JMP   OSARGSDONE          ; Implemented
+
 :S2         CMP   #$FF                ; Y=0,A=FF => flush all files
             BNE   :IEXIT
             >>>   WRTMAIN
             STZ   MOSFILE             ; Zero means flush all
             >>>   WRTAUX
-            BRA   :IFLUSH
+            JMP   :FLUSH
+:IEXIT      JMP   :EXIT               ; Exit preserved
+
 :HASFILE    >>>   WRTMAIN
             STY   MOSFILE             ; File ref num
             STX   MOSFILE+1           ; Pointer to ZP control block
@@ -135,8 +161,7 @@ ARGSHND     PHA
             STZ   MOSFILE+2           ; 0 means get pos
             >>>   WRTAUX
             >>>   XF2MAIN,TELL
-:IEXIT      BRA   :IEXIT2
-:IFLUSH     BRA   :FLUSH
+
 :S3         CMP   #$01                ; Y!=0,A=1 => write seq ptr
             BNE   :S4
             >>>   WRTMAIN
@@ -148,25 +173,28 @@ ARGSHND     PHA
             STA   MOSFILE+4
             >>>   WRTAUX
             >>>   XF2MAIN,SEEK
-:IEXIT2     BRA   :EXIT
+
 :S4         CMP   #$02                ; Y!=0,A=2 => read file len
             BNE   :S5
             >>>   WRTMAIN
             STA   MOSFILE+2           ; Non-zero means get len
             >>>   WRTAUX
             >>>   XF2MAIN,TELL
+
 :S5         CMP   #$FF                ; Y!=0,A=FF => flush file
             BNE   :EXIT
 :FLUSH      >>>   XF2MAIN,FLUSH
-:EXIT       PLY
-            PLX
-            PLA
-            RTS
-OSARGSRET
-            >>>   ENTAUX
+
+:EXIT       PLA                       ; Unimplemented
             PLY
             PLX
-            PLA
+            RTS
+
+OSARGSRET   >>>   ENTAUX
+OSARGSDONE  PLA
+            LDA   #0                  ; Implemented
+            PLY
+            PLX
             RTS
 
 
@@ -245,7 +273,7 @@ FILEHND     PHX
             BEQ   :LOAD               ; A=FF -> LOAD
             CMP   #$06
             BEQ   :DELETE             ; A=06 -> DELETE
-*            BCC   :INFO               ; A=01-05 -> INFO
+            BCC   :JMPINFO            ; A=01-05 -> INFO
             CMP   #$08
             BEQ   :MKDIR              ; A=08 -> MKDIR
 *            LDA   #<OSFILEM           ; If not implemented, print msg
@@ -261,13 +289,13 @@ FILEHND     PHX
             PLY
             PLX
             RTS
-:INFO
-* TO DO     >>>   XF2MAIN,INFOFILE
 
+:JMPINFO    JMP   :INFO
 :SAVE       >>>   XF2MAIN,SAVEFILE
 :LOAD       >>>   XF2MAIN,LOADFILE
 :DELETE     >>>   XF2MAIN,DELFILE
 :MKDIR      >>>   XF2MAIN,MAKEDIR
+:INFO       >>>   XF2MAIN,INFOFILE
 
 * On return here, A<$20 return to caller, A>$1F ProDOS error
 OSFILERET
@@ -289,7 +317,7 @@ OSFILERET
             PLY                       ; No error, return to caller
             PLX
             RTS
-            
+
 *            BMI   :L4
 *            PLY                       ; Discard val of A on entry
 *            JMP   :EXIT               ; ret<$80, return it to user
@@ -387,6 +415,37 @@ OSFSCM      ASC   'OSFSC.'
             DB    $00
 
 
+* FSC Command Table
+*******************
+* These are commands specific to the filing system that can't be
+* called via OSFILE, OSFSC, etc.
+*
+FSCCOMMAND  ASC   'CHDIR'
+            DB    $C0
+            DW    FSCCHDIR-1          ; Change directory, XY=>params
+            ASC   'CD'
+            DB    $C0
+            DW    FSCCHDIR-1          ; Change directory, XY=>params
+            ASC   'DIR'
+            DB    $C0
+            DW    FSCCHDIR-1          ; Change directory, XY=>params
+* TO DO, CHDIR should be $80 for LPTR=>params
+            ASC   'DRIVE'
+            DB    $80
+            DW    FSCDRIVE-1          ; Select drive, LPTR=>params
+            ASC   'FREE'
+            DB    $80
+            DW    FSCFREE-1           ; FREE (<drive)>, LPTR=>params
+            ASC   'ACCESS'
+            DB    $80
+            DW    FSCACCESS-1         ; ACCESS <obj> <access), LPTR=>params
+            ASC   'TITLE'
+            DB    $80
+            DW    FSCTITLE-1          ; TITLE (<drive>) <title>, LPTR=>params
+*
+            DB    $FF                 ; Terminator
+
+
 * OSFSC - miscellanous file system calls
 *****************************************
 *  On entry, A=action, XY=>command line
@@ -397,33 +456,35 @@ OSFSCM      ASC   'OSFSC.'
 * 
 * TO DO: use jump table
 FSCHND
-            CMP   #$40
-            BEQ   FSCCHDIR
-            CMP   #$41
-            BEQ   FSCDRIVE
-            CMP   #$42
-            BEQ   FSCFREE
-            CMP   #$43
-            BEQ   FSCACCESS
-            CMP   #$42
-            BEQ   FSCTITLE
+*            CMP   #$40
+*            BEQ   FSCCHDIR
+*            CMP   #$41
+*            BEQ   FSCDRIVE
+*            CMP   #$42
+*            BEQ   FSCFREE
+*            CMP   #$43
+*            BEQ   FSCACCESS
+*            CMP   #$42
+*            BEQ   FSCTITLE
 
-            CMP   #$0C
-            BEQ   FSCREN              ; A=12 - *RENAME
             CMP   #$00
             BEQ   FSOPT               ; A=0  - *OPT
             CMP   #$01
             BEQ   CHKEOF              ; A=1  - Read EOF
             CMP   #$02
             BEQ   FSCRUN              ; A=2  - */filename
+            CMP   #$03
+            BEQ   FSC03               ; A=3  - *command
             CMP   #$04
             BEQ   FSCRUN              ; A=4  - *RUN
             CMP   #$05
-            BEQ   FSCCAT              ; A=5  - *CAT
+            BEQ   JMPCAT              ; A=5  - *CAT
             CMP   #$09
-            BEQ   FSCCAT              ; A=9  - *EX
+            BEQ   JMPCAT              ; A=9  - *EX
             CMP   #$0A
-            BEQ   FSCCAT              ; A=10 - *INFO
+            BEQ   JMPCAT              ; A=10 - *INFO
+            CMP   #$0C
+            BEQ   FSCREN              ; A=12 - *RENAME
 FSCDRIVE
 FSCFREE
 FSCACCESS
@@ -435,8 +496,29 @@ FSCUKN      PHA
             PLA
 FSCNULL     RTS
 
+JMPCAT      JMP   FSCCAT
+
+FSC03       JSR   XYtoLPTR
+            LDX   #<FSCCOMMAND
+            LDY   #>FSCCOMMAND
+            JSR   CLILOOKUP
+            BEQ   FSCNULL
+            JSR   LPTRtoXY
+*
 FSCRUN      STX   OSFILECB            ; Pointer to filename
             STY   OSFILECB+1
+            JSR   XYtoLPTR
+FSCRUNLP    LDA   (OSLPTR),Y          ; Look for command line
+            INY
+            CMP   #'!'
+            BCS   FSCRUNLP
+            DEY
+            JSR   SKIPSPC
+            JSR   LPTRtoXY
+            STX   FSCMDLINE+0         ; Set CMDLINE=>command line
+            STY   FSCMDLINE+1         ; Collected by OSARGS 1,0
+*
+* *BUG* OSFILE &FF should give error if trying to load a directory!
             LDA   #$FF                ; OSFILE load flag
             STA   OSFILECB+6          ; Use file's address
             LDX   #<OSFILECB          ; Pointer to control block
@@ -445,12 +527,12 @@ FSCRUN      STX   OSFILECB            ; Pointer to filename
             JSR   :CALL
             LDA   #$00                ; A=0 on return
             RTS
-:CALL       JMP   (OSFILECB+6)        ; Jump to EXEC addr
-            RTS
+:CALL       LDA   #$01                ; A=1 - entering code
+            SEC                       ; Not from RESET
+            JMP   (OSFILECB+6)        ; Jump to EXEC addr
 
 FSCREN      JSR   XYtoLPTR            ; Pointer to command line
-            JSR   RENAME
-            RTS
+            JMP   RENAME
 
 FSCCHDIR    STX   ZP1+0
             STY   ZP1+1
@@ -474,19 +556,17 @@ CHKEOFRET
 * Perform CAT
 * A=5 *CAT, A=9 *EX, A=10 *INFO
 FSCCAT
- CMP #10     ; *TEMP*
- BEQ CATDONE ; *TEMP*
+            CMP   #10                 ; *TEMP*
+            BEQ   CATDONE             ; *TEMP*
             ASL   A
             ASL   A
-            ASL   A       ; 0101xxxx=*CAT
-            ASL   A       ; 1001xxxx=*EX
-            STA   FSAREG  ; 1010xxxx=*INFO
+            ASL   A                   ; 0101xxxx=*CAT
+            ASL   A                   ; 1001xxxx=*EX
+            STA   FSAREG              ; 1010xxxx=*INFO
             >>>   XF2MAIN,CATALOG
 STARCATRET
             >>>   ENTAUX
-            LDA   VDUTEXTX
-            BEQ   CATDONE
-            JSR   OSNEWL
+            JSR   FORCENL
 CATDONE     LDA   #0                  ; 0=OK
             RTS
 
@@ -659,30 +739,31 @@ RENAME      LDY   #$00
             BRK
 RENRET
             >>>   ENTAUX
-*           JSR   CHKERROR
-            JSR   CHKNOTFND
+            JSR   CHKERROR
+**** JSR CHKNOTFND     ;;; NOPE: THIS IS MAINMEM FUNC!!!
 *            CMP   #$44                ; Path not found
 *            BEQ   :NOTFND
 *            CMP   #$45                ; Vol dir not found
 *            BEQ   :NOTFND
 *            CMP   #$46                ; File not found
 *            BEQ   :NOTFND
-            CMP   #$47                ; Duplicate filename
-            BEQ   :EXISTS
-            CMP   #$4E                ; Access error
-            BEQ   :LOCKED
-            CMP   #$00
-            BNE   :OTHER              ; All other errors
+*            CMP   #$47                ; Duplicate filename
+*            BEQ   :EXISTS
+*            CMP   #$4E                ; Access error
+*            BEQ   :LOCKED
+*            CMP   #$00
+*            BNE   :OTHER              ; All other errors
+            LDA   #$00
             RTS
-:NOTFND     JMP   ERRNOTFND
-:EXISTS     JMP   ERREXISTS
-:LOCKED     BRK
-            DB    $C3
-            ASC   'Locked'
-:OTHER      BRK
-            DB    $C7
-            ASC   'Disc error'
-            BRK
+*:NOTFND     JMP   ERRNOTFND
+*:EXISTS     JMP   ERREXISTS
+*:LOCKED     BRK
+*            DB    $C3
+*            ASC   'Locked'
+*:OTHER      BRK
+*            DB    $C7
+*            ASC   'Disc error'
+*            BRK
 
 * Handle *DIR (directory change) command
 * On entry, ZP1 points to command line
@@ -724,68 +805,68 @@ CHKERROR    CMP   #$20
             BCS   MKERROR
             RTS
 
-;ERREXISTS   LDA   #$47 ; File exists
-;ERRNOTFND   LDA   #$46 ; File not found
+*ERREXISTS   LDA   #$47 ; File exists
+*ERRNOTFND   LDA   #$46 ; File not found
 
 MKERROR
- BIT $E0
- BPL MKERROR1 ; *TEST*
- PHA
- LDX #15
+            BIT   $E0
+            BPL   MKERROR1            ; *TEST*
+            PHA
+            LDX   #15
 MKERRLP
- LDA ERRMSG,X
- STA $100,X
- DEX
- BPL MKERRLP
- PLA
- PHA
- LSR A
- LSR A
- LSR A
- LSR A
- JSR ERRHEX
- STA $109
- PLA
- JSR ERRHEX
- STA $10A
- JMP $100
+            LDA   ERRMSG,X
+            STA   $100,X
+            DEX
+            BPL   MKERRLP
+            PLA
+            PHA
+            LSR   A
+            LSR   A
+            LSR   A
+            LSR   A
+            JSR   ERRHEX
+            STA   $109
+            PLA
+            JSR   ERRHEX
+            STA   $10A
+            JMP   $100
 ERRHEX
- AND #15
- CMP #10
- BCC ERRHEX1
- ADC #6
+            AND   #15
+            CMP   #10
+            BCC   ERRHEX1
+            ADC   #6
 ERRHEX1
- ADC #48
- RTS 
+            ADC   #48
+            RTS
 ERRMSG
-  BRK
-  DB    $FF
-  ASC   'TEST: $00'
-  BRK
+            BRK
+            DB    $FF
+            ASC   'TEST: $00'
+            BRK
 MKERROR1
-  CMP #$40
-  BCS MKERROR2
-  ADC #$31
+            CMP   #$40
+            BCS   MKERROR2
+            ADC   #$31
 MKERROR2
-  SEC
-  SBC #$40
-  CMP #$20
-  BCC MKERROR3
-  LDA #$18 ; I/O error
+            SEC
+            SBC   #$40
+            CMP   #$20
+            BCC   MKERROR3
+            LDA   #$18                ; I/O error
 MKERROR3
-  ASL A
-  TAX
-  LDA MKERROR4+1,X
-  PHA
-  LDA MKERROR4+0,X
-  PHA
-  PHP
-  RTI
+            ASL   A
+            TAX
+            LDA   MKERROR4+1,X
+            PHA
+            LDA   MKERROR4+0,X
+            PHA
+            PHP
+            RTI
 MKERROR4
- DW ERROR40,ERROR41,ERROR42,ERROR43,ERROR44,ERROR45,ERROR46,ERROR47
- DW ERROR48,ERROR49,ERROR4A,ERROR4B,ERROR4C,ERROR4D,ERROR4E,ERROR4F
- DW ERROR50,ERROR51,ERROR52,ERROR53,ERROR54,ERROR55,ERROR56,ERROR57
- DW ERROR27,ERROR28,ERROR5A,ERROR5B,ERROR2B,ERROR5D,ERROR5E,ERROR2E
+            DW    ERROR40,ERROR41,ERROR42,ERROR43,ERROR44,ERROR45,ERROR46,ERROR47
+            DW    ERROR48,ERROR49,ERROR4A,ERROR4B,ERROR4C,ERROR4D,ERROR4E,ERROR4F
+            DW    ERROR50,ERROR51,ERROR52,ERROR53,ERROR54,ERROR55,ERROR56,ERROR57
+            DW    ERROR27,ERROR28,ERROR5A,ERROR5B,ERROR2B,ERROR5D,ERROR5E,ERROR2E
 
 * $40 - Invalid pathname syntax.            Bad filename
 * $41 - Duplicate filename. (additional)    Directory exists
@@ -811,80 +892,81 @@ MKERROR4
 * $55 - Volume Control Block table full.
 * $56 - Bad buffer address.
 * $57 - Duplicate volume.
-* ($58) $27  - I/O error
-* ($59) $28  - No device connected                 Disk not present
+* ($58) $27  - I/O error (disk not formatted)
+* ($59) $28  - No device connected (drive not present)  Disk not present
 *  $5A ($29) - Bit map disk address is impossible. Sector not found
 *  $5B  $2A  -
 * ($5C) $2B  - Disk write protected.               Disk write protected
 *  $5D ($2C) - (EOF during load or save)           Data lost
 *  $5E ($2D) - (Couldn't open to save)             Can't save
 * ($5F) $2E  - Disk switched                       Disk changed
+*       $2F  - Device is offline (drive empty)
 *
 
 *       AcornOS                     ProDOS
-ERROR40 DW  $CC00
-        ASC 'Bad filename'         ; $40 - Invalid pathname syntax
-ERROR41 DW  $C400
-        ASC 'Directory exists'     ; $41 - Duplicate filename (split from $47)
-ERROR42 DW  $C000
-        ASC 'Too many open'        ; $42 - File Control Block table full
-ERROR43 DW  $DE00
-        ASC 'Channel not open'     ; $43 - Invalid reference number
-ERROR44                            ; $44 - Path not found
-ERROR46 DW  $D600
-        ASC 'File not found'       ; $46 - File not found
-ERROR45 DW  $D600
-        ASC 'Disk not found'       ; $45 - Volume directory not found
-ERROR47 DW  $C400
-        ASC 'File exists'          ; $47 - Duplicate filename (see also $41)
-ERROR48 DW  $C600
-        ASC 'Disk full'            ; $48 - Overrun error
-ERROR49 DW  $B300
-        ASC 'Directory full'       ; $49 - Volume directory full
-ERROR4A                            ; $4A - Incompatible file format
-ERROR4B                            ; $4B - Unsupported storage_type
-ERROR52 DW  $C800
-        ASC 'Disk not recognised'  ; $52 - Not a ProDOS disk
-ERROR4C DW  $DF00
-        ASC 'End of file'          ; $4C - End of file has been encountered
-ERROR4D DW  $C100
-        ASC 'Not open for update'  ; $4D - Position out of range
-ERROR4E DW  $BD00
-        ASC 'Insufficient access'  ; $4E - Access error (see also $4F)
-ERROR4F DW  $C300
-        ASC 'Locked'               ; $4F - Access error (split from $4E)
-ERROR50 DW  $C200
-        ASC 'Can'
-        DB  $27
-        ASC 't - file open'        ; $50 - File is open
-ERROR51 DW  $A800
-        ASC 'Broken directory'     ; $51 - Directory count error
-ERROR53 DW  $DC00
-        ASC 'Invalid parameter'    ; $53 - Invalid parameter
-ERROR54 DW  $D400
-        ASC 'Directory not empty'  ; $54 - Directory not empty
-ERROR55 DW  $FF00
-        ASC 'ProDOS: VCB full'     ; $55 - Volume Control Block table full
-ERROR56 DW  $FF00
-        ASC 'ProDOS: Bad addr'     ; $56 - Bad buffer address
-ERROR57 DW  $FF00
-        ASC 'ProDOS: Dup volm'     ; $57 - Duplicate volume
-ERROR5B ; spare
-ERROR27 DW  $FF00
-        ASC 'I/O error'            ; $27 - I/O error
-ERROR28 DW  $D200
-        ASC 'Disk not present'     ; $28 - No device detected/connected
-ERROR5A DW  $FF00
-        ASC 'Sector not found'     ; $5A - Bit map disk address is impossible
-ERROR2B DW  $C900
-        ASC 'Disk write protected' ; $2B - Disk write protected
-ERROR5D DW  $CA00
-        ASC 'Data lost'            ; $5D - EOF during LOAD or SAVE
-ERROR5E DW  $C000
-        ASC 'Can'
-        DB  $27
-        ASC 't save'               ; $5E - Couldn't open for save
-ERROR2E DW  $C800
-        ASC 'Disk changed'         ; $2E - Disk switched
-        DB  $00
+ERROR40     DW    $CC00
+            ASC   'Bad filename'      ; $40 - Invalid pathname syntax
+ERROR41     DW    $C400
+            ASC   'Directory exists'  ; $41 - Duplicate filename (split from $47)
+ERROR42     DW    $C000
+            ASC   'Too many open'     ; $42 - File Control Block table full
+ERROR43     DW    $DE00
+            ASC   'Channel not open'  ; $43 - Invalid reference number
+ERROR44                               ; $44 - Path not found
+ERROR46     DW    $D600
+            ASC   'File not found'    ; $46 - File not found
+ERROR45     DW    $D600
+            ASC   'Disk not found'    ; $45 - Volume directory not found
+ERROR47     DW    $C400
+            ASC   'File exists'       ; $47 - Duplicate filename (see also $41)
+ERROR48     DW    $C600
+            ASC   'Disk full'         ; $48 - Overrun error
+ERROR49     DW    $B300
+            ASC   'Directory full'    ; $49 - Volume directory full
+ERROR4A                               ; $4A - Incompatible file format
+ERROR4B                               ; $4B - Unsupported storage_type
+ERROR52     DW    $C800
+            ASC   'Disk not recognised'  ; $52 - Not a ProDOS disk
+ERROR4C     DW    $DF00
+            ASC   'End of file'       ; $4C - End of file has been encountered
+ERROR4D     DW    $C100
+            ASC   'Not open for update'  ; $4D - Position out of range
+ERROR4E     DW    $BD00
+            ASC   'Insufficient access'  ; $4E - Access error (see also $4F)
+ERROR4F     DW    $C300
+            ASC   'Locked'            ; $4F - Access error (split from $4E)
+ERROR50     DW    $C200
+            ASC   'Can'
+            DB    $27
+            ASC   't - file open'     ; $50 - File is open
+ERROR51     DW    $A800
+            ASC   'Broken directory'  ; $51 - Directory count error
+ERROR53     DW    $DC00
+            ASC   'Invalid parameter'  ; $53 - Invalid parameter
+ERROR54     DW    $D400
+            ASC   'Directory not empty'  ; $54 - Directory not empty
+ERROR55     DW    $FF00
+            ASC   'ProDOS: VCB full'  ; $55 - Volume Control Block table full
+ERROR56     DW    $FF00
+            ASC   'ProDOS: Bad addr'  ; $56 - Bad buffer address
+ERROR57     DW    $FF00
+            ASC   'ProDOS: Dup volm'  ; $57 - Duplicate volume
+ERROR5B                               ; spare
+ERROR27     DW    $FF00
+            ASC   'I/O error'         ; $27 - I/O error
+ERROR28     DW    $D200
+            ASC   'Disk not present'  ; $28 - No device detected/connected
+ERROR5A     DW    $FF00
+            ASC   'Sector not found'  ; $5A - Bit map disk address is impossible
+ERROR2B     DW    $C900
+            ASC   'Disk write protected'  ; $2B - Disk write protected
+ERROR5D     DW    $CA00
+            ASC   'Data lost'         ; $5D - EOF during LOAD or SAVE
+ERROR5E     DW    $C000
+            ASC   'Can'
+            DB    $27
+            ASC   't save'            ; $5E - Couldn't open for save
+ERROR2E     DW    $C800
+            ASC   'Disk changed'      ; $2E - Disk switched
+            DB    $00
 
