@@ -126,6 +126,9 @@ language ROM.
 
 `*CAT` (or `*.`) - Simple listing of the files in the current directory.
 
+`*EX` - Detailed listing of files in the current directory showing load
+address, length and permissions.
+
 `*DIR pathname` - Allows the current directory to be changed to any ProDOS
 path.  `^` may be used to specify the parent directory.  A colon followed
 by a digit representing the slot and a digit representing the drive, may
