@@ -175,9 +175,8 @@ COPYAUXBLK
 *        All start with PREPATH, UPDFB, COPYFB then branch
 *        to relevent routine.
 
-
 INFOFILE     >>>   ENTMAIN
-* TO DO: call PREPATH to check for drive, up, etc
+             JSR   PREPATH            ; Preprocess path
              JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy back to aux mem
              >>>   XF2AUX,OSFILERET
@@ -188,7 +187,7 @@ INFOFILE     >>>   ENTMAIN
 * Return A=0 no object, A=1 file deleted, A=2 dir deleted
 *        A>$1F ProDOS error
 DELFILE      >>>   ENTMAIN
-* TO DO: call PREPATH to check for drive, up, etc
+             JSR   PREPATH            ; Preprocess pathname
              JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy back to aux mem
              PHA                      ; Save object type
@@ -227,7 +226,7 @@ DESTROY      LDA   #<MOSFILE          ; Attempt to destroy file
 * Return A=02 on success (ie: 'directory')
 *        A>$1F ProDOS error, translated by OSFILE handler
 MAKEDIR      >>>   ENTMAIN
-* TO DO: call PREPATH to check for drive, up, etc
+             JSR   PREPATH            ; Preprocess pathname
              JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy back to aux mem
              CMP   #$02
@@ -285,8 +284,10 @@ DORENAME     LDA   #<MOSFILE
 * Options in A: $40 'r', $80 'w', $C0 'rw'
 OFILE        >>>   ENTMAIN
              PHA                      ; Preserve arg for later
+             JSR   PREPATH            ; Preprocess pathname
+             PLA
+             PHA
 * TO DO: Mustn't write to a directory
-* TO DO: call PREPATH to check for drive, up, etc
              CMP   #$80               ; Write mode
              BNE   :S0
              JSR   DESTROY
@@ -523,7 +524,7 @@ TELL         >>>   ENTMAIN
 *        A>$1F ProDOS error, translated by FILERET
 * TO DO: If object not a file, return $46 - File not found
 LOADFILE     >>>   ENTMAIN
-* TO DO: call PREPATH to check for drive, up, etc
+             JSR   PREPATH            ; Preprocess pathname
              STZ   :BLOCKS
              LDA   #<MOSFILE
              STA   OPENPL+1
@@ -620,7 +621,7 @@ COPYFB       PHA
 *        A>$1F ProDOS error translated by FILERET
 * TO DO: If dir exists, return $41
 SAVEFILE     >>>   ENTMAIN
-* TO DO: call PREPATH to check for drive, up, etc
+             JSR   PREPATH            ; Preprocess pathname
 * TO DO: MUSTN'T OVERWITE A DIRECTORY
              LDA   #<MOSFILE          ; Attempt to destroy file
              STA   DESTPL+1
@@ -980,7 +981,7 @@ PREPATH      LDX   MOSFILE            ; Length
 
 * Set prefix. Used by *CHDIR to change directory
 SETPFX       >>>   ENTMAIN
-             JSR   PREPATH            ; Preprocess path
+             JSR   PREPATH            ; Preprocess pathname
              BCS   :ERR
              LDA   #<MOSFILE
              STA   SPFXPL+1
