@@ -208,7 +208,7 @@ DELFILE      >>>   ENTMAIN
 *            LDA   #$02               ; Prepare A=2, it was a dir
 *            LDX   GINFOPL+7          ; Storage type
 *            CPX   #$0D
-*            BEQ   :EXIT              ; It was a directory            
+*            BEQ   :EXIT              ; It was a directory
 *            LDA   #$01               ; A=1, it was a file
 :EXIT        >>>   XF2AUX,OSFILERET
 
@@ -285,9 +285,12 @@ DORENAME     LDA   #<MOSFILE
 OFILE        >>>   ENTMAIN
              PHA                      ; Preserve arg for later
              JSR   PREPATH            ; Preprocess pathname
-             PLA
+             JSR   EXISTS             ; See if file exists ...
+             CMP   #$02               ; ... and is a directory
+             BNE   :NOTDIR
+             JMP   :NOTFND            ; Bail out if directory
+:NOTDIR      PLA
              PHA
-* TO DO: Mustn't write to a directory
              CMP   #$80               ; Write mode
              BNE   :S0
              JSR   DESTROY
@@ -522,9 +525,11 @@ TELL         >>>   ENTMAIN
 * Invoked by AppleMOS OSFILE
 * Return A=01 if successful (meaning 'file')
 *        A>$1F ProDOS error, translated by FILERET
-* TO DO: If object not a file, return $46 - File not found
 LOADFILE     >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
+             JSR   EXISTS             ; See if it exists ...
+             CMP   #$01               ; ... and is a file
+             BNE   :NOTFND
              STZ   :BLOCKS
              LDA   #<MOSFILE
              STA   OPENPL+1
@@ -599,6 +604,26 @@ LOADFILE     >>>   ENTMAIN
              >>>   XF2AUX,OSFILERET
 :BLOCKS      DB    $00
 
+* Check if file exists
+* Return A=0 if doesn't exist, A=1 file, A=2 fir
+EXISTS       LDA   #<MOSFILE
+             STA   GINFOPL+1
+             LDA   #>MOSFILE
+             STA   GINFOPL+2
+             JSR   MLI                ; GET_FILE_INFO
+             DB    GINFOCMD
+             DW    GINFOPL
+             BCS   :NOEXIST
+             LDA   GINFOPL+7          ; Storage type
+             CMP   #$0D
+             BCS   :DIR               ; >= $0D
+             LDA   #$01               ; File
+             RTS
+:DIR         LDA   #$02
+             RTS
+:NOEXIST     LDA   #$00
+             RTS
+
 * Copy FILEBLK to AUXBLK in aux memory
 * Preserves A
 COPYFB       PHA
@@ -619,11 +644,15 @@ COPYFB       PHA
 * Invoked by AppleMOS OSFILE
 * Return A=01 if successful (ie: 'file')
 *        A>$1F ProDOS error translated by FILERET
-* TO DO: If dir exists, return $41
 SAVEFILE     >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
-* TO DO: MUSTN'T OVERWITE A DIRECTORY
-             LDA   #<MOSFILE          ; Attempt to destroy file
+             JSR   EXISTS             ; See if file exists ...
+             CMP   #$02               ; ... and is a directory
+             BNE   :NOTDIR
+             LDA   $41                ; Dir exists, return $41
+             PHA
+             JMP   :EXIT
+:NOTDIR      LDA   #<MOSFILE          ; Attempt to destroy file
              STA   DESTPL+1
              LDA   #>MOSFILE
              STA   DESTPL+2
