@@ -11,7 +11,6 @@
 * Set ?&E0=255 for testing to report ProDOS result
 * 30-Aug-2021 INFOFILE semi-implemented, UPDFB returns moddate
 * Lots of tidying up possible once confirmed code working
-* *BUG* LOAD loads full 512 bytes from last sector even when < 512
 
 
 * ProDOS string buffers
@@ -529,8 +528,9 @@ LOADFILE     >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
              JSR   EXISTS             ; See if it exists ...
              CMP   #$01               ; ... and is a file
-             BNE   :NOTFND
-             STZ   :BLOCKS
+             BEQ   :ISFILE
+             JMP   :NOTFND
+:ISFILE      STZ   :BLOCKS
              LDA   #<MOSFILE
              STA   OPENPL+1
              LDA   #>MOSFILE
@@ -548,9 +548,12 @@ LOADFILE     >>>   ENTMAIN
              STA   A1L
              LDA   #>BLKBUF
              STA   A1H
-             LDA   #<BLKBUFEND
+             CLC
+             LDA   #<BLKBUF
+             ADC   READPL+6           ; LSB of trans count
              STA   A2L
-             LDA   #>BLKBUFEND
+             LDA   #>BLKBUF
+             ADC   READPL+7           ; MSB of trans count
              STA   A2H
              LDA   FBEXEC             ; If FBEXEC is zero, use addr
              CMP   #$00               ; in the control block
@@ -580,8 +583,6 @@ LOADFILE     >>>   ENTMAIN
              INC
              DEX
              BRA   :L2
-* *BUG* This is copy all 512 bytes of last block instead of
-* just the bytes used
 :S2          STA   A4H
              SEC                      ; Main -> AUX
              JSR   AUXMOVE
