@@ -709,7 +709,13 @@ RENRET
 * Handle *DIR (directory change) command
 * On entry, XY points to command line
 CHDIR       JSR   PARSNAME            ; Copy filename->MOSFILE
-            >>>   XF2MAIN,SETPFX
+            CMP   #$00                ; Filename length
+            BNE   :HASPARM
+            BRK
+            DB    $DC
+            ASC   'Syntax: DIR <pathname>'
+            BRK
+:HASPARM    >>>   XF2MAIN,SETPFX
 CHDIRRET
             >>>   ENTAUX
             JSR   CHKERROR
@@ -723,6 +729,7 @@ CHDIRRET
 
 * Parse filename pointed to by XY
 * Write filename to MOSFILE in main memory
+* Returns length in A
 PARSNAME    JSR   XYtoLPTR
             CLC                       ; Means parsing a filename
             JSR   GSINIT              ; Init gen string handling
@@ -740,6 +747,7 @@ PARSNAME    JSR   XYtoLPTR
             STX   MOSFILE             ; Length byte (Pascal)
             STA   $C005               ; Back to aux
             PLP                       ; IRQs back as they were
+            TXA                       ; Return len in A
             RTS
 
 * Move this somewhere
