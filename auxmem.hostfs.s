@@ -22,27 +22,10 @@ FSCMDLINE   EQU   $CE
 FINDHND     PHX
             PHY
             PHA
-            STX   ZP1                 ; Points to filename
-            STY   ZP1+1
             CMP   #$00                ; A=$00 = close
             BEQ   :CLOSE
             PHA
-            LDA   #<MOSFILE+1
-            STA   ZP2
-            LDA   #>MOSFILE+1
-            STA   ZP2+1
-            LDY   #$00
-:L1         LDA   (ZP1),Y
-            >>>   WRTMAIN
-            STA   (ZP2),Y
-            >>>   WRTAUX
-            INY
-            CMP   #$0D                ; Carriage return
-            BNE   :L1
-            DEY
-            >>>   WRTMAIN
-            STY   MOSFILE             ; Length (Pascal string)
-            >>>   WRTAUX
+            JSR   PARSNAME            ; Copy filename->MOSFILE
             PLA                       ; Recover options
             >>>   XF2MAIN,OFILE
 :CLOSE      >>>   WRTMAIN
@@ -480,8 +463,6 @@ FSCRUNLP    LDA   (OSLPTR),Y          ; Look for command line
             JSR   LPTRtoXY
             STX   FSCMDLINE+0         ; Set CMDLINE=>command line
             STY   FSCMDLINE+1         ; Collected by OSARGS 1,0
-*
-* *BUG* OSFILE &FF should give error if trying to load a directory!
             LDA   #$FF                ; OSFILE load flag
             STA   OSFILECB+6          ; Use file's address
             LDX   #<OSFILECB          ; Pointer to control block
