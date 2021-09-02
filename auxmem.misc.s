@@ -2,33 +2,35 @@
 * (c) Bobbi 2021 GPLv3
 *
 * Misc functions and API entry block
-* TO DO: Write GSINIT/GSREAD
+* 02-Sep-2021 Written GSINIT/GSREAD
 
 
 * OSBYTE $80 - ADVAL
 ************************************
 * Read input device or buffer status
 
-BYTE80      LDY   #$00           ; Prepare return=&00xx
-            TXA                  ; X<0  - info about buffers
-            BMI   ADVALBUF       ; X>=0 - read input devices
+BYTE80      LDY   #$00       ; Prepare return=&00xx
+            TXA              ; X<0  - info about buffers
+            BMI   ADVALBUF   ; X>=0 - read input devices
             CPX   #$7F
             BNE   ADVALNONE
 ADVALWAIT   JSR   KBDREAD
             BCS   ADVALWAIT
             TAX
-            RTS
-ADVALNONE   LDX   #$00           ; Input, just return 0
+            BPL   ADVALOK1   ; &00xx for normal keys
+            INY              ; &01xx for function/edit keys
+ADVALOK1    RTS
+ADVALNONE   LDX   #$00       ; Input, just return 0
             RTS
 ADVALBUF    INX
-            BEQ   :ADVALKBD      ; Fake keyboard buffer
+            BEQ   :ADVALKBD  ; Fake keyboard buffer
             INX
-            BEQ   :ADVALOK       ; Serial input, return 0
-            LDX   #$01           ; For outputs, return 1 char free
+            BEQ   :ADVALOK   ; Serial input, return 0
+            LDX   #$01       ; For outputs, return 1 char free
             RTS
-:ADVALKBD   BIT   $C000          ; Test keyboard data/strobe
-            BPL   :ADVALOK       ; No Strobe, return 0
-            INX                  ; Strobe, return 1
+:ADVALKBD   BIT   $C000      ; Test keyboard data/strobe
+            BPL   :ADVALOK   ; No Strobe, return 0
+            INX              ; Strobe, return 1
 :ADVALOK    RTS
 
 
@@ -53,21 +55,21 @@ ADVALBUF    INX
 *         (8 * frequency      )
 
 * BEEPX     EQU   #57        ; note=C5
-BEEPX       EQU   #116           ; note=C4
+BEEPX       EQU   #116       ; note=C4
 BEEP        PHA
             PHX
             PHY
-            LDY   #$00           ;       duration
-:L1         LDX   #BEEPX         ; 2cy   pitch      2cy
+            LDY   #$00       ;       duration
+:L1         LDX   #BEEPX     ; 2cy   pitch      2cy
 *------------------------------------------------------
-:L2         DEX                  ; 2cy      BEEPX * 2cy
-            BNE   :L2            ; 3cy/2cy  (BEEPX-1) * 3cy + 1 * 2cy
+:L2         DEX              ; 2cy      BEEPX * 2cy
+            BNE   :L2        ; 3cy/2cy  (BEEPX-1) * 3cy + 1 * 2cy
 *------------------------------------------------------
-*                                       BEEPX*5-1cy
-            LDA   $C030          ; 4cy        BEEPX*5+5
-            DEY                  ; 2cy        BEEPX*5+7
-            BNE   :L1            ; 3cy/2cy    BEEPX*5+10
-            PLY                  ;
+*                                   BEEPX*5-1cy
+            LDA   $C030      ; 4cy        BEEPX*5+5
+            DEY              ; 2cy        BEEPX*5+7
+            BNE   :L1        ; 3cy/2cy    BEEPX*5+10
+            PLY              ;
             PLX
             PLA
             RTS
@@ -100,9 +102,9 @@ BEEP        PHA
 OUTSTR      TXA
 
 * Print string pointed to by A,Y to the screen
-PRSTR       STA   OSTEXT+0       ;  String in A,Y
+PRSTR       STA   OSTEXT+0   ;  String in A,Y
             STY   OSTEXT+1
-:L1         LDA   (OSTEXT)       ; Ptr to string in ZP3
+:L1         LDA   (OSTEXT)   ; Ptr to string in ZP3
             BEQ   PRSTROK
             JSR   OSASCI
             INC   OSTEXT
@@ -121,7 +123,7 @@ FORCENL     LDA   #$86
 * Print XY in hex
 OUT2HEX     TYA
             JSR   OUTHEX
-            TAX                  ; Continue into OUTHEX
+            TAX              ; Continue into OUTHEX
 
 * Print hex byte in A
 OUTHEX      PHA
@@ -132,17 +134,163 @@ OUTHEX      PHA
             AND   #$0F
             JSR   PRNIB
             PLA
-            AND   #$0F           ; Continue into PRNIB
+            AND   #$0F       ; Continue into PRNIB
 
 * Print hex nibble in A
 PRNIB       CMP   #$0A
             BCC   :S1
-            CLC                  ; >= $0A
+            CLC              ; >= $0A
             ADC   #'A'-$0A
             JSR   OSWRCH
             RTS
-:S1         ADC   #'0'           ; < $0A
+:S1         ADC   #'0'       ; < $0A
             JMP   OSWRCH
+
+
+* GSINIT - Initialise for GSTRANS string parsing
+************************************************
+* On entry,
+*  (OSLPTR),Y=>start of string (spaces will be skipped)
+*  CLC = filename style parsing
+*  SEC = *KEY style parsing
+* On exit,
+*  X = preserved
+*  Y = prepared for future calls to GSREAD
+*  EQ = end of line (nb: not "" null string)
+*  NE = not end of line
+*
+* Very difficult to write this without it being a direct clone
+* from the BBC MOS. ;)
+*
+GSINTGO     ROR   GSFLAG     ; CY initially into bit 7
+            JSR   SKIPSPC    ; Skip any spaces
+            INY              ; Step past in case it's a quote
+            CMP   #$22       ; Is it a quote?
+            BEQ   GSINTGO1
+            DEY              ; Wasn't a quote, step back
+            CLC              ; Prepare CC=no leading quote
+GSINTGO1    ROR   GSFLAG     ; Rotate 'leading-quote' into flags
+            CMP   #$0D
+            RTS              ; Return EQ if end of line
+* GSFLAG set to:
+*  bit7: leading quote found
+*  bit6: CC=filename CS=*KEY
+
+* GSREAD - Read a character from a GSTRANS parsed string
+********************************************************
+* On entry,
+*  (OSLPTR),Y=>current string pointer
+* On exit,
+*  A = parsed character
+*  X = preserved
+*  CS = end of string (space or <cr> or ")
+*       Y =updated to start of next word or end of line
+*       EQ=end of line after this string
+*       NE=not end of line, more words follow
+*  CC = not end of string
+*       Y =updated for future calls to GSREAD
+*       VS=control character, <$20
+*       VC=not control character >$1F
+*
+* No string present is checked for with:
+*  JSR GSINIT:BEQ missingstring
+*
+* A null string is checked for with:
+*  JSR GSINIT:JSR GSREAD:BCS nullstring
+*
+* A string is skipped with:
+*  JSR GSINIT
+* loop
+*  JSR GSREAD:BCC loop
+*
+* A string is copied with:
+*  JSR GSINIT
+*  LDX #0
+* loop
+*  JSR GSREAD:BCS done
+*  STA data,X
+*  INX:BNE loop
+* done
+*
+GSRDGO      LDA   #$00       ; Prepare to clear accumulator
+GSREADLP    STA   GSCHAR     ; Update accumulator
+            LDA   (OSLPTR),Y ; Get current character
+            CMP   #$0D       ; End of line?
+            BNE   GSREAD2    ; No, check character
+            BIT   GSFLAG
+            BPL   GSREADEND  ; We aren't waiting for a closing quote
+*                            ; End of line before closing quote
+ERRBADSTR   BRK
+            DB    $FD
+            ASC   'Bad string'
+            BRK
+
+GSREAD2     CMP   #' '
+            BCC   ERRBADSTR  ; Embedded control char
+            BNE   GSREAD3    ; Not a space, process it
+            BIT   GSFLAG     ; Can space terminate string?
+            BMI   GSREADCHAR ; We're waiting for a terminating quote
+*                            ;  so return the space character
+            BVC   GSREADEND  ; Space is a terminator, finish
+GSREAD3     CMP   #$22       ; Is it a quote?
+            BNE   GSREADESC  ; Not quote, check for escapes
+            BIT   GSFLAG     ; Was there an opening quote?
+            BPL   GSREADCHAR ; Not waiting for a closing quote
+            INY              ; Waiting for quote, check next character
+            LDA   (OSLPTR),Y
+            CMP   #$22       ; Is it another quote?
+            BEQ   GSREADCHAR ; Quote-Quote, expand to single quote
+* End of string
+* Either closing quote, or a space seperator, or end of line
+GSREADEND   JSR SKIPSPC      ; Skip any spaces to next word
+            SEC              ; SEC=end of string
+            RTS              ; and (OSLPTR),Y=>next word or end of line
+* CS=end of string
+* EQ=end of line
+* NE=not end of line, more words follow
+  
+GSREADESC   CMP   #$7C       ; Is is '|' escape character
+            BNE   GSREADCHAR ; No, return as character
+            INY              ; Step to next character
+            LDA   (OSLPTR),Y
+            CMP   #$7C
+            BEQ   GSREADCHAR ; bar-bar expands to bar
+            CMP   #$22
+            BEQ   GSREADCHAR ; bar-quote expands to quote
+            CMP   #'!'       ; Is it bar-pling?
+            BNE   GSREAD5    ; No, check for bar-letter
+            INY              ; Step past it
+            LDA   #$80       ; Set bit 7 in accumulator
+            BNE   GSREADLP   ; Loop back to check next character(s)
+
+GSREAD5     CMP   #'?'       ; Check for '?'
+            BCC   ERRBADSTR  ; <'?', bad character
+            BEQ   GSREADDEL  ; bar-query -> DEL
+            AND   #$1F       ; Convert bar-letter to control code
+            BIT   SETV       ; SEV=control character
+            BVS   GSREADOK
+GSREADDEL   LDA   #$7F
+GSREADCHAR  CLV              ; CLV=not control character
+GSREADOK    INY              ; Step to next character
+            ORA   GSCHAR     ; Add in any bit 7 from |! prefix
+            CLC              ; CLC=not end of string
+            RTS
+* CC=not end of string
+* VS=control character
+* VC=not control character
+
+
+* Read a byte from sideways ROM
+RDROM       LDX   #$0F       ; Returns X=current ROM, Y=0, A=byte
+            LDY   #$00       ; We haven't really got any ROMs
+            LDA   ($F6),Y    ; so just read directly
+            RTS
+
+EVENT       LDA   #<OSEVENM
+            LDY   #>OSEVENM
+            JMP   PRSTR
+OSEVENM     ASC   'OSEVEN.'
+            DB    $00
 
 
 **********************************************************
@@ -211,30 +359,6 @@ MSGBRK      DB    $0D
             ASC   "ERROR: "
             DB    $00
 
-RDROM       LDA   #<OSRDRMM
-            LDY   #>OSRDRMM
-            JMP   PRSTR
-OSRDRMM     ASC   'OSRDDRM.'
-            DB    $00
-
-EVENT       LDA   #<OSEVENM
-            LDY   #>OSEVENM
-            JMP   PRSTR
-OSEVENM     ASC   'OSEVEN.'
-            DB    $00
-
-GSINTGO     LDA   #<OSINITM
-            LDY   #>OSINITM
-            JMP   PRSTR
-OSINITM     ASC   'GSINITM.'
-            DB    $00
-
-GSRDGO      LDA   #<OSREADM
-            LDY   #>OSREADM
-            JMP   PRSTR
-OSREADM     ASC   'GSREAD.'
-            DB    $00
-
 
 * Default page 2 contents
 DEFVEC      DW    NULLRTS        ; $200 USERV
@@ -268,9 +392,9 @@ MOSAPI      EQU   $FFB6
 
 * OPTIONAL ENTRIES
 * ----------------
-*OSSERV      JMP   NULLRTS        ; FF95 OSSERV
+*OSSERV      JMP   SERVICE        ; FF95 OSSERV
 *OSCOLD      JMP   NULLRTS        ; FF98 OSCOLD
-*OSPRSTR     JMP   OUTSTR         ; FF9B PRSTRG
+*OSPRSTR     JMP   OUTSTR         ; FF9B OSPRSTR
 *OSFF9E      JMP   NULLRTS        ; FF9E
 *OSSCANHEX   JMP   RDHEX          ; FFA1 SCANHX
 *OSFFA4      JMP   NULLRTS        ; FFA4
@@ -320,8 +444,6 @@ MOSVEND
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      ASC   '**ENDOFCODE**'
             DS    $200-13
-
-
 
 
 
