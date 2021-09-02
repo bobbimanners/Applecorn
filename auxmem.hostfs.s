@@ -211,10 +211,19 @@ FILEHND     PHX
             PHY
             PHA
 
-            STX   ZP1                 ; LSB of parameter block
-            STX   CBPTR
-            STY   ZP1+1               ; MSB of parameter block
-            STY   CBPTR+1
+            STX   CBPTR               ; LSB of parameter block
+            STX   ZP1
+            STY   CBPTR+1             ; MSB of parameter block
+            STY   ZP1+1
+
+            LDA   (ZP1)               ; Filename ptr->XY
+            TAX
+            LDY   #$01
+            LDA   (ZP1),Y
+            TAY
+
+            JSR   PARSNAME            ; Copy filename->MOSFILE
+
             LDA   #<FILEBLK
             STA   ZP2
             LDA   #>FILEBLK
@@ -228,44 +237,6 @@ FILEHND     PHX
             CPY   #$12
             BNE   :L1
 
-            LDA   (ZP1)               ; Pointer to filename->ZP2
-            STA   ZP2
-            LDY   #$01
-            LDA   (ZP1),Y
-            STA   ZP2+1
-            LDA   #<MOSFILE+1         ; ZP1 is dest pointer
-            STA   ZP1
-            LDA   #>MOSFILE+1
-            STA   ZP1+1
-            LDA   (ZP2)               ; Look at first char of filename
-            CMP   #'9'+1
-            BCS   :NOTDIGT
-            CMP   #'0'
-            BCC   :NOTDIGT
-            LDA   #'N'                ; Prefix numeric with 'N'
-            >>>   WRTMAIN
-            STA   (ZP1)
-            >>>   WRTAUX
-            LDY   #$01                ; Increment Y
-            DEC   ZP2                 ; Decrement source pointer
-            LDA   ZP2
-            CMP   #$FF
-            BNE   :L2
-            DEC   ZP2+1
-            BRA   :L2
-:NOTDIGT    LDY   #$00
-:L2         LDA   (ZP2),Y
-            >>>   WRTMAIN
-            STA   (ZP1),Y
-            >>>   WRTAUX
-            INY
-            CMP   #$21                ; Space or Carriage return
-            BCS   :L2
-            DEY
-            >>>   WRTMAIN
-            STY   MOSFILE             ; Length (Pascal string)
-            >>>   WRTAUX
-
             PLA                       ; Get action back
             PHA
             BEQ   :SAVE               ; A=00 -> SAVE
@@ -276,15 +247,7 @@ FILEHND     PHX
             BCC   :JMPINFO            ; A=01-05 -> INFO
             CMP   #$08
             BEQ   :MKDIR              ; A=08 -> MKDIR
-*            LDA   #<OSFILEM           ; If not implemented, print msg
-*            LDY   #>OSFILEM
-*            JSR   PRSTR
-*            PLA
-*            PHA
-*            JSR   OUTHEX
-*            LDA   #<OSFILEM2
-*            LDY   #>OSFILEM2
-*            JSR   PRSTR
+
             PLA                       ; Not implemented, return unchanged
             PLY
             PLX
@@ -800,6 +763,27 @@ STARDIRRET
             BRK
 :EXIT       RTS
 
+* Parse filename pointed to by XY
+* Write filename to MOSFILE in main memory
+PARSNAME    JSR   XYtoLPTR
+            CLC                       ; Means parsing a filename
+            JSR   GSINIT              ; Init gen string handling
+            PHP
+            SEI                       ; Disable IRQs
+            LDX   #$00                ; Length
+:L1         JSR   GSREAD              ; Handle next char
+            BCS   :DONE
+            STA   $C004               ; Write to main mem
+            STA   MOSFILE+1,X
+            STA   $C005               ; Write to aux mem
+            INX
+            BNE   :L1
+:DONE       STA   $C004               ; Write to main mem
+            STX   MOSFILE             ; Length byte (Pascal)
+            STA   $C005               ; Back to aux
+            PLP                       ; IRQs back as they were
+            RTS
+
 * Move this somewhere
 CHKERROR    CMP   #$20
             BCS   MKERROR
@@ -969,6 +953,4 @@ ERROR5E     DW    $C000
 ERROR2E     DW    $C800
             ASC   'Disk changed'      ; $2E - Disk switched
             DB    $00
-
-
 
