@@ -475,8 +475,7 @@ FSCRUNLP    LDA   (OSLPTR),Y          ; Look for command line
             SEC                       ; Not from RESET
             JMP   (OSFILECB+6)        ; Jump to EXEC addr
 
-FSCREN      JSR   XYtoLPTR            ; Pointer to command line
-            JMP   RENAME
+FSCREN      JMP   RENAME
 
 FSCCHDIR    JMP   CHDIR
 
@@ -642,37 +641,13 @@ PRSPACE     LDA   #' '
             JMP   OSWRCH
 
 * Perform FSCV $0C RENAME function
-* Parameter string in OSLPTR
-RENAME      LDY   #$00
-:ARG1       LDA   (OSLPTR),Y
-            CMP   #$20                ; Space
-            BEQ   :ENDARG1
-            CMP   #$0D                ; Carriage return
+* Parameter string in XY
+RENAME      JSR   PARSNAME            ; Copy Arg1->MOSFILE
+            CMP   #$00                ; Length of arg1
             BEQ   :RENSYN
-            INY
-            >>>   WRTMAIN
-            STA   MOSFILE,Y
-            >>>   WRTAUX
-            BRA   :ARG1
-:ENDARG1    >>>   WRTMAIN
-            STY   MOSFILE             ; Length of Pascal string
-            >>>   WRTAUX
-            JSR   SKIPSPC
-            JSR   LPTRtoXY            ; Update LPTR and set Y=0
-            JSR   XYtoLPTR            ; ...
-:ARG2       LDA   (OSLPTR),Y
-            CMP   #$20                ; Space
-            BEQ   :ENDARG2
-            CMP   #$0D                ; Carriage return
-            BEQ   :ENDARG2
-            INY
-            >>>   WRTMAIN
-            STA   MOSFILE2,Y
-            >>>   WRTAUX
-            BRA   :ARG2
-:ENDARG2    >>>   WRTMAIN
-            STY   MOSFILE2            ; Length of Pascal string
-            >>>   WRTAUX
+            JSR   PARSNAME2           ; Copy Arg2->MOSFILE2
+            CMP   #$00                ; Length of arg2
+            BEQ   :RENSYN
             >>>   XF2MAIN,RENFILE
 :RENSYN     BRK
             DB    $DC
@@ -681,30 +656,8 @@ RENAME      LDY   #$00
 RENRET
             >>>   ENTAUX
             JSR   CHKERROR
-**** JSR CHKNOTFND     ;;; NOPE: THIS IS MAINMEM FUNC!!!
-*            CMP   #$44                ; Path not found
-*            BEQ   :NOTFND
-*            CMP   #$45                ; Vol dir not found
-*            BEQ   :NOTFND
-*            CMP   #$46                ; File not found
-*            BEQ   :NOTFND
-*            CMP   #$47                ; Duplicate filename
-*            BEQ   :EXISTS
-*            CMP   #$4E                ; Access error
-*            BEQ   :LOCKED
-*            CMP   #$00
-*            BNE   :OTHER              ; All other errors
             LDA   #$00
             RTS
-*:NOTFND     JMP   ERRNOTFND
-*:EXISTS     JMP   ERREXISTS
-*:LOCKED     BRK
-*            DB    $C3
-*            ASC   'Locked'
-*:OTHER      BRK
-*            DB    $C7
-*            ASC   'Disc error'
-*            BRK
 
 * Handle *DIR (directory change) command
 * On entry, XY points to command line
@@ -745,6 +698,29 @@ PARSNAME    JSR   XYtoLPTR
             BNE   :L1
 :DONE       STA   $C004               ; Write to main mem
             STX   MOSFILE             ; Length byte (Pascal)
+            STA   $C005               ; Back to aux
+            PLP                       ; IRQs back as they were
+            TXA                       ; Return len in A
+            RTS
+
+* Parse filename pointed to by (OSLPTR),Y
+* Write filename to MOSFILE2 in main memory
+* Returns length in A
+PARSNAME2
+            CLC                       ; Means parsing a filename
+            JSR   GSINIT              ; Init gen string handling
+            PHP
+            SEI                       ; Disable IRQs
+            LDX   #$00                ; Length
+:L1         JSR   GSREAD              ; Handle next char
+            BCS   :DONE
+            STA   $C004               ; Write to main mem
+            STA   MOSFILE2+1,X
+            STA   $C005               ; Write to aux mem
+            INX
+            BNE   :L1
+:DONE       STA   $C004               ; Write to main mem
+            STX   MOSFILE2            ; Length byte (Pascal)
             STA   $C005               ; Back to aux
             PLP                       ; IRQs back as they were
             TXA                       ; Return len in A
