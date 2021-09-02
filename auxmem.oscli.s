@@ -12,37 +12,37 @@
 ***************
 * Table structure is: { string, byte OR $80, destword-1 } $00
 * fsc commands
-CMDTABLE     ASC   'CAT'          ; Must be first command so matches '*.'
+CMDTABLE     ASC   'CAT'              ; Must be first command so matches '*.'
              DB    $85
-             DW    STARFSC-1      ; CAT    -> FSC 5, XY=>params
+             DW    STARFSC-1          ; CAT    -> FSC 5, XY=>params
              ASC   'RUN'
              DB    $84
-             DW    STARFSC-1      ; RUN    -> FSC 4, XY=>params
+             DW    STARFSC-1          ; RUN    -> FSC 4, XY=>params
              ASC   'EX'
              DB    $89
-             DW    STARFSC-1      ; EX     -> FSC 9, XY=>params
+             DW    STARFSC-1          ; EX     -> FSC 9, XY=>params
              ASC   'INFO'
              DB    $8A
-             DW    STARFSC-1      ; INFO   -> FSC 10, XY=>params
+             DW    STARFSC-1          ; INFO   -> FSC 10, XY=>params
              ASC   'RENAME'
              DB    $8C
-             DW    STARFSC-1      ; RENAME -> FSC 12, XY=>params
+             DW    STARFSC-1          ; RENAME -> FSC 12, XY=>params
 * osfile commands
              ASC   'LOAD'
              DB    $FF
-             DW    STARLOAD-1     ; LOAD   -> OSFILE FF, CBLK=>filename
+             DW    STARLOAD-1         ; LOAD   -> OSFILE FF, CBLK=>filename
              ASC   'SAVE'
              DB    $FF
-             DW    STARSAVE-1     ; SAVE   -> OSFILE 00, CBLK=>filename
+             DW    STARSAVE-1         ; SAVE   -> OSFILE 00, CBLK=>filename
              ASC   'DELETE'
              DB    $86
-             DW    STARFILE-1     ; DELETE -> OSFILE 06, CBLK=>filename
+             DW    STARFILE-1         ; DELETE -> OSFILE 06, CBLK=>filename
              ASC   'MKDIR'
              DB    $88
-             DW    STARFILE-1     ; MKDIR  -> OSFILE 08, CBLK=>filename
+             DW    STARFILE-1         ; MKDIR  -> OSFILE 08, CBLK=>filename
              ASC   'CDIR'
              DB    $88
-             DW    STARFILE-1     ; CDIR   -> OSFILE 08, CBLK=>filename
+             DW    STARFILE-1         ; CDIR   -> OSFILE 08, CBLK=>filename
 * filing-system-specific commands
 * Moved to HostFS
 *             ASC   'CHDIR'
@@ -63,23 +63,23 @@ CMDTABLE     ASC   'CAT'          ; Must be first command so matches '*.'
 * osbyte commands
              ASC   'FX'
              DB    $80
-             DW    STARFX-1       ; FX     -> OSBYTE A,X,Y    (LPTR)=>params
+             DW    STARFX-1           ; FX     -> OSBYTE A,X,Y    (LPTR)=>params
              ASC   'OPT'
              DB    $8B
-             DW    STARBYTE-1     ; OPT    -> OSBYTE &8B,X,Y  XY=>params
+             DW    STARBYTE-1         ; OPT    -> OSBYTE &8B,X,Y  XY=>params
 * others
              ASC   'QUIT'
              DB    $80
-             DW    STARQUIT-1     ; QUIT   -> (LPTR)=>params
+             DW    STARQUIT-1         ; QUIT   -> (LPTR)=>params
              ASC   'HELP'
              DB    $80
-             DW    STARHELP-1     ; HELP   -> (LPTR)=>params
+             DW    STARHELP-1         ; HELP   -> (LPTR)=>params
              ASC   'BASIC'
              DB    $80
-             DW    STARBASIC-1    ; BASIC  -> (LPTR)=>params
+             DW    STARBASIC-1        ; BASIC  -> (LPTR)=>params
              ASC   'KEY'
              DB    $80
-             DW    STARKEY-1      ; KEY    -> (LPTR)=>params
+             DW    STARKEY-1          ; KEY    -> (LPTR)=>params
 * DUMP <file>
 * TYPE <file>
 * BUILD <file>
@@ -94,68 +94,68 @@ CMDTABLE     ASC   'CAT'          ; Must be first command so matches '*.'
 *           A<>0 no match
 *
 * Search command table
-CLILOOKUP    STX   OSTEXT+0       ; Start of command table
+CLILOOKUP    STX   OSTEXT+0           ; Start of command table
              STY   OSTEXT+1
-             LDX   #0             ; (ZP,X)=>command table
-CLILP4       LDY   #0             ; Start of command line
+             LDX   #0                 ; (ZP,X)=>command table
+CLILP4       LDY   #0                 ; Start of command line
 CLILP5       LDA   (OSTEXT,X)
-             BMI   CLIMATCH       ; End of table string
+             BMI   CLIMATCH           ; End of table string
              EOR   (OSLPTR),Y
-             AND   #$DF           ; Force upper case match
+             AND   #$DF               ; Force upper case match
              BNE   CLINOMATCH
-             JSR   CLISTEP        ; Step to next table char
-             INY                  ; Step to next command char
-             BNE   CLILP5         ; Loop to check
+             JSR   CLISTEP            ; Step to next table char
+             INY                      ; Step to next command char
+             BNE   CLILP5             ; Loop to check
 
 CLINOMATCH   LDA   (OSLPTR),Y
-             CMP   #'.'           ; Abbreviation?
+             CMP   #'.'               ; Abbreviation?
              BEQ   CLIDOT
-CLINEXT      JSR   CLISTEP        ; No match, step to next entry
+CLINEXT      JSR   CLISTEP            ; No match, step to next entry
              BPL   CLINEXT
-CLINEXT2     JSR   CLISTEP        ; Step past byte, address
+CLINEXT2     JSR   CLISTEP            ; Step past byte, address
              JSR   CLISTEP
              JSR   CLISTEP
-             BPL   CLILP4         ; Loop to check next
-             RTS                  ; Exit, A>$7F
+             BPL   CLILP4             ; Loop to check next
+             RTS                      ; Exit, A>$7F
 
 CLIDOT       LDA   (OSTEXT,X)
-             BMI   CLINEXT2       ; Dot after full word, no match
-CLIDOT2      JSR   CLISTEP        ; Step to command address
+             BMI   CLINEXT2           ; Dot after full word, no match
+CLIDOT2      JSR   CLISTEP            ; Step to command address
              BPL   CLIDOT2
-             INY                  ; Step past dot
-             BNE   CLIMATCH2      ; Jump to this command
+             INY                      ; Step past dot
+             BNE   CLIMATCH2          ; Jump to this command
 
 CLIMATCH     LDA   (OSLPTR),Y
              CMP   #'.'
-             BEQ   CLINEXT        ; Longer abbreviation, eg 'CAT.'
+             BEQ   CLINEXT            ; Longer abbreviation, eg 'CAT.'
              CMP   #'A'
-             BCS   CLINEXT        ; More letters, eg 'HELPER'
-CLIMATCH2    JSR   CLIMATCH3      ; Call the routine
+             BCS   CLINEXT            ; More letters, eg 'HELPER'
+CLIMATCH2    JSR   CLIMATCH3          ; Call the routine
              LDA   #0
-             RTS                  ; Return A=0 to claim
+             RTS                      ; Return A=0 to claim
 
-CLIMATCH3    JSR   SKIPSPC        ; (OSLPTR),Y=>parameters
-             LDA   (OSTEXT,X)     ; Command byte
+CLIMATCH3    JSR   SKIPSPC            ; (OSLPTR),Y=>parameters
+             LDA   (OSTEXT,X)         ; Command byte
              PHA
-             JSR   CLISTEP        ; Address low byte
+             JSR   CLISTEP            ; Address low byte
              STA   OSTEMP
-             JSR   CLISTEP        ; Address high byte
-             PLX                  ; Get command byte
-             PHA                  ; Push address high
+             JSR   CLISTEP            ; Address high byte
+             PLX                      ; Get command byte
+             PHA                      ; Push address high
              LDA   OSTEMP
-             PHA                  ; Push address low
-             TXA                  ; Command byte
+             PHA                      ; Push address low
+             TXA                      ; Command byte
              PHA
-             ASL   A              ; Drop bit 7
-             BEQ   CLICALL        ; If $80 don't convert LPTR
-             JSR   LPTRtoXY       ; XY=>parameters
-CLICALL      PLA                  ; A=command parameter
-CLIDONE      RTS                  ; Call command routine
+             ASL   A                  ; Drop bit 7
+             BEQ   CLICALL            ; If $80 don't convert LPTR
+             JSR   LPTRtoXY           ; XY=>parameters
+CLICALL      PLA                      ; A=command parameter
+CLIDONE      RTS                      ; Call command routine
 
-CLISTEP      INC   OSTEXT+0,X     ; Point to next table byte
+CLISTEP      INC   OSTEXT+0,X         ; Point to next table byte
              BNE   CLISTEP2
              INC   OSTEXT+1,X
-CLISTEP2     LDA   (OSTEXT,X)     ; Get next byte
+CLISTEP2     LDA   (OSTEXT,X)         ; Get next byte
              RTS
 
 
@@ -553,6 +553,8 @@ EATSPC       LDA   (ZP1),Y            ; Check first char is ...
              RTS
 :NOTFND      SEC
              RTS
+
+
 
 
 
