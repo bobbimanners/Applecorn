@@ -1020,7 +1020,7 @@ SETPFX       >>>   ENTMAIN
              JSR   MLI                ; SET_PREFIX
              DB    SPFXCMD
              DW    SPFXPL
-:EXIT        >>>   XF2AUX,STARDIRRET
+:EXIT        >>>   XF2AUX,CHDIRRET
 :ERR         LDA   #$40               ; Invalid pathname syn
              BRA   :EXIT
 

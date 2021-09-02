@@ -478,10 +478,7 @@ FSCRUNLP    LDA   (OSLPTR),Y          ; Look for command line
 FSCREN      JSR   XYtoLPTR            ; Pointer to command line
             JMP   RENAME
 
-FSCCHDIR    STX   ZP1+0
-            STY   ZP1+1
-            LDY   #$00
-            JMP   STARDIR1
+FSCCHDIR    JMP   CHDIR
 
 * Performs OSFSC *OPT function
 FSOPT       RTS                       ; No FS options for now
@@ -710,30 +707,10 @@ RENRET
 *            BRK
 
 * Handle *DIR (directory change) command
-* On entry, ZP1 points to command line
-STARDIR     JSR   EATSPC              ; Eat leading spaces
-STARDIR1
-:S1         LDX   #$01
-:L3         LDA   (ZP1),Y
-            CMP   #$21                ; Check for CR or space
-            BCC   :S2
-            >>>   WRTMAIN
-            STA   MOSFILE,X
-            >>>   WRTAUX
-            INY
-            INX
-            BRA   :L3
-:S2         DEX
-            BNE   :S3
-            BRK
-            DB    $DC
-            ASC   'Syntax: DIR <pathname>'
-            BRK
-:S3         >>>   WRTMAIN
-            STX   MOSFILE             ; Length byte
-            >>>   WRTAUX
+* On entry, XY points to command line
+CHDIR       JSR   PARSNAME            ; Copy filename->MOSFILE
             >>>   XF2MAIN,SETPFX
-STARDIRRET
+CHDIRRET
             >>>   ENTAUX
             JSR   CHKERROR
             CMP   #$00
