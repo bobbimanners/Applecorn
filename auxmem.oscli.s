@@ -6,6 +6,7 @@
 * 22-Aug-2021 Uses dispatch table
 *             Prepares parameters and hands on to API call
 * 24-Aug-2021 Combined *LOAD and *SAVE, full address parsing.
+* 02-Sep-2021 *LOAD/*SAVE now uses GSTRANS.
 
 
 * COMMAND TABLE
@@ -43,23 +44,6 @@ CMDTABLE     ASC   'CAT'              ; Must be first command so matches '*.'
              ASC   'CDIR'
              DB    $88
              DW    STARFILE-1         ; CDIR   -> OSFILE 08, CBLK=>filename
-* filing-system-specific commands
-* Moved to HostFS
-*             ASC   'CHDIR'
-*             DB    $C0
-*             DW    STARFSC-1      ; Should be a FSC 3 call, XY=>params
-*             ASC   'CD'
-*             DB    $C0
-*             DW    STARFSC-1      ; Should be a FSC 3 call, XY=>params
-*             ASC   'DIR'
-*             DB    $C0
-*             DW    STARFSC-1      ; Should be a FSC 3 call, XY=>params
-*             ASC   'DRIVE'
-*             DB    $C1
-*             DW    STARFSC-1      ; Should be a FSC 3 call, XY=>params
-* FREE (<drive>)
-* ACCESS <file> <access>
-* TITLE (<drive>) <title>
 * osbyte commands
              ASC   'FX'
              DB    $80
@@ -80,6 +64,9 @@ CMDTABLE     ASC   'CAT'              ; Must be first command so matches '*.'
              ASC   'KEY'
              DB    $80
              DW    STARKEY-1          ; KEY    -> (LPTR)=>params
+             ASC   'ECHO'
+             DB    $80
+             DW    ECHO-1             ; ECHO   -> (LPTR)=>params
 * DUMP <file>
 * TYPE <file>
 * BUILD <file>
@@ -150,7 +137,7 @@ CLIMATCH3    JSR   SKIPSPC            ; (OSLPTR),Y=>parameters
              BEQ   CLICALL            ; If $80 don't convert LPTR
              JSR   LPTRtoXY           ; XY=>parameters
 CLICALL      PLA                      ; A=command parameter
-CLIDONE      RTS                      ; Call command routine
+             RTS                      ; Call command routine
 
 CLISTEP      INC   OSTEXT+0,X         ; Point to next table byte
              BNE   CLISTEP2
@@ -170,11 +157,8 @@ CLILP1       LDA   (OSLPTR),Y
              INY
              BNE   CLILP1
 CLIEXIT1     RTS                      ; No terminating <cr>
-CLI2         LDY   #0
-CLILP2       LDA   (OSLPTR),Y
-             INY
-             CMP   #' '               ; Skip leading spaces
-             BEQ   CLILP2
+CLI2         LDY   #$FF
+CLILP2       JSR   SKIPSPC1           ; Skip leading spaces
              CMP   #'*'               ; Skip leading stars
              BEQ   CLILP2
              CMP   #$0D
@@ -183,16 +167,15 @@ CLILP2       LDA   (OSLPTR),Y
              BEQ   CLIEXIT1           ; Comment
              CMP   #'/'
              BEQ   CLISLASH
-             DEY
              JSR   LPTRtoXY           ; Add Y to LPTR
              JSR   XYtoLPTR           ; LPTR=>start of actual command
              LDX   #<CMDTABLE         ; XY=>command table
              LDY   #>CMDTABLE
              JSR   CLILOOKUP          ; Look for command
              BNE   CLIUNKNOWN         ; No match
-             RTS
+CLIDONE      RTS
 
-CLISLASH     JSR   SKIPSPC
+CLISLASH     JSR   SKIPSPC1
              BEQ   CLIDONE            ; */<cr>
              LDA   #$02
              BNE   STARFSC2           ; FSC 2 = */filename
@@ -324,7 +307,7 @@ ERRBADADD1   JMP   ERRBADADD
 
 SKIPCOMMA    LDA   (OSLPTR),Y
              CMP   #$2C
-             BNE   SKIPSPC
+             BNE   SKIPSPC            ; Drop through
 *
 * Skip spaces
 SKIPSPC1     INY                      ; Step past a character
@@ -334,8 +317,12 @@ SKIPSPC      LDA   (OSLPTR),Y
              CMP   #$0D               ; Return EQ=<cr>
              RTS
 
-* Skip a word parameter
-SKIPWORD     RTS
+* Skip a string
+SKIPWORD     CLC
+             JSR   GSINIT
+SKIPWORDLP   JSR   GSREAD
+             BCC   SKIPWORDLP
+             RTS
 
 * Convert (LPTR),Y to XY
 LPTRtoXY     CLC
@@ -422,45 +409,46 @@ STARQUIT     >>>   XF2MAIN,QUIT
 STARSAVE     LDA   #$00               ; Set A=0 - SAVE
 STARLOAD     PHA                      ; Entered with A=$FF - LOAD
              JSR   XYtoLPTR           ; OSLPTR=>filename
-* replace with with GSREAD
-             LDA   (OSLPTR),Y
-             CMP   #34
-             BEQ   STARLDSVA
-             LDA   #32
-STARLDSVA    STA   OSTEMP
-STARLDSV0
-             INY
-             LDA   (OSLPTR),Y
-             CMP   #13
-             BEQ   STARLDSV1
-             CMP   OSTEMP
-             BNE   STARLDSV0          ; Step past filename
-* ^^^^
-             JSR   SKIPSPC1           ; Skip following spaces
-             BNE   STARLDSV3          ; *load/save name addr 
+             JSR   SKIPWORD           ; Step past filename
+             BNE   STARLDSV3          ; filename followed by addr
+
+** replace with with GSREAD
+*             LDA   (OSLPTR),Y
+*             CMP   #34
+*             BEQ   STARLDSVA
+*             LDA   #32
+*STARLDSVA    STA   OSTEMP
+*STARLDSV0    INY
+*             LDA   (OSLPTR),Y
+*             CMP   #13
+*             BEQ   STARLDSV1
+*             CMP   OSTEMP
+*             BNE   STARLDSV0      ; Step past filename
+*             JSR   SKIPSPC1       ; Skip following spaces
+*             BNE   STARLDSV3      ; *load/save name addr 
+** ^^^^
+
+*
+* filename followed by no address, must be *LOAD name
 STARLDSV1    LDA   #$FF               ; $FF=load to file's address
-STARLOAD2
-             STA   OSFILECB+6
+STARLOAD2    STA   OSFILECB+6
              PLA
              BEQ   ERRBADADD2         ; *save name <no addr>
              LDA   #$7F               ; Will become A=$FF
              JMP   STARLDSVGO         ; Do the load
 
-* load address exists
-STARLDSV3
-             LDX   #OSFILECB+2-$200   ; X=>load
+* At least one address specified
+STARLDSV3    LDX   #OSFILECB+2-$200   ; X=>load
              JSR   SCANHEX
-             BNE   STARSAVE3          ; another address
+             BNE   STARSAVE3          ; Another address
              LDA   #$00               ; $00=load to supplied address
-             BEQ   STARLOAD2          ; Do the load
+             BEQ   STARLOAD2          ; Only one address, must be *LOAD
 
 * More than one address, must be *SAVE
-STARSAVE3
-             PLA
+STARSAVE3    PLA
              BNE   ERRBADADD2         ; Can't be *LOAD
              LDX   #3
-STARSAVE4
-             LDA   OSFILECB+2,X       ; Get load
+STARSAVE4    LDA   OSFILECB+2,X       ; Get load
              STA   OSFILECB+6,X       ; copy to exec
              STA   OSFILECB+10,X      ; and to start
              DEX
@@ -470,27 +458,24 @@ STARSAVE4
              PHP
              BNE   STARSAVE5          ; Not start+length
              JSR   SKIPSPC1           ; Step past '+' and spaces
-STARSAVE5
-             LDX   #OSFILECB+14-$200
+STARSAVE5    LDX   #OSFILECB+14-$200
              JSR   SCANHEX            ; Get end or length
              PLP
              BNE   STARSAVE7          ; Not +length
              LDX   #0
              CLC
-STARSAVE6
-             LDA   OSFILECB+10,X      ; end=start+length
+STARSAVE6    LDA   OSFILECB+10,X      ; end=start+length
              ADC   OSFILECB+14,X
              STA   OSFILECB+14,X
              INX
              TXA
              AND   #3
              BNE   STARSAVE6
-STARSAVE7
 * load =start
 * exec =start
 * start=start
 * end  =end or start+length
-             JSR   SKIPSPC
+STARSAVE7    JSR   SKIPSPC
              BEQ   STARSAVE10         ; No more, do it
              LDX   #OSFILECB+6-$200
              JSR   SCANHEX            ; Get exec
@@ -500,11 +485,9 @@ STARSAVE7
              BEQ   STARSAVE10         ; No more, do it
 ERRBADADD2   JMP   ERRBADADD          ; Too many parameters
 
-STARSAVE10
-             LDA   #$80               ; Will become $00 - SAVE
-STARLDSVGO
-             LDX   OSLPTR+0
-             LDY   OSLPTR+1
+STARSAVE10   LDA   #$80               ; Will become $00 - SAVE
+STARLDSVGO   LDX   OSLPTR+0
+             LDY   OSLPTR+1           ; Continue through...
 *
 
 * Commands passed to OSFILE
@@ -519,43 +502,67 @@ STARFILE     EOR   #$80
              BNE   STARDONE
              JMP   ERRNOTFND
 
-*STARCHDIR    STX   ZP1+0              ; TEMP
-*             STY   ZP1+1              ; TEMP
-*             LDY   #$00               ; TEMP
-*             JMP   STARDIR            ; TEMP
-
 STARBASIC
 STARKEY
 STARDONE     RTS
 
 
-* Code that calls this will need to be replaced with calls
-*  to SKIPSPC and GSREAD
-*
-* Consume spaces in command line. Treat " as space!
-* Return C set if no space found, C clear otherwise
-* Command line pointer in (ZP1),Y
-EATSPC       LDA   (ZP1),Y            ; Check first char is ...
-             CMP   #' '               ; ... space
-             BEQ   :START
-             CMP   #'"'               ; Or quote mark
-             BEQ   :START
-             BRA   :NOTFND
-:START       INY
-:L1          LDA   (ZP1),Y            ; Eat any additional ...
-             CMP   #' '               ; ... spaces
-             BEQ   :CONT
-             CMP   #'"'               ; Or quote marks
-             BNE   :DONE
-:CONT        INY
-             BRA   :L1
-:DONE        CLC
+** Code that calls this will need to be replaced with calls
+**  to SKIPSPC and GSREAD
+**
+** Consume spaces in command line. Treat " as space!
+** Return C set if no space found, C clear otherwise
+** Command line pointer in (ZP1),Y
+EATSPC
+*             LDA   (ZP1),Y            ; Check first char is ...
+*             CMP   #' '               ; ... space
+*             BEQ   :START
+*             CMP   #'"'               ; Or quote mark
+*             BEQ   :START
+*             BRA   :NOTFND
+*:START       INY
+*:L1          LDA   (ZP1),Y            ; Eat any additional ...
+*             CMP   #' '               ; ... spaces
+*             BEQ   :CONT
+*             CMP   #'"'               ; Or quote marks
+*             BNE   :DONE
+*:CONT        INY
+*             BRA   :L1
+*:DONE        CLC
+*             RTS
+*:NOTFND      SEC
              RTS
-:NOTFND      SEC
-             RTS
 
 
-
-
+** TEST CODE **
+ECHO         PHY
+             CLC
+             JSR   ECHO0
+             PLY
+             SEC
+ECHO0        JSR   GSINIT
+             PHP
+             PLA
+             JSR   OUTHEX
+ECHOLP1      JSR   GSREAD
+             BCS   ECHO3
+             CMP   #$20
+             BCC   ECHO2
+             CMP   #$7F
+             BCS   ECHO2
+             JSR   OSWRCH
+             JMP   ECHOLP1
+ECHO2        PHA
+             LDA   #'<'
+             JSR   OSWRCH
+             PLA
+             JSR   OUTHEX
+             LDA   #'>'
+             JSR   OSWRCH
+             JMP   ECHOLP1
+ECHO3        PHP
+             PLA
+             JSR   OUTHEX
+             JMP   OSNEWL
 
 
