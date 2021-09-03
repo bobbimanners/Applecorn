@@ -264,84 +264,6 @@ OSFILERET
             PLX
             RTS
 
-*            BMI   :L4
-*            PLY                       ; Discard val of A on entry
-*            JMP   :EXIT               ; ret<$80, return it to user
-*
-*:L4         PLY                       ; Value of A on OSFILE entry
-*            CPY   #$FF                ; See if command was LOAD
-*            BNE   :NOTLOAD
-*
-*            CMP   #$80                ; No file found
-*            BNE   :SL1
-*            BRA   ERRNOTFND
-*
-*:SL1        BRK                       ; Must be A=$81
-*            DB    $CA                 ; $CA = Premature end, 'Data lost'
-*            ASC   'Read error'
-*            BRK
-*
-*:NOTLOAD    CPY   #$00                ; See if command was SAVE
-*            BNE   :NOTLS              ; Not LOAD or SAVE
-*
-*            CMP   #$80                ; Unable to create or open
-*            BNE   :SS1
-*            BRK
-*            DB    $C0                 ; $C0 = Can't create file to save
-*            ASC   'Can'
-*            DB    $27
-*            ASC   't save file'
-*            BRK
-*
-*:SS1        BRK                       ; Must be A=$81
-*            DB    $CA                 ; $CA = Premature end, 'Data lost'
-*            ASC   'Write error'
-*            BRK
-*
-*:NOTLS      CPY   #$06                ; See if command was DELETE
-*            BNE   :NOTLSD
-*
-*            CMP   #$80                ; File was not found
-*            BNE   :SD1
-*            JMP   :EXIT
-*            BRK
-*            DB    $D6                 ; $D6 = File not found
-*            ASC   'Not found'
-*            BRK
-*
-*:SD1        BRK                       ; Must be A=$81
-*            DB    $D6                 ; TODO: Better error code?
-*            ASC   'Can'
-*            DB    $27
-*            ASC   't delete'
-*            BRK
-*
-*:NOTLSD     CPY   #$08                ; Was it CDIR?
-*            BNE   :EXIT
-*
-*            CMP   #$80                ; A=80 dir already exists
-*            BEQ   :EXISTS
-*            CMP   #$81                ; A=81 bad name
-*            BNE   :SC1
-*
-*            BRK
-*            DB    $CC
-*            ASC   'Bad name'
-*            BRK
-*
-*:SC1        BRK
-*            DB    $C0
-*            ASC   'Can'
-*            DB    27
-*            ASC   't create dir'
-*            BRK
-*
-*:EXISTS     LDA   #$02                ; A=2 - dir exists or was created
-*
-*:EXIT       PLY
-*            PLX
-*            RTS
-
 ERRNOTFND   BRK
             DB    $D6                 ; $D6 = Object not found
             ASC   'File not found'
@@ -495,7 +417,9 @@ CHKEOFRET
 
 * Perform CAT
 * A=5 *CAT, A=9 *EX, A=10 *INFO
-FSCCAT
+FSCCAT      PHA
+            JSR   PARSNAME            ; Copy filename->MOSFILE
+            PLA
             CMP   #10                 ; *TEMP*
             BEQ   CATDONE             ; *TEMP*
             ASL   A
@@ -506,7 +430,10 @@ FSCCAT
             >>>   XF2MAIN,CATALOG
 STARCATRET
             >>>   ENTAUX
+            PHA
             JSR   FORCENL
+            PLA
+            JSR   CHKERROR            ; See if error occurred
 CATDONE     LDA   #0                  ; 0=OK
             RTS
 
