@@ -914,13 +914,20 @@ QUIT         INC   $3F4               ; Invalidate powerup byte
 
 * Obtain catalog of current PREFIX dir
 CATALOG      >>>   ENTMAIN
-
-             JSR   GETPREF            ; Fetch prefix into MOSFILE2
+             LDA   MOSFILE            ; Length of pathname
+             BEQ   :NOPATH            ; If zero use prefix
+             JSR   PREPATH            ; Preprocess pathname
+             LDA   #<MOSFILE
+             STA   OPENPL+1
+             LDA   #>MOSFILE
+             STA   OPENPL+2
+             BRA   :OPEN
+:NOPATH      JSR   GETPREF            ; Fetch prefix into MOSFILE2
              LDA   #<MOSFILE2
              STA   OPENPL+1
              LDA   #>MOSFILE2
              STA   OPENPL+2
-             JSR   OPENFILE
+:OPEN        JSR   OPENFILE
              BCS   CATEXIT            ; Can't open dir
 
 CATREENTRY
