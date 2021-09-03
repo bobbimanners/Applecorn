@@ -917,7 +917,12 @@ CATALOG      >>>   ENTMAIN
              LDA   MOSFILE            ; Length of pathname
              BEQ   :NOPATH            ; If zero use prefix
              JSR   PREPATH            ; Preprocess pathname
-             LDA   #<MOSFILE
+             JSR   EXISTS             ; See if path exists ...
+             CMP   #$01               ; ... and is a file
+             BNE   :NOTFILE
+             LDA   #$46               ; Not found (TO DO: err code?)
+             BRA   CATEXIT
+:NOTFILE     LDA   #<MOSFILE
              STA   OPENPL+1
              LDA   #>MOSFILE
              STA   OPENPL+2
