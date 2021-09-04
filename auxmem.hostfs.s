@@ -322,19 +322,7 @@ FSCCOMMAND  ASC   'CHDIR'
 *            A=modified if implemented
 *            X,Y=any return values
 * 
-* TO DO: use jump table
 FSCHND
-*            CMP   #$40
-*            BEQ   FSCCHDIR
-*            CMP   #$41
-*            BEQ   FSCDRIVE
-*            CMP   #$42
-*            BEQ   FSCFREE
-*            CMP   #$43
-*            BEQ   FSCACCESS
-*            CMP   #$42
-*            BEQ   FSCTITLE
-
             CMP   #$00
             BEQ   FSOPT               ; A=0  - *OPT
             CMP   #$01
@@ -353,10 +341,15 @@ FSCHND
             BEQ   JMPCAT              ; A=10 - *INFO
             CMP   #$0C
             BEQ   FSCREN              ; A=12 - *RENAME
-FSCDRIVE
+
+FSCDRIVE    JMP   DRIVE
+
 FSCFREE
+
 FSCACCESS
+
 FSCTITLE
+
 FSCUKN      PHA
             LDA   #<OSFSCM
             LDY   #>OSFSCM
@@ -572,7 +565,7 @@ PRSPACE     LDA   #' '
 RENAME      JSR   PARSNAME            ; Copy Arg1->MOSFILE
             CMP   #$00                ; Length of arg1
             BEQ   :RENSYN
-            JSR   PARSNAME2           ; Copy Arg2->MOSFILE2
+            JSR   PARSLPTR2           ; Copy Arg2->MOSFILE2
             CMP   #$00                ; Length of arg2
             BEQ   :RENSYN
             >>>   XF2MAIN,RENFILE
@@ -596,6 +589,21 @@ CHDIR       JSR   PARSNAME            ; Copy filename->MOSFILE
             ASC   'Syntax: DIR <pathname>'
             BRK
 :HASPARM    >>>   XF2MAIN,SETPFX
+
+* Handle *DRIVE command, which is similar
+* On entry, (OSLPTR),Y points to command line
+DRIVE       LDA   (OSLPTR),Y          ; First char
+            CMP   #$3A                ; Colon
+            BNE   :ERR
+            JSR   PARSLPTR            ; Copy arg->MOSFILE
+            CMP   #$03                ; Check 3 char arg
+            BEQ   :HASPARM
+:ERR        BRK
+            DB    $DC
+            ASC   'Syntax: DRIVE :sd  (eg: DRIVE :61)'
+            BRK
+:HASPARM    >>>   XF2MAIN,SETPFX
+
 CHDIRRET
             >>>   ENTAUX
             JSR   CHKERROR
@@ -611,7 +619,7 @@ CHDIRRET
 * Write filename to MOSFILE in main memory
 * Returns length in A
 PARSNAME    JSR   XYtoLPTR
-            CLC                       ; Means parsing a filename
+PARSLPTR    CLC                       ; Means parsing a filename
             JSR   GSINIT              ; Init gen string handling
             PHP
             SEI                       ; Disable IRQs
@@ -633,8 +641,8 @@ PARSNAME    JSR   XYtoLPTR
 * Parse filename pointed to by (OSLPTR),Y
 * Write filename to MOSFILE2 in main memory
 * Returns length in A
-PARSNAME2
-            CLC                       ; Means parsing a filename
+PARSNAME2   JSR   XYtoLPTR
+PARSLPTR2   CLC                       ; Means parsing a filename
             JSR   GSINIT              ; Init gen string handling
             PHP
             SEI                       ; Disable IRQs
