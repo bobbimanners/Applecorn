@@ -1016,7 +1016,8 @@ PREPATH      LDX   MOSFILE            ; Length
              BRA   :REENTER           ; Go again!
 :APPEND      JSR   APPMF2             ; Append MOSFILE->MOSFILE2
              JSR   COPYMF2            ; Copy back to MOSFILE
-:EXIT        CLC
+:EXIT        JSR   DIGCONV            ; Handle initial digits
+             CLC
              RTS
 :ERR         SEC
              RTS
@@ -1157,6 +1158,57 @@ COPYMF2      LDX   #$00
 :DONE        STX   MOSFILE
              RTS
 
+* Scan pathname in MOSFILE converting files/dirs
+* starting with digit by adding 'N' before.
+DIGCONV      LDY   #$01               ; First char
+:L1          CPY   MOSFILE            ; String length
+             BEQ   :KEEPON            ; Last char
+             BCS   :DONE              ; Y>MOSFILE
+:KEEPON      LDA   MOSFILE,Y          ; Load char
+             JSR   ISDIGIT            ; Is it a digit?
+             BCC   :NOINS             ; No .. skip
+             CPY   #$01               ; First char?
+             BEQ   :INS               ; First char is digit
+             LDA   MOSFILE-1,Y        ; Prev char
+             CMP   #$2F               ; Slash
+             BEQ   :INS               ; Slash followed by digit
+             BRA   :NOINS             ; Otherwise leave it alone
+:INS         LDA   #'N'               ; Char to insert
+             JSR   INSMF              ; Insert it
+             INY
+:NOINS       INY                      ; Next char
+             BRA   :L1
+:DONE        RTS
+
+* Is char in A a digit? Set carry if so
+ISDIGIT      CMP   #'9'+1
+             BCS   :NOTDIG
+             CMP   #'0'
+             BCC   :NOTDIG
+             SEC
+             RTS
+:NOTDIG      CLC
+             RTS
+
+* Insert char in A into MOSFILE at posn Y
+* Preserves regs
+INSMF        PHA                      ; Preserve char
+             STY   :INSIDX            ; Stash index for later
+             LDY   MOSFILE            ; String length
+             INY                      ; Start with Y=len+1
+:L1          CPY   :INSIDX            ; Back to ins point?
+             BEQ   :S1                ; Yes, done moving
+             LDA   MOSFILE-1,Y        ; Move one char
+             STA   MOSFILE,Y
+             DEY
+             BRA   :L1
+:S1          PLA                      ; Char to insert
+             STA   MOSFILE,Y          ; Insert it
+             INC   MOSFILE            ; One char longer
+             RTS
+:INSIDX      DB    $00
+
+
 ******************************************************
 * ProDOS Parameter lists for MLI calls
 ******************************************************
@@ -1252,26 +1304,4 @@ QUITPL       HEX   04                 ; Number of parameters
              DW    $0000
              DB    $00
              DW    $0000
-
-** Buffer for Acorn MOS filename
-** Pascal string
-*MOSFILE     DS    65                 ; 64 bytes max prefix/file len
-*
-** Buffer for second filename (for rename)
-** Pascal string
-*MOSFILE2    DS    65                 ; 64 bytes max prefix/file len
-
-** Acorn MOS format OSFILE param list
-*FILEBLK
-*FBPTR       DW    $0000              ; Pointer to name (in aux)
-*FBLOAD      DW    $0000              ; Load address
-*            DW    $0000
-*FBEXEC      DW    $0000              ; Exec address
-*            DW    $0000
-*FBSIZE
-*FBSTRT      DW    $0000              ; Size / Start address for SAVE
-*            DW    $0000
-*FBATTR
-*FBEND       DW    $0000              ; Attributes / End address for SAVE
-*            DW    $0000
 
