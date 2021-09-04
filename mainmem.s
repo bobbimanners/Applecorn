@@ -1273,6 +1273,15 @@ COPYPFXMF
              JSR   STRCPY
              RTS
 
+* Read mainmem from auxmem
+MAINRDMEM    STA A1L
+             STY A1H
+             LDA $C081
+             LDA $C081
+             LDA (A1L)
+MAINRDEXIT   >>> XF2AUX,NULLRTS       ; Back to an RTS
+
+
 ******************************************************
 * ProDOS Parameter lists for MLI calls
 ******************************************************

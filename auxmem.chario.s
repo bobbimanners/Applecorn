@@ -20,6 +20,7 @@
 *             test ESCHAR.
 *             FIXED: INKEY doesn't restore cursor on timeout.
 *             The three separate cursors can be set seperately.
+* 02-Sep-2021 INKEY-256 tests Apple IIe vs IIc.
 
 
 * TEMP, move to VDU.S
@@ -219,12 +220,27 @@ BYTE81DONE   RTS
 *          Y=$1B, X=???, CS  - escape
 *          Y=$00, X=char, CC - keypress
 
+
 NEGINKEY     CPX   #$01
              LDX   #$00                      ; Unimplemented
-             LDY   #$00
              BCS   NEGINKEY0
-             LDX   #$2E                      ; INKEY-256 = $2E = Apple IIe
-NEGINKEY0    CLC
+             LDX   #$2A
+                         ; 6502  A   65C02  A   65816  B   A
+             LDA   #$00  ;       00         00         zz  00
+             DB    #$EB  ; SBC       NOP    00  XBA    00  zz
+             DB    #$3A  ; #$3A  C5  DEC A  FF  DEC A  00  yy
+             DB    #$EB  ; SBC       NOP    FF  XBA    yy  00
+             DB    #$EA  ; #$EA  DA  NOP    FF  NOP    yy  00
+             BEQ   NEGINKEY0 ; INKEY-256 = $2A - AppleIIgs
+             LDA   #$C0
+             LDY   #$FB
+             JSR   WORD05IO1 ; Read from $FBC0 in main ROM
+             LDX   #$2C
+             TAY
+             BEQ   NEGINKEY0 ; INKEY-256 = $2C = Apple IIc
+             LDX   #$2E      ; INKEY-256 = $2E = Apple IIe
+NEGINKEY0    LDY   #$00
+             CLC
              RTS
 
 
@@ -406,8 +422,6 @@ KBDCHKESC    TAX                             ; X=keycode
 KBDNOESC     TXA                             ; A=keycode
              CLC                             ; CLC=Ok
 KBDDONE      RTS
-
-
 
 
 
