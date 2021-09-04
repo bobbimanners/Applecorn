@@ -22,27 +22,10 @@ FSCMDLINE   EQU   $CE
 FINDHND     PHX
             PHY
             PHA
-            STX   ZP1                 ; Points to filename
-            STY   ZP1+1
             CMP   #$00                ; A=$00 = close
             BEQ   :CLOSE
             PHA
-            LDA   #<MOSFILE+1
-            STA   ZP2
-            LDA   #>MOSFILE+1
-            STA   ZP2+1
-            LDY   #$00
-:L1         LDA   (ZP1),Y
-            >>>   WRTMAIN
-            STA   (ZP2),Y
-            >>>   WRTAUX
-            INY
-            CMP   #$0D                ; Carriage return
-            BNE   :L1
-            DEY
-            >>>   WRTMAIN
-            STY   MOSFILE             ; Length (Pascal string)
-            >>>   WRTAUX
+            JSR   PARSNAME            ; Copy filename->MOSFILE
             PLA                       ; Recover options
             >>>   XF2MAIN,OFILE
 :CLOSE      >>>   WRTMAIN
@@ -211,10 +194,19 @@ FILEHND     PHX
             PHY
             PHA
 
-            STX   ZP1                 ; LSB of parameter block
-            STX   CBPTR
-            STY   ZP1+1               ; MSB of parameter block
-            STY   CBPTR+1
+            STX   CBPTR               ; LSB of parameter block
+            STX   ZP1
+            STY   CBPTR+1             ; MSB of parameter block
+            STY   ZP1+1
+
+            LDA   (ZP1)               ; Filename ptr->XY
+            TAX
+            LDY   #$01
+            LDA   (ZP1),Y
+            TAY
+
+            JSR   PARSNAME            ; Copy filename->MOSFILE
+
             LDA   #<FILEBLK
             STA   ZP2
             LDA   #>FILEBLK
@@ -228,44 +220,6 @@ FILEHND     PHX
             CPY   #$12
             BNE   :L1
 
-            LDA   (ZP1)               ; Pointer to filename->ZP2
-            STA   ZP2
-            LDY   #$01
-            LDA   (ZP1),Y
-            STA   ZP2+1
-            LDA   #<MOSFILE+1         ; ZP1 is dest pointer
-            STA   ZP1
-            LDA   #>MOSFILE+1
-            STA   ZP1+1
-            LDA   (ZP2)               ; Look at first char of filename
-            CMP   #'9'+1
-            BCS   :NOTDIGT
-            CMP   #'0'
-            BCC   :NOTDIGT
-            LDA   #'N'                ; Prefix numeric with 'N'
-            >>>   WRTMAIN
-            STA   (ZP1)
-            >>>   WRTAUX
-            LDY   #$01                ; Increment Y
-            DEC   ZP2                 ; Decrement source pointer
-            LDA   ZP2
-            CMP   #$FF
-            BNE   :L2
-            DEC   ZP2+1
-            BRA   :L2
-:NOTDIGT    LDY   #$00
-:L2         LDA   (ZP2),Y
-            >>>   WRTMAIN
-            STA   (ZP1),Y
-            >>>   WRTAUX
-            INY
-            CMP   #$21                ; Space or Carriage return
-            BCS   :L2
-            DEY
-            >>>   WRTMAIN
-            STY   MOSFILE             ; Length (Pascal string)
-            >>>   WRTAUX
-
             PLA                       ; Get action back
             PHA
             BEQ   :SAVE               ; A=00 -> SAVE
@@ -276,15 +230,7 @@ FILEHND     PHX
             BCC   :JMPINFO            ; A=01-05 -> INFO
             CMP   #$08
             BEQ   :MKDIR              ; A=08 -> MKDIR
-*            LDA   #<OSFILEM           ; If not implemented, print msg
-*            LDY   #>OSFILEM
-*            JSR   PRSTR
-*            PLA
-*            PHA
-*            JSR   OUTHEX
-*            LDA   #<OSFILEM2
-*            LDY   #>OSFILEM2
-*            JSR   PRSTR
+
             PLA                       ; Not implemented, return unchanged
             PLY
             PLX
@@ -317,84 +263,6 @@ OSFILERET
             PLY                       ; No error, return to caller
             PLX
             RTS
-
-*            BMI   :L4
-*            PLY                       ; Discard val of A on entry
-*            JMP   :EXIT               ; ret<$80, return it to user
-*
-*:L4         PLY                       ; Value of A on OSFILE entry
-*            CPY   #$FF                ; See if command was LOAD
-*            BNE   :NOTLOAD
-*
-*            CMP   #$80                ; No file found
-*            BNE   :SL1
-*            BRA   ERRNOTFND
-*
-*:SL1        BRK                       ; Must be A=$81
-*            DB    $CA                 ; $CA = Premature end, 'Data lost'
-*            ASC   'Read error'
-*            BRK
-*
-*:NOTLOAD    CPY   #$00                ; See if command was SAVE
-*            BNE   :NOTLS              ; Not LOAD or SAVE
-*
-*            CMP   #$80                ; Unable to create or open
-*            BNE   :SS1
-*            BRK
-*            DB    $C0                 ; $C0 = Can't create file to save
-*            ASC   'Can'
-*            DB    $27
-*            ASC   't save file'
-*            BRK
-*
-*:SS1        BRK                       ; Must be A=$81
-*            DB    $CA                 ; $CA = Premature end, 'Data lost'
-*            ASC   'Write error'
-*            BRK
-*
-*:NOTLS      CPY   #$06                ; See if command was DELETE
-*            BNE   :NOTLSD
-*
-*            CMP   #$80                ; File was not found
-*            BNE   :SD1
-*            JMP   :EXIT
-*            BRK
-*            DB    $D6                 ; $D6 = File not found
-*            ASC   'Not found'
-*            BRK
-*
-*:SD1        BRK                       ; Must be A=$81
-*            DB    $D6                 ; TODO: Better error code?
-*            ASC   'Can'
-*            DB    $27
-*            ASC   't delete'
-*            BRK
-*
-*:NOTLSD     CPY   #$08                ; Was it CDIR?
-*            BNE   :EXIT
-*
-*            CMP   #$80                ; A=80 dir already exists
-*            BEQ   :EXISTS
-*            CMP   #$81                ; A=81 bad name
-*            BNE   :SC1
-*
-*            BRK
-*            DB    $CC
-*            ASC   'Bad name'
-*            BRK
-*
-*:SC1        BRK
-*            DB    $C0
-*            ASC   'Can'
-*            DB    27
-*            ASC   't create dir'
-*            BRK
-*
-*:EXISTS     LDA   #$02                ; A=2 - dir exists or was created
-*
-*:EXIT       PLY
-*            PLX
-*            RTS
 
 ERRNOTFND   BRK
             DB    $D6                 ; $D6 = Object not found
@@ -517,8 +385,6 @@ FSCRUNLP    LDA   (OSLPTR),Y          ; Look for command line
             JSR   LPTRtoXY
             STX   FSCMDLINE+0         ; Set CMDLINE=>command line
             STY   FSCMDLINE+1         ; Collected by OSARGS 1,0
-*
-* *BUG* OSFILE &FF should give error if trying to load a directory!
             LDA   #$FF                ; OSFILE load flag
             STA   OSFILECB+6          ; Use file's address
             LDX   #<OSFILECB          ; Pointer to control block
@@ -531,13 +397,9 @@ FSCRUNLP    LDA   (OSLPTR),Y          ; Look for command line
             SEC                       ; Not from RESET
             JMP   (OSFILECB+6)        ; Jump to EXEC addr
 
-FSCREN      JSR   XYtoLPTR            ; Pointer to command line
-            JMP   RENAME
+FSCREN      JMP   RENAME
 
-FSCCHDIR    STX   ZP1+0
-            STY   ZP1+1
-            LDY   #$00
-            JMP   STARDIR1
+FSCCHDIR    JMP   CHDIR
 
 * Performs OSFSC *OPT function
 FSOPT       RTS                       ; No FS options for now
@@ -555,7 +417,9 @@ CHKEOFRET
 
 * Perform CAT
 * A=5 *CAT, A=9 *EX, A=10 *INFO
-FSCCAT
+FSCCAT      PHA
+            JSR   PARSNAME            ; Copy filename->MOSFILE
+            PLA
             CMP   #10                 ; *TEMP*
             BEQ   CATDONE             ; *TEMP*
             ASL   A
@@ -566,7 +430,10 @@ FSCCAT
             >>>   XF2MAIN,CATALOG
 STARCATRET
             >>>   ENTAUX
+            PHA
             JSR   FORCENL
+            PLA
+            JSR   CHKERROR            ; See if error occurred
 CATDONE     LDA   #0                  ; 0=OK
             RTS
 
@@ -701,37 +568,13 @@ PRSPACE     LDA   #' '
             JMP   OSWRCH
 
 * Perform FSCV $0C RENAME function
-* Parameter string in OSLPTR
-RENAME      LDY   #$00
-:ARG1       LDA   (OSLPTR),Y
-            CMP   #$20                ; Space
-            BEQ   :ENDARG1
-            CMP   #$0D                ; Carriage return
+* Parameter string in XY
+RENAME      JSR   PARSNAME            ; Copy Arg1->MOSFILE
+            CMP   #$00                ; Length of arg1
             BEQ   :RENSYN
-            INY
-            >>>   WRTMAIN
-            STA   MOSFILE,Y
-            >>>   WRTAUX
-            BRA   :ARG1
-:ENDARG1    >>>   WRTMAIN
-            STY   MOSFILE             ; Length of Pascal string
-            >>>   WRTAUX
-            JSR   SKIPSPC
-            JSR   LPTRtoXY            ; Update LPTR and set Y=0
-            JSR   XYtoLPTR            ; ...
-:ARG2       LDA   (OSLPTR),Y
-            CMP   #$20                ; Space
-            BEQ   :ENDARG2
-            CMP   #$0D                ; Carriage return
-            BEQ   :ENDARG2
-            INY
-            >>>   WRTMAIN
-            STA   MOSFILE2,Y
-            >>>   WRTAUX
-            BRA   :ARG2
-:ENDARG2    >>>   WRTMAIN
-            STY   MOSFILE2            ; Length of Pascal string
-            >>>   WRTAUX
+            JSR   PARSNAME2           ; Copy Arg2->MOSFILE2
+            CMP   #$00                ; Length of arg2
+            BEQ   :RENSYN
             >>>   XF2MAIN,RENFILE
 :RENSYN     BRK
             DB    $DC
@@ -740,56 +583,20 @@ RENAME      LDY   #$00
 RENRET
             >>>   ENTAUX
             JSR   CHKERROR
-**** JSR CHKNOTFND     ;;; NOPE: THIS IS MAINMEM FUNC!!!
-*            CMP   #$44                ; Path not found
-*            BEQ   :NOTFND
-*            CMP   #$45                ; Vol dir not found
-*            BEQ   :NOTFND
-*            CMP   #$46                ; File not found
-*            BEQ   :NOTFND
-*            CMP   #$47                ; Duplicate filename
-*            BEQ   :EXISTS
-*            CMP   #$4E                ; Access error
-*            BEQ   :LOCKED
-*            CMP   #$00
-*            BNE   :OTHER              ; All other errors
             LDA   #$00
             RTS
-*:NOTFND     JMP   ERRNOTFND
-*:EXISTS     JMP   ERREXISTS
-*:LOCKED     BRK
-*            DB    $C3
-*            ASC   'Locked'
-*:OTHER      BRK
-*            DB    $C7
-*            ASC   'Disc error'
-*            BRK
 
 * Handle *DIR (directory change) command
-* On entry, ZP1 points to command line
-STARDIR     JSR   EATSPC              ; Eat leading spaces
-STARDIR1
-:S1         LDX   #$01
-:L3         LDA   (ZP1),Y
-            CMP   #$21                ; Check for CR or space
-            BCC   :S2
-            >>>   WRTMAIN
-            STA   MOSFILE,X
-            >>>   WRTAUX
-            INY
-            INX
-            BRA   :L3
-:S2         DEX
-            BNE   :S3
+* On entry, XY points to command line
+CHDIR       JSR   PARSNAME            ; Copy filename->MOSFILE
+            CMP   #$00                ; Filename length
+            BNE   :HASPARM
             BRK
             DB    $DC
             ASC   'Syntax: DIR <pathname>'
             BRK
-:S3         >>>   WRTMAIN
-            STX   MOSFILE             ; Length byte
-            >>>   WRTAUX
-            >>>   XF2MAIN,SETPFX
-STARDIRRET
+:HASPARM    >>>   XF2MAIN,SETPFX
+CHDIRRET
             >>>   ENTAUX
             JSR   CHKERROR
             CMP   #$00
@@ -799,6 +606,52 @@ STARDIRRET
             ASC   'Bad dir'
             BRK
 :EXIT       RTS
+
+* Parse filename pointed to by XY
+* Write filename to MOSFILE in main memory
+* Returns length in A
+PARSNAME    JSR   XYtoLPTR
+            CLC                       ; Means parsing a filename
+            JSR   GSINIT              ; Init gen string handling
+            PHP
+            SEI                       ; Disable IRQs
+            LDX   #$00                ; Length
+:L1         JSR   GSREAD              ; Handle next char
+            BCS   :DONE
+            STA   $C004               ; Write to main mem
+            STA   MOSFILE+1,X
+            STA   $C005               ; Write to aux mem
+            INX
+            BNE   :L1
+:DONE       STA   $C004               ; Write to main mem
+            STX   MOSFILE             ; Length byte (Pascal)
+            STA   $C005               ; Back to aux
+            PLP                       ; IRQs back as they were
+            TXA                       ; Return len in A
+            RTS
+
+* Parse filename pointed to by (OSLPTR),Y
+* Write filename to MOSFILE2 in main memory
+* Returns length in A
+PARSNAME2
+            CLC                       ; Means parsing a filename
+            JSR   GSINIT              ; Init gen string handling
+            PHP
+            SEI                       ; Disable IRQs
+            LDX   #$00                ; Length
+:L1         JSR   GSREAD              ; Handle next char
+            BCS   :DONE
+            STA   $C004               ; Write to main mem
+            STA   MOSFILE2+1,X
+            STA   $C005               ; Write to aux mem
+            INX
+            BNE   :L1
+:DONE       STA   $C004               ; Write to main mem
+            STX   MOSFILE2            ; Length byte (Pascal)
+            STA   $C005               ; Back to aux
+            PLP                       ; IRQs back as they were
+            TXA                       ; Return len in A
+            RTS
 
 * Move this somewhere
 CHKERROR    CMP   #$20
@@ -969,6 +822,4 @@ ERROR5E     DW    $C000
 ERROR2E     DW    $C800
             ASC   'Disk changed'      ; $2E - Disk switched
             DB    $00
-
-
 

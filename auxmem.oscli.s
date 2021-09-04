@@ -13,60 +13,60 @@
 ***************
 * Table structure is: { string, byte OR $80, destword-1 } $00
 * fsc commands
-CMDTABLE     ASC   'CAT'          ; Must be first command so matches '*.'
+CMDTABLE     ASC   'CAT'              ; Must be first command so matches '*.'
              DB    $85
-             DW    STARFSC-1      ; CAT    -> FSC 5, XY=>params
+             DW    STARFSC-1          ; CAT    -> FSC 5, XY=>params
              ASC   'RUN'
              DB    $84
-             DW    STARFSC-1      ; RUN    -> FSC 4, XY=>params
+             DW    STARFSC-1          ; RUN    -> FSC 4, XY=>params
              ASC   'EX'
              DB    $89
-             DW    STARFSC-1      ; EX     -> FSC 9, XY=>params
+             DW    STARFSC-1          ; EX     -> FSC 9, XY=>params
              ASC   'INFO'
              DB    $8A
-             DW    STARFSC-1      ; INFO   -> FSC 10, XY=>params
+             DW    STARFSC-1          ; INFO   -> FSC 10, XY=>params
              ASC   'RENAME'
              DB    $8C
-             DW    STARFSC-1      ; RENAME -> FSC 12, XY=>params
+             DW    STARFSC-1          ; RENAME -> FSC 12, XY=>params
 * osfile commands
              ASC   'LOAD'
              DB    $FF
-             DW    STARLOAD-1     ; LOAD   -> OSFILE FF, CBLK=>filename
+             DW    STARLOAD-1         ; LOAD   -> OSFILE FF, CBLK=>filename
              ASC   'SAVE'
              DB    $FF
-             DW    STARSAVE-1     ; SAVE   -> OSFILE 00, CBLK=>filename
+             DW    STARSAVE-1         ; SAVE   -> OSFILE 00, CBLK=>filename
              ASC   'DELETE'
              DB    $86
-             DW    STARFILE-1     ; DELETE -> OSFILE 06, CBLK=>filename
+             DW    STARFILE-1         ; DELETE -> OSFILE 06, CBLK=>filename
              ASC   'MKDIR'
              DB    $88
-             DW    STARFILE-1     ; MKDIR  -> OSFILE 08, CBLK=>filename
+             DW    STARFILE-1         ; MKDIR  -> OSFILE 08, CBLK=>filename
              ASC   'CDIR'
              DB    $88
-             DW    STARFILE-1     ; CDIR   -> OSFILE 08, CBLK=>filename
+             DW    STARFILE-1         ; CDIR   -> OSFILE 08, CBLK=>filename
 * osbyte commands
              ASC   'FX'
              DB    $80
-             DW    STARFX-1       ; FX     -> OSBYTE A,X,Y    (LPTR)=>params
+             DW    STARFX-1           ; FX     -> OSBYTE A,X,Y    (LPTR)=>params
              ASC   'OPT'
              DB    $8B
-             DW    STARBYTE-1     ; OPT    -> OSBYTE &8B,X,Y  XY=>params
+             DW    STARBYTE-1         ; OPT    -> OSBYTE &8B,X,Y  XY=>params
 * others
              ASC   'QUIT'
              DB    $80
-             DW    STARQUIT-1     ; QUIT   -> (LPTR)=>params
+             DW    STARQUIT-1         ; QUIT   -> (LPTR)=>params
              ASC   'HELP'
              DB    $80
-             DW    STARHELP-1     ; HELP   -> (LPTR)=>params
+             DW    STARHELP-1         ; HELP   -> (LPTR)=>params
              ASC   'BASIC'
              DB    $80
-             DW    STARBASIC-1    ; BASIC  -> (LPTR)=>params
+             DW    STARBASIC-1        ; BASIC  -> (LPTR)=>params
              ASC   'KEY'
              DB    $80
-             DW    STARKEY-1      ; KEY    -> (LPTR)=>params
+             DW    STARKEY-1          ; KEY    -> (LPTR)=>params
              ASC   'ECHO'
              DB    $80
-             DW    ECHO-1         ; ECHO   -> (LPTR)=>params
+             DW    ECHO-1             ; ECHO   -> (LPTR)=>params
 * DUMP <file>
 * TYPE <file>
 * BUILD <file>
@@ -81,68 +81,68 @@ CMDTABLE     ASC   'CAT'          ; Must be first command so matches '*.'
 *           A<>0 no match
 *
 * Search command table
-CLILOOKUP    STX   OSTEXT+0       ; Start of command table
+CLILOOKUP    STX   OSTEXT+0           ; Start of command table
              STY   OSTEXT+1
-             LDX   #0             ; (ZP,X)=>command table
-CLILP4       LDY   #0             ; Start of command line
+             LDX   #0                 ; (ZP,X)=>command table
+CLILP4       LDY   #0                 ; Start of command line
 CLILP5       LDA   (OSTEXT,X)
-             BMI   CLIMATCH       ; End of table string
+             BMI   CLIMATCH           ; End of table string
              EOR   (OSLPTR),Y
-             AND   #$DF           ; Force upper case match
+             AND   #$DF               ; Force upper case match
              BNE   CLINOMATCH
-             JSR   CLISTEP        ; Step to next table char
-             INY                  ; Step to next command char
-             BNE   CLILP5         ; Loop to check
+             JSR   CLISTEP            ; Step to next table char
+             INY                      ; Step to next command char
+             BNE   CLILP5             ; Loop to check
 
 CLINOMATCH   LDA   (OSLPTR),Y
-             CMP   #'.'           ; Abbreviation?
+             CMP   #'.'               ; Abbreviation?
              BEQ   CLIDOT
-CLINEXT      JSR   CLISTEP        ; No match, step to next entry
+CLINEXT      JSR   CLISTEP            ; No match, step to next entry
              BPL   CLINEXT
-CLINEXT2     JSR   CLISTEP        ; Step past byte, address
+CLINEXT2     JSR   CLISTEP            ; Step past byte, address
              JSR   CLISTEP
              JSR   CLISTEP
-             BPL   CLILP4         ; Loop to check next
-             RTS                  ; Exit, A>$7F
+             BPL   CLILP4             ; Loop to check next
+             RTS                      ; Exit, A>$7F
 
 CLIDOT       LDA   (OSTEXT,X)
-             BMI   CLINEXT2       ; Dot after full word, no match
-CLIDOT2      JSR   CLISTEP        ; Step to command address
+             BMI   CLINEXT2           ; Dot after full word, no match
+CLIDOT2      JSR   CLISTEP            ; Step to command address
              BPL   CLIDOT2
-             INY                  ; Step past dot
-             BNE   CLIMATCH2      ; Jump to this command
+             INY                      ; Step past dot
+             BNE   CLIMATCH2          ; Jump to this command
 
 CLIMATCH     LDA   (OSLPTR),Y
              CMP   #'.'
-             BEQ   CLINEXT        ; Longer abbreviation, eg 'CAT.'
+             BEQ   CLINEXT            ; Longer abbreviation, eg 'CAT.'
              CMP   #'A'
-             BCS   CLINEXT        ; More letters, eg 'HELPER'
-CLIMATCH2    JSR   CLIMATCH3      ; Call the routine
+             BCS   CLINEXT            ; More letters, eg 'HELPER'
+CLIMATCH2    JSR   CLIMATCH3          ; Call the routine
              LDA   #0
-             RTS                  ; Return A=0 to claim
+             RTS                      ; Return A=0 to claim
 
-CLIMATCH3    JSR   SKIPSPC        ; (OSLPTR),Y=>parameters
-             LDA   (OSTEXT,X)     ; Command byte
+CLIMATCH3    JSR   SKIPSPC            ; (OSLPTR),Y=>parameters
+             LDA   (OSTEXT,X)         ; Command byte
              PHA
-             JSR   CLISTEP        ; Address low byte
+             JSR   CLISTEP            ; Address low byte
              STA   OSTEMP
-             JSR   CLISTEP        ; Address high byte
-             PLX                  ; Get command byte
-             PHA                  ; Push address high
+             JSR   CLISTEP            ; Address high byte
+             PLX                      ; Get command byte
+             PHA                      ; Push address high
              LDA   OSTEMP
-             PHA                  ; Push address low
-             TXA                  ; Command byte
+             PHA                      ; Push address low
+             TXA                      ; Command byte
              PHA
-             ASL   A              ; Drop bit 7
-             BEQ   CLICALL        ; If $80 don't convert LPTR
-             JSR   LPTRtoXY       ; XY=>parameters
-CLICALL      PLA                  ; A=command parameter
-             RTS                  ; Call command routine
+             ASL   A                  ; Drop bit 7
+             BEQ   CLICALL            ; If $80 don't convert LPTR
+             JSR   LPTRtoXY           ; XY=>parameters
+CLICALL      PLA                      ; A=command parameter
+             RTS                      ; Call command routine
 
-CLISTEP      INC   OSTEXT+0,X     ; Point to next table byte
+CLISTEP      INC   OSTEXT+0,X         ; Point to next table byte
              BNE   CLISTEP2
              INC   OSTEXT+1,X
-CLISTEP2     LDA   (OSTEXT,X)     ; Get next byte
+CLISTEP2     LDA   (OSTEXT,X)         ; Get next byte
              RTS
 
 
@@ -150,47 +150,47 @@ CLISTEP2     LDA   (OSTEXT,X)     ; Get next byte
 * On entry, XY=>command string
 * On exit,  AXY corrupted or error generated
 *
-CLIHND       JSR   XYtoLPTR       ; LPTR=>command line
+CLIHND       JSR   XYtoLPTR           ; LPTR=>command line
 CLILP1       LDA   (OSLPTR),Y
              CMP   #$0D
              BEQ   CLI2
              INY
              BNE   CLILP1
-CLIEXIT1     RTS                  ; No terminating <cr>
+CLIEXIT1     RTS                      ; No terminating <cr>
 CLI2         LDY   #$FF
-CLILP2       JSR   SKIPSPC1       ; Skip leading spaces
-             CMP   #'*'           ; Skip leading stars
+CLILP2       JSR   SKIPSPC1           ; Skip leading spaces
+             CMP   #'*'               ; Skip leading stars
              BEQ   CLILP2
              CMP   #$0D
-             BEQ   CLIEXIT1       ; Null string
+             BEQ   CLIEXIT1           ; Null string
              CMP   #'|'
-             BEQ   CLIEXIT1       ; Comment
+             BEQ   CLIEXIT1           ; Comment
              CMP   #'/'
              BEQ   CLISLASH
-             JSR   LPTRtoXY       ; Add Y to LPTR
-             JSR   XYtoLPTR       ; LPTR=>start of actual command
-             LDX   #<CMDTABLE     ; XY=>command table
+             JSR   LPTRtoXY           ; Add Y to LPTR
+             JSR   XYtoLPTR           ; LPTR=>start of actual command
+             LDX   #<CMDTABLE         ; XY=>command table
              LDY   #>CMDTABLE
-             JSR   CLILOOKUP      ; Look for command
-             BNE   CLIUNKNOWN     ; No match
+             JSR   CLILOOKUP          ; Look for command
+             BNE   CLIUNKNOWN         ; No match
 CLIDONE      RTS
 
 CLISLASH     JSR   SKIPSPC1
-             BEQ   CLIDONE        ; */<cr>
+             BEQ   CLIDONE            ; */<cr>
              LDA   #$02
-             BNE   STARFSC2       ; FSC 2 = */filename
+             BNE   STARFSC2           ; FSC 2 = */filename
 
 CLIUNKNOWN   LDA   #$04
-             JSR   SERVICE        ; Offer to sideways ROM(s)
-             BEQ   CLIDONE        ; Claimed
-             LDA   #$03           ; FSC 3 = unknown command
+             JSR   SERVICE            ; Offer to sideways ROM(s)
+             BEQ   CLIDONE            ; Claimed
+             LDA   #$03               ; FSC 3 = unknown command
 STARFSC2     PHA
-             JSR   LPTRtoXY       ; XY=>command
+             JSR   LPTRtoXY           ; XY=>command
              PLA
-STARFSC      AND   #$7F           ; A=command, XY=>parameters
-             JSR   CALLFSCV       ; Hand on to filing system
+STARFSC      AND   #$7F               ; A=command, XY=>parameters
+             JSR   CALLFSCV           ; Hand on to filing system
              TAX
-             BEQ   CLIDONE        ; A=0, FSC call implemented
+             BEQ   CLIDONE            ; A=0, FSC call implemented
 ERRBADCMD    BRK
              DB    $FE
              ASC   'Bad command'
@@ -211,20 +211,20 @@ STARFX       JSR   SCANDEC
 * Commands passed to OSBYTE
 ***************************
 STARBYTE     JSR   XYtoLPTR
-STARBYTE1    STA   OSAREG         ; Save OSBYTE number
-             LDA   #$00           ; Default X and Y
+STARBYTE1    STA   OSAREG             ; Save OSBYTE number
+             LDA   #$00               ; Default X and Y
              STA   OSXREG
              STA   OSYREG
-             JSR   SKIPCOMMA      ; Step past any comma/spaces
-             BEQ   STARBYTE2      ; End of line, do it
-             JSR   SCANDEC        ; Scan for X param
-             STA   OSXREG         ; Store it
-             JSR   SKIPCOMMA      ; Step past any comma/spaces
-             BEQ   STARBYTE2      ; End of line, do it
-             JSR   SCANDEC        ; Scan for Y param
-             STA   OSYREG         ; Store it
+             JSR   SKIPCOMMA          ; Step past any comma/spaces
+             BEQ   STARBYTE2          ; End of line, do it
+             JSR   SCANDEC            ; Scan for X param
+             STA   OSXREG             ; Store it
+             JSR   SKIPCOMMA          ; Step past any comma/spaces
+             BEQ   STARBYTE2          ; End of line, do it
+             JSR   SCANDEC            ; Scan for Y param
+             STA   OSYREG             ; Store it
              JSR   SKIPSPC
-             BNE   ERRBADCMD      ; More params, error
+             BNE   ERRBADCMD          ; More params, error
 STARBYTE2    LDY   OSYREG
              LDX   OSXREG
              LDA   OSAREG
@@ -234,46 +234,46 @@ STARBYTE2    LDY   OSYREG
 
 * Scan decimal number
 SCANDEC      JSR   SKIPSPC
-             JSR   SCANDIGIT      ; Check first digit
-             BCS   ERRBADNUM      ; Doesn't start with a digit
-SCANDECLP    STA   OSTEMP         ; Store as current number
-             JSR   SCANDIGIT      ; Check next digit
-             BCS   SCANDECOK      ; No more digits   
+             JSR   SCANDIGIT          ; Check first digit
+             BCS   ERRBADNUM          ; Doesn't start with a digit
+SCANDECLP    STA   OSTEMP             ; Store as current number
+             JSR   SCANDIGIT          ; Check next digit
+             BCS   SCANDECOK          ; No more digits   
              PHA
              LDA   OSTEMP
              CMP   #26
-             BCS   ERRBADNUM      ; num>25, num*25>255
-             ASL   A              ; num*2
-             ASL   A              ; num*4
-             ADC   OSTEMP         ; num*4+num = num*5
-             ASL   A              ; num*10
+             BCS   ERRBADNUM          ; num>25, num*25>255
+             ASL   A                  ; num*2
+             ASL   A                  ; num*4
+             ADC   OSTEMP             ; num*4+num = num*5
+             ASL   A                  ; num*10
              STA   OSTEMP
              PLA
-             ADC   OSTEMP         ; num=num*10+digit
+             ADC   OSTEMP             ; num=num*10+digit
              BCC   SCANDECLP
-             BCS   ERRBADNUM      ; Overflowed
+             BCS   ERRBADNUM          ; Overflowed
 
-SCANDECOK    LDA   OSTEMP         ; Return A=number
+SCANDECOK    LDA   OSTEMP             ; Return A=number
 SCANDIG2     SEC
              RTS
 
 SCANDIGIT    LDA   (OSLPTR),Y
              CMP   #'0'
-             BCC   SCANDIG2       ; <'0'
+             BCC   SCANDIG2           ; <'0'
              CMP   #'9'+1
-             BCS   SCANDIG2       ; >'9'
+             BCS   SCANDIG2           ; >'9'
              INY
              AND   #$0F
              RTS
 
 HEXDIGIT     JSR   SCANDIGIT
-             BCC   HEXDIGIT2      ; Decimal digit
+             BCC   HEXDIGIT2          ; Decimal digit
              AND   #$DF
              CMP   #'A'
-             BCC   SCANDIG2       ; Bad hex character
+             BCC   SCANDIG2           ; Bad hex character
              CMP   #'G'
-             BCS   HEXDIGIT2      ; Bad hex character
-             SBC   #$36           ; Convert 'A'-'F' to $0A-$0F
+             BCS   HEXDIGIT2          ; Bad hex character
+             SBC   #$36               ; Convert 'A'-'F' to $0A-$0F
              INY
              CLC
 HEXDIGIT2    RTS
@@ -281,40 +281,40 @@ HEXDIGIT2    RTS
 * Scan hex address
 * (OSLPTR),Y=>first character
 * $200,X    = 4-byte accumulator 
-SCANHEX      JSR   HEXDIGIT       ; Get first digit
-             BCS   ERRBADADD1     ; Not a hex character
-             STA   $200,X         ; Store first digit
+SCANHEX      JSR   HEXDIGIT           ; Get first digit
+             BCS   ERRBADADD1         ; Not a hex character
+             STA   $200,X             ; Store first digit
              LDA   #0
-             STA   $201,X         ; Clear rest of accumulator
+             STA   $201,X             ; Clear rest of accumulator
              STA   $202,X
              STA   $203,X
-SCANHEXLP1   JSR   HEXDIGIT       ; Get next digit
-             BCS   SKIPSPC        ; Done, exit by skipping spaces
+SCANHEXLP1   JSR   HEXDIGIT           ; Get next digit
+             BCS   SKIPSPC            ; Done, exit by skipping spaces
              STY   OSTEMP
-             LDY   #4             ; Four bits to rotate
-SCANHEXLP2   ASL   $200,X         ; Multiple accumulator by 16
+             LDY   #4                 ; Four bits to rotate
+SCANHEXLP2   ASL   $200,X             ; Multiple accumulator by 16
              ROL   $201,X
              ROL   $202,X
              ROL   $203,X
-             BCS   ERRBADADD1     ; Overflowed
+             BCS   ERRBADADD1         ; Overflowed
              DEY
-             BNE   SCANHEXLP2     ; Loop for four bits
-             ORA   $200,X         ; Add in current digit
+             BNE   SCANHEXLP2         ; Loop for four bits
+             ORA   $200,X             ; Add in current digit
              STA   $200,X
-             LDY   OSTEMP         ; Get Y back
+             LDY   OSTEMP             ; Get Y back
              BNE   SCANHEXLP1
 ERRBADADD1   JMP   ERRBADADD
 
 SKIPCOMMA    LDA   (OSLPTR),Y
              CMP   #$2C
-             BNE   SKIPSPC        ; Drop through
+             BNE   SKIPSPC            ; Drop through
 *
 * Skip spaces
-SKIPSPC1     INY                  ; Step past a character
+SKIPSPC1     INY                      ; Step past a character
 SKIPSPC      LDA   (OSLPTR),Y
              CMP   #' '
              BEQ   SKIPSPC1
-             CMP   #$0D           ; Return EQ=<cr>
+             CMP   #$0D               ; Return EQ=<cr>
              RTS
 
 * Skip a string
@@ -343,21 +343,21 @@ XYtoLPTR     STX   OSLPTR+0
 * Print *HELP text
 * These needs tidying a bit
 STARHELP     PHY
-             JSR   PRHELLO        ; Unifiy version message
+             JSR   PRHELLO            ; Unifiy version message
 *            LDA   #<:MSG
 *            LDY   #>:MSG
 *            JSR   PRSTR
              PLY
              PHY
              LDA   (OSLPTR),Y
-             CMP   #'.'           ; *HELP .
+             CMP   #'.'               ; *HELP .
              BEQ   STARHELP1
              INY
              EOR   (OSLPTR),Y
              INY
              EOR   (OSLPTR),Y
              AND   #$DF
-             CMP   #$51           ; *HELP MOS
+             CMP   #$51               ; *HELP MOS
              BNE   STARHELP5
 STARHELP1    LDX   #0
              LDA   #32
@@ -385,18 +385,18 @@ STARHELP4    LDA   #$08
              JSR   OSWRCH
              JSR   FORCENL
 STARHELP5    LDA   $8006
-             BMI   STARHELP6      ; Use ROM's service entry
+             BMI   STARHELP6          ; Use ROM's service entry
              JSR   OSNEWL
-             LDA   #$09           ; Language name
-             LDY   #$80           ; *TO DO* make this and BYTE8E
-             JSR   PRSTR          ;  use same code
+             LDA   #$09               ; Language name
+             LDY   #$80               ; *TO DO* make this and BYTE8E
+             JSR   PRSTR              ;  use same code
              JSR   OSNEWL
 *            LDA   #<:MSG2
 *            LDY   #>:MSG2
 *            JSR   PRSTR
 STARHELP6    PLY
              LDA   #9
-             JMP   SERVICE        ; Pass to sideways ROM(s)
+             JMP   SERVICE            ; Pass to sideways ROM(s)
 *:MSG        DB    $0D
 *            ASC   'Applecorn MOS v0.01'
 *            DB    $0D,$00
@@ -535,32 +535,34 @@ EATSPC
 
 
 ** TEST CODE **
-ECHO     PHY
-         CLC
-         JSR ECHO0
-         PLY
-         SEC
-ECHO0    JSR GSINIT
-         PHP
-         PLA
-         JSR OUTHEX
-ECHOLP1  JSR GSREAD
-         BCS ECHO3
-         CMP #$20
-         BCC ECHO2
-         CMP #$7F
-         BCS ECHO2
-         JSR OSWRCH
-         JMP ECHOLP1
-ECHO2    PHA
-         LDA #'<'
-         JSR OSWRCH
-         PLA
-         JSR OUTHEX
-         LDA #'>'
-         JSR OSWRCH
-         JMP ECHOLP1
-ECHO3    PHP
-         PLA
-         JSR OUTHEX
-         JMP OSNEWL
+ECHO         PHY
+             CLC
+             JSR   ECHO0
+             PLY
+             SEC
+ECHO0        JSR   GSINIT
+             PHP
+             PLA
+             JSR   OUTHEX
+ECHOLP1      JSR   GSREAD
+             BCS   ECHO3
+             CMP   #$20
+             BCC   ECHO2
+             CMP   #$7F
+             BCS   ECHO2
+             JSR   OSWRCH
+             JMP   ECHOLP1
+ECHO2        PHA
+             LDA   #'<'
+             JSR   OSWRCH
+             PLA
+             JSR   OUTHEX
+             LDA   #'>'
+             JSR   OSWRCH
+             JMP   ECHOLP1
+ECHO3        PHP
+             PLA
+             JSR   OUTHEX
+             JMP   OSNEWL
+
+
