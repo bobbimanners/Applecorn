@@ -263,10 +263,13 @@ MAKEDIR      >>>   ENTMAIN
 
 * ProDOS file handling to rename a file
 RENFILE      >>>   ENTMAIN
-             JSR   DORENAME
-             >>>   XF2AUX,RENRET
-
-DORENAME     LDA   #<MOSFILE
+             JSR   PREPATH            ; Preprocess arg1
+             JSR   MFtoTMP            ; Stash arg1
+             JSR   COPYMF21           ; Copy arg2
+             JSR   PREPATH            ; Preprocess arg2
+             JSR   COPYMF12           ; Put it back in MOSFILE2
+             JSR   TMPtoMF            ; Recover arg1->MOSFILE
+             LDA   #<MOSFILE
              STA   RENPL+1
              LDA   #>MOSFILE
              STA   RENPL+2
@@ -277,7 +280,7 @@ DORENAME     LDA   #<MOSFILE
              JSR   MLI
              DB    RENCMD
              DW    RENPL
-             RTS
+             >>>   XF2AUX,RENRET
 
 * ProDOS file handling for MOS OSFIND OPEN call
 * Options in A: $40 'r', $80 'w', $C0 'rw'
@@ -927,10 +930,10 @@ CATALOG      >>>   ENTMAIN
              LDA   #>MOSFILE
              STA   OPENPL+2
              BRA   :OPEN
-:NOPATH      JSR   GETPREF            ; Fetch prefix into MOSFILE2
-             LDA   #<MOSFILE2
+:NOPATH      JSR   GETPREF            ; Fetch prefix into PREFIX
+             LDA   #<PREFIX
              STA   OPENPL+1
-             LDA   #>MOSFILE2
+             LDA   #>PREFIX
              STA   OPENPL+2
 :OPEN        JSR   OPENFILE
              BCS   CATEXIT            ; Can't open dir
@@ -956,11 +959,9 @@ CATALOGRET
              >>>   ENTMAIN
              BRA   CATREENTRY
 
-* This needs to be a generalised routine
-* Needs to be callable from OSFIND, OSFILE, CAT, RENAME
 * Preprocess path in MOSFILE, handling '..' sequence
 * dir/file.ext filesystem, so '..' means parent dir (eg: '../SOMEDIR')
-* Also allows '^' as '^' is illegal character
+* Also allows '^' as '^' is illegal character in ProDOS
 * Carry set on error, clear otherwise
 PREPATH      LDX   MOSFILE            ; Length
              BEQ   :EXIT              ; If zero length
@@ -976,7 +977,7 @@ PREPATH      LDX   MOSFILE            ; Length
              LDA   MOSFILE+2          ; Slot
              SEC
              SBC   #'0'
-             JSR   DRV2PFX            ; Slot/drv->pfx in MOSFILE2
+             JSR   DRV2PFX            ; Slot/drv->pfx in PREFIX
              JSR   DEL1CHAR           ; Delete ':' from MOSFILE
              JSR   DEL1CHAR           ; Delete slot from MOSFILE
              JSR   DEL1CHAR           ; Delete drive from MOSFILE
@@ -989,7 +990,7 @@ PREPATH      LDX   MOSFILE            ; Length
              BNE   :ERR
              JSR   DEL1CHAR           ; Delete '/' from MOSFILE
              BRA   :APPEND
-:NOTCOLN     JSR   GETPREF            ; Current pfx -> MOSFILE2
+:NOTCOLN     JSR   GETPREF            ; Current pfx -> PREFIX
 :REENTER     LDA   MOSFILE+1          ; First char of dirname
              CMP   #'.'
              BEQ   :UPDIR1
@@ -1004,7 +1005,7 @@ PREPATH      LDX   MOSFILE            ; Length
              BNE   :EXIT
              JSR   DEL1CHAR           ; Delete two leading characters
 :CARET       JSR   DEL1CHAR           ; Delete '^' from MOSFILE
-             JSR   PARENT             ; Parent dir -> MOSFILE2
+             JSR   PARENT             ; Parent dir -> MOSFILE
              LDA   MOSFILE            ; Is there more?
              BEQ   :APPEND            ; Only '^'
              CMP   #$02               ; Len at least two?
@@ -1014,8 +1015,8 @@ PREPATH      LDX   MOSFILE            ; Length
              BNE   :ERR               ; Nope!
              JSR   DEL1CHAR           ; Delete '/' from MOSFILE
              BRA   :REENTER           ; Go again!
-:APPEND      JSR   APPMF2             ; Append MOSFILE->MOSFILE2
-             JSR   COPYMF2            ; Copy back to MOSFILE
+:APPEND      JSR   APFXMF             ; Append MOSFILE->PREFIX
+             JSR   COPYPFXMF          ; Copy back to MOSFILE
 :EXIT        JSR   DIGCONV            ; Handle initial digits
              CLC
              RTS
@@ -1067,30 +1068,30 @@ WRTFILE      JSR   MLI
              DW    WRITEPL
              RTS
 
-* Put PREFIX in MOSFILE2
+* Put ProDOS prefix in PREFIX
 GETPREF      JSR   MLI
              DB    GPFXCMD
              DW    GPFXPL
              RTS
 
-* Convert path in MOSFILE2 by removing leaf dir to leave
+* Convert path in PREFIX by removing leaf dir to leave
 * parent directory. If already at top, return unchanged.
-PARENT       LDX   MOSFILE2           ; Length of string
+PARENT       LDX   PREFIX             ; Length of string
              BEQ   :EXIT              ; Prefix len zero
              DEX                      ; Ignore trailing '/'
-:L1          LDA   MOSFILE2,X
+:L1          LDA   PREFIX,X
              CMP   #$2F               ; Slash '/'
              BEQ   :FOUND
              DEX
              CPX   #$01
              BNE   :L1
              BRA   :EXIT              ; No slash found
-:FOUND       STX   MOSFILE2           ; Truncate string
+:FOUND       STX   PREFIX             ; Truncate string
 :EXIT        RTS
 
 * Convert slot/drive to prefix
 * Expect slot number (1..7) in A, drive (0..1) in X
-* Puts prefix (or empty string) in MOSFILE2
+* Puts prefix (or empty string) in PREFIX
 DRV2PFX      CLC                      ; Cy=0 A=00000sss
              ROR   A                  ;    s   000000ss
              ROR   A                  ;    s   s000000s
@@ -1103,19 +1104,19 @@ DRV2PFX      CLC                      ; Cy=0 A=00000sss
              JSR   MLI                ; Call ON_LINE
              DB    ONLNCMD
              DW    ONLNPL             ; Buffer set to DRVBUF2 (was $301)
-             LDA   DRVBUF2            ; was $301 ; Slot/Drive/Length
+             LDA   DRVBUF2            ; Slot/Drive/Length
              AND   #$0F               ; Mask to get length
              TAX
              INC                      ; Plus '/' at each end
              INC
-             STA   MOSFILE2           ; Store length
+             STA   PREFIX             ; Store length
              LDA   #$2F               ; '/'
-             STA   MOSFILE2+1
-             STA   MOSFILE2+2,X
-:L1          CPX   #$00               ; Copy -> MOSFILE2
+             STA   PREFIX+1
+             STA   PREFIX+2,X
+:L1          CPX   #$00               ; Copy -> PREFIX
              BEQ   :EXIT
-             LDA   DRVBUF2,X          ; was $301,X
-             STA   MOSFILE2+1,X
+             LDA   DRVBUF2,X
+             STA   PREFIX+1,X
              DEX
              BRA   :L1
 :EXIT        RTS
@@ -1134,28 +1135,17 @@ DEL1CHAR     LDX   MOSFILE            ; Length
 :S1          DEC   MOSFILE
 :EXIT        RTS
 
-* Append MOSFILE to MOSFILE2
-APPMF2       LDY   MOSFILE2           ; Length of MOSFILE2
+* Append MOSFILE to PREFIX
+APFXMF       LDY   PREFIX             ; Length of PREFIX
              LDX   #$00               ; Index into MOSFILE
 :L1          CPX   MOSFILE            ; Length of MOSFILE
              BEQ   :DONE
              LDA   MOSFILE+1,X
-             STA   MOSFILE2+1,Y
+             STA   PREFIX+1,Y
              INX
              INY
              BRA   :L1
-:DONE        STY   MOSFILE2           ; Update length MOSFILE2
-             RTS
-
-* Copy MOSFILE2 to MOSFILE
-COPYMF2      LDX   #$00
-:L1          CPX   MOSFILE2
-             BEQ   :DONE
-             LDA   MOSFILE2+1,X
-             STA   MOSFILE+1,X
-             INX
-             BRA   :L1
-:DONE        STX   MOSFILE
+:DONE        STY   PREFIX             ; Update length PREFIX
              RTS
 
 * Scan pathname in MOSFILE converting files/dirs
@@ -1208,6 +1198,80 @@ INSMF        PHA                      ; Preserve char
              RTS
 :INSIDX      DB    $00
 
+* Copy Pascal-style string
+* Source in A1L/A1H, dest in A4L/A4H
+STRCPY       LDY   #$00
+             LDA   (A1L),Y            ; Length of source
+             STA   (A4L),Y            ; Copy length byte
+             TAY
+:L1          CPY   #$00
+             BEQ   :DONE
+             LDA   (A1L),Y
+             STA   (A4L),Y
+             DEY
+             BRA   :L1
+:DONE        RTS
+
+* Copy MOSFILE to MFTEMP
+MFtoTMP      LDA   #<MOSFILE
+             STA   A1L
+             LDA   #>MOSFILE
+             STA   A1H
+             LDA   #<MFTEMP
+             STA   A4L
+             LDA   #>MFTEMP
+             STA   A4H
+             JSR   STRCPY
+             RTS
+
+* Copy MFTEMP to MOSFILE1
+TMPtoMF      LDA   #<MFTEMP
+             STA   A1L
+             LDA   #>MFTEMP
+             STA   A1H
+             LDA   #<MOSFILE
+             STA   A4L
+             LDA   #>MOSFILE
+             STA   A4H
+             JSR   STRCPY
+             RTS
+
+* Copy MOSFILE to MOSFILE2
+COPYMF12     LDA   #<MOSFILE
+             STA   A1L
+             LDA   #>MOSFILE
+             STA   A1H
+             LDA   #<MOSFILE2
+             STA   A4L
+             LDA   #>MOSFILE2
+             STA   A4H
+             JSR   STRCPY
+             RTS
+
+* Copy MOSFILE2 to MOSFILE
+COPYMF21     LDA   #<MOSFILE2
+             STA   A1L
+             LDA   #>MOSFILE2
+             STA   A1H
+             LDA   #<MOSFILE
+             STA   A4L
+             LDA   #>MOSFILE
+             STA   A4H
+             JSR   STRCPY
+             RTS
+
+* Copy PREFIX to MOSFILE
+COPYPFXMF
+             LDA   #<PREFIX
+             STA   A1L
+             LDA   #>PREFIX
+             STA   A1H
+             LDA   #<MOSFILE
+             STA   A4L
+             LDA   #>MOSFILE
+             STA   A4H
+             JSR   STRCPY
+             RTS
 
 ******************************************************
 * ProDOS Parameter lists for MLI calls
@@ -1264,13 +1328,13 @@ FLSHPL       HEX   01                 ; Number of parameters
 
 ONLNPL       HEX   02                 ; Number of parameters
              DB    $00                ; Unit num
-             DW    DRVBUF2            ; was $301 ; Buffer
+             DW    DRVBUF2            ; Buffer
 
 GSPFXPL      HEX   01                 ; Number of parameters
-             DW    DRVBUF1            ; was $300 ; Buffer
+             DW    DRVBUF1            ; Buffer
 
 GPFXPL       HEX   01                 ; Number of parameters
-             DW    MOSFILE2           ; Buffer
+             DW    PREFIX             ; Buffer
 
 SPFXPL       HEX   01                 ; Number of parameters
              DW    MOSFILE            ; Buffer
@@ -1304,4 +1368,7 @@ QUITPL       HEX   04                 ; Number of parameters
              DW    $0000
              DB    $00
              DW    $0000
+
+MFTEMP       DS    65                 ; Temp copy of MOSFILE
+PREFIX       DS    65                 ; Buffer for ProDOS prefix
 
