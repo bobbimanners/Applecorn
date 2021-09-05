@@ -143,7 +143,6 @@ RESET        TSX
 
 * Copy 512 bytes from BLKBUF to AUXBLK in aux LC
 COPYAUXBLK
-             SEI
              >>>   ALTZP              ; Alt ZP & Alt LC on
 
              LDY   #$00
@@ -167,7 +166,6 @@ COPYAUXBLK
              BRA   :L2
 
 :S2          >>>   MAINZP             ; Alt ZP off, ROM back in
-             CLI
              RTS
 
 * TO DO: All OSFILE calls combined and dispatch in here
@@ -194,21 +192,8 @@ DELFILE      >>>   ENTMAIN
              BCC   :DELETED
              PLX                      ; Drop object
              JSR   CHKNOTFND
-*            CMP   #$44               ; Path not found
-*            BEQ   :NOTFND
-*            CMP   #$45               ; Volume dir not found
-*            BEQ   :NOTFND
-*            CMP   #$46               ; File not found
-*            BNE   :EXIT
-*:NOTFND     LDA   #$00               ; 'Not found'
-*            BRA   :EXIT
              PHA
 :DELETED     PLA                      ; Get object back
-*            LDA   #$02               ; Prepare A=2, it was a dir
-*            LDX   GINFOPL+7          ; Storage type
-*            CPX   #$0D
-*            BEQ   :EXIT              ; It was a directory
-*            LDA   #$01               ; A=1, it was a file
 :EXIT        >>>   XF2AUX,OSFILERET
 
 DESTROY      LDA   #<MOSFILE          ; Attempt to destroy file
@@ -565,9 +550,7 @@ LOADFILE     >>>   ENTMAIN
              STA   GINFOPL+1
              LDA   #>MOSFILE
              STA   GINFOPL+2
-             JSR   MLI                ; Call GET_FILE_INFO
-             DB    GINFOCMD
-             DW    GINFOPL
+             JSR   GETINFO            ; GET_FILE_INFO
              BCS   :READERR
              LDA   GINFOPL+5          ; Aux type LSB
              STA   FBLOAD+0
@@ -614,9 +597,7 @@ EXISTS       LDA   #<MOSFILE
              STA   GINFOPL+1
              LDA   #>MOSFILE
              STA   GINFOPL+2
-             JSR   MLI                ; GET_FILE_INFO
-             DB    GINFOCMD
-             DW    GINFOPL
+             JSR   GETINFO            ; GET_FILE_INFO
              BCS   :NOEXIST
              LDA   GINFOPL+7          ; Storage type
              CMP   #$0D
@@ -808,9 +789,7 @@ UPDFB        LDA   #<MOSFILE
              LDA   #>MOSFILE
              STA   OPENPL+2
              STA   GINFOPL+2
-             JSR   MLI                ; Call GET_FILE_INFO
-             DB    GINFOCMD
-             DW    GINFOPL
+             JSR   GETINFO            ; Call GET_FILE_INFO
              BCC   :UPDFB1
              JMP   CHKNOTFND
 
@@ -1037,6 +1016,34 @@ SETPFX       >>>   ENTMAIN
 :EXIT        >>>   XF2AUX,CHDIRRET
 :ERR         LDA   #$40               ; Invalid pathname syn
              BRA   :EXIT
+
+* Obtain info on blocks used/total blocks
+DRVINFO      >>>   ENTMAIN
+             JSR   PREPATH
+             BCS   :ERR
+             LDA   #<MOSFILE
+             STA   GINFOPL+1
+             LDA   #>MOSFILE
+             STA   GINFOPL+2
+             JSR   GETINFO            ; GET_FILE_INFO
+             BCS   :EXIT
+             PHA
+             >>>   ALTZP              ; Alt ZP & Alt LC on
+             LDA   GINFOPL+8          ; Blcks used LSB
+             STA   AUXBLK
+             LDA   GINFOPL+9          ; Blks used MSB
+             STA   AUXBLK+1
+             >>>   MAINZP             ; ALt ZP off, ROM back in
+             PLA
+:EXIT        >>>   XF2AUX,FREERET
+:ERR         LDA   #$40               ; Invalid pathname syn
+             BRA   :EXIT
+
+* Geyt file info
+GETINFO      JSR   MLI
+             DB    GINFOCMD
+             DW    GINFOPL
+             RTS
 
 * Create disk file
 CRTFILE      JSR   MLI
@@ -1380,6 +1387,4 @@ QUITPL       HEX   04                 ; Number of parameters
 
 MFTEMP       DS    65                 ; Temp copy of MOSFILE
 PREFIX       DS    65                 ; Buffer for ProDOS prefix
-
-
 

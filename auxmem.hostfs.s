@@ -344,7 +344,7 @@ FSCHND
 
 FSCDRIVE    JMP   DRIVE
 
-FSCFREE
+FSCFREE     JMP   FREE
 
 FSCACCESS
 
@@ -614,6 +614,35 @@ CHDIRRET
             ASC   'Bad dir'
             BRK
 :EXIT       RTS
+
+* Handle *FREE command
+FREE        LDA   (OSLPTR),Y          ; First char
+            CMP   #$3A                ; Colon
+            BNE   :ERR
+            JSR   PARSLPTR            ; Copy arg->MOSFILE
+            CMP   #$03                ; Check 3 char arg
+            BEQ   :HASPARM
+:ERR        BRK
+            DB    $DC
+            ASC   'Syntax: FREE :sd  (eg: DRIVE :61)'
+            BRK
+:HASPARM    >>>   XF2MAIN,DRVINFO
+
+FREERET
+            >>>   ENTAUX
+            JSR   CHKERROR
+            CMP   #$00
+            BEQ   :NOERR
+            BRK
+            DB    $CE                 ; Bad directory
+            ASC   'Bad dir'
+            BRK
+:NOERR      LDX   AUXBLK              ; Blocks used
+            LDY   AUXBLK+1
+            JSR   PRDECXY             ; Print in decimal
+            JSR   FORCENL
+            RTS
+
 
 * Parse filename pointed to by XY
 * Write filename to MOSFILE in main memory
