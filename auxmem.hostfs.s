@@ -637,12 +637,30 @@ FREERET
             DB    $CE                 ; Bad directory
             ASC   'Bad dir'
             BRK
-:NOERR      LDX   AUXBLK              ; Blocks used
+:NOERR      SEC
+            LDA   AUXBLK+2            ; LSB of total blks
+            SBC   AUXBLK              ; LSB of blocks used
+            TAX
+            LDA   AUXBLK+3            ; MSB of total blks
+            SBC   AUXBLK+1            ; MSB of blocks used
+            TAY
+            JSR   PRDECXY             ; Print in decimal
+            LDX   #<:FREEM
+            LDY   #>:FREEM
+            JSR   OUTSTR
+            JSR   FORCENL
+            LDX   AUXBLK+0            ; Blocks used
             LDY   AUXBLK+1
             JSR   PRDECXY             ; Print in decimal
+            LDX   #<:USEDM
+            LDY   #>:USEDM
+            JSR   OUTSTR
             JSR   FORCENL
             RTS
-
+:FREEM      ASC   ' 512-byte Blocks Free'
+            DB    $00
+:USEDM      ASC   ' 512-byte Blocks Used'
+            DB    $00
 
 * Parse filename pointed to by XY
 * Write filename to MOSFILE in main memory
