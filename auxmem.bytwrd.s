@@ -29,6 +29,9 @@ BYTWRDADDR   DW    BYTE00XX               ; OSBYTE   0 - Machine host
              DW    BYTENULL               ; OSBYTE  10 - Flash period mark
              DW    BYTENULL               ; OSBYTE  11 - Autorepeat delay
              DW    BYTENULL               ; OSBYTE  12 - Autorepeat repeat
+             DW    BYTENULL               ; OSBYTE  13 - Disable events
+             DW    BYTENULL               ; OSBYTE  14 - Enable events
+             DW    BYTENULL               ; OSBYTE  15 - Flush sel buf class
 BYTWRDLOW
 BYTESZLO     EQU   BYTWRDLOW-BYTWRDADDR
 BYTELOW      EQU   BYTESZLO/2-1           ; Maximum low OSBYTE
@@ -529,8 +532,4 @@ OSWORDM      ASC   'OSWORD($'
              DB    $00
 OSBM2        ASC   ').'
              DB    $00
-
-
-
-
 
