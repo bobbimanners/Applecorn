@@ -20,6 +20,8 @@
 *             test ESCHAR.
 *             FIXED: INKEY doesn't restore cursor on timeout.
 *             The three separate cursors can be set seperately.
+* 02-Sep-2021 INKEY-256 tests Apple IIe vs IIc.
+* 05-Sep-2021 KBDINIT returns startup value to pass to VDUINT.
 
 
 * TEMP, move to VDU.S
@@ -82,8 +84,14 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
              STA   BYTEVARBASE+DEFBYTELOW,X
              DEX
              BPL   :KBDINITLP
-             LDA   #$C0
-             STA   FX254VAR                  ; Also returns default MODE=0
+             LDX   #$C0
+             STX   FX254VAR                  ; b7-b4=default KBD map, b3-b0=default MODE
+             BIT   SETV
+             JSR   KBDTEST
+             BCS   :KBDINITOK                ; Return default MODE=0
+             STA   $C010                     ; Ack. keypress
+             TAX                             ; Use keypress as default MODE
+:KBDINITOK   TXA
              RTS
 
 * OSRDCH/INKEY handler
@@ -101,7 +109,6 @@ RDCHHND      LDA   #$80                      ; flag=wait forever
 INKEY        PHY                             ; Dummy PHY to balance RDCH
 INKEYGO      PHX                             ; Save registers
              PHY
-*
              BIT   VDUSTATUS                 ; Enable editing cursor
              BVC   INKEYGO2                  ; No editing cursor
              JSR   GETCHRC                   ; Get character under cursor
@@ -111,7 +118,6 @@ INKEYGO      PHX                             ; Save registers
              JSR   COPYSWAP1                 ; Swap to copy cursor
 INKEYGO2     JSR   GETCHRC                   ; Get character under cursor
              STA   OLDCHAR
-*
              CLI
              BRA   INKEY1                    ; Turn cursor on
 *
@@ -158,11 +164,9 @@ INKEYDEC     DEX
              BNE   INKEYLP1                  ; Not 0, loop back
              TYA
              BNE   INKEYLP1                  ; Not 0, loop back
-*
              PHY
              JSR   INKEYOFF                  ; Restore cursors
              PLY
-*
              DEY                             ; Y=$FF
              TYA                             ; A=$FF
              PLX                             ; Drop dummy PHY
@@ -171,17 +175,7 @@ INKEYDEC     DEX
 * Timeout: CS, AY=$FFFF, becomes XY=$FFFF
 
 INKEYOK      PHA
-*
              JSR   INKEYOFF                  ; Restore cursors
-*
-*            LDA   OLDCHAR    ; Remove editing cursor
-*            JSR   PUTCHRC    ; Remove cursor
-*            BIT   VDUSTATUS
-*            BVC   INKEYOK2   ; No editing cursor
-*            JSR   COPYSWAP1  ; Swap cursor back
-*            LDA   COPYCHAR
-*            JSR   PUTCHRC    ; Remove edit cursor
-*
 INKEYOK2     PLA
              PLY                             ; <$80=INKEY or $80=RDCH
              PLX                             ; Restore X
@@ -219,12 +213,27 @@ BYTE81DONE   RTS
 *          Y=$1B, X=???, CS  - escape
 *          Y=$00, X=char, CC - keypress
 
+
 NEGINKEY     CPX   #$01
              LDX   #$00                      ; Unimplemented
-             LDY   #$00
              BCS   NEGINKEY0
+             LDX   #$2A
+                                             ; 6502  A   65C02  A   65816  B   A
+             LDA   #$00                      ;       00         00         zz  00
+             DB    #$EB                      ; SBC       NOP    00  XBA    00  zz
+             DB    #$3A                      ; #$3A  C5  DEC A  FF  DEC A  00  yy
+             DB    #$EB                      ; SBC       NOP    FF  XBA    yy  00
+             DB    #$EA                      ; #$EA  DA  NOP    FF  NOP    yy  00
+             BEQ   NEGINKEY0                 ; INKEY-256 = $2A - AppleIIgs
+             LDA   #$C0
+             LDY   #$FB
+             JSR   WORD05IO1                 ; Read from $FBC0 in main ROM
+             LDX   #$2C
+             TAY
+             BEQ   NEGINKEY0                 ; INKEY-256 = $2C = Apple IIc
              LDX   #$2E                      ; INKEY-256 = $2E = Apple IIe
-NEGINKEY0    CLC
+NEGINKEY0    LDY   #$00
+             CLC
              RTS
 
 
@@ -406,8 +415,6 @@ KBDCHKESC    TAX                             ; X=keycode
 KBDNOESC     TXA                             ; A=keycode
              CLC                             ; CLC=Ok
 KBDDONE      RTS
-
-
 
 
 
