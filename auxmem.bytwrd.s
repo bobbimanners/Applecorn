@@ -4,6 +4,8 @@
 * Applecorn OSBYTE and OSWORD handlers
 *
 * 15-Aug-2021 Added 'set variable' OSBYTEs 1-6
+* 02-Sep-2021 OSWORD 5 can read from Main Memory ROM
+* 04-Sep-2021 Extended VDU table to add $75 and $A0 for VDU driver
 
 
              XC                           ; 65c02
@@ -14,17 +16,30 @@
 
 BYTEVARBASE  EQU   $190                   ; Base of OSBYTE variables
 
-BYTWRDADDR   DW    BYTE00                 ; OSBYTE   0 - Machine host
+BYTWRDADDR   DW    BYTE00XX               ; OSBYTE   0 - Machine host
              DW    BYTE01                 ; OSBYTE   1 - User flag
              DW    BYTE02                 ; OSBYTE   2 - OSRDCH source
              DW    BYTE03                 ; OSBYTE   3 - OSWRCH dest
              DW    BYTE04                 ; OSBYTE   4 - Cursor keys
              DW    BYTE05                 ; OSBYTE   5 - Printer destination
              DW    BYTE06                 ; OSBYTE   6 - Printer ignore
+             DW    BYTENULL               ; OSBYTE   7 - Serial Rx Speed
+             DW    BYTENULL               ; OSBYTE   8 - Serial Tx Speed
+             DW    BYTENULL               ; OSBYTE   9 - Flash period space
+             DW    BYTENULL               ; OSBYTE  10 - Flash period mark
+             DW    BYTENULL               ; OSBYTE  11 - Autorepeat delay
+             DW    BYTENULL               ; OSBYTE  12 - Autorepeat repeat
 BYTWRDLOW
 BYTESZLO     EQU   BYTWRDLOW-BYTWRDADDR
 BYTELOW      EQU   BYTESZLO/2-1           ; Maximum low OSBYTE
-BYTEHIGH     EQU   $7C                    ; First high OSBYTE
+BYTEHIGH     EQU   $75                    ; First high OSBYTE
+             DW    BYTE75                 ; OSBYTE 117 - Read VDU status
+             DW    BYTE76                 ; OSBYTE 118 - Update keyboard LEDs
+             DW    BYTENULL               ; OSBYTE 119
+             DW    BYTENULL               ; OSBYTE 120
+             DW    BYTENULL               ; OSBYTE 121
+             DW    BYTENULL               ; OSBYTE 122
+             DW    BYTENULL               ; OSBYTE 123
              DW    BYTE7C                 ; OSBYTE 124 - Clear Escape
              DW    BYTE7D                 ; OSBYTE 125 - Set Escape
              DW    BYTE7E                 ; OSBYTE 126 - Ack. Escape
@@ -38,13 +53,30 @@ BYTEHIGH     EQU   $7C                    ; First high OSBYTE
              DW    BYTE86                 ; OSBYTE 134 - POS, VPOS       - VDU.s
              DW    BYTE87                 ; OSBYTE 135 - Character, MODE - VDU.s
              DW    BYTE88                 ; OSBYTE 136 - *CODE
-             DW    BYTE89                 ; OSBYTE 137 - *MOTOR
-             DW    BYTE8A                 ; OSBYTE 138 - Buffer insert
+             DW    BYTENULL               ; OSBYTE 137 - *MOTOR
+             DW    BYTENULL               ; OSBYTE 138 - Buffer insert
              DW    BYTE8B                 ; OSBYTE 139 - *OPT
-             DW    BYTE8C                 ; OSBYTE 140 - *TAPE
-             DW    BYTE8D                 ; OSBYTE 141 - *ROM
+             DW    BYTENULL               ; OSBYTE 140 - *TAPE
+             DW    BYTENULL               ; OSBYTE 141 - *ROM
              DW    BYTE8E                 ; OSBYTE 142 - Enter language  - INIT.s
              DW    BYTE8F                 ; OSBYTE 143 - Service call    - INIT.s
+             DW    BYTENULL               ; OSBYTE 144
+             DW    BYTENULL               ; OSBYTE 145
+             DW    BYTENULL               ; OSBYTE 146
+             DW    BYTENULL               ; OSBYTE 147
+             DW    BYTENULL               ; OSBYTE 148
+             DW    BYTENULL               ; OSBYTE 149
+             DW    BYTENULL               ; OSBYTE 150
+             DW    BYTENULL               ; OSBYTE 151
+             DW    BYTENULL               ; OSBYTE 152
+             DW    BYTENULL               ; OSBYTE 153
+             DW    BYTENULL               ; OSBYTE 154
+             DW    BYTENULL               ; OSBYTE 155
+             DW    BYTENULL               ; OSBYTE 156
+             DW    BYTENULL               ; OSBYTE 157
+             DW    BYTENULL               ; OSBYTE 158
+             DW    BYTENULL               ; OSBYTE 159
+             DW    BYTEA0                 ; OSBYTE 160 - Read VDU variable
 BYTWRDTOP
              DW    BYTEVAR                ; OSBYTE 166+ - Read/Write OSBYTE variable
 * Maximum high OSBYTE
@@ -172,28 +204,29 @@ BYTWRDEXIT   ROR   A                      ; Move Carry to A
              ROL   A                      ; Move Carry back to flags
              PLA                          ; Restore A
              CLV                          ; Clear V = Actioned
-             RTS
+BYTENULL     RTS
 
 BYTWRDFAIL
-* TEST code for VIEW
-             CPX   #$07
-             BNE   BYTFAIL0
-             CMP   #$76
-             BEQ   BYTE76
-             CMP   #$A0
-             BNE   BYTFAIL0
-             LDY   #79                    ; Read VDU variable $09,$0A
-             LDX   #23
-             BRA   BYTWRDEXIT
-BYTE76
-             LDX   $00
-             BRA   BYTWRDEXIT
+** TEST code for VIEW
+*             CPX   #$07
+*             BNE   BYTFAIL0
+*             CMP   #$76
+*             BEQ   BYTE76
+*             CMP   #$A0
+*             BNE   BYTFAIL0
+*             LDY   #79           ; Read VDU variable $09,$0A
+*             LDX   #23
+*             BRA   BYTWRDEXIT
+*BYTE76
+*             LDX   $00
+*             BRA   BYTWRDEXIT
 * TEST
-BYTFAIL0
-*          JSR   SERVICE         ; Offer to sideways ROMs
-*          LDX   OSXREG          ; Get returned X
-*          CMP   #$00
-*          BEQ   BYTWRDEXIT      ; Claimed, return
+BYTFAIL0     PHX                          ; *DEBUG*
+             JSR   SERVICEX               ; Offer to sideways ROMs as service X
+             LDX   OSXREG                 ; Get returned X, returned Y is in Y
+             CMP   #$01
+             PLA                          ; *DEBUG*
+             BCC   BYTWRDEXIT             ; Claimed, return
              JSR   UNSUPBYTWRD            ; *DEBUG*
              LDX   #$FF                   ; X=&FF if unclaimed
              PLP                          ; Restore original flags and IRQs
@@ -315,6 +348,19 @@ WORD02       RTS                          ; Dummy, do nothing
 *
 WORD05       JSR   GETADDR                ; Point to address, set Y=>data
              BNE   WORD05A
+             JSR   WORD05IO
+             LDY   #$04
+             STA   (OSCTRL),Y             ; Store it
+WORD05RET    RTS
+
+WORD05IO     LDA   OSINTWS+0              ; X CORRUPTED BY XF2MAIN
+             LDY   OSINTWS+1
+WORD05IO1    >>>   XF2MAIN,MAINRDMEM
+
+* <8000xxxx language memory
+*  ????xxxx main memory RAM paged in via STA $C002
+*  ????xxxx main memory ROM paged in via XFER
+
              STA   $C002                  ; Switch to main memory
 WORD05A      LDA   (OSINTWS)              ; Get byte
              STA   $C003                  ; Back to aux memory
@@ -345,9 +391,9 @@ GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
 * OSBYTE routines
 *****************
 
-* TO DO: move to init.s
-BYTE00       LDX   #$0A                   ; $00 = identify Host
-             RTS                          ; %000x1xxx host type, 'A'pple
+** TO DO: move to init.s
+*BYTE00       LDX   #$0A           ; $00 = identify Host
+*             RTS                  ; %000x1xxx host type, 'A'pple
 
 BYTE88       LDA   #$01                   ; $88 = *CODE
 WORDE0       JMP   (USERV)                ; OSWORD &E0+
@@ -441,7 +487,8 @@ BYTE8E       PHP                          ; Save CLC=RESET, SEC=Not RESET
 * OSBYTE $8F - Issue service call
 * X=service call, Y=parameter
 *
-BYTE8F       TXA
+BYTE8F
+SERVICEX     TXA
 SERVICE      LDX   #$0F
              BIT   $8006
              BPL   :SERVSKIP              ; No service entry
@@ -453,7 +500,7 @@ SERVICE      LDX   #$0F
 
 
 * Test/Debug code
-UNSUPBYTWRD
+UNSUPBYTWRD  TAX
              LDA   #<OSBYTEM
              LDY   #>OSBYTEM
              CPX   #7
