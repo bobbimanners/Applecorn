@@ -1033,6 +1033,10 @@ DRVINFO      >>>   ENTMAIN
              STA   AUXBLK
              LDA   GINFOPL+9          ; Blks used MSB
              STA   AUXBLK+1
+             LDA   GINFOPL+5          ; Tot blks LSB
+             STA   AUXBLK+2
+             LDA   GINFOPL+6          ; Tot blks MSB
+             STA   AUXBLK+3
              >>>   MAINZP             ; ALt ZP off, ROM back in
              PLA
 :EXIT        >>>   XF2AUX,FREERET
