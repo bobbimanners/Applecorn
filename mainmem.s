@@ -1076,6 +1076,8 @@ SETPERM      >>>   ENTMAIN
              JSR   GETINFO            ; GET_FILE_INFO
              BCS   :EXIT
              LDA   GINFOPL+3          ; Access byte
+             AND   #$03               ; Start with R, W off
+             ORA   #$C0               ; Start with dest/ren on
              LDX   :RFLAG
              BEQ   :S3
              ORA   #$01               ; Turn on read enable
@@ -1084,7 +1086,7 @@ SETPERM      >>>   ENTMAIN
              ORA   #$02               ; Turn on write enable
 :S4          LDX   :LFLAG
              BEQ   :S5
-             AND   #$C2               ; Turn off dest/ren/write
+             AND   #$3D               ; Turn off destroy/ren/write
 :S5          STA   GINFOPL+3          ; Access byte
              JSR   SETINFO            ; SET_FILE_INFO
 :EXIT        >>>   XF2AUX,ACCRET
