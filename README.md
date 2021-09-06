@@ -137,7 +137,7 @@ the tree.  Some examples:
    - `APPLECORN` - relative path
    - `^` - parent dir
    - `..` - parent dir (alternate form)
-   - `\^/^` - up two levels
+   - `^/^` - up two levels
    - `../..` - up two levels (alternate form)
    - `^/MYSTUFF` - file or directory in parent
 - Since Acorn's DFS allows filenames beginning with a digit, while ProDOS
