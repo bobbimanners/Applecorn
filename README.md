@@ -62,6 +62,8 @@ is set to `&0E0`.
 - I have not yet investigated two-ROM languages such as Logo or
   ISO Pascal.  It may be possible to support these also.
 
+<img src="Applecorn-Collage.png" alt="Applecorn Collage" height="432px" width="768px"/>
+
 ### Video Modes
 
 Two text video modes are currently supported:
