@@ -346,7 +346,7 @@ FSCDRIVE    JMP   DRIVE
 
 FSCFREE     JMP   FREE
 
-FSCACCESS
+FSCACCESS   JMP   ACCESS
 
 FSCTITLE
 
@@ -661,6 +661,21 @@ FREERET
             DB    $00
 :USEDM      ASC   ' 512-byte Blocks Used'
             DB    $00
+
+ACCESS      JSR   PARSLPTR            ; Copy filename->MOSFILE
+            CMP   #$00                ; Filename length
+            BEQ   :ACCSYN
+            JSR   PARSLPTR2           ; Copy Arg2->MOSFILE2
+            >>>   XF2MAIN,SETPERM
+:ACCSYN     BRK
+            DB    $DC
+            ASC   'Syntax: ACCESS <pathname> <L|R|W>'
+            BRK
+
+ACCRET      >>>   ENTAUX
+            JSR   CHKERROR
+            LDA   #$00
+            RTS
 
 * Parse filename pointed to by XY
 * Write filename to MOSFILE in main memory
