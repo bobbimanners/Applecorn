@@ -41,7 +41,7 @@ GTIMECMD     EQU   $82
 CREATCMD     EQU   $C0
 DESTCMD      EQU   $C1
 RENCMD       EQU   $C2
-SFILECMD     EQU   $C3
+SINFOCMD     EQU   $C3
 GINFOCMD     EQU   $C4
 ONLNCMD      EQU   $C5
 SPFXCMD      EQU   $C6
@@ -1043,10 +1043,73 @@ DRVINFO      >>>   ENTMAIN
 :ERR         LDA   #$40               ; Invalid pathname syn
              BRA   :EXIT
 
-* Geyt file info
+* Change file permissions, for *ACCESS
+* Filename in MOSFILE, flags in MOSFILE2
+SETPERM      >>>   ENTMAIN
+             JSR   PREPATH            ; Preprocess pathname
+             BCS   :ERR
+             STZ   :LFLAG
+             STZ   :WFLAG
+             STZ   :RFLAG
+             LDX   MOSFILE2           ; Length of arg2
+             INX
+:L1          DEX
+             CPX   #$00
+             BEQ   :DONEARG
+             LDA   MOSFILE2,X         ; Read arg2 char
+             CMP   #'L'               ; L=Locked
+             BNE   :S1
+             STA   :LFLAG
+             BRA   :L1
+:S1          CMP   #'R'               ; R=Readable
+             BNE   :S2
+             STA   :RFLAG
+             BRA   :L1
+:S2          CMP   #'W'               ; W=Writable
+             BNE   :ERR2              ; Bad attribute
+             STA   :WFLAG
+             BRA   :L1
+:DONEARG     LDA   #<MOSFILE
+             STA   GINFOPL+1
+             LDA   #>MOSFILE
+             STA   GINFOPL+2
+             JSR   GETINFO            ; GET_FILE_INFO
+             BCS   :EXIT
+             LDA   GINFOPL+3          ; Access byte
+             LDX   :RFLAG
+             BEQ   :S3
+             ORA   #$01               ; Turn on read enable
+:S3          LDX   :WFLAG
+             BEQ   :S4
+             ORA   #$02               ; Turn on write enable
+:S4          LDX   :LFLAG
+             BEQ   :S5
+             AND   #$C2               ; Turn off dest/ren/write
+:S5          STA   GINFOPL+3          ; Access byte
+             JSR   SETINFO            ; SET_FILE_INFO
+:EXIT        >>>   XF2AUX,ACCRET
+:ERR         LDA   #$40               ; Invalid pathname syn
+             BRA   :EXIT
+:ERR2        LDA   #$53               ; Invalid parameter
+             BRA   :EXIT
+:LFLAG       DB    $00                ; 'L' attribute
+:WFLAG       DB    $00                ; 'W' attribute
+:RFLAG       DB    $00                ; 'R' attribute
+
+* Get file info
 GETINFO      JSR   MLI
              DB    GINFOCMD
              DW    GINFOPL
+             RTS
+
+* Set file info
+SETINFO      LDA   #$07               ; SET_FILE_INFO 7 parms
+             STA   GINFOPL
+             JSR   MLI
+             DB    SINFOCMD
+             DW    GINFOPL            ; Re-use PL from GFI
+             LDA   #$0A               ; GET_FILE_INFO 10 parms
+             STA   GINFOPL
              RTS
 
 * Create disk file
