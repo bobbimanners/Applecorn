@@ -1350,6 +1350,14 @@ COPYPFXMF
              RTS
 
 * Read mainmem from auxmem
+MACHRD       LDA   $C081
+             LDA   $C081
+             LDA   $FBC0
+             SEC
+             JSR   $FE1F
+             BRA   MAINRDEXIT
+
+* Read mainmem from auxmem
 MAINRDMEM    STA   A1L
              STY   A1H
              LDA   $C081
@@ -1456,4 +1464,6 @@ QUITPL       HEX   04                 ; Number of parameters
 
 MFTEMP       DS    65                 ; Temp copy of MOSFILE
 PREFIX       DS    65                 ; Buffer for ProDOS prefix
+
+
 

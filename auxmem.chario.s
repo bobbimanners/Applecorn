@@ -32,6 +32,9 @@ CURSORCP     EQU   $293
 OLDCHAR      EQU   $294
 COPYCHAR     EQU   $295
 
+FXEXEC       EQU   BYTEVARBASE+198
+FXSPOOL      EQU   BYTEVARBASE+199
+
 FXTABCHAR    EQU   BYTEVARBASE+219
 FXESCCHAR    EQU   BYTEVARBASE+220
 FXKEYBASE    EQU   BYTEVARBASE+221
@@ -54,6 +57,11 @@ WRCHHND      PHA
              PHY
 * TO DO Check any output redirections
 * TO DO Check any spool output
+*  LDY FXSPOOL
+*  BEQ WRCHHND1
+*  JSR OSBPUT
+* WRCHHND1
+*
              JSR   OUTCHAR
 * TO DO Check any printer output
              PLY
@@ -217,24 +225,37 @@ BYTE81DONE   RTS
 NEGINKEY     CPX   #$01
              LDX   #$00                      ; Unimplemented
              BCS   NEGINKEY0
-             LDX   #$2A
-                                             ; 6502  A   65C02  A   65816  B   A
-             LDA   #$00                      ;       00         00         zz  00
-             DB    #$EB                      ; SBC       NOP    00  XBA    00  zz
-             DB    #$3A                      ; #$3A  C5  DEC A  FF  DEC A  00  yy
-             DB    #$EB                      ; SBC       NOP    FF  XBA    yy  00
-             DB    #$EA                      ; #$EA  DA  NOP    FF  NOP    yy  00
-             BEQ   NEGINKEY0                 ; INKEY-256 = $2A - AppleIIgs
-             LDA   #$C0
-             LDY   #$FB
-             JSR   WORD05IO1                 ; Read from $FBC0 in main ROM
+
+             JSR   NEGCALL
              LDX   #$2C
              TAY
-             BEQ   NEGINKEY0                 ; INKEY-256 = $2C = Apple IIc
-             LDX   #$2E                      ; INKEY-256 = $2E = Apple IIe
+             BEQ   NEGINKEY0                 ;  $00 = Apple IIc -> INKEY-256 = $2C
+             LDX   #$2E
+             AND   #$0F
+             BEQ   NEGINKEY0                 ;  $x0 = Apple IIe -> INKEY-256 = $2E
+             LDX   #$2A                      ; else = Apple IIgs INKEY-256 = $2A
+
+*             LDX   #$2A
+*                         ; 6502  A   65C02  A   65816  B   A
+*             LDA   #$00  ;       00         00         zz  00
+*             DB    #$EB  ; SBC       NOP    00  XBA    00  zz
+*             DB    #$3A  ; #$3A  C5  DEC A  FF  DEC A  00  yy
+*             DB    #$EB  ; SBC       NOP    FF  XBA    yy  00
+*             DB    #$EA  ; #$EA  DA  NOP    FF  NOP    yy  00
+*             BEQ   NEGINKEY0      ; INKEY-256 = $2A - AppleIIgs
+*             LDA   #$C0
+*             LDY   #$FB
+*             JSR   WORD05IO1      ; Read from $FBC0 in main ROM
+*             LDX   #$2C
+*             TAY
+*             BEQ   NEGINKEY0      ; INKEY-256 = $2C = Apple IIc
+*             LDX   #$2E           ; INKEY-256 = $2E = Apple IIe
+
 NEGINKEY0    LDY   #$00
              CLC
              RTS
+
+NEGCALL      >>>   XF2MAIN,MACHRD            ; Try to read Machine ID
 
 
 * KERNEL/KEYBOARD.S
@@ -250,7 +271,7 @@ NEGINKEY0    LDY   #$00
 *          A =keycode, X,Y=corrupted
 KEYREAD
 * TO DO: check *EXEC source
-*  LDY FXVAREXEC
+*  LDY FXEXEC
 *  BEQ KEYREAD1
 *  JSR OSBGET
 *  BCC KEYREADOK
