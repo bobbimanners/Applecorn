@@ -197,6 +197,12 @@ device.
 
 `*CDIR dirname` - create directory `dirname`.  `*MKDIR` is a synonym.
 
+`*ACCESS pathname attribs` - change file permisions.  The string `attribs`
+can contain any of the following:
+  - `R` - File is readable
+  - `W` - File is writeable
+  - `L` - File is locked against deletion, renaming and writing.
+
 `*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
 
 `*OPT` - sets file system options.  Currently does not do anything.
