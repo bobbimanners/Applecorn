@@ -110,9 +110,42 @@ calls.  This means that Applecorn works directly with ProDOS volumes, such
 as floppy disks, mass storage devices and even network connected drives
 using ADT's VEDrive.
 
-Since Acorn's DFS allows filenames beginning with a digit, while ProDOS
+#### HostFS Pathnames
+
+Pathnames used within Applecorn are regular ProDOS paths.  The
+directory separator is forward slash `/` and every ProDOS filesystem has
+a volume name which is used to access the top level ('volume') directory.
+For example, a volume with the name 'TEST' would be mounted under ProDOS
+as `/TEST`.
+
+Applecorn adds a few extra features to ProDOS paths, as follows:
+- A notation is provided for physical drive numbers, identifed by slot (1-7)
+and drive (0 or 1).  This is very useful when you insert a floppy disk
+with an unknown volume name.  The syntax for physical device specifiers
+is a colon followed by two digits - one for the slot number and the other
+for the drive number.  So, for example, `:61` would refer to slot 6,
+drive 1.  Applecorn uses the ProDOS `ON_LINE` MLI call to find the 
+volume associated with the physical device.  If slot 6, drive 1, contains
+the volume 'FLOPPY', then a path `:S61/TESTFILE` will be converted to
+`/FLOPPY/TESTFILE`.
+- Support is provided for easily accessing the parent directory.  This
+may be denoted using `..` (like Linux or Windows) or `^` (like BBC ADFS.)
+The parent directory notation is only supported at the beginning of
+pathnames, but it may be applied multiple times to navigate further up
+the tree.  Some examples:
+   - `/H1/APPLECORN` - absolute path
+   - `APPLECORN` - relative path
+   - `^` - parent dir
+   - `..` - parent dir (alternate form)
+   - `\^/^` - up two levels
+   - `../..` - up two levels (alternate form)
+   - `^/MYSTUFF` - file or directory in parent
+- Since Acorn's DFS allows filenames beginning with a digit, while ProDOS
 requires names to begin with an alphabetic character, Applecorn prefixes
-any filenames beginning with a digit with the letter 'N'.
+any file or directory names beginning with a digit with the letter 'N'.
+An Applecorn path such as `/FOO/0DIR/50DIR/FILE01` would be converted to
+`/FOO/N0DIR/N50DIR/FILE01`, for example, in order to make it a legal
+ProDOS path.
 
 ### Star Commands
 
@@ -124,45 +157,41 @@ again and recover your program with `OLD`.
 Specifically it lists the version of Applecorn MOS and the name of the current
 language ROM.
 
-`*CAT` (or `*.`) - Simple listing of the files in the current directory.
+`*CAT [dirpath]` (or `*. [dirpath]`) - Simple listing of the files in the
+specified directory, or the current working directory ('current prefix') if
+no directory argument is given.
 
 `*EX` - Detailed listing of files in the current directory showing load
 address, length and permissions.
 
-`*DIR pathname` - Allows the current directory to be changed to any ProDOS
-path.  Either `^` or `..` may be used to specify the parent directory.
-A colon followed by a digit representing the slot and a digit representing
-the drive may be used to specify a physical drive.  `*CD` and `*CHDIR` are
-synonyms for `*DIR`.
+`*DIR dirpath` - Allows the current directory to be changed to any ProDOS
+path.  `*CD` and `*CHDIR` are synonyms for `*DIR`.
 
-Some examples:
-   - `*DIR /H1/APPLECORN` - absolute path
-   - `*DIR APPLECORN` - relative path
-   - `*DIR ^` - go to parent dir
-   - `*DIR ..` - go to parent dir (alternate form)
-   - `*DIR ^/^` - go up two levels
-   - `*DIR ../..` - go up two levels (alternate form)
-   - `*DIR ^/SIBLING` - move to sibling directory
-   - `*DIR :61` - set directory to volume in slot 6, drive 1
-   - `*DIR :71/UTILS` - set directory to the `UTILS` subdir on the volume
-      in slot 7, drive 1.
-
-`*LOAD filename SSSS` - Load file `filename` into memory at hex address
+`*LOAD filepath SSSS` - Load file `filename` into memory at hex address
 `SSSS`. If the address `SSSS` is omitted then the file is loaded to the
 address stored in its aux filetype.
 
-`*SAVE filename SSSS EEEE` - Save memory from hex address `SSSS` to hex
-address `EEEE` into file `filename`.  The start address `SSSS` is
+`*SAVE filepath SSSS EEEE` - Save memory from hex address `SSSS` to hex
+address `EEEE` into file `filepath`.  The start address `SSSS` is
 recorded in the aux filetype.
 
-`*RUN filename` - Load file `filename` into memory at the address stored
+`*RUN filepath` - Load file `filepath` into memory at the address stored
 in its aux filetype and jump to to it.  This is used for loading and
 starting machine code programs.
 
-`*DELETE filename` - Delete file `filename` from disk.
+`*DELETE pathname` - Delete file `pathname` from disk.  This command
+can also delete directories, provided they are empty.
 
-`*RENAME oldfilename newfilename` - Rename file `oldfilename` to
-`newfilename`.
+`*RENAME oldpathname newpathname` - Rename file or directory `oldpathname`
+to `newpathname`.
+
+`*DRIVE :sd` - Switch to the specified physical drive.  This is equivalent
+to using `*DIR` but does not allow subdirectories to be specified.  The
+working directory will be set to the volume directory corresponding to
+the physical device specified.
+
+`*FREE :sd` - Shows blocks used and blocks free on the specified physical
+device.
 
 `*CDIR dirname` - create directory `dirname`.  `*MKDIR` is a synonym.
 
@@ -172,21 +201,21 @@ starting machine code programs.
 
 ## How to Build
 
-Applecorn is built natively on the Apple //e using the Merlin 8 assembler
-v2.58.  It may also be built using Merlin-32 on Windows, Linux or Mac if
-preferred.  (Note: I am currently using Merlin-16 3.53 on my 65816-equipped
-//e.  This version permits sligtly longer comments so it may be necessary
-to trim some comments to get the code to compile in Merlin 8.  Applecorn
-may also be built using Merlin-32 on Windows, Linux or MacOS.)
+Applecorn is built natively on the Apple //e using the Merlin 16 assembler
+v3.53 (requires a 65816 though.)  It may also be built using Merlin-32 on
+Windows, Linux or Mac if preferred.  The code should also assemble on
+Merlin-8 2.58 provided some of the longer comments are trimmed (Merlin-16
+allows longer lines.)
 
-In Merlin-8:
+In Merlin-16 (Merlin-8 in parenthesis, where different):
 - Press `D` for disk commands and enter the prefix of the build directory:
   `PFX /APPLECORN`
 - Press `L` to load a file and enter the filename `APPLECORN`.
-- Merlin will enter the editor automatically (or press `E`).  Issue the
-  following command a the editor's `:` prompt: `asm`
+- Merlin will enter the editor automatically (or press `E`).  Open Apple-A
+  starts assembly. (Merlin-8: Issue the following command a the editor's
+  `:` prompt: `asm`
 - Once assembly is complete, enter the command `q` to quit the editor.
-- Press `Q` to quit Merlin-8.
+- Press `Q` to quit Merlin.
 
 ## Theory of Operation
 
