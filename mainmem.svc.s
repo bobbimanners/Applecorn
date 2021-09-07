@@ -52,31 +52,13 @@ MAKEDIR      >>>   ENTMAIN
              JSR   COPYFB             ; Copy back to aux mem
              CMP   #$02
              BEQ   :EXIT              ; Dir already exists
-* Make into a subroutine
              LDA   #$0D               ; 'Directory'
              STA   CREATEPL+7         ; ->Storage type
              LDA   #$0F               ; 'Directory'
              STA   CREATEPL+4         ; ->File type
-* subroutine....
-             LDA   #<MOSFILE
-             STA   CREATEPL+1
-             LDA   #>MOSFILE
-             STA   CREATEPL+2
-             LDA   #$C3               ; 'Default access'
-             STA   CREATEPL+3         ; ->Access
              STZ   CREATEPL+5         ; Aux type LSB
              STZ   CREATEPL+6         ; Aux type MSB
-* Don't we have to make a call to update BF90-BF93?
-             LDA   $BF90              ; Current date
-             STA   CREATEPL+8
-             LDA   $BF91
-             STA   CREATEPL+9
-             LDA   $BF92              ; Current time
-             STA   CREATEPL+10
-             LDA   $BF93
-             STA   CREATEPL+11
-             JSR   CRTFILE
-* ...
+             JSR   CRTFILE            ; Create MOSFILE
              BCS   :EXIT              ; Failed, exit with ProDOS result
              JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy FILEBLK to aux mem
@@ -118,33 +100,19 @@ OFILE        >>>   ENTMAIN
              CMP   #$80               ; Write mode
              BNE   :S0
              JSR   DESTROY
-* Make into a subroutine
              LDA   #$01               ; Storage type - file
              STA   CREATEPL+7
              LDA   #$06               ; Filetype BIN
              STA   CREATEPL+4
-             LDA   #<MOSFILE          ; Attempt to create file
-             STA   CREATEPL+1
+             LDA   #<MOSFILE
              STA   OPENPL+1
              LDA   #>MOSFILE
-             STA   CREATEPL+2
              STA   OPENPL+2
-             LDA   #$C3               ; Access unlocked
-             STA   CREATEPL+3
              LDA   #$00               ; Auxtype
              STA   CREATEPL+5
              LDA   #$00
              STA   CREATEPL+6
-             LDA   $BF90              ; Current date
-             STA   CREATEPL+8
-             LDA   $BF91
-             STA   CREATEPL+9
-             LDA   $BF92              ; Current time
-             STA   CREATEPL+10
-             LDA   $BF93
-             STA   CREATEPL+11
-             JSR   CRTFILE
-* ...
+             JSR   CRTFILE            ; Create MOSFILE
 :S0          LDA   #$00               ; Look for empty slot
              JSR   FINDBUF
              STX   BUFIDX
@@ -435,34 +403,19 @@ SAVEFILE     >>>   ENTMAIN
              DB    DESTCMD
              DW    DESTPL
              STZ   :BLOCKS
-* TO DO: Make this a subroutine
              LDA   #$01               ; Storage type - file
              STA   CREATEPL+7
              LDA   #$06               ; Filetype BIN
              STA   CREATEPL+4
-* subroutine....
              LDA   #<MOSFILE
-             STA   CREATEPL+1
              STA   OPENPL+1
              LDA   #>MOSFILE
-             STA   CREATEPL+2
              STA   OPENPL+2
-             LDA   #$C3               ; Access unlocked
-             STA   CREATEPL+3
              LDA   FBLOAD             ; Auxtype = load address
              STA   CREATEPL+5
              LDA   FBLOAD+1
              STA   CREATEPL+6
-             LDA   $BF90              ; Current date
-             STA   CREATEPL+8
-             LDA   $BF91
-             STA   CREATEPL+9
-             LDA   $BF92              ; Current time
-             STA   CREATEPL+10
-             LDA   $BF93
-             STA   CREATEPL+11
              JSR   CRTFILE
-* ...
              BCS   :FWD1              ; :CANTOPEN error
              JSR   OPENFILE
              BCS   :FWD1              ; :CANTOPEN error
@@ -839,6 +792,8 @@ MAINRDMEM    STA   A1L
              LDA   $C081
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
+
+
 
 
 
