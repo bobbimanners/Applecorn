@@ -163,7 +163,7 @@ MAINZP      MAC
 
 * Code is all included from PUT files below ...
 * ... order matters!
-            PUT   LOADER
+            PUT   MAINMEM.LDR
             PUT   MAINMEM.MENU
             PUT   MAINMEM
             PUT   AUXMEM.MOSEQU
