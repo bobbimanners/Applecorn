@@ -1,7 +1,7 @@
-* MAIN.ROMMENU.S
+* MAINMEM.MENU.S
 * (c) Bobbi 2021 GPL3
 *
-* Applecorn ROM menu
+* Applecorn ROM menu.  Runs in main memory.
 
 ROMMENU     JSR   HOME        ; Clear screen
             LDA   #<TITLE1    ; Print title
@@ -118,6 +118,10 @@ ROM7        STR   "USERROM1.ROM"
 MSG8        ASC   " 8. USERROM2.ROM"
             DB    $00
 ROM8        STR   "USERROM2.ROM"
+
+
+
+
 
 
 
