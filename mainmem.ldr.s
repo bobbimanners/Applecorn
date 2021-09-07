@@ -1,12 +1,13 @@
-* LOADER.S
+* MAINMEM.LDR.S
 * (c) Bobbi 2021 GPLv3
 *
-* Applecorn loader code
+* Applecorn loader code.  Runs in main memory.
 
 * Loads Acorn ROM file (16KB) from disk and writes it
 * to aux memory starting at $08000. Copies Applecorn MOS
 * to aux memory starting at AUXMOS1 and jumps to it.
 * (Note that the MOS code will copy itself to $D000.)
+
 START       JSR   ROMMENU
 
             STZ   :BLOCKS
@@ -111,6 +112,10 @@ START       JSR   ROMMENU
 
 CANTOPEN    ASC   "Unable to open ROM file"
             DB    $00
+
+
+
+
 
 
 

@@ -165,7 +165,12 @@ MAINZP      MAC
 * ... order matters!
             PUT   MAINMEM.LDR
             PUT   MAINMEM.MENU
-            PUT   MAINMEM
+            PUT   MAINMEM.FSEQU
+            PUT   MAINMEM.INIT
+            PUT   MAINMEM.SVC
+            PUT   MAINMEM.PATH
+            PUT   MAINMEM.LISTS
+            PUT   MAINMEM.MISC
             PUT   AUXMEM.MOSEQU
             PUT   AUXMEM.INIT
             PUT   AUXMEM.VDU
@@ -177,6 +182,4 @@ MAINZP      MAC
 
 * Automatically save the object file:
             SAV   APPLECORN
-
-
 
