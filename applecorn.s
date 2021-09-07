@@ -164,7 +164,7 @@ MAINZP      MAC
 * Code is all included from PUT files below ...
 * ... order matters!
             PUT   LOADER
-            PUT   MAIN.ROMMENU
+            PUT   MAINMEM.MENU
             PUT   MAINMEM
             PUT   AUXMEM.MOSEQU
             PUT   AUXMEM.INIT
