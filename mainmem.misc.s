@@ -87,7 +87,24 @@ SETINFO     LDA   #$07           ; SET_FILE_INFO 7 parms
             RTS
 
 * Create disk file
-CRTFILE     JSR   MLI
+* Uses filename in MOSFILE
+CRTFILE     JSR   MLI            ; GET_TIME
+            DB    GTIMECMD
+            LDA   #<MOSFILE
+            STA   CREATEPL+1
+            LDA   #>MOSFILE
+            STA   CREATEPL+2
+            LDA   #$C3           ; Open permissions
+            STA   CREATEPL+3
+            LDA   $BF90          ; Current date
+            STA   CREATEPL+8
+            LDA   $BF91
+            STA   CREATEPL+9
+            LDA   $BF92          ; Current time
+            STA   CREATEPL+10
+            LDA   $BF93
+            STA   CREATEPL+11
+            JSR   MLI
             DB    CREATCMD
             DW    CREATEPL
             RTS
@@ -124,6 +141,8 @@ GETPREF     JSR   MLI
 
 * Map of file reference numbers to IOBUF1..4
 FILEREFS    DB    $00,$00,$00,$00
+
+
 
 
 
