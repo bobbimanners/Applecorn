@@ -171,12 +171,31 @@ MATCHENT LDA  #<BLKBUF+4  ; Skip pointers
         BRA  :L1
 :S1     LDY  #$00
         LDA  (A1L),Y     ; Length byte
-        BEQ  :EXIT       ; Inactive entry
+        BEQ  :NOMATCH    ; Inactive entry
         INC  A1L         ; Inc ptr, skip length byte
-        BCC  :S2
+        BNE  :S2
         INC  A1H
-:S2     JSR  MATCH       ; Wildcard match
-:EXIT   RTS
+:S2     JSR  MATCH       ; Try wildcard match
+        BCC  :NOMATCH
+        LDA  A1L         ; Decrement ptr again
+        BNE  :S3
+        DEC  A1H
+:S3     DEC  A1L
+        LDY  #$00        ; If matches, copy matching filename
+        LDA  (A1L),Y     ; Length of filename
+        AND  #$0F        ; Mask out other ProDOS stuff
+        STA  SEGBUF
+        TAY
+:L2     CPY  #$00
+        BEQ  :MATCH
+        LDA  (A1L),Y
+        STA  SEGBUF,Y
+        DEY
+        BRA  :L2
+:MATCH  SEC
+        RTS
+:NOMATCH CLC
+        RTS
 
 * From: http://6502.org/source/strings/patmatch.htm
 * Input:  A NUL-terminated, <255-length pattern at address PATTERN.
@@ -184,8 +203,8 @@ MATCHENT LDA  #<BLKBUF+4  ; Skip pointers
 * Output: Carry bit = 1 if the string matches the pattern, = 0 if not.
 * Notes:  Clobbers A, X, Y. Each * in the pattern uses 4 bytes of stack.
 
-MATCH1  EQU "?"         ; Matches exactly 1 character
-MATCHN  EQU "*"         ; Matches any string (including "")
+MATCH1  EQU '?'         ; Matches exactly 1 character
+MATCHN  EQU '*'         ; Matches any string (including "")
 PATTERN EQU SEGBUF+1    ; Address of pattern
 STR     EQU A1L         ; Pointer to string to match
 
