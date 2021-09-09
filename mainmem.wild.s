@@ -3,13 +3,18 @@
 *
 * Wildcard support
 
+* Performs wildcard matching for operations that only require the
+* first match.  <*obj-spec*> in Acorn ADFS terminology.
+WILDONE     JSR   WILDCARD
+            JSR   CLSDIR
+            RTS
+
 * Scan path in MOSFILE, break it into segments (ie: chunks delimited
 * by '/'), and for each segment see if it contains wildcard chars.
 * If so, pass it to SRCHDIR to expand the wildcard.  If not, just 
 * append the segment as it is. Uses MFTEMP to build up the path.
 * Returns with carry set if wildcard match fails, clear otherwise
-WILDCARD
-            STZ   :LAST
+WILDCARD    STZ   :LAST
             LDX   #$00         ; Start with first char
             STX   MFTEMP       ; Clear MFTEMP (len=0)
             PHX
@@ -103,15 +108,22 @@ APPSEG      LDY   MFTEMP       ; Dest idx = length
 :DONE       STY   MFTEMP       ; Update length
             RTS
 
+* The following is required in order to be able to resume
+* a directory search
+WILDFILE    DB    $00          ; File ref num for open dir
+WILDIDX     DB    $00          ; Dirent idx in current block
+
 * Read directory, apply wildcard match
 * Inputs: directory name in XY (Pascal string)
 * If there is a match, replaces SEGBUF with the first match and CLC
 * If no match, or any other error, returns with carry set
+* Leaves the directory open to allow resumption of search.
 SRCHDIR     STX   OPENPL+1
             STY   OPENPL+2
             JSR   OPENFILE
             BCS   :NODIR
             LDA   OPENPL+5     ; File ref num
+            STA   WILDFILE     ; Stash for later
             STA   READPL+1
 :L1         JSR   RDFILE       ; Read->BLKBUF
             BCC   :S1
@@ -122,17 +134,21 @@ SRCHDIR     STX   OPENPL+1
             BCS   :MATCH
             BRA   :L1
 :MATCH      CLC
-            PHP
-            BRA   :CLOSE
+            BRA   :EXIT
 :BADDIR
-:EOF        SEC
-            PHP
-:CLOSE      LDA   OPENPL+5
+:EOF
+:NODIR      SEC
+:EXIT       RTS
+
+* Close directory, if it was open
+* Preserves flags
+CLSDIR      PHP
+            LDA   WILDFILE     ; File ref num for open dir
+            BEQ   :ALREADY     ; Already been closed
             STA   CLSPL+1
             JSR   CLSFILE
-            PLP
-            RTS
-:NODIR      SEC
+            STZ   WILDFILE     ; Not strictly necessary
+:ALREADY    PLP
             RTS
 
 * Apply wildcard match to a directory block
@@ -153,7 +169,8 @@ SRCHBLK     LDA   BLKBUF+4     ; Obtain storage type
             CPX   #13          ; Number of dirents in block
             BNE   :L1
             CLC                ; Fell off end, no match
-:MATCH      RTS
+:MATCH      STX   WILDIDX      ; Record dirent idx for resume
+            RTS
 
 * Apply wildcard match to a directory entry
 * On entry: X = dirent index in BLKBUF
