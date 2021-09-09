@@ -19,8 +19,10 @@ WILDCARD
         DEC  :LAST
 :NOTLST PHX
         LDA  SEGBUF      ; Length of segment
-        BEQ  :L1         ; Handle zero-len initial segment
-        JSR  HASWILD     ; See if it has '*'/'#'/'?'
+        BNE  :S1         ; Check for zero length segments
+        LDA  :LAST       ; If not the last segment ...
+        BEQ  :L1         ; ... go again
+:S1     JSR  HASWILD     ; See if it has '*'/'#'/'?'
         BCS  :WILD       ; It does
         JSR  APPSEG      ; Not wild: Append SEGBUF to MFTEMP
         BRA  :NEXT
