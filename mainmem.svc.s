@@ -730,8 +730,9 @@ DRVINFO      >>>   ENTMAIN
 * Filename in MOSFILE, flags in MOSFILE2
 SETPERM      >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
-             JSR   WILDONE            ; Handle any wildcards
-             BCS   :ERR
+             BCS   :SYNERR
+             JSR   WILDCARD           ; Handle any wildcards
+             BCS   :NONE
              STZ   :LFLAG
              STZ   :WFLAG
              STZ   :RFLAG
@@ -739,7 +740,7 @@ SETPERM      >>>   ENTMAIN
              INX
 :L1          DEX
              CPX   #$00
-             BEQ   :DONEARG
+             BEQ   :MAINLOOP
              LDA   MOSFILE2,X         ; Read arg2 char
              CMP   #'L'               ; L=Locked
              BNE   :S1
@@ -753,7 +754,12 @@ SETPERM      >>>   ENTMAIN
              BNE   :ERR2              ; Bad attribute
              STA   :WFLAG
              BRA   :L1
-:DONEARG     LDA   #<MOSFILE
+:SYNERR      LDA   #$40               ; Invalid pathname syn
+             BRA   :EXIT
+:NONE        JSR   CLSDIR
+             LDA   #$40               ; TODO PROPER ERROR CODE
+             BRA   :EXIT
+:MAINLOOP    LDA   #<MOSFILE
              STA   GINFOPL+1
              LDA   #>MOSFILE
              STA   GINFOPL+2
@@ -773,8 +779,12 @@ SETPERM      >>>   ENTMAIN
              AND   #$3D               ; Turn off destroy/ren/write
 :S5          STA   GINFOPL+3          ; Access byte
              JSR   SETINFO            ; SET_FILE_INFO
+             JSR   WILDNEXT
+             BCS   :NOMORE
+             BRA   :MAINLOOP
 :EXIT        >>>   XF2AUX,ACCRET
-:ERR         LDA   #$40               ; Invalid pathname syn
+:NOMORE      JSR   CLSDIR
+             LDA   #$00
              BRA   :EXIT
 :ERR2        LDA   #$53               ; Invalid parameter
              BRA   :EXIT
