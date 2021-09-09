@@ -169,6 +169,7 @@ MAINZP      MAC
             PUT   MAINMEM.INIT
             PUT   MAINMEM.SVC
             PUT   MAINMEM.PATH
+            PUT   MAINMEM.WILD
             PUT   MAINMEM.LISTS
             PUT   MAINMEM.MISC
             PUT   AUXMEM.MOSEQU

@@ -684,6 +684,7 @@ CATALOGRET
 * Set prefix. Used by *CHDIR to change directory
 SETPFX       >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
+             JSR   WILDCARD           ; EXPERIMENTAL
              BCS   :ERR
              LDA   #<MOSFILE
              STA   SPFXPL+1
