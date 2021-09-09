@@ -22,15 +22,16 @@
 *             The three separate cursors can be set seperately.
 * 02-Sep-2021 INKEY-256 tests Apple IIe vs IIc.
 * 05-Sep-2021 KBDINIT returns startup value to pass to VDUINT.
+* 09-Sep-2021 Moved keyboard OSBYTEs to here.
 
 
-* TEMP, move to VDU.S
-FLASHER      EQU   $290
-CURSOR       EQU   $291
-CURSORED     EQU   $292
-CURSORCP     EQU   $293
-OLDCHAR      EQU   $294
-COPYCHAR     EQU   $295
+** Moved to VDU.S
+*FLASHER      EQU   $290
+*CURSOR       EQU   $291
+*CURSORED     EQU   $292
+*CURSORCP     EQU   $293
+*OLDCHAR      EQU   $294
+*COPYCHAR     EQU   $295
 
 FXEXEC       EQU   BYTEVARBASE+198
 FXSPOOL      EQU   BYTEVARBASE+199
@@ -64,6 +65,11 @@ WRCHHND      PHA
 *
              JSR   OUTCHAR
 * TO DO Check any printer output
+*  BCC WRCHHND2
+*  TSX
+*  LDA $103,X
+*  JSR PRNCHAR
+* WRCHHND2
              PLY
              PLX
              PLA
@@ -226,7 +232,7 @@ NEGINKEY     CPX   #$01
              LDX   #$00                      ; Unimplemented
              BCS   NEGINKEY0
 
-             JSR   NEGCALL
+             JSR   NEGCALL                   ; Read machine ID from aux
              LDX   #$2C
              TAY
              BEQ   NEGINKEY0                 ;  $00 = Apple IIc -> INKEY-256 = $2C
@@ -234,23 +240,6 @@ NEGINKEY     CPX   #$01
              AND   #$0F
              BEQ   NEGINKEY0                 ;  $x0 = Apple IIe -> INKEY-256 = $2E
              LDX   #$2A                      ; else = Apple IIgs INKEY-256 = $2A
-
-*             LDX   #$2A
-*                         ; 6502  A   65C02  A   65816  B   A
-*             LDA   #$00  ;       00         00         zz  00
-*             DB    #$EB  ; SBC       NOP    00  XBA    00  zz
-*             DB    #$3A  ; #$3A  C5  DEC A  FF  DEC A  00  yy
-*             DB    #$EB  ; SBC       NOP    FF  XBA    yy  00
-*             DB    #$EA  ; #$EA  DA  NOP    FF  NOP    yy  00
-*             BEQ   NEGINKEY0      ; INKEY-256 = $2A - AppleIIgs
-*             LDA   #$C0
-*             LDY   #$FB
-*             JSR   WORD05IO1      ; Read from $FBC0 in main ROM
-*             LDX   #$2C
-*             TAY
-*             BEQ   NEGINKEY0      ; INKEY-256 = $2C = Apple IIc
-*             LDX   #$2E           ; INKEY-256 = $2E = Apple IIe
-
 NEGINKEY0    LDY   #$00
              CLC
              RTS
@@ -437,13 +426,22 @@ KBDNOESC     TXA                             ; A=keycode
              CLC                             ; CLC=Ok
 KBDDONE      RTS
 
+* Process pending Escape state
+BYTE7E       LDX   #$00                      ; $7E = ack detection of ESC
+             BIT   ESCFLAG
+             BPL   BYTE7DOK                  ; No Escape pending
+             LDA   FXESCEFFECT               ; Process Escape effects
+             BEQ   BYTE7E2
+             CLI                             ; Allow IRQs while flushing
+             STA   FXLINES                   ; Clear scroll counter
+*             JSR   STAREXEC0      ; Close any EXEC file
+*             JSR   FLUSHALL       ; Flush all buffers
+BYTE7E2      LDX   #$FF                      ; X=$FF, Escape was pending
+BYTE7C       CLC                             ; &7C = clear escape condition
+BYTE7D       ROR   ESCFLAG                   ; $7D = set escape condition
+BYTE7DOK     RTS
 
-
-
-
-
-
-
-
+BYTE76       LDX   #$00                      ; Update LEDs and return X=SHIFT
+             RTS                             ; Not possible with Apple
 
 

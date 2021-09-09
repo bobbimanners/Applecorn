@@ -3,9 +3,10 @@
 *
 * Applecorn OSBYTE and OSWORD handlers
 *
-* 15-Aug-2021 Added 'set variable' OSBYTEs 1-6
-* 02-Sep-2021 OSWORD 5 can read from Main Memory ROM
-* 04-Sep-2021 Extended VDU table to add $75 and $A0 for VDU driver
+* 15-Aug-2021 Added 'set variable' OSBYTEs 1-6.
+* 02-Sep-2021 OSWORD 5 can read from Main Memory ROM.
+* 04-Sep-2021 Extended VDU table to add $75 and $A0 for VDU driver.
+* 09-Sep-2021 Moved keyboard and VDU OSBYTEs to Keyboard and VDU.
 
 
              XC                           ; 65c02
@@ -14,7 +15,8 @@
 * OSBYTE DISPATCH TABLE *
 *************************
 
-BYTEVARBASE  EQU   $190                   ; Base of OSBYTE variables
+* Moved to AUXMEM.VDU.S for benefit of Merlin-8/-16
+*BYTEVARBASE EQU $190 ; Base of OSBYTE variables
 
 BYTWRDADDR   DW    BYTE00XX               ; OSBYTE   0 - Machine host
              DW    BYTE01                 ; OSBYTE   1 - User flag
@@ -29,9 +31,9 @@ BYTWRDADDR   DW    BYTE00XX               ; OSBYTE   0 - Machine host
              DW    BYTENULL               ; OSBYTE  10 - Flash period mark
              DW    BYTENULL               ; OSBYTE  11 - Autorepeat delay
              DW    BYTENULL               ; OSBYTE  12 - Autorepeat repeat
-             DW    BYTENULL               ; OSBYTE  13 - Disable events
-             DW    BYTENULL               ; OSBYTE  14 - Enable events
-             DW    BYTENULL               ; OSBYTE  15 - Flush sel buf class
+             DW    BYTENULL               ; OSBYTE  13 - Disable event
+             DW    BYTENULL               ; OSBYTE  14 - Enable event
+             DW    BYTENULL               ; OSBYTE  15 - Flush buffer
 BYTWRDLOW
 BYTESZLO     EQU   BYTWRDLOW-BYTWRDADDR
 BYTELOW      EQU   BYTESZLO/2-1           ; Maximum low OSBYTE
@@ -230,8 +232,10 @@ BYTFAIL0     PHX                          ; *DEBUG*
              CMP   #$01
              PLA                          ; *DEBUG*
              BCC   BYTWRDEXIT             ; Claimed, return
+             BIT   $E0                    ; *DEBUG*
+             BVC   BYTEFAIL1              ; Debug turned off
              JSR   UNSUPBYTWRD            ; *DEBUG*
-             LDX   #$FF                   ; X=&FF if unclaimed
+BYTEFAIL1    LDX   #$FF                   ; X=&FF if unclaimed
              PLP                          ; Restore original flags and IRQs
              PLA                          ; Restore A
              BIT   SETV                   ; Set V = Not actioned
@@ -426,18 +430,18 @@ BYTEVAR      TAY                          ; offset to variable
              LDA   BYTEVARBASE+1,Y
              TAY                          ; Y=next value
 * Unimplemented
-BYTE89                                    ; *MOTOR
-BYTE8A                                    ; Buffer insert
-BYTE8C                                    ; *TAPE
-BYTE8D                                    ; *ROM
+*BYTE89                            ; *MOTOR
+*BYTE8A                            ; Buffer insert
+*BYTE8C                            ; *TAPE
+*BYTE8D                            ; *ROM
              RTS
 
 * Memory layout
 BYTE82                                    ; $82 = read high order address
 *      LDY   #$00
 *      LDX   #$00            ; $0000 for language processor
-* Should return $0000, but BCPL and Lisp try to move up to $F800
-* overwriting Apple II stuff
+* Should return $0000, but BCPL, Lisp and View try to move
+* up to $F800 overwriting Apple II stuff
              LDY   #$FF                   ; $FFFF for I/O processor
              LDX   #$FF
              RTS
@@ -451,19 +455,12 @@ BYTE84       LDY   #$80                   ; $84 = read top of user mem
              LDX   #$00
              RTS
 
-* Move to keyboard stuff
-************************
-BYTE7E       LDX   #$00                   ; $7E = ack detection of ESC
-             BIT   ESCFLAG
-             BPL   BYTE7DOK               ; No Escape pending
-* TO DO: process escape effects
-             DEX                          ; X=$FF, Escape was pending
-BYTE7C       CLC                          ; &7C = clear escape condition
-BYTE7D       ROR   ESCFLAG                ; $7D = set escape condition
-BYTE7DOK     RTS
-
 * Passed on to filing system
-BYTE8B       LDA   #$00                   ; &00 -> &00 - *OPT
+BYTE8B       CPX   #$FF                   ; *DEBUG*
+             BNE   BYTE8BA                ; *DEBUG*
+             STY   $E0                    ; *DEBUG*
+             RTS                          ; *DEBUG*
+BYTE8BA      LDA   #$00                   ; &00 -> &00 - *OPT
 BYTE7F       AND   #$01                   ; &7F -> &01 - EOF
 CALLFSCV     JMP   (FSCV)                 ; Hand over to filing system
 
@@ -532,14 +529,4 @@ OSWORDM      ASC   'OSWORD($'
              DB    $00
 OSBM2        ASC   ').'
              DB    $00
-
-
-
-
-
-
-
-
-
-
 
