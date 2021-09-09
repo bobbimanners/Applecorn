@@ -1,10 +1,10 @@
 #!/bin/sh
-for file in APPLECORN AUXMEM.BYTWRD AUXMEM.CHARIO AUXMEM.HOSTFS AUXMEM.INIT AUXMEM.MISC AUXMEM.MOSEQU AUXMEM.OSCLI AUXMEM.VDU LOADER MAINMEM MAIN.ROMMENU; do
+for file in APPLECORN AUXMEM.BYTWRD AUXMEM.CHARIO AUXMEM.HOSTFS AUXMEM.INIT AUXMEM.MISC AUXMEM.MOSEQU AUXMEM.OSCLI AUXMEM.VDU MAINMEM.FSEQU MAINMEM.INIT MAINMEM.LDR MAINMEM.LISTS MAINMEM.MENU MAINMEM.MISC MAINMEM.PATH MAINMEM.SVC MAINMEM.WILD; do
   cadius extractfile applecorn.po /APPLECORN/${file}.S .
   rm _FileInformation.txt
   cadius clearhighbit ${file}.S\#040000
   cadius indentfile ${file}.S\#040000
-  FNAME=`echo ${file}.s | tr [:upper:] [:lower:]`
+  FNAME=`echo ${file}.S | tr [:upper:] [:lower:]`
   mv -v ${file}.S\#040000 $FNAME
 done
 git diff

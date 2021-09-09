@@ -74,30 +74,6 @@ BEEP        PHA
             PLA
             RTS
 
-** Delay approx 1/100 sec
-*************************
-** Enter at DELAY with CS to test keyboard
-** Enter at CENTI to ignore keyboard
-**
-*CENTI       CLC              ; Don't test keyboard
-*DELAY       PHX              ; 3cy
-*            PHY              ; 3cy
-*            LDY   #10        ; 2cy     10 * 1/1000s
-**------------------------------------------------
-*:L1         LDX   #$48       ; 2cy     $48 gives about 1/1000s
-*:L2         BCC   :L3        ; 2cy/3cy Don't test kbd
-*            LDA   $C000      ; 4cy
-*            BMI   :L5        ; 2cy     keypress, exit early
-*:L3         DEX              ; 2cy
-*            BNE   :L2        ; 3cy/2cy -> 72*(2+2+4+2+2+3)-1
-**                            ;          = 1079 -> 0.00105s
-**------------------------------------------------
-*:L4         DEY              ; 2cy
-*            BNE   :L1        ; 3cy/2cy
-*:L5         PLY              ; 4cy
-*            PLX              ; 4cy
-*            RTS              ; 6cy
-
 * Print string pointed to by X,Y to the screen
 OUTSTR      TXA
 
@@ -146,6 +122,49 @@ PRNIB       CMP   #$0A
 :S1         ADC   #'0'           ; < $0A
             JMP   OSWRCH
 
+* Print 16 bit value in XY in decimal
+* beebwiki.mdfs.net/Number_output_in_6502_machine_code
+PRDECXY     STX   :NUM+0
+            STY   :NUM+1
+            LDA   #' '
+            STA   :PAD
+:PRDEC16    LDY   #$08           ; Five digits
+:LP1        LDX   #$FF
+            SEC
+:LP2        LDA   :NUM+0
+            SBC   :TENS+0,Y
+            STA   :NUM+0
+            LDA   :NUM+1
+            SBC   :TENS+1,Y
+            STA   :NUM+1
+            INX
+            BCS   :LP2
+            LDA   :NUM+0
+            ADC   :TENS+0,Y
+            STA   :NUM+0
+            LDA   :NUM+1
+            ADC   :TENS+1,Y
+            STA   :NUM+1
+            TXA
+            BNE   :DIGIT
+            LDA   :PAD
+            BNE   :PRINT
+            BEQ   :NEXT
+:DIGIT      LDX   #'0'
+            STX   :PAD
+            ORA   #'0'
+:PRINT      JSR   OSWRCH
+:NEXT       DEY
+            DEY
+            BPL   :LP1
+            RTS
+:PAD        DB    $00
+:NUM        DW    $0000
+:TENS       DW    1
+            DW    10
+            DW    100
+            DW    1000
+            DW    10000
 
 * GSINIT - Initialise for GSTRANS string parsing
 ************************************************
@@ -444,6 +463,12 @@ MOSVEND
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      ASC   '**ENDOFCODE**'
             DS    $200-13
+
+
+
+
+
+
 
 
 

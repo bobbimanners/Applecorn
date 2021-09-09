@@ -32,8 +32,8 @@ VDUQ        EQU   $D7           ; TEMP HACK
 * VDUVARS
 * VDUTEXTX  EQU $2A0+0 ; text X coord
 * VDUTEXTY  EQU $2A0+1 ; text Y coord
-VDUTEXTX    EQU   $96 ;COL TEMP
-VDUTEXTY    EQU   $97 ;ROW TEMP
+VDUTEXTX    EQU   $96           ;COL TEMP
+VDUTEXTY    EQU   $97           ;ROW TEMP
 VDUCOPYX    EQU   $2A0+2        ; copy cursor X coord
 VDUCOPYY    EQU   $2A0+3        ; copy cursor Y coord
 * VDUCOPYCHR  EQU $2A0+0 ; char underneath cursor when copying
@@ -124,18 +124,18 @@ COPYSWAP4   RTS
 
 
 * Clear to EOL
-CLREOL      LDA   VDUTEXTY ; ROW
+CLREOL      LDA   VDUTEXTY      ; ROW
             ASL
             TAX
             LDA   SCNTAB,X      ; LSB of row
             STA   ZP1
             LDA   SCNTAB+1,X    ; MSB of row
             STA   ZP1+1
-            LDA   VDUTEXTX ; COL
+            LDA   VDUTEXTX      ; COL
             PHA
-            STZ   VDUTEXTX ; COL
+            STZ   VDUTEXTX      ; COL
 :L1
-            LDA   VDUTEXTX ; COL
+            LDA   VDUTEXTX      ; COL
             LSR
             TAY
             BCC   :S1
@@ -143,13 +143,13 @@ CLREOL      LDA   VDUTEXTY ; ROW
 :S1         LDA   #" "
             STA   (ZP1),Y
             >>>   WRTAUX
-            LDA   VDUTEXTX ; COL
+            LDA   VDUTEXTX      ; COL
             CMP   #79
             BEQ   :S2
-            INC   VDUTEXTX ; COL
+            INC   VDUTEXTX      ; COL
             BRA   :L1
 :S2         PLA
-            STA   VDUTEXTX ; COL
+            STA   VDUTEXTX      ; COL
             RTS
 
 * Clear the screen
@@ -159,16 +159,16 @@ VDUINIT     STA   $C00F
             STA   CURSORCP      ; Copy cursor when editing
             LDA   #$A0
             STA   CURSORED      ; Edit cursor when editing
-CLEAR       STZ   VDUTEXTY ; ROW
-            STZ   VDUTEXTX ; COL
+CLEAR       STZ   VDUTEXTY      ; ROW
+            STZ   VDUTEXTX      ; COL
 :L1         JSR   CLREOL
-:S2         LDA   VDUTEXTY ; ROW
+:S2         LDA   VDUTEXTY      ; ROW
             CMP   #23
             BEQ   :S3
-            INC   VDUTEXTY ; ROW
+            INC   VDUTEXTY      ; ROW
             BRA   :L1
-:S3         STZ   VDUTEXTY ; ROW
-            STZ   VDUTEXTX ; COL
+:S3         STZ   VDUTEXTY      ; ROW
+            STZ   VDUTEXTX      ; COL
             RTS
 
 * Calculate character address
@@ -260,8 +260,8 @@ GETCHR7     TYA
 GETCHROK    RTS
 
 
-BYTE86      LDY   VDUTEXTY ; ROW           ; $86 = read cursor pos
-            LDX   VDUTEXTX ; COL
+BYTE86      LDY   VDUTEXTY      ; ROW           ; $86 = read cursor pos
+            LDX   VDUTEXTX      ; COL
             RTS
 
 * Perform backspace & delete operation
@@ -272,19 +272,19 @@ DELETE      JSR   BACKSPC
 
 * Perform backspace/cursor left operation
 BACKSPC
-            LDA   VDUTEXTX ; COL
+            LDA   VDUTEXTX      ; COL
             BEQ   :S1
-            DEC   VDUTEXTX ; COL
+            DEC   VDUTEXTX      ; COL
             BRA   :S3
-:S1         LDA   VDUTEXTY ; ROW
+:S1         LDA   VDUTEXTY      ; ROW
             BEQ   :S3
-            DEC   VDUTEXTY ; ROW
+            DEC   VDUTEXTY      ; ROW
             LDA   #39
             BIT   $C01F
             BPL   :S2
             LDA   #79
 :S2
-            STA   VDUTEXTX ; COL
+            STA   VDUTEXTX      ; COL
 :S3         RTS
 
 
@@ -334,18 +334,18 @@ OUTCHARGO   CMP   #$00          ; NULL
             BRA   :IDONE
 :T4         CMP   #$0A          ; Linefeed
             BNE   :T5
-            LDA   VDUTEXTY ; ROW
+            LDA   VDUTEXTY      ; ROW
             CMP   #23
             BEQ   :TOSCROLL     ; JGH
-            INC   VDUTEXTY ; ROW
+            INC   VDUTEXTY      ; ROW
 :IDONE      RTS
 * BRA   :DONE
 :TOSCROLL   JMP   SCROLL        ; JGH
 :T5         CMP   #$0B          ; Cursor up
             BNE   :T6
-            LDA   VDUTEXTY ; ROW
+            LDA   VDUTEXTY      ; ROW
             BEQ   :IDONE
-            DEC   VDUTEXTY ; ROW
+            DEC   VDUTEXTY      ; ROW
 *            BRA   :IDONE
             RTS
 :T6         CMP   #$0D          ; Carriage return
@@ -353,7 +353,7 @@ OUTCHARGO   CMP   #$00          ; NULL
             LDA   #$BF
             AND   VDUSTATUS
             STA   VDUSTATUS     ; Turn copy cursor off
-            STZ   VDUTEXTX ; COL
+            STZ   VDUTEXTX      ; COL
 *            BRA   :IDONE
             RTS
 :T7         CMP   #$0C          ; Ctrl-L
@@ -371,8 +371,8 @@ OUTCHARGO   CMP   #$00          ; NULL
             RTS
 :T8         CMP   #$1E          ; Home
             BNE   :T9
-            STZ   VDUTEXTY ; ROW
-            STZ   VDUTEXTX ; COL
+            STZ   VDUTEXTY      ; ROW
+            STZ   VDUTEXTX      ; COL
 *            BRA   :IDONE
             RTS
 :T9
@@ -389,8 +389,8 @@ OUTCHARGO   CMP   #$00          ; NULL
             CPX   #80
             BCS   :IDONE
 :T9A
-            STX   VDUTEXTX ; COL
-            STY   VDUTEXTY ; ROW
+            STX   VDUTEXTX      ; COL
+            STY   VDUTEXTY      ; ROW
             RTS
 :T9B        CMP   #$7F          ; Delete
             BNE   :T10
@@ -411,7 +411,7 @@ OUTCHARGO   CMP   #$00          ; NULL
 
 * Perform cursor right operation
 VDU09
-            LDA   VDUTEXTX ; COL
+            LDA   VDUTEXTX      ; COL
             CMP   #39
             BCC   :S2
             BIT   $C01F
@@ -419,15 +419,15 @@ VDU09
             CMP   #79
             BCC   :S2
 :T11
-            STZ   VDUTEXTX ; COL
-            LDA   VDUTEXTY ; ROW
+            STZ   VDUTEXTX      ; COL
+            LDA   VDUTEXTY      ; ROW
             CMP   #23
             BEQ   SCROLL
-            INC   VDUTEXTY ; ROW
+            INC   VDUTEXTY      ; ROW
 :DONE       RTS
 *           BRA   :DONE
 :S2
-            INC   VDUTEXTX ; COL
+            INC   VDUTEXTX      ; COL
             BRA   :DONE
 SCROLL      JSR   SCROLLER
 *            STZ   VDUTEXTX ; COL
@@ -485,11 +485,23 @@ SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
 
 
 * TEST code for VIEW
-BYTE75       LDX   VDUSTATUS
-             RTS
-BYTE76       LDX   #$00
-             RTS
-BYTEA0       LDY   #79            ; Read VDU variable $09,$0A
-             LDX   #23
-             RTS
+BYTE75      LDX   VDUSTATUS
+            RTS
+BYTE76      LDX   #$00
+            RTS
+BYTEA0      LDY   #79           ; Read VDU variable $09,$0A
+            LDX   #23
+            RTS
 * TEST
+
+
+
+
+
+
+
+
+
+
+
+

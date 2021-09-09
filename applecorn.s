@@ -163,9 +163,15 @@ MAINZP      MAC
 
 * Code is all included from PUT files below ...
 * ... order matters!
-            PUT   LOADER
-            PUT   MAIN.ROMMENU
-            PUT   MAINMEM
+            PUT   MAINMEM.LDR
+            PUT   MAINMEM.MENU
+            PUT   MAINMEM.FSEQU
+            PUT   MAINMEM.INIT
+            PUT   MAINMEM.SVC
+            PUT   MAINMEM.PATH
+            PUT   MAINMEM.WILD
+            PUT   MAINMEM.LISTS
+            PUT   MAINMEM.MISC
             PUT   AUXMEM.MOSEQU
             PUT   AUXMEM.INIT
             PUT   AUXMEM.VDU
@@ -177,4 +183,8 @@ MAINZP      MAC
 
 * Automatically save the object file:
             SAV   APPLECORN
+
+
+
+
 
