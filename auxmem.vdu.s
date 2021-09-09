@@ -10,66 +10,191 @@
 * 21-Aug-2021 CHR$(&80+n) is inverse of CHR$(&00+n)
 * 21-Aug-2021 If screen scrolls, copy cursor adjusted.
 * 05-Sep-2021 Starting to prepare VDU workspace.
+* 09-Sep-2021 New dispatch routine.
 
 
 **********************************
 * VDU DRIVER WORKSPACE LOCATIONS *
 **********************************
-* $00D0-$00DF VDU driver zero page workspace
-* $03ED-$03EE XFER transfer address
-
-
-VDUSTATUS   EQU   $D0           ; $D0  VDU status
-VDUZP1      EQU   VDUSTATUS+1   ; $D1
-* VDUTEXTX    EQU   VDUSTATUS+2  ; $D2  text column
-* VDUTEXTY    EQU   VDUSTATUS+3  ; $D3  text row
-VDUADDR     EQU   VDUSTATUS+4   ; $D4  address of current char cell
-
-FXVDUQLEN   EQU   $D1           ; TEMP HACK
-VDUCHAR     EQU   $D6           ; TEMP HACK
-VDUQ        EQU   $D7           ; TEMP HACK
-
-* VDUVARS
-* VDUTEXTX  EQU $2A0+0 ; text X coord
-* VDUTEXTY  EQU $2A0+1 ; text Y coord
-VDUTEXTX    EQU   $96           ;COL TEMP
-VDUTEXTY    EQU   $97           ;ROW TEMP
-VDUCOPYX    EQU   $2A0+2        ; copy cursor X coord
-VDUCOPYY    EQU   $2A0+3        ; copy cursor Y coord
-* VDUCOPYCHR  EQU $2A0+0 ; char underneath cursor when copying
-
-* VDUCURSOR EQU $2A0+4 ; cursor character
-VDUMODE     EQU   $2A0+5        ; current MODE
-* VDUCHAR   EQU $2A0+6 ; VDU command, 1 byte
-* VDUQ      EQU $2A0+7 ; VDU sequence, 9 bytes
-
-* TEMP, move to VDU.S
-* FLASHER      EQU   $290  ; flash counter for cursor
-* CURSOR       EQU   $291  ; character under cursor
-* CURSORED     EQU   $292  ; character used for cursor
-* CURSORCP     EQU   $293  ; character used for edit cursor
-* OLDCHAR      EQU   $294  ; character used for copy cursor
-* COPYCHAR     EQU   $295  ;
-
-
-
-
-* Start restructuring VDU variables
-***********************************
-VDUVARS     EQU   $290
-* VDUTWINL VDUVARS+$08 ; text window left
-* VDUTWINB VDUVARS+$09 ; text window bottom \ window
-* VDUTWINR VDUVARS+$0A ; text window right  /  size
-* VDUTWINT VDUVARS+$0B ; text window top
+* # marks variables that can't be moved
 *
-* VDUTEXTX EQU VDUVARS+$18 ; absolute POS
-* VDUTEXTY EQU VDUVARS+$19 ; absolute VPOS
-* VDUCOPYX EQU VDUVARS+$1A ;
-* VDUCOPYY EQU VDUVARS+$1B ;
-* VDUMODE
+* VDU DRIVER ZERO PAGE
+**********************
+* $00D0-$00DF VDU driver zero page workspace
+VDUSTATUS   EQU   $D0             ; $D0 # VDU status
+* bit 7 = VDU 21 VDU disabled
+* bit 6 = COPY cursor active
+* bit 5 = VDU 5 Text at graphics cursor
+* bit 4 = (Master shadow display)
+* bit 3 = VDU 28 Text window defined
+* bit 2 = VDU 14 Paged scrolling active
+* bit 1 = Don't scroll (COPY cursor or VDU 5 mode)
+* bit 0 = VDU 2 printer echo active
+*
+VDUCHAR     EQU   VDUSTATUS+1     ; $D1
+VDUADDR     EQU   VDUSTATUS+4     ; $D4  address of current char cell
+
+* VDU DRIVER MAIN WORKSPACE
+***************************
+FXLINES     EQU   BYTEVARBASE+217 ; Pages scrolling line counter
+FXVDUQLEN   EQU   BYTEVARBASE+218 ; Length of pending VDU queue
+VDUVARS     EQU   $290
+
+* *TEMP*
+FLASHER     EQU   $290  ; flash counter for cursor       -> BYTEVARBASE+193 -> KBD
+CURSOR      EQU   $291  ; character used for cursor      -> VDUVAR+??
+CURSORED    EQU   $292  ; character used for edit cursor -> VDUVAR+??
+CURSORCP    EQU   $293  ; character used for copy cursor -> VDUVAR+??
+OLDCHAR     EQU   $294  ; character under cursor         -> KBD?
+COPYCHAR    EQU   $295  ; character under copy cursor    -> KBD?
+
+VDUTWINL    EQU   VDUVARS+$08  ; # text window left
+VDUTWINB    EQU   VDUVARS+$09  ; # text window bottom \ window
+VDUTWINR    EQU   VDUVARS+$0A  ; # text window right  /  size
+VDUTWINT    EQU   VDUVARS+$0B  ; # text window top
+*
+VDUPIXELS   EQU   VDUVARS+$13  ; *TEMP*
+VDUBYTES    EQU   VDUVARS+$14  ; *TEMP*  ; bytes per char
+VDUMODE     EQU   VDUVARS+$15  ; *TEMP*  ; current MODE
+VDUSCREEN   EQU   VDUVARS+$16  ; *TEMP*  ; Screen type, MODE 7?
+*
+VDUTEXTX    EQU   VDUVARS+$18  ; absolute POS
+VDUTEXTY    EQU   VDUVARS+$19  ; absolute VPOS
+VDUCOPYX    EQU   VDUVARS+$1A  ; absolute COPY cursor X posn
+VDUCOPYY    EQU   VDUVARS+$1B  ; absolute COPY cursor Y posn
 * CURSOR
 * CURSORED
 * CURSORCP
+VDUQ        EQU   VDUVARS+$27 ; *TEMP* $27..$2F
+
+
+* Output character to VDU driver
+********************************
+* On entry: A=character
+* On exit:  All registers trashable
+*           CS if printer echo enabled for this character
+* 
+OUTCHAR     LDX   FXVDUQLEN
+            BNE   ADDTOQ	; Waiting for chars
+            CMP   #$7F
+            BEQ   CTRLDEL	; =$7F - control char
+            CMP   #$20
+            BCC   CTRLCHAR	; <$20 - control char
+            BIT   VDUSTATUS
+            BMI   OUTCHEXIT	; VDU disabled
+            JSR   PRCHRC        ; Store char, checking keypress
+            JSR   VDU09         ; Move cursor right
+OUTCHEXIT   LDA   VDUSTATUS
+            LSR   A             ; Return Cy=Printer Echo Enabled
+            RTS
+
+CTRLDEL     LDA   #$20          ; $7F becomes $20
+CTRLCHAR    CMP   #$01
+            BEQ   ADDQ          ; One param
+            CMP   #$11
+            BCC   CTRLCHARGO    ; Zero params
+ADDQ        STA   VDUCHAR       ; Save initial character
+            AND   #$0F
+            TAX
+            LDA   QLEN,X
+            STA   FXVDUQLEN     ; Number of params to queue
+            BEQ   CTRLCHARGO1   ; Zero, do it now
+QDONE       CLC                 ; CLC=Don't echo VDU queue to printer
+            RTS
+ADDTOQ      STA   VDUQ-256+9,X
+            INC   FXVDUQLEN
+            BNE   QDONE
+CTRLCHARGO1 LDA   VDUCHAR
+CTRLCHARGO  ASL   A
+            TAY
+            CMP   #$10          ; 8*2
+            BCC   CTRLCHARGO2   ; ctrl<$08, don't echo to printer
+            EOR   #$FF          ; ctrl>$0D, don't echo to printer
+            CMP   #$E5          ; (13*2) EOR 255
+CTRLCHARGO2 PHP
+            JSR   CTRLCHARJMP   ; Call routine
+            PLP
+            BCS   OUTCHEXIT     ; If echoable, test if printer enabled
+            RTS                 ; Return, CC=Don't echo to printer
+
+OUTCHARGO   ASL   A             ; Entry point to move COPY cursor
+            TAY                 ;  (TEMP and scroll screen)
+CTRLCHARJMP CPY   #6*2
+            BEQ   CTRLCHAR6     ; Always allow VDU 6 through
+            BIT   VDUSTATUS
+            BMI   VDU00         ; VDU disabled
+CTRLCHAR6   LDA   CTRLADDRS+1,Y
+            PHA
+            LDA   CTRLADDRS+0,Y
+            PHA
+VDU27
+VDU00       RTS                 ; Enters code with CS=(ctrl>=8 && ctrl<=13)
+
+QLEN        DB    -0,-1,-2,-5,-0,-0,-1,-9 ; 32,1 or 17,18,19,20,21,22,23
+            DB    -8,-5,-0,-0,-4,-4,-0,-2 ; 24,25,26,27,28,29,30,31
+CTRLADDRS   DW    VDU00-1,VDU01-1,VDU02-1,VDU03-1
+            DW    VDU04-1,VDU05-1,VDU06-1,BEEP-1
+            DW    VDU08-1,VDU09-1,VDU10-1,VDU11-1
+            DW    VDU12-1,VDU13-1,VDU14-1,VDU15-1
+            DW    VDU16-1,VDU17-1,VDU18-1,VDU19-1
+            DW    VDU20-1,VDU21-1,VDU22-1,VDU23-1
+            DW    VDU24-1,VDU25-1,VDU26-1,VDU27-1
+            DW    VDU28-1,VDU29-1,VDU30-1,VDU31-1
+            DW    VDU127-1
+
+
+* Turn things on and off
+************************
+
+* VDU 2 - Start print job
+VDU02
+*           JSR   select printer
+            LDA   #$01          ; Set Printer Echo On
+            BNE   SETSTATUS
+
+* VDU 5 - Text at graphics cursor
+VDU05       LDX   VDUBYTES
+            DEX
+            BEQ   SETEXIT       ; 1 byte per char, text only
+* Turn cursor off and other stuff
+            LDA   #$20          ; Set VDU 5 mode
+            BNE   SETSTATUS
+
+* VDU 14 - Select paged scrolling
+VDU14       STZ   FXLINES       ; Reset line counter
+            LDA   #$04          ; Set Paged Mode
+            BNE   SETSTATUS
+
+* VDU 21 - Disable VDU
+VDU21       LDA   #$80          ; Set VDU disabled
+
+SETSTATUS   ORA   VDUSTATUS     ; Set bits in VDU STATUS
+            STA   VDUSTATUS
+SETEXIT     RTS
+
+* VDU 3 - End print job
+VDU03
+*           JSR   flush printer
+            LDA   #$FE          ; Clear Printer Echo
+            BNE   CLRSTATUS
+
+* VDU 4 - Text at text cursor
+VDU04
+* Turn cursor on and other stuff
+            LDA   #$DF          ; Clear VDU 5 mode
+            BNE   CLRSTATUS
+
+* VDU 15 - Disable paged scrolling
+VDU15       LDA   #$FB          ; Clear paged scrolling
+            BRA   CLRSTATUS
+
+* VDU 6 - Enable VDU
+VDU06       LDA   #$7F          ; Clear VDU disabled
+
+CLRSTATUS   AND   VDUSTATUS
+            STA   VDUSTATUS
+            RTS
+
 
 
 * Move editing cursor
@@ -124,18 +249,18 @@ COPYSWAP4   RTS
 
 
 * Clear to EOL
-CLREOL      LDA   VDUTEXTY      ; ROW
+CLREOL      LDA   VDUTEXTY ; ROW
             ASL
             TAX
             LDA   SCNTAB,X      ; LSB of row
             STA   ZP1
             LDA   SCNTAB+1,X    ; MSB of row
             STA   ZP1+1
-            LDA   VDUTEXTX      ; COL
+            LDA   VDUTEXTX ; COL
             PHA
-            STZ   VDUTEXTX      ; COL
+            STZ   VDUTEXTX ; COL
 :L1
-            LDA   VDUTEXTX      ; COL
+            LDA   VDUTEXTX ; COL
             LSR
             TAY
             BCC   :S1
@@ -143,32 +268,32 @@ CLREOL      LDA   VDUTEXTY      ; ROW
 :S1         LDA   #" "
             STA   (ZP1),Y
             >>>   WRTAUX
-            LDA   VDUTEXTX      ; COL
+            LDA   VDUTEXTX ; COL
             CMP   #79
             BEQ   :S2
-            INC   VDUTEXTX      ; COL
+            INC   VDUTEXTX ; COL
             BRA   :L1
 :S2         PLA
-            STA   VDUTEXTX      ; COL
+            STA   VDUTEXTX ; COL
             RTS
 
 * Clear the screen
-VDUINIT     STA   $C00F
-            LDA   #'_'
-            STA   CURSOR        ; Normal cursor
-            STA   CURSORCP      ; Copy cursor when editing
-            LDA   #$A0
-            STA   CURSORED      ; Edit cursor when editing
-CLEAR       STZ   VDUTEXTY      ; ROW
-            STZ   VDUTEXTX      ; COL
+*VDUINIT     STA   $C00F
+*            LDA   #'_'
+*            STA   CURSOR        ; Normal cursor
+*            STA   CURSORCP      ; Copy cursor when editing
+*            LDA   #$A0
+*            STA   CURSORED      ; Edit cursor when editing
+CLEAR       STZ   VDUTEXTY ; ROW
+            STZ   VDUTEXTX ; COL
 :L1         JSR   CLREOL
-:S2         LDA   VDUTEXTY      ; ROW
+:S2         LDA   VDUTEXTY ; ROW
             CMP   #23
             BEQ   :S3
-            INC   VDUTEXTY      ; ROW
+            INC   VDUTEXTY ; ROW
             BRA   :L1
-:S3         STZ   VDUTEXTY      ; ROW
-            STZ   VDUTEXTX      ; COL
+:S3         STZ   VDUTEXTY ; ROW
+            STZ   VDUTEXTX ; COL
             RTS
 
 * Calculate character address
@@ -260,124 +385,168 @@ GETCHR7     TYA
 GETCHROK    RTS
 
 
-BYTE86      LDY   VDUTEXTY      ; ROW           ; $86 = read cursor pos
-            LDX   VDUTEXTX      ; COL
+BYTE86      LDY   VDUTEXTY ; ROW           ; $86 = read cursor pos
+            LDX   VDUTEXTX ; COL
             RTS
 
 * Perform backspace & delete operation
+VDU127
 DELETE      JSR   BACKSPC
 :S2         LDA   #' '
             JMP   PUTCHRC
 *:S3         RTS
 
 * Perform backspace/cursor left operation
+VDU08
 BACKSPC
-            LDA   VDUTEXTX      ; COL
+            LDA   VDUTEXTX ; COL
             BEQ   :S1
-            DEC   VDUTEXTX      ; COL
+            DEC   VDUTEXTX ; COL
             BRA   :S3
-:S1         LDA   VDUTEXTY      ; ROW
+:S1         LDA   VDUTEXTY ; ROW
             BEQ   :S3
-            DEC   VDUTEXTY      ; ROW
+            DEC   VDUTEXTY ; ROW
             LDA   #39
             BIT   $C01F
             BPL   :S2
             LDA   #79
 :S2
-            STA   VDUTEXTX      ; COL
+            STA   VDUTEXTX ; COL
 :S3         RTS
 
 
-* Output character to VDU driver
-* All registers trashable
-OUTCHAR
-*
-* Quick'n'nasty VDU queue
-            LDX   FXVDUQLEN
-            BNE   ADDTOQ
-            CMP   #$01
-            BEQ   ADDQ          ; One param
-            CMP   #$11
-            BCC   OUTCHARGO     ; Zero param
-            CMP   #$20
-            BCS   OUTCHARGO     ; Print chars
-ADDQ        STA   VDUCHAR       ; Save initial character
-            AND   #$0F
-            TAX
-            LDA   QLEN,X
-            STA   FXVDUQLEN
-            BEQ   OUTCHARGO1
-QDONE       RTS
-QLEN        DB    -0,-1,-2,-5,-0,-0,-1,-9
-            DB    -8,-5,-0,-0,-4,-4,-0,-2
-ADDTOQ      STA   VDUQ-256+9,X
-            INC   FXVDUQLEN
-            BNE   QDONE
-OUTCHARGO1  LDA   VDUCHAR
-* end nasty hack
-*
-OUTCHARGO   CMP   #$00          ; NULL
-            BNE   :T1
-            BRA   :IDONE
-:T1         CMP   #$07          ; BELL
-            BNE   :T2
-            JSR   BEEP
-            BRA   :IDONE
-:T2         CMP   #$08          ; Backspace
-            BNE   :T3
-            JSR   BACKSPC
-            BRA   :IDONE
-:T3         CMP   #$09          ; Cursor right
-            BNE   :T4
+** Output character to VDU driver
+** All registers trashable
+*OUTCHAR0
+**
+** Quick'n'nasty VDU queue
+*            LDX   FXVDUQLEN
+*            BNE   ADDTOQX
+*            CMP   #$01
+*            BEQ   ADDQX          ; One param
+*            CMP   #$11
+*            BCC   OUTCHARGO     ; Zero param
+*            CMP   #$20
+*            BCS   OUTCHARGO     ; Print chars
+*ADDQ        STA   VDUCHAR       ; Save initial character
+*            AND   #$0F
+*            TAX
+*            LDA   QLEN,X
+*            STA   FXVDUQLEN
+*            BEQ   OUTCHARGO1
+*QDONE       RTS
+*QLEN        DB    -0,-1,-2,-5,-0,-0,-1,-9
+*            DB    -8,-5,-0,-0,-4,-4,-0,-2
+*ADDTOQ      STA   VDUQ-256+9,X
+*            INC   FXVDUQLEN
+*            BNE   QDONE
+*OUTCHARGO1  LDA   VDUCHAR
+** end nasty hack
+**
+*OUTCHARGO   CMP   #$00          ; NULL
+*            BNE   :T1
+*            BRA   :IDONE
+*:T1         CMP   #$07          ; BELL
+*            BNE   :T2
+*VDU07
+*            JSR   BEEP
+*            BRA   :IDONE
+*:T2         CMP   #$08          ; Backspace
+*            BNE   :T3
+*            JSR   BACKSPC
+*            BRA   :IDONE
+*:T3         CMP   #$09          ; Cursor right
+*            BNE   :T4
 *            JSR   CURSRT
-            JSR   VDU09
-            BRA   :IDONE
-:T4         CMP   #$0A          ; Linefeed
-            BNE   :T5
-            LDA   VDUTEXTY      ; ROW
+*            JSR   VDU09
+*            BRA   :IDONE
+*:T4         CMP   #$0A          ; Linefeed
+*            BNE   :T5
+VDU10
+            LDA   VDUTEXTY ; ROW
             CMP   #23
             BEQ   :TOSCROLL     ; JGH
-            INC   VDUTEXTY      ; ROW
+            INC   VDUTEXTY ; ROW
 :IDONE      RTS
 * BRA   :DONE
 :TOSCROLL   JMP   SCROLL        ; JGH
-:T5         CMP   #$0B          ; Cursor up
-            BNE   :T6
-            LDA   VDUTEXTY      ; ROW
+*:T5         CMP   #$0B          ; Cursor up
+*            BNE   :T6
+VDU11
+            LDA   VDUTEXTY ; ROW
             BEQ   :IDONE
-            DEC   VDUTEXTY      ; ROW
+            DEC   VDUTEXTY ; ROW
 *            BRA   :IDONE
             RTS
-:T6         CMP   #$0D          ; Carriage return
-            BNE   :T7
+*:T6         CMP   #$0D          ; Carriage return
+*            BNE   :T7
+VDU13
             LDA   #$BF
-            AND   VDUSTATUS
-            STA   VDUSTATUS     ; Turn copy cursor off
-            STZ   VDUTEXTX      ; COL
+            JSR   CLRSTATUS      ; Turn copy cursor off
+            STZ   VDUTEXTX ; COL
 *            BRA   :IDONE
             RTS
-:T7         CMP   #$0C          ; Ctrl-L
-            BEQ   :T7A
-            CMP   #$16          ; MODE
-            BNE   :T8
-            LDA   VDUQ+8
+*:T7         CMP   #$0C          ; Ctrl-L
+*            BEQ   VDU12
+*            CMP   #$16          ; MODE
+*            BNE   :T8
+
+* Initialise VDU driver
+***********************
+* On entry, A=MODE to start in
+* Assumes workspace has been zero'd by kernel startup
+*
+VDUINIT      STA   VDUQ+8
+
+* VDU 22 - MODE n
+*****************
+* At the moment only MODEs available:
+*  MODE 3 - 80x24 text
+*  MODE 6 - 40x24 text
+*  MODE 7 - 40x24 with $80-$9F converted to spaces
+*  MODE 0 defaults to MODE 3
+*  All others default to MODE 6
+*
+VDU22       LDA   VDUQ+8
+            AND   #$07
             STA   VDUMODE
-            EOR   #$07
-            AND   #$01
-            TAX
-            STA   $C00C,X
-:T7A        JSR   CLEAR
+            LDX   #$01		; 80-col
+            CMP   #$00
+            BEQ   VDU22A	; MODE 0 -> MODE 3, 80x24, text
+            CMP   #$03
+            BEQ   VDU22A	; MODE 3 -> MODE 3, 80x24 text
+            DEX			; All other MODEs default to 40-col
+VDU22A      STA   $C00C,X	; Select 40col/80col
+            STA   $C003		; Alt charset off
+            STA   $C055		; PAGE2
+            STA   $C00F
+*
+* Set up default cursors
+            LDA   #'_'
+            STA   CURSOR	; Normal cursor
+            STA   CURSORCP	; Copy cursor when editing
+            LDA   #$A0
+            STA   CURSORED	; Edit cursor when editing
+* JSR VDU15 ; Turn off paged scrolling
+* JSR VDU20 ; Reset colours
+* JSR VDU26 ; Reset windows
+* ; Drop through into VDU12, clear screen
+
+
+VDU12
+*:T7A
+            JMP   CLEAR
+*:T8         CMP   #$1E          ; Home
+*            BNE   :T9
+VDU30
+            STZ   VDUTEXTY ; ROW
+            STZ   VDUTEXTX ; COL
 *            BRA   :IDONE
             RTS
-:T8         CMP   #$1E          ; Home
-            BNE   :T9
-            STZ   VDUTEXTY      ; ROW
-            STZ   VDUTEXTX      ; COL
-*            BRA   :IDONE
-            RTS
-:T9
-            CMP   #$1F          ; TAB
-            BNE   :T9B
+*:T9
+*            CMP   #$1F          ; TAB
+*            BNE   :T9B
+VDU31
             LDY   VDUQ+8
             CPY   #24
             BCS   :IDONE
@@ -386,17 +555,17 @@ OUTCHARGO   CMP   #$00          ; NULL
             BCS   :IDONE
             BIT   $C01F
             BMI   :T9A
-            CPX   #80
+            CPX   #40
             BCS   :IDONE
 :T9A
-            STX   VDUTEXTX      ; COL
-            STY   VDUTEXTY      ; ROW
+            STX   VDUTEXTX ; COL
+            STY   VDUTEXTY ; ROW
             RTS
-:T9B        CMP   #$7F          ; Delete
-            BNE   :T10
-            JSR   DELETE
+*:T9B        CMP   #$7F          ; Delete
+*            BNE   :T10
+*            JSR   DELETE
 *            BRA   :IDONE
-            RTS
+*            RTS
 :T10        CMP   #$20
             BCC   :IDONE
             CMP   #$80
@@ -411,7 +580,7 @@ OUTCHARGO   CMP   #$00          ; NULL
 
 * Perform cursor right operation
 VDU09
-            LDA   VDUTEXTX      ; COL
+            LDA   VDUTEXTX ; COL
             CMP   #39
             BCC   :S2
             BIT   $C01F
@@ -419,15 +588,15 @@ VDU09
             CMP   #79
             BCC   :S2
 :T11
-            STZ   VDUTEXTX      ; COL
-            LDA   VDUTEXTY      ; ROW
+            STZ   VDUTEXTX ; COL
+            LDA   VDUTEXTY ; ROW
             CMP   #23
             BEQ   SCROLL
-            INC   VDUTEXTY      ; ROW
+            INC   VDUTEXTY ; ROW
 :DONE       RTS
 *           BRA   :DONE
 :S2
-            INC   VDUTEXTX      ; COL
+            INC   VDUTEXTX ; COL
             BRA   :DONE
 SCROLL      JSR   SCROLLER
 *            STZ   VDUTEXTX ; COL
@@ -484,24 +653,57 @@ SCNTAB      DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
             DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
 
 
+* Unimplemented
+* May end up moving graphics bits to seperate source
+
+* VDU 1 - Send one character to printer
+VDU01       RTS
+
+* VDU 16 - CLG, clear graphics window
+VDU16       RTS
+
+* VDU 17 - COLOUR n - select text or border colour
+VDU17       RTS
+
+* VDU 18 - GCOL k,a - select graphics colour and plot action
+VDU18       RTS
+
+* VDU 19 - Select palette colours
+VDU19       RTS
+
+* VDU 20 - Reset to default colours
+VDU20       RTS
+
+* VDU 23 - Program video system and define characters
+VDU23       RTS
+
+* VDU 24,left;bottom;right;top; - define graphics window
+VDU24       RTS
+
+* VDU 25,k,x;y; - PLOT k,x;y; - PLOT point, line, etc.
+VDU25       RTS
+
+* VDU 26 - Reset to default windows
+VDU26       RTS
+
+* VDU 28,left,bottom,right,top - define text window
+VDU28       RTS
+
+* VDU 29,x;y; - define graphics origin
+VDU29       RTS
+
+
+
+
+* OSBYTE &75 - Read VDUSTATUS
+*****************************
+BYTE75       LDX   VDUSTATUS
+             RTS
+
 * TEST code for VIEW
-BYTE75      LDX   VDUSTATUS
-            RTS
-BYTE76      LDX   #$00
-            RTS
-BYTEA0      LDY   #79           ; Read VDU variable $09,$0A
-            LDX   #23
-            RTS
+* OSBYTE &A0 - Read VDU variable
+********************************
+BYTEA0       LDY   #79            ; Read VDU variable $09,$0A
+             LDX   #23
+             RTS
 * TEST
-
-
-
-
-
-
-
-
-
-
-
-
