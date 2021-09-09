@@ -91,6 +91,7 @@ RENFILE      >>>   ENTMAIN
 OFILE        >>>   ENTMAIN
              PHA                      ; Preserve arg for later
              JSR   PREPATH            ; Preprocess pathname
+             JSR   WILDCARD           ; Handle any wildcards
              JSR   EXISTS             ; See if file exists ...
              CMP   #$02               ; ... and is a directory
              BNE   :NOTDIR
@@ -306,6 +307,7 @@ TELL         >>>   ENTMAIN
 *        A>$1F ProDOS error, translated by FILERET
 LOADFILE     >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
+             JSR   WILDCARD           ; Handle any wildcards
              JSR   EXISTS             ; See if it exists ...
              CMP   #$01               ; ... and is a file
              BEQ   :ISFILE
@@ -642,6 +644,7 @@ CATALOG      >>>   ENTMAIN
              LDA   MOSFILE            ; Length of pathname
              BEQ   :NOPATH            ; If zero use prefix
              JSR   PREPATH            ; Preprocess pathname
+             JSR   WILDCARD           ; Handle any wildcards
              JSR   EXISTS             ; See if path exists ...
              CMP   #$01               ; ... and is a file
              BNE   :NOTFILE
@@ -684,7 +687,7 @@ CATALOGRET
 * Set prefix. Used by *CHDIR to change directory
 SETPFX       >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
-             JSR   WILDCARD           ; EXPERIMENTAL
+             JSR   WILDCARD           ; Handle any wildcards
              BCS   :ERR
              LDA   #<MOSFILE
              STA   SPFXPL+1
@@ -727,6 +730,7 @@ DRVINFO      >>>   ENTMAIN
 * Filename in MOSFILE, flags in MOSFILE2
 SETPERM      >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
+             JSR   WILDCARD           ; Handle any wildcards
              BCS   :ERR
              STZ   :LFLAG
              STZ   :WFLAG
@@ -793,13 +797,4 @@ MAINRDMEM    STA   A1L
              LDA   $C081
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
-
-
-
-
-
-
-
-
-
 
