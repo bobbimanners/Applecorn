@@ -55,6 +55,8 @@ SEGMENT LDY  #$00
         INY
         BRA  :L1
 :DONE   STY  SEGBUF     ; Record the length
+        LDA  #$00
+        STA  SEGBUF+1,Y ; Null terminate for MATCH
         INX             ; Skip the slash
         CLC             ; Not the last one
         RTS
