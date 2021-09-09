@@ -47,6 +47,12 @@ WILDCARD    STZ   :LAST
             RTS
 :LAST       DB    $00          ; Flag for last segment
 
+* Obtain subsequent wildcard matches
+* WILDCARD must have been called first
+* Returns with carry set if wildcard match fails, clear otherwise
+WILDNEXT    SEC                ; Just say 'no match' for now
+            RTS
+
 * Copy a segment of the path into SEGBUF
 * PREPATH makes all paths absolute, so always begins with '/'
 * On entry: X contains index of first char in MOSFILE to process
