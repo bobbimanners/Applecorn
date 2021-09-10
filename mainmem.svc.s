@@ -91,8 +91,12 @@ RENFILE      >>>   ENTMAIN
 OFILE        >>>   ENTMAIN
              PHA                      ; Preserve arg for later
              JSR   PREPATH            ; Preprocess pathname
+             PLA
+             PHA
+             CMP   #$80               ; Is it "w"?
+             BEQ   :S1                ; If so, no wildcards
              JSR   WILDONE            ; Handle any wildcards
-             JSR   EXISTS             ; See if file exists ...
+:S1          JSR   EXISTS             ; See if file exists ...
              CMP   #$02               ; ... and is a directory
              BNE   :NOTDIR
              JMP   :NOTFND            ; Bail out if directory
