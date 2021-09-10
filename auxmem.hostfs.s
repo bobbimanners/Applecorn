@@ -303,13 +303,16 @@ FSCCOMMAND  ASC   'CHDIR'
             DW    FSCDRIVE-1          ; Select drive, LPTR=>params
             ASC   'FREE'
             DB    $80
-            DW    FSCFREE-1           ; FREE (<drive)>, LPTR=>params
+            DW    FSCFREE-1           ; FREE <drive>, LPTR=>params
             ASC   'ACCESS'
             DB    $80
-            DW    FSCACCESS-1         ; ACCESS <obj> <access), LPTR=>params
+            DW    FSCACCESS-1         ; ACCESS <objlist> <access>, LPTR=>params
             ASC   'TITLE'
             DB    $80
             DW    FSCTITLE-1          ; TITLE (<drive>) <title>, LPTR=>params
+            ASC   'DESTROY'
+            DB    $80
+            DW    FSCDESTROY-1        ; DESTROY <objlist>, LPTR=>params
 *
             DB    $FF                 ; Terminator
 
@@ -342,11 +345,16 @@ FSCHND
             CMP   #$0C
             BEQ   FSCREN              ; A=12 - *RENAME
 
+* Performs OSFSC *OPT function
+FSOPT       RTS                       ; No FS options for now
+
 FSCDRIVE    JMP   DRIVE
 
 FSCFREE     JMP   FREE
 
 FSCACCESS   JMP   ACCESS
+
+FSCDESTROY  JMP   DESTROY
 
 FSCTITLE
 
@@ -393,9 +401,6 @@ FSCRUNLP    LDA   (OSLPTR),Y          ; Look for command line
 FSCREN      JMP   RENAME
 
 FSCCHDIR    JMP   CHDIR
-
-* Performs OSFSC *OPT function
-FSOPT       RTS                       ; No FS options for now
 
 * Performs OSFSC Read EOF function
 * File ref number is in X
@@ -664,12 +669,12 @@ FREERET
 
 ACCESS      JSR   PARSLPTR            ; Copy filename->MOSFILE
             CMP   #$00                ; Filename length
-            BEQ   :ACCSYN
+            BEQ   :SYNTAX
             JSR   PARSLPTR2           ; Copy Arg2->MOSFILE2
             >>>   XF2MAIN,SETPERM
-:ACCSYN     BRK
+:SYNTAX     BRK
             DB    $DC
-            ASC   'Syntax: ACCESS <pathname> <L|R|W>'
+            ASC   'Syntax: ACCESS <obj-list> <L|R|W>'
             BRK
 
 ACCRET      >>>   ENTAUX
@@ -677,6 +682,20 @@ ACCRET      >>>   ENTAUX
             LDA   #$00
             RTS
 
+DESTROY     JSR   PARSLPTR            ; Copy filename->MOSFILE
+            CMP   #$00                ; Filename length
+            BEQ   :SYNTAX
+            >>>   XF2MAIN,MULTIDEL
+:SYNTAX     BRK
+            DB    $DC
+            ASC   'Syntax: DESTROY <obj-list>'
+            BRK
+
+DESTRET     >>>   ENTAUX
+            JSR   CHKERROR
+            LDA   #$00
+            RTS
+           
 * Parse filename pointed to by XY
 * Write filename to MOSFILE in main memory
 * Returns length in A

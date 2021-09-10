@@ -25,7 +25,7 @@ DELFILE      >>>   ENTMAIN
              JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy back to aux mem
              PHA                      ; Save object type
-             JSR   DESTROY
+             JSR   DODELETE
              BCC   :DELETED
              PLX                      ; Drop object
              JSR   CHKNOTFND
@@ -33,7 +33,7 @@ DELFILE      >>>   ENTMAIN
 :DELETED     PLA                      ; Get object back
 :EXIT        >>>   XF2AUX,OSFILERET
 
-DESTROY      LDA   #<MOSFILE          ; Attempt to destroy file
+DODELETE     LDA   #<MOSFILE          ; Attempt to destroy file
              STA   DESTPL+1
              LDA   #>MOSFILE
              STA   DESTPL+2
@@ -104,7 +104,7 @@ OFILE        >>>   ENTMAIN
              PHA
              CMP   #$80               ; Write mode
              BNE   :S0
-             JSR   DESTROY
+             JSR   DODELETE
              LDA   #$01               ; Storage type - file
              STA   CREATEPL+7
              LDA   #$06               ; Filetype BIN
@@ -795,6 +795,32 @@ SETPERM      >>>   ENTMAIN
 :LFLAG       DB    $00                ; 'L' attribute
 :WFLAG       DB    $00                ; 'W' attribute
 :RFLAG       DB    $00                ; 'R' attribute
+
+* Multi file delete, for *DESTROY
+* Filename in MOSFILE
+MULTIDEL     >>>   ENTMAIN
+             JSR   PREPATH            ; Preprocess pathname
+             BCS   :SYNERR
+             JSR   WILDCARD           ; Handle any wildcards
+             BCS   :NONE
+             BRA   :MAINLOOP
+:SYNERR      LDA   #$40               ; Invalid pathname syn
+             BRA   :EXIT
+:NONE        JSR   CLSDIR
+             LDA   #$40               ; TODO PROPER ERROR CODE
+             BRA   :EXIT
+:MAINLOOP    JSR   DODELETE
+             BCS   :DELERR
+             JSR   WILDNEXT
+             BCS   :NOMORE
+             BRA   :MAINLOOP
+:EXIT        >>>   XF2AUX,DESTRET
+:DELERR      JSR   CLSDIR
+             LDA   #$40               ; TODO PROPER ERROR CODE
+             BRA   :EXIT
+:NOMORE      JSR   CLSDIR
+             LDA   #$00
+             BRA   :EXIT
 
 * Read mainmem from auxmem
 MACHRD       LDA   $C081
