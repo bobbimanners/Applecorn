@@ -15,13 +15,14 @@ WILDONE     JSR   WILDCARD
 * append the segment as it is. Uses MFTEMP to build up the path.
 * Returns with carry set if wildcard match fails, clear otherwise
 WILDCARD    STZ   :LAST
-            LDA   #$FF          ; WILDIDX=$FF denotes new search
-            STA   WILDIDX
             LDX   #$00          ; Start with first char
             STX   MFTEMP        ; Clear MFTEMP (len=0)
             PHX
 :L1         PLX
             JSR   SEGMENT       ; Extract segment of pathname
+            JSR   CLSDIR        ; Close open dir, if any
+            LDA   #$FF          ; WILDIDX=$FF denotes new search
+            STA   WILDIDX
             BCC   :NOTLST
             DEC   :LAST
 :NOTLST     PHX
