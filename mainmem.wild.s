@@ -271,7 +271,10 @@ MATCHENT    LDA   #<BLKBUF+4    ; Skip pointers
             BRA   :L2
 :MATCH      SEC
             RTS
-:NOMATCH    CLC
+:NOMATCH    LDA   #$00
+            LDY   #$00
+            STA   (A1L),Y       ; Pretend entry is deleted
+            CLC
             RTS
 
 * From: http://6502.org/source/strings/patmatch.htm
