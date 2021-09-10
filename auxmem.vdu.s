@@ -34,8 +34,6 @@ VDUSTATUS    EQU   $D0              ; $D0 # VDU status
 VDUCHAR      EQU   VDUSTATUS+1      ; $D1
 VDUADDR      EQU   VDUSTATUS+4      ; $D4  address of current char cell
 
-BYTEVARBASE  EQU   $190             ; For Merlin-8/Merlin-16
-
 * VDU DRIVER MAIN WORKSPACE
 ***************************
 FXLINES      EQU   BYTEVARBASE+217  ; Pages scrolling line counter

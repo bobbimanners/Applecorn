@@ -60,21 +60,7 @@ GBPBV       EQU   $21A        ; OSGBPB vector
 FINDV       EQU   $21C        ; OSFIND vector
 FSCV        EQU   $21E        ; FSCV misc file ops
 
+BYTEVARBASE EQU   $190        ; Base of OSBYTE variables
 OSFILECB    EQU   $2EE        ; OSFILE control block
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
