@@ -21,7 +21,7 @@ WILDCARD    STZ   :LAST
 :L1         PLX
             JSR   SEGMENT       ; Extract segment of pathname
             JSR   CLSDIR        ; Close open dir, if any
-            LDA   #$FF          ; WILDIDX=$FF denotes new search
+            LDA   #$F0          ; WILDIDX=$F0 denotes new search
             STA   WILDIDX
             BCC   :NOTLST
             DEC   :LAST
@@ -159,9 +159,11 @@ WILDIDX     DB    $00           ; Dirent idx in current block
 * If no match, or any other error, returns with carry set
 * Leaves the directory open to allow resumption of search.
 SRCHDIR     LDA   WILDIDX
-            CMP   #$FF          ; Is it a new search?
+            CMP   #$F0          ; Is it a new search?
             BEQ   :NEW
-            BRA   :S1           ; Continue search
+            CMP   #$FF          ; Time to load another blk?
+            BEQ   :L1           ; Continue search in next blk
+            BRA   :S1           ; Continue search in curr blk
 :NEW        STX   OPENPL+1
             STY   OPENPL+2
             JSR   OPENFILE
@@ -199,13 +201,13 @@ CLSDIR      PHP
 * Directory block is in BLKBUF
 * On exit: set carry if match, clear carry otherwise
 SRCHBLK     LDX   WILDIDX
-            CPX   #$FF          ; Is it a new search?
+            CPX   #$F0          ; Is it a new search?
             BEQ   :NEW
             BRA   :CONT
 :NEW        LDA   BLKBUF+4      ; Obtain storage type
             AND   #$E0          ; Mask 3 MSBs
             CMP   #$E0
-            BNE   :NOTKEY
+            BNE   :NOTKEY       ; Not key block
             LDX   #$01          ; Skip dir name
             BRA   :L1
 :NOTKEY     LDX   #$00
@@ -214,8 +216,9 @@ SRCHBLK     LDX   WILDIDX
             PLX
             BCS   :MATCH
 :CONT       INX
-            CPX   #13           ; Number of dirents in block
+            CPX   #13           ; Number of dirents in blk
             BNE   :L1
+            LDX   #$FF          ; Reset index to -1 for nxt blk
             CLC                 ; Fell off end, no match
 :MATCH      STX   WILDIDX       ; Record dirent idx for resume
             RTS
