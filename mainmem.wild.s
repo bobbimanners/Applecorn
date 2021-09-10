@@ -241,6 +241,11 @@ MATCHENT    LDA   #<BLKBUF+4    ; Skip pointers
 :S1         LDY   #$00
             LDA   (A1L),Y       ; Length byte
             BEQ   :NOMATCH      ; Inactive entry
+            AND   #$0F
+            TAY
+            INY
+            LDA   #$00
+            STA   (A1L),Y       ; Null terminate filename for MATCH
             INC   A1L           ; Inc ptr, skip length byte
             BNE   :S2
             INC   A1H
