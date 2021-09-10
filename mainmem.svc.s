@@ -643,8 +643,9 @@ QUIT         INC   $3F4               ; Invalidate powerup byte
              DW    QUITPL
              RTS
 
-* Obtain catalog of current PREFIX dir
+* Used for *CAT, *EX and *INFO
 CATALOG      >>>   ENTMAIN
+             STA   CATARG             ; Stash argument
              LDA   MOSFILE            ; Length of pathname
              BEQ   :NOPATH            ; If zero use prefix
              JSR   PREPATH            ; Preprocess pathname
@@ -687,6 +688,8 @@ CATEXIT      >>>   XF2AUX,STARCATRET
 CATALOGRET
              >>>   ENTMAIN
              BRA   CATREENTRY
+
+CATARG       DB    $00                ;  A=5 *CAT, A=9 *EX, A=10 *INFO
 
 * Set prefix. Used by *CHDIR to change directory
 SETPFX       >>>   ENTMAIN

@@ -418,8 +418,6 @@ CHKEOFRET
 FSCCAT      PHA
             JSR   PARSNAME            ; Copy filename->MOSFILE
             PLA
-            CMP   #10                 ; *TEMP*
-            BEQ   CATDONE             ; *TEMP*
             ASL   A
             ASL   A
             ASL   A                   ; 0101xxxx=*CAT
