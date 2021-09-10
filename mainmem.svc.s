@@ -94,9 +94,9 @@ OFILE        >>>   ENTMAIN
              PLA
              PHA
              CMP   #$80               ; Is it "w"?
-             BEQ   :S1                ; If so, no wildcards
+             BEQ   :NOWILD            ; If so, no wildcards
              JSR   WILDONE            ; Handle any wildcards
-:S1          JSR   EXISTS             ; See if file exists ...
+:NOWILD      JSR   EXISTS             ; See if file exists ...
              CMP   #$02               ; ... and is a directory
              BNE   :NOTDIR
              JMP   :NOTFND            ; Bail out if directory
@@ -811,8 +811,4 @@ MAINRDMEM    STA   A1L
              LDA   $C081
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
-
-
-
-
 
