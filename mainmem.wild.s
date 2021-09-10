@@ -281,6 +281,7 @@ MATCHENT    LDA   #<BLKBUF+4    ; Skip pointers
 * Notes:  Clobbers A, X, Y. Each * in the pattern uses 4 bytes of stack.
 
 MATCH1      EQU   '?'           ; Matches exactly 1 character
+MATCH1A     EQU   '#'           ; Matches exactly 1 character (alternate)
 MATCHN      EQU   '*'           ; Matches any string (including "")
 STR         EQU   A1L           ; Pointer to string to match
 
@@ -291,8 +292,10 @@ MATCH       LDX   #$00          ; X is an index in the pattern
             BEQ   :STAR         ; Yes, do the complicated stuff
             INY                 ; No, let's look at the string
             CMP   #MATCH1       ; Is the pattern caracter a ques?
-            BNE   :REG          ; No, it's a regular character
-            LDA   (STR),Y       ; Yes, so it will match anything
+            BEQ   :QUEST        ; Yes
+            CMP   #MATCH1A      ; Alternate pattern char (hash)
+            BNE   :REG          ; No
+:QUEST      LDA   (STR),Y       ; Yes, so it will match anything
             BEQ   :FAIL         ;  except the end of string
 :REG        CMP   (STR),Y       ; Are both characters the same?
             BNE   :FAIL         ; No, so no match
