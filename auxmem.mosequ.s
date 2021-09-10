@@ -41,7 +41,7 @@ ESCFLAG     EQU   $FF         ; $FF  Escape status
 
 
 * $0200-$0235 Vectors
-* $0236-$028F OSBYTE variables
+* $0236-$028F OSBYTE variables ($190+bytenum)
 * $0290-$02ED
 * $02EE-$02FF MOS control block
 
@@ -60,19 +60,6 @@ GBPBV       EQU   $21A        ; OSGBPB vector
 FINDV       EQU   $21C        ; OSFIND vector
 FSCV        EQU   $21E        ; FSCV misc file ops
 
+BYTEVARBASE EQU   $190        ; Base of OSBYTE variables
 OSFILECB    EQU   $2EE        ; OSFILE control block
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
