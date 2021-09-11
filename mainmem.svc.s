@@ -644,9 +644,14 @@ QUIT         INC   $3F4               ; Invalidate powerup byte
              RTS
 
 * Used for *CAT, *EX and *INFO
+* On entry: A=$5x *CAT, A=$9x *EX, A=$Ax *INFO
 CATALOG      >>>   ENTMAIN
+             AND   #$F0
              STA   CATARG             ; Stash argument
-             LDA   MOSFILE            ; Length of pathname
+             CMP   #$A0               ; Is it *INFO?
+             BNE   :NOTINFO
+             JMP   INFO               ; Handle entry for *INFO
+:NOTINFO     LDA   MOSFILE            ; Length of pathname
              BEQ   :NOPATH            ; If zero use prefix
              JSR   PREPATH            ; Preprocess pathname
              JSR   WILDONE            ; Handle any wildcards
@@ -687,9 +692,35 @@ CATEXIT      >>>   XF2AUX,STARCATRET
 * PRONEBLK call returns here ...
 CATALOGRET
              >>>   ENTMAIN
+             LDA   CATARG
+             CMP   #$A0               ; Is this an *INFO call?
+             BEQ   INFOREENTRY
              BRA   CATREENTRY
 
-CATARG       DB    $00                ;  A=5 *CAT, A=9 *EX, A=10 *INFO
+CATARG       DB    $00
+
+* Handle *INFO
+INFO         JSR   PREPATH            ; Preprocess pathname
+             JSR   WILDCARD           ; Handle any wildcards
+             BCS   INFEXIT
+
+INFOREENTRY
+             JSR   WILDNEXT
+             BCS   INFEXIT            ; No more matches
+:L1          JSR   WILDNEXT
+             BCS   :DONE
+             LDA   WILDIDX
+             CMP   #$FF               ; Finished a block?
+             BEQ   :DONE
+             BRA   :L1
+:DONE        JSR   COPYAUXBLK
+             >>>   XF2AUX,PRONEBLK
+
+INFEXIT      CMP   #$4C               ; EOF
+             BNE   :EXIT
+             LDA   #$00               ; EOF is not an error
+:EXIT        JSR   CLSDIR             ; Be sure to close it!
+             >>>   XF2AUX,STARCATRET
 
 * Set prefix. Used by *CHDIR to change directory
 SETPFX       >>>   ENTMAIN

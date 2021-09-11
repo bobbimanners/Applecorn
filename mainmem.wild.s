@@ -253,11 +253,13 @@ MATCHENT    LDA   #<BLKBUF+4    ; Skip pointers
             BNE   :S2
             INC   A1H
 :S2         JSR   MATCH         ; Try wildcard match
-            BCC   :NOMATCH
+            PHP
             LDA   A1L           ; Decrement ptr again
             BNE   :S3
             DEC   A1H
 :S3         DEC   A1L
+            PLP
+            BCC   :NOMATCH
             LDY   #$00          ; If matches, copy matching filename
             LDA   (A1L),Y       ; Length of filename
             AND   #$0F          ; Mask out other ProDOS stuff
