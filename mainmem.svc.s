@@ -702,25 +702,37 @@ CATARG       DB    $00
 * Handle *INFO
 INFO         JSR   PREPATH            ; Preprocess pathname
              JSR   WILDCARD           ; Handle any wildcards
-             BCS   INFEXIT
+             JSR   EXISTS             ; Check matches something
+             CMP   #$00
+             BEQ   INFOERR            ; If not, complain, bail
+             BRA   INFOFIRST
+** BUG: If the last segment is a literal with no wildcard, then
+**      the directory block is never loaded into memory, so printing
+**      it does not go well ;)
 
 INFOREENTRY
              JSR   WILDNEXT
-             BCS   INFEXIT            ; No more matches
-:L1          JSR   WILDNEXT
-             BCS   :DONE
-             LDA   WILDIDX
-             CMP   #$FF               ; Finished a block?
-             BEQ   :DONE
-             BRA   :L1
-:DONE        JSR   COPYAUXBLK
+             BCS   INFOEXIT           ; No more matches
+INFOFIRST    LDA   WILDIDX
+             CMP   #$FF               ; Is WILDNEXT about to read new blk?
+             BEQ   :DONEBLK           ; If so, print this blk first
+             JSR   WILDNEXT
+             BCS   :DONEBLK           ; If no more matches
+             BRA   INFOFIRST
+:DONEBLK     JSR   COPYAUXBLK
              >>>   XF2AUX,PRONEBLK
 
-INFEXIT      CMP   #$4C               ; EOF
-             BNE   :EXIT
+INFOEXIT     CMP   #$4C               ; EOF
+             BNE   INFOCLS
              LDA   #$00               ; EOF is not an error
-:EXIT        JSR   CLSDIR             ; Be sure to close it!
+             PHA
+INFOCLS      JSR   CLSDIR             ; Be sure to close it!
+             PLA
              >>>   XF2AUX,STARCATRET
+INFOERR      LDA   #$40               ; TODO PROPER ERROR CODE
+             PHA
+             BRA   INFOCLS
+             
 
 * Set prefix. Used by *CHDIR to change directory
 SETPFX       >>>   ENTMAIN

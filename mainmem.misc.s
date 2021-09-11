@@ -37,7 +37,7 @@ FINDBUF     LDX   #$00
 :END        RTS
 
 * Check if file exists
-* Return A=0 if doesn't exist, A=1 file, A=2 fir
+* Return A=0 if doesn't exist, A=1 file, A=2 dir
 EXISTS      LDA   #<MOSFILE
             STA   GINFOPL+1
             LDA   #>MOSFILE
