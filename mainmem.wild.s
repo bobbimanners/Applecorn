@@ -11,7 +11,7 @@ WILDONE     JSR   WILDCARD
 
 * Scan path in MOSFILE, break it into segments (ie: chunks delimited
 * by '/'), and for each segment see if it contains wildcard chars.
-* If so, pass it to SRCHDIR to expand the wildcard.  If not, just 
+* If so, pass it to SRCHBLK to expand the wildcard.  If not, just 
 * append the segment as it is. Uses MFTEMP to build up the path.
 * Returns with carry set if wildcard match fails, clear otherwise
 WILDCARD    STZ   :LAST
@@ -34,9 +34,9 @@ WILDCARD    STZ   :LAST
             BCS   :WILD         ; It does
             JSR   APPSEG        ; Not wild: Append SEGBUF to MFTEMP
             BRA   :NEXT
-:WILD       LDX   #<MFTEMP      ; Invoke SRCHDIR to look for pattern
+:WILD       LDX   #<MFTEMP      ; Invoke SRCHBLK to look for pattern
             LDY   #>MFTEMP      ; in the directory path MFTEMP
-            JSR   SRCHDIR
+:AGAIN      JSR   SRCHBLK
             BCS   :NOMATCH      ; Wildcard did not match anything
             JSR   APPMATCH      ; Append MATCHBUF to MFTEMP
 :NEXT       LDA   :LAST
@@ -45,7 +45,10 @@ WILDCARD    STZ   :LAST
             JSR   TMPtoMF       ; Copy the path we built to MOSFILE
             CLC
             RTS
-:NOMATCH    PLX
+:NOMATCH    LDA   WILDIDX       ; See if there are more blocks
+            CMP   #$FF
+            BEQ   :AGAIN        ; Yes, go again
+            PLX
             SEC
             RTS
 :LAST       DB    $00           ; Flag for last segment
@@ -64,12 +67,17 @@ WILDNEXT    LDX   MFTEMP        ; Length of MFTEMP
             BRA   :S1
 :S2         DEX
             BRA   :L1
-:S1         JSR   SRCHDIR
+:S1         JSR   SRCHBLK
             BCS   :NOMATCH
             JSR   APPMATCH      ; Append MATCHBUF to MFTEMP
             JSR   TMPtoMF       ; Copy back to MOSFILE
             CLC
-:NOMATCH    RTS
+            RTS
+:NOMATCH    LDA   WILDIDX       ; See if there are more blocks
+            CMP   #$FF
+            BEQ   :S1           ; Yes, go again
+            SEC
+            RTS
 
 * Copy a segment of the path into SEGBUF
 * PREPATH makes all paths absolute, so always begins with '/'
@@ -153,17 +161,17 @@ APPMATCH    LDY   MFTEMP        ; Dest idx = length
 WILDFILE    DB    $00           ; File ref num for open dir
 WILDIDX     DB    $00           ; Dirent idx in current block
 
-* Read directory, apply wildcard match
+* Read directory block, apply wildcard match
 * Inputs: directory name in XY (Pascal string)
 * If there is a match, replaces SEGBUF with the first match and CLC
 * If no match, or any other error, returns with carry set
 * Leaves the directory open to allow resumption of search.
-SRCHDIR     LDA   WILDIDX
+SRCHBLK     LDA   WILDIDX
             CMP   #$F0          ; Is it a new search?
             BEQ   :NEW
             CMP   #$FF          ; Time to load another blk?
-            BEQ   :L1           ; Continue search in next blk
-            BRA   :S1           ; Continue search in curr blk
+            BEQ   :READ         ; Continue search in next blk
+            BRA   :CONT         ; Continue search in curr blk
 :NEW        STX   OPENPL+1
             STY   OPENPL+2
             JSR   OPENFILE
@@ -171,20 +179,21 @@ SRCHDIR     LDA   WILDIDX
             LDA   OPENPL+5      ; File ref num
             STA   WILDFILE      ; Stash for later
             STA   READPL+1
-:L1         JSR   RDFILE        ; Read->BLKBUF
-            BCC   :S1
+:READ       JSR   RDFILE        ; Read->BLKBUF
+            BCC   :CONT
             CMP   #$4C          ; EOF
-            BEQ   :EOF
-            BRA   :BADDIR
-:S1         JSR   SRCHBLK       ; Handle one block
-            BCS   :MATCH
-            BRA   :L1
-:MATCH      CLC
-            BRA   :EXIT
-:BADDIR
+            BNE   :BADDIR
+            STZ   WILDIDX       ; So caller knows not to call again
 :EOF
-:NODIR      SEC
-:EXIT       RTS
+:BADDIR
+:NODIR
+            SEC                 ; No match, caller checks WILDIDX ..
+            RTS                 ; .. to see if another block
+
+:CONT       JSR   SRCHBLK2      ; Handle one block
+            BCS   :MATCH
+:MATCH      CLC
+            RTS
 
 * Close directory, if it was open
 * Preserves flags
@@ -200,7 +209,7 @@ CLSDIR      PHP
 * Apply wildcard match to a directory block
 * Directory block is in BLKBUF
 * On exit: set carry if match, clear carry otherwise
-SRCHBLK     LDX   WILDIDX
+SRCHBLK2    LDX   WILDIDX
             CPX   #$F0          ; Is it a new search?
             BEQ   :NEW
             BRA   :CONT
