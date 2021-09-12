@@ -693,7 +693,7 @@ DESTRET     >>>   ENTAUX
             JSR   CHKERROR
             LDA   #$00
             RTS
-           
+
 * Parse filename pointed to by XY
 * Write filename to MOSFILE in main memory
 * Returns length in A
@@ -909,6 +909,8 @@ ERROR5E     DW    $C000
 ERROR2E     DW    $C800
             ASC   'Disk changed'      ; $2E - Disk switched
             DB    $00
+
+
 
 
 

@@ -5,7 +5,8 @@
 
 * Performs wildcard matching for operations that only require the
 * first match.  <*obj-spec*> in Acorn ADFS terminology.
-WILDONE     JSR   WILDCARD
+WILDONE     CLC
+            JSR   WILDCARD
             JSR   CLSDIR
             RTS
 
@@ -13,8 +14,13 @@ WILDONE     JSR   WILDCARD
 * by '/'), and for each segment see if it contains wildcard chars.
 * If so, pass it to SRCHBLK to expand the wildcard.  If not, just 
 * append the segment as it is. Uses MFTEMP to build up the path.
+* On entry: SEC to force leaf noden lookup even if no wildcard,
+*           CLC otherwise
 * Returns with carry set if wildcard match fails, clear otherwise
-WILDCARD    STZ   :LAST
+WILDCARD    STZ   :ALWAYS       ; Set :ALWAYS if carry set
+            BCC   :NORMAL
+            DEC   :ALWAYS
+:NORMAL     STZ   :LAST
             LDX   #$00          ; Start with first char
             STX   MFTEMP        ; Clear MFTEMP (len=0)
             PHX
@@ -32,7 +38,11 @@ WILDCARD    STZ   :LAST
             BEQ   :L1           ; ... go again
 :S1         JSR   HASWILD       ; See if it has '*'/'#'/'?'
             BCS   :WILD         ; It does
-            JSR   APPSEG        ; Not wild: Append SEGBUF to MFTEMP
+            LDA   :ALWAYS       ; Always do leaf-node lookup?
+            BEQ   :S2
+            LDA   :LAST         ; If it is the last segment do ..
+            BNE   :WILD         ; .. wildcard lookup anyhow (for *INFO)
+:S2         JSR   APPSEG        ; Not wild: Append SEGBUF to MFTEMP
             BRA   :NEXT
 :WILD       LDX   #<MFTEMP      ; Invoke SRCHBLK to look for pattern
             LDY   #>MFTEMP      ; in the directory path MFTEMP
@@ -52,6 +62,7 @@ WILDCARD    STZ   :LAST
             SEC
             RTS
 :LAST       DB    $00           ; Flag for last segment
+:ALWAYS     DB    $00           ; Flag to always lookup leafnode
 
 * Obtain subsequent wildcard matches
 * WILDCARD must have been called first
@@ -360,6 +371,8 @@ MATCH       LDX   #$00          ; X is an index in the pattern
 
 SEGBUF      DS    65            ; For storing path segments (Pascal str)
 MATCHBUF    DS    65            ; For storing match results (Pascal str)
+
+
 
 
 
