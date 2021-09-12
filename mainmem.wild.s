@@ -59,16 +59,42 @@ WILDCARD    STZ   :LAST
 * Caller should check WILDIDX and call again if value is $FF
 WILDNEXT    LDX   MFTEMP        ; Length of MFTEMP
 :L1         CPX   #$00          ; Find final segment (previous match)
-            BEQ   :S1
+            BEQ   :AGAIN
             LDA   MFTEMP,X
             CMP   #'/'
             BNE   :S2
             DEX
             STX   MFTEMP        ; Trim MFTEMP
-            BRA   :S1
+            BRA   :AGAIN
 :S2         DEX
             BRA   :L1
-:S1         JSR   SRCHBLK
+:AGAIN      JSR   SRCHBLK
+            BCC   :NOMATCH
+            JSR   APPMATCH      ; Append MATCHBUF to MFTEMP
+            JSR   TMPtoMF       ; Copy back to MOSFILE
+            CLC
+            RTS
+:NOMATCH    LDA   WILDIDX       ; See if there are more blocks
+            CMP   #$FF
+            BEQ   :AGAIN        ; Yes, go again
+            SEC
+            RTS
+
+* Different version of WILDNEXT which is used by the *INFO handler
+* Because it needs to intercept each block.
+* TODO: Once this works, refactor/cleanup
+WILDNEXT2   LDX   MFTEMP        ; Length of MFTEMP
+:L1         CPX   #$00          ; Find final segment (previous match)
+            BEQ   :AGAIN
+            LDA   MFTEMP,X
+            CMP   #'/'
+            BNE   :S2
+            DEX
+            STX   MFTEMP        ; Trim MFTEMP
+            BRA   :AGAIN
+:S2         DEX
+            BRA   :L1
+:AGAIN      JSR   SRCHBLK
             BCC   :NOMATCH
             JSR   APPMATCH      ; Append MATCHBUF to MFTEMP
             JSR   TMPtoMF       ; Copy back to MOSFILE
@@ -184,7 +210,7 @@ SRCHBLK     LDA   WILDIDX
 :EOF
 :BADDIR
 :NODIR
-            SEC                 ; No match, caller checks WILDIDX ..
+            CLC                 ; No match, caller checks WILDIDX ..
             RTS                 ; .. to see if another block
 
 :CONT       JSR   SRCHBLK2      ; Handle one block
