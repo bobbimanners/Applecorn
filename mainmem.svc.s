@@ -704,8 +704,10 @@ INFO         JSR   PREPATH            ; Preprocess pathname
              JSR   WILDCARD           ; Handle any wildcards
              JSR   EXISTS             ; Check matches something
              CMP   #$00
-             BEQ   INFOERR            ; If not, complain, bail
-             BRA   INFOFIRST
+             BNE   INFOFIRST
+             LDA   #$46               ; Not found (TO DO: err code?)
+             BRA   CATEXIT
+
 ** BUG: If the last segment is a literal with no wildcard, then
 **      the directory block is never loaded into memory, so printing
 **      it does not go well ;)
@@ -725,13 +727,8 @@ INFOFIRST    LDA   WILDIDX
 INFOEXIT     CMP   #$4C               ; EOF
              BNE   INFOCLS
              LDA   #$00               ; EOF is not an error
-             PHA
 INFOCLS      JSR   CLSDIR             ; Be sure to close it!
-             PLA
-             >>>   XF2AUX,STARCATRET
-INFOERR      LDA   #$40               ; TODO PROPER ERROR CODE
-             PHA
-             BRA   INFOCLS
+             BRA   CATEXIT
              
 
 * Set prefix. Used by *CHDIR to change directory
