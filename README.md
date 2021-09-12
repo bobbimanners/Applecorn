@@ -190,6 +190,11 @@ Wildcards may also be used for `OSFILE` and `OSFIND` system calls, so
 BASIC command like `LOAD""`, `CHAIN""`, `OPENIN""` and `OPENUP""` can
 use wildcards to specify the file to open.
 
+The attentive reader will have noticed that I mention an exception to
+wildcard matching.  Volume directory names are not currently subject
+to wildcard search.  Either type them in full, or use the colon
+notation to specify physical drive as an abbreviation.
+
 ### Star Commands
 
 `*QUIT` - Terminate Applecorn and quit to ProDOS.  Because the 'BBC Micro'
