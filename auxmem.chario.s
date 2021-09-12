@@ -23,15 +23,12 @@
 * 02-Sep-2021 INKEY-256 tests Apple IIe vs IIc.
 * 05-Sep-2021 KBDINIT returns startup value to pass to VDUINT.
 * 09-Sep-2021 Moved keyboard OSBYTEs to here.
+* 12-Sep-2021 COPY calls new VDU entry point.
 
 
-** Moved to VDU.S
-*FLASHER      EQU   $290
-*CURSOR       EQU   $291
-*CURSORED     EQU   $292
-*CURSORCP     EQU   $293
-*OLDCHAR      EQU   $294
-*COPYCHAR     EQU   $295
+OLDCHAR      EQU   OSKBD1 ; *TEMP*  ; character under cursor
+COPYCHAR     EQU   OSKBD2 ; *TEMP*  ; character under copy cursor
+FLASHER      EQU   BYTEVARBASE+193  ; flash counter for cursor
 
 FXEXEC       EQU   BYTEVARBASE+198
 FXSPOOL      EQU   BYTEVARBASE+199
@@ -346,7 +343,7 @@ KEYCOPY      LDA   FXTABCHAR                 ; Prepare TAB if no copy cursor
              BVC   KEYREADOK1                ; No copy cursor, return TAB
              LDA   OLDCHAR                   ; Get the char under cursor
              PHA
-             JSR   OUTCHARGO                 ; Output it to restore and move cursor
+             JSR   OUTCHARCP                 ; Output it to restore and move cursor
              JSR   GETCHRC                   ; Save char under cursor
              STA   OLDCHAR
              PLA
