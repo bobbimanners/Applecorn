@@ -14,10 +14,6 @@
 *************************
 * OSBYTE DISPATCH TABLE *
 *************************
-
-* Moved to AUXMEM.VDU.S for benefit of Merlin-8/-16
-*BYTEVARBASE EQU $190 ; Base of OSBYTE variables
-
 BYTWRDADDR   DW    BYTE00XX               ; OSBYTE   0 - Machine host
              DW    BYTE01                 ; OSBYTE   1 - User flag
              DW    BYTE02                 ; OSBYTE   2 - OSRDCH source
@@ -38,16 +34,16 @@ BYTWRDLOW
 BYTESZLO     EQU   BYTWRDLOW-BYTWRDADDR
 BYTELOW      EQU   BYTESZLO/2-1           ; Maximum low OSBYTE
 BYTEHIGH     EQU   $75                    ; First high OSBYTE
-             DW    BYTE75                 ; OSBYTE 117 - Read VDU status
-             DW    BYTE76                 ; OSBYTE 118 - Update keyboard LEDs
+             DW    BYTE75                 ; OSBYTE 117 - Read VDU status - VDU.s
+             DW    BYTE76                 ; OSBYTE 118 - Update kbd LEDs - CHARIO.s
              DW    BYTENULL               ; OSBYTE 119
              DW    BYTENULL               ; OSBYTE 120
              DW    BYTENULL               ; OSBYTE 121
              DW    BYTENULL               ; OSBYTE 122
              DW    BYTENULL               ; OSBYTE 123
-             DW    BYTE7C                 ; OSBYTE 124 - Clear Escape
-             DW    BYTE7D                 ; OSBYTE 125 - Set Escape
-             DW    BYTE7E                 ; OSBYTE 126 - Ack. Escape
+             DW    BYTE7C                 ; OSBYTE 124 - Clear Escape    - CHARIO.s
+             DW    BYTE7D                 ; OSBYTE 125 - Set Escape      - CHARIO.s
+             DW    BYTE7E                 ; OSBYTE 126 - Ack. Escape     - CHARIO.s
              DW    BYTE7F                 ; OSBYTE 127 - Read EOF
              DW    BYTE80                 ; OSBYTE 128 - ADVAL           - MISC.s
              DW    BYTE81                 ; OSBYTE 129 - INKEY           - CHARIO.s
@@ -81,7 +77,7 @@ BYTEHIGH     EQU   $75                    ; First high OSBYTE
              DW    BYTENULL               ; OSBYTE 157
              DW    BYTENULL               ; OSBYTE 158
              DW    BYTENULL               ; OSBYTE 159
-             DW    BYTEA0                 ; OSBYTE 160 - Read VDU variable
+             DW    BYTEA0                 ; OSBYTE 160 - Read VDU variable - VDU.s
 BYTWRDTOP
              DW    BYTEVAR                ; OSBYTE 166+ - Read/Write OSBYTE variable
 * Maximum high OSBYTE
@@ -211,22 +207,7 @@ BYTWRDEXIT   ROR   A                      ; Move Carry to A
              CLV                          ; Clear V = Actioned
 BYTENULL     RTS
 
-BYTWRDFAIL
-** TEST code for VIEW
-*             CPX   #$07
-*             BNE   BYTFAIL0
-*             CMP   #$76
-*             BEQ   BYTE76
-*             CMP   #$A0
-*             BNE   BYTFAIL0
-*             LDY   #79           ; Read VDU variable $09,$0A
-*             LDX   #23
-*             BRA   BYTWRDEXIT
-*BYTE76
-*             LDX   $00
-*             BRA   BYTWRDEXIT
-* TEST
-BYTFAIL0     PHX                          ; *DEBUG*
+BYTWRDFAIL   PHX                          ; *DEBUG*
              JSR   SERVICEX               ; Offer to sideways ROMs as service X
              LDX   OSXREG                 ; Get returned X, returned Y is in Y
              CMP   #$01
@@ -291,8 +272,8 @@ WORD00       IF    MAXLEN-OSTEXT-2
 *          ROR   A               ; Move bit 1 into Carry
 *          TXA                   ; Get character back
 *          BCS   :WORD00TEST     ; VDU disabled, ignore
-*          LDX   FXVDUQLEN       ; Get length of VDU queue
-*          BNE   :WORD00ECHO     ; Not zero, just print
+             LDX   FXVDUQLEN              ; Get length of VDU queue
+             BNE   :WORD00ECHO            ; Not zero, just print
 :WORD00TEST  CMP   #$7F                   ; Delete
              BEQ   :WORD00DEL
              CMP   #$08                   ; If KBD has no DELETE key
@@ -327,6 +308,7 @@ WORD00       IF    MAXLEN-OSTEXT-2
 :WORD00ESC   LDA   ESCFLAG                ; Get Escape flag
              ROL   A                      ; Carry=Escape state
              RTS
+
 
 * OSWORD &01 - Read elapsed time
 * OSWORD &02 - Write elapsed time
@@ -395,12 +377,9 @@ GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
              CMP   #$80                   ; *TO DO* Needs an appropriate value
              RTS
 
+
 * OSBYTE routines
 *****************
-
-** TO DO: move to init.s
-*BYTE00       LDX   #$0A           ; $00 = identify Host
-*             RTS                  ; %000x1xxx host type, 'A'pple
 
 BYTE88       LDA   #$01                   ; $88 = *CODE
 WORDE0       JMP   (USERV)                ; OSWORD &E0+
@@ -429,17 +408,10 @@ BYTEVAR      TAY                          ; offset to variable
              STA   BYTEVARBASE+0,Y        ; update variable
              LDA   BYTEVARBASE+1,Y
              TAY                          ; Y=next value
-* Unimplemented
-*BYTE89                            ; *MOTOR
-*BYTE8A                            ; Buffer insert
-*BYTE8C                            ; *TAPE
-*BYTE8D                            ; *ROM
              RTS
 
 * Memory layout
 BYTE82                                    ; $82 = read high order address
-*      LDY   #$00
-*      LDX   #$00            ; $0000 for language processor
 * Should return $0000, but BCPL, Lisp and View try to move
 * up to $F800 overwriting Apple II stuff
              LDY   #$FF                   ; $FFFF for I/O processor
@@ -463,40 +435,6 @@ BYTE8B       CPX   #$FF                   ; *DEBUG*
 BYTE8BA      LDA   #$00                   ; &00 -> &00 - *OPT
 BYTE7F       AND   #$01                   ; &7F -> &01 - EOF
 CALLFSCV     JMP   (FSCV)                 ; Hand over to filing system
-
-
-* TO DO: Move this to AUXMEM.INIT.S
-***********************************
-
-* OSBYTE $8E - Enter language ROM
-*
-BYTE8E       PHP                          ; Save CLC=RESET, SEC=Not RESET
-             LDA   #$00
-             STA   FAULT+0
-             LDA   #$80
-             STA   FAULT+1
-             LDY   #$09
-             JSR   PRERRLP                ; Print ROM name with PRERR to set
-             STY   FAULT+0                ;  FAULT pointing to version string
-             JSR   OSNEWL
-             JSR   OSNEWL
-             PLP                          ; Get entry type back
-             LDA   #$01
-             JMP   AUXADDR
-
-* OSBYTE $8F - Issue service call
-* X=service call, Y=parameter
-*
-BYTE8F
-SERVICEX     TXA
-SERVICE      LDX   #$0F
-             BIT   $8006
-             BPL   :SERVSKIP              ; No service entry
-             JSR   $8003                  ; Call service entry
-             TAX
-             BEQ   :SERVDONE
-:SERVSKIP    LDX   #$FF
-:SERVDONE    RTS
 
 
 * Test/Debug code
@@ -529,10 +467,4 @@ OSWORDM      ASC   'OSWORD($'
              DB    $00
 OSBM2        ASC   ').'
              DB    $00
-
-
-
-
-
-
 
