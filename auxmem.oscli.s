@@ -7,6 +7,7 @@
 *             Prepares parameters and hands on to API call
 * 24-Aug-2021 Combined *LOAD and *SAVE, full address parsing.
 * 02-Sep-2021 *LOAD/*SAVE now uses GSTRANS.
+* 12-Sep-2021 *HELP uses subject lookup, *HELP MOS, *HELP HOSTFS.
 
 
 * COMMAND TABLE
@@ -56,8 +57,8 @@ CMDTABLE     ASC   'CAT'              ; Must be first command so matches '*.'
              DB    $80
              DW    STARQUIT-1         ; QUIT   -> (LPTR)=>params
              ASC   'HELP'
-             DB    $80
-             DW    STARHELP-1         ; HELP   -> (LPTR)=>params
+             DB    $FF
+             DW    STARHELP-1         ; HELP   -> XY=>params
              ASC   'BASIC'
              DB    $80
              DW    STARBASIC-1        ; BASIC  -> (LPTR)=>params
@@ -71,6 +72,16 @@ CMDTABLE     ASC   'CAT'              ; Must be first command so matches '*.'
 * TYPE <file>
 * BUILD <file>
 * terminator
+             DB    $FF
+
+* *HELP TABLE
+*************
+HLPTABLE     ASC   'MOS'
+             DB    $80
+             DW    HELPMOS-1         ; *HELP MOS
+             ASC   'HOSTFS'
+             DB    $80
+             DW    HELPHOSTFS-1      ; *HELP HOSTFS
              DB    $FF
 
 
@@ -341,66 +352,55 @@ XYtoLPTR     STX   OSLPTR+0
              RTS
 
 * Print *HELP text
-* These needs tidying a bit
-STARHELP     PHY
-             JSR   PRHELLO            ; Unifiy version message
-*            LDA   #<:MSG
-*            LDY   #>:MSG
-*            JSR   PRSTR
-             PLY
-             PHY
-             LDA   (OSLPTR),Y
-             CMP   #'.'               ; *HELP .
-             BEQ   STARHELP1
-             INY
-             EOR   (OSLPTR),Y
-             INY
-             EOR   (OSLPTR),Y
-             AND   #$DF
-             CMP   #$51               ; *HELP MOS
-             BNE   STARHELP5
-STARHELP1    LDX   #0
-             LDA   #32
-             JSR   OSWRCH
-             JSR   OSWRCH
-STARHELPLP1  LDY   #10
-             LDA   CMDTABLE,X
-             BMI   STARHELP4
-STARHELPLP2  LDA   CMDTABLE,X
-             BMI   STARHELP3
-             JSR   OSWRCH
-             DEY
-             INX
-             BNE   STARHELPLP2
-STARHELP3    LDA   #32
-             JSR   OSWRCH
-             DEY
-             BNE   STARHELP3
-             INX
-             INX
-             INX
-             BNE   STARHELPLP1
-STARHELP4    LDA   #$08
-             JSR   OSWRCH
-             JSR   OSWRCH
-             JSR   FORCENL
-STARHELP5    LDA   $8006
-             BMI   STARHELP6          ; Use ROM's service entry
+STARHELP     JSR   XYtoLPTR           ; (OSLPTR),Y=>parameters
+             JSR   PRHELLO            ; Unify version message
+             LDX   #<HLPTABLE         ; XY=>command table
+             LDY   #>HLPTABLE
+             JSR   CLILOOKUP          ; Look for *HELP subject
+             LDA   $8006              ; Does ROM have service entry?
+             BMI   STARHELP6          ; Yes, send service call
              JSR   OSNEWL
              LDA   #$09               ; Language name
              LDY   #$80               ; *TO DO* make this and BYTE8E
              JSR   PRSTR              ;  use same code
              JSR   OSNEWL
-*            LDA   #<:MSG2
-*            LDY   #>:MSG2
-*            JSR   PRSTR
-STARHELP6    PLY
+STARHELP6    LDY   #0                 ; (OSLPTR),Y=>parameters
              LDA   #9
              JMP   SERVICE            ; Pass to sideways ROM(s)
-*:MSG        DB    $0D
-*            ASC   'Applecorn MOS v0.01'
-*            DB    $0D,$00
-*:MSG2       DB    $0D,$00
+
+
+HELPHOSTFS   LDX   #<FSCCOMMAND       ; *HELP HOSTFS
+             LDY   #>FSCCOMMAND
+             BNE   HELPLIST
+HELPMOS      LDX   #<CMDTABLE         ; *HELP MOS
+             LDY   #>CMDTABLE
+
+HELPLIST     STX   OSTEXT+0           ; Start of command table
+             STY   OSTEXT+1
+             LDX   #0
+HELPLP1      LDA   #32
+             JSR   OSWRCH
+             JSR   OSWRCH
+HELPLP2      LDY   #10
+HELPLP3      LDA   (OSTEXT,X)
+             BMI   HELPLP4
+             JSR   OSWRCH
+             DEY
+             JSR   CLISTEP
+             BPL   HELPLP3
+HELPLP4      LDA   #32
+             JSR   OSWRCH
+             DEY
+             BNE   HELPLP4
+             JSR   CLISTEP
+             JSR   CLISTEP
+             JSR   CLISTEP
+             BPL   HELPLP2
+STARHELP4    LDA   #$08
+             JSR   OSWRCH
+             JSR   OSWRCH
+             JMP   FORCENL
+
 
 * Handle *QUIT command
 STARQUIT     >>>   XF2MAIN,QUIT
@@ -411,23 +411,6 @@ STARLOAD     PHA                      ; Entered with A=$FF - LOAD
              JSR   XYtoLPTR           ; OSLPTR=>filename
              JSR   SKIPWORD           ; Step past filename
              BNE   STARLDSV3          ; filename followed by addr
-
-** replace with with GSREAD
-*             LDA   (OSLPTR),Y
-*             CMP   #34
-*             BEQ   STARLDSVA
-*             LDA   #32
-*STARLDSVA    STA   OSTEMP
-*STARLDSV0    INY
-*             LDA   (OSLPTR),Y
-*             CMP   #13
-*             BEQ   STARLDSV1
-*             CMP   OSTEMP
-*             BNE   STARLDSV0      ; Step past filename
-*             JSR   SKIPSPC1       ; Skip following spaces
-*             BNE   STARLDSV3      ; *load/save name addr 
-** ^^^^
-
 *
 * filename followed by no address, must be *LOAD name
 STARLDSV1    LDA   #$FF               ; $FF=load to file's address
@@ -507,78 +490,37 @@ STARKEY
 STARDONE     RTS
 
 
-** Code that calls this will need to be replaced with calls
-**  to SKIPSPC and GSREAD
-**
-** Consume spaces in command line. Treat " as space!
-** Return C set if no space found, C clear otherwise
-** Command line pointer in (ZP1),Y
-EATSPC
-*             LDA   (ZP1),Y            ; Check first char is ...
-*             CMP   #' '               ; ... space
-*             BEQ   :START
-*             CMP   #'"'               ; Or quote mark
-*             BEQ   :START
-*             BRA   :NOTFND
-*:START       INY
-*:L1          LDA   (ZP1),Y            ; Eat any additional ...
-*             CMP   #' '               ; ... spaces
-*             BEQ   :CONT
-*             CMP   #'"'               ; Or quote marks
-*             BNE   :DONE
-*:CONT        INY
-*             BRA   :L1
-*:DONE        CLC
-*             RTS
-*:NOTFND      SEC
-             RTS
-
-
-** TEST CODE **
-ECHO         PHY
-             CLC
-             JSR   ECHO0
-             PLY
+* *ECHO <GSTRANS string>
+************************
+ECHO
+*             PHY
+*             CLC
+*             JSR   ECHO0
+*             PLY
              SEC
 ECHO0        JSR   GSINIT
-             PHP
-             PLA
-             JSR   OUTHEX
+*             PHP
+*             PLA
+*             JSR   OUTHEX
 ECHOLP1      JSR   GSREAD
-             BCS   ECHO3
-             CMP   #$20
-             BCC   ECHO2
-             CMP   #$7F
-             BCS   ECHO2
+             BCS   STARDONE
+*             BCS   ECHO3
+*             CMP   #$20
+*             BCC   ECHO2
+*             CMP   #$7F
+*             BCS   ECHO2
              JSR   OSWRCH
              JMP   ECHOLP1
-ECHO2        PHA
-             LDA   #'<'
-             JSR   OSWRCH
-             PLA
-             JSR   OUTHEX
-             LDA   #'>'
-             JSR   OSWRCH
-             JMP   ECHOLP1
-ECHO3        PHP
-             PLA
-             JSR   OUTHEX
-             JMP   OSNEWL
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+*ECHO2        PHA
+*             LDA   #'<'
+*             JSR   OSWRCH
+*             PLA
+*             JSR   OUTHEX
+*             LDA   #'>'
+*             JSR   OSWRCH
+*             JMP   ECHOLP1
+*ECHO3
+*             PHP
+*             PLA
+*             JSR   OUTHEX
+*             JMP   OSNEWL

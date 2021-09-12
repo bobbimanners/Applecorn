@@ -3,6 +3,7 @@
 *
 * Misc functions and API entry block
 * 02-Sep-2021 Written GSINIT/GSREAD
+* 11-Sep-2021 PR16DEC uses OS workspace, added rest of default vectors/etc.
 
 
 * OSBYTE $80 - ADVAL
@@ -80,7 +81,7 @@ OUTSTR      TXA
 * Print string pointed to by A,Y to the screen
 PRSTR       STA   OSTEXT+0       ;  String in A,Y
             STY   OSTEXT+1
-:L1         LDA   (OSTEXT)       ; Ptr to string in ZP3
+:L1         LDA   (OSTEXT)       ; Ptr to string in OSTEXT
             BEQ   PRSTROK
             JSR   OSASCI
             INC   OSTEXT
@@ -122,49 +123,51 @@ PRNIB       CMP   #$0A
 :S1         ADC   #'0'           ; < $0A
             JMP   OSWRCH
 
-* Print 16 bit value in XY in decimal
+* Print 16-bit value in XY in decimal
 * beebwiki.mdfs.net/Number_output_in_6502_machine_code
-PRDECXY     STX   :NUM+0
-            STY   :NUM+1
-            LDA   #' '
-            STA   :PAD
-:PRDEC16    LDY   #$08           ; Five digits
+OSNUM       EQU   OSTEXT+0
+OSPAD       EQU   OSTEXT+4
+
+PRDECXY     LDA   #' '
+PRDECPAD    STA   OSPAD
+            STX   OSNUM+0
+            STY   OSNUM+1
+:PRDEC16    LDY   #$08            ; Five digits (5-1)*2
 :LP1        LDX   #$FF
             SEC
-:LP2        LDA   :NUM+0
+:LP2        LDA   OSNUM+0
             SBC   :TENS+0,Y
-            STA   :NUM+0
-            LDA   :NUM+1
+            STA   OSNUM+0
+            LDA   OSNUM+1
             SBC   :TENS+1,Y
-            STA   :NUM+1
+            STA   OSNUM+1
             INX
             BCS   :LP2
-            LDA   :NUM+0
+            LDA   OSNUM+0
             ADC   :TENS+0,Y
-            STA   :NUM+0
-            LDA   :NUM+1
+            STA   OSNUM+0
+            LDA   OSNUM+1
             ADC   :TENS+1,Y
-            STA   :NUM+1
+            STA   OSNUM+1
             TXA
             BNE   :DIGIT
-            LDA   :PAD
+            LDA   OSPAD
             BNE   :PRINT
             BEQ   :NEXT
 :DIGIT      LDX   #'0'
-            STX   :PAD
+            STX   OSPAD
             ORA   #'0'
 :PRINT      JSR   OSWRCH
 :NEXT       DEY
             DEY
             BPL   :LP1
             RTS
-:PAD        DB    $00
-:NUM        DW    $0000
 :TENS       DW    1
             DW    10
             DW    100
             DW    1000
             DW    10000
+
 
 * GSINIT - Initialise for GSTRANS string parsing
 ************************************************
@@ -208,8 +211,10 @@ GSINTGO1    ROR   GSFLAG         ; Rotate 'leading-quote' into flags
 *       NE=not end of line, more words follow
 *  CC = not end of string
 *       Y =updated for future calls to GSREAD
-*       VS=control character, <$20
-*       VC=not control character >$1F
+*       VS=7-bit control character, (char AND $7F)<$20
+*       VC=not 7-bit control character (char AND $7F)>$1F
+*       EQ= char=$00, NE= char>$00
+*       PL= char<$80, MI= char>$7F
 *
 * No string present is checked for with:
 *  JSR GSINIT:BEQ missingstring
@@ -238,7 +243,7 @@ GSREADLP    STA   GSCHAR         ; Update accumulator
             BNE   GSREAD2        ; No, check character
             BIT   GSFLAG
             BPL   GSREADEND      ; We aren't waiting for a closing quote
-*                            ; End of line before closing quote
+*                                ; End of line before closing quote
 ERRBADSTR   BRK
             DB    $FD
             ASC   'Bad string'
@@ -249,7 +254,7 @@ GSREAD2     CMP   #' '
             BNE   GSREAD3        ; Not a space, process it
             BIT   GSFLAG         ; Can space terminate string?
             BMI   GSREADCHAR     ; We're waiting for a terminating quote
-*                            ;  so return the space character
+*                                ;  so return the space character
             BVC   GSREADEND      ; Space is a terminator, finish
 GSREAD3     CMP   #$22           ; Is it a quote?
             BNE   GSREADESC      ; Not quote, check for escapes
@@ -268,7 +273,7 @@ GSREADEND   JSR   SKIPSPC        ; Skip any spaces to next word
 * EQ=end of line
 * NE=not end of line, more words follow
 
-GSREADESC   CMP   #$7C           ; Is is '|' escape character
+GSREADESC   CMP   #$7C           ; Is it '|' escape character
             BNE   GSREADCHAR     ; No, return as character
             INY                  ; Step to next character
             LDA   (OSLPTR),Y
@@ -303,13 +308,13 @@ GSREADOK    INY                  ; Step to next character
 RDROM       LDX   #$0F           ; Returns X=current ROM, Y=0, A=byte
             LDY   #$00           ; We haven't really got any ROMs
             LDA   ($F6),Y        ; so just read directly
-            RTS
+EVENT       RTS
 
-EVENT       LDA   #<OSEVENM
-            LDY   #>OSEVENM
-            JMP   PRSTR
-OSEVENM     ASC   'OSEVEN.'
-            DB    $00
+*EVENT       LDA   #<OSEVENM
+*            LDY   #>OSEVENM
+*            JMP   PRSTR
+*OSEVENM     ASC   'OSEVEN.'
+*            DB    $00
 
 
 **********************************************************
@@ -396,6 +401,17 @@ DEFVEC      DW    NULLRTS        ; $200 USERV
             DW    GBPBHND        ; $21A GBPBV
             DW    FINDHND        ; $21C FINDV
             DW    FSCHND         ; $21E FSCV
+            DW    NULLRTS        ; $220 EVENTV
+            DW    NULLRTS        ; $222
+            DW    NULLRTS        ; $224
+            DW    NULLRTS        ; $226
+            DW    NULLRTS        ; $228
+            DW    NULLRTS        ; $22A
+            DW    NULLRTS        ; $22C
+            DW    NULLRTS        ; $22E
+            DW    NULLRTS        ; $230 SPARE1V
+            DW    NULLRTS        ; $232 SPARE2V
+            DW    NULLRTS        ; $234 SPARE3V
 ENDVEC
 
 *
@@ -406,22 +422,22 @@ ENDVEC
 * Base of API entries here in loaded code
 MOSVEC
 * Real base of API entries in real memory
-MOSAPI      EQU   $FFB6
+MOSAPI      EQU   $FF95
             ORG   MOSAPI
 
 * OPTIONAL ENTRIES
 * ----------------
-*OSSERV      JMP   SERVICE        ; FF95 OSSERV
-*OSCOLD      JMP   NULLRTS        ; FF98 OSCOLD
-*OSPRSTR     JMP   OUTSTR         ; FF9B OSPRSTR
-*OSFF9E      JMP   NULLRTS        ; FF9E
-*OSSCANHEX   JMP   RDHEX          ; FFA1 SCANHX
-*OSFFA4      JMP   NULLRTS        ; FFA4
-*OSFFA7      JMP   NULLRTS        ; FFA7
-*PRHEX       JMP   OUTHEX         ; FFAA PRHEX
-*PR2HEX      JMP   OUT2HEX        ; FFAD PR2HEX
-*OSFFB0      JMP   NULLRTS        ; FFB0
-*OSWRRM      JMP   NULLRTS        ; FFB3 OSWRRM
+OSSERV      JMP   SERVICE        ; FF95 OSSERV
+OSCOLD      JMP   NULLRTS        ; FF98 OSCOLD
+OSPRSTR     JMP   OUTSTR         ; FF9B OSPRSTR
+OSSCANDEC   JMP   SCANDEC        ; FF9E SCANDEC
+OSSCANHEX   JMP   SCANHEX        ; FFA1 SCANHEX
+OSFFA4      JMP   NULLRTS        ; FFA4 (DISKACC)
+OSFFA7      JMP   NULLRTS        ; FFA7 (DISKCCP)
+PRHEX       JMP   OUTHEX         ; FFAA PRHEX
+PR2HEX      JMP   OUT2HEX        ; FFAD PR2HEX
+OSFFB0      JMP   NULLRTS        ; FFB0 (USERINT)
+OSWRRM      JMP   NULLRTS        ; FFB3 OSWRRM
 
 * COMPULSARY ENTRIES
 * ------------------

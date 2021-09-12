@@ -10,6 +10,10 @@ ROMMENU     JSR   HOME        ; Clear screen
             STA   A1H
             JSR   PRSTRA1
             JSR   CROUT
+* TEMP
+ LDA #$00
+ JMP :KEYOK
+* TEMP
             JSR   CROUT
             LDA   #<TITLE2
             STA   A1L

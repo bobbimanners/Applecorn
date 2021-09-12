@@ -36,17 +36,9 @@ VDUADDR      EQU   VDUSTATUS+4      ; $D4  address of current char cell
 
 * VDU DRIVER MAIN WORKSPACE
 ***************************
-FXLINES      EQU   BYTEVARBASE+217  ; Pages scrolling line counter
+FXLINES      EQU   BYTEVARBASE+217  ; Paged scrolling line counter
 FXVDUQLEN    EQU   BYTEVARBASE+218  ; Length of pending VDU queue
 VDUVARS      EQU   $290
-
-* *TEMP*
-FLASHER      EQU   $290             ; flash counter for cursor       -> BYTEVARBASE+193 -> KBD
-CURSOR       EQU   $291             ; character used for cursor      -> VDUVAR+??
-CURSORED     EQU   $292             ; character used for edit cursor -> VDUVAR+??
-CURSORCP     EQU   $293             ; character used for copy cursor -> VDUVAR+??
-OLDCHAR      EQU   $294             ; character under cursor         -> KBD?
-COPYCHAR     EQU   $295             ; character under copy cursor    -> KBD?
 
 VDUTWINL     EQU   VDUVARS+$08      ; # text window left
 VDUTWINB     EQU   VDUVARS+$09      ; # text window bottom \ window
@@ -62,9 +54,11 @@ VDUTEXTX     EQU   VDUVARS+$18      ; absolute POS
 VDUTEXTY     EQU   VDUVARS+$19      ; absolute VPOS
 VDUCOPYX     EQU   VDUVARS+$1A      ; absolute COPY cursor X posn
 VDUCOPYY     EQU   VDUVARS+$1B      ; absolute COPY cursor Y posn
-* CURSOR
-* CURSORED
-* CURSORCP
+*
+CURSOR       EQU   VDUVARS+$20      ; *TEMP* character used for cursor
+CURSORED     EQU   VDUVARS+$21      ; *TEMP* character used for edit cursor
+CURSORCP     EQU   VDUVARS+$22      ; *TEMP* character used for copy cursor
+*
 VDUQ         EQU   VDUVARS+$27      ; *TEMP* $27..$2F
 
 
@@ -82,7 +76,7 @@ OUTCHAR      LDX   FXVDUQLEN
              BCC   CTRLCHAR         ; <$20 - control char
              BIT   VDUSTATUS
              BMI   OUTCHEXIT        ; VDU disabled
-             JSR   PRCHRC           ; Store char, checking keypress
+OUTCHARCP    JSR   PRCHRC           ; Store char, checking keypress
              JSR   VDU09            ; Move cursor right
 OUTCHEXIT    LDA   VDUSTATUS
              LSR   A                ; Return Cy=Printer Echo Enabled
@@ -153,9 +147,8 @@ VDU02
              BNE   SETSTATUS
 
 * VDU 5 - Text at graphics cursor
-VDU05        LDX   VDUBYTES
-             DEX
-             BEQ   SETEXIT          ; 1 byte per char, text only
+VDU05        LDX   VDUPIXELS
+             BEQ   SETEXIT          ; 0 pixels per char, text only
 * Turn cursor off and other stuff
              LDA   #$20             ; Set VDU 5 mode
              BNE   SETSTATUS
@@ -626,10 +619,3 @@ BYTEA0       LDY   #79              ; Read VDU variable $09,$0A
              LDX   #23
              RTS
 * TEST
-
-
-
-
-
-
-
