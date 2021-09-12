@@ -15,7 +15,7 @@
 * OSBYTE DISPATCH TABLE *
 *************************
 
-* Moved to AUXMEM.MOSEQU.S for benefit of Merlin-8/-16
+* Moved to AUXMEM.VDU.S for benefit of Merlin-8/-16
 *BYTEVARBASE EQU $190 ; Base of OSBYTE variables
 
 BYTWRDADDR   DW    BYTE00XX               ; OSBYTE   0 - Machine host
@@ -529,6 +529,10 @@ OSWORDM      ASC   'OSWORD($'
              DB    $00
 OSBM2        ASC   ').'
              DB    $00
+
+
+
+
 
 
 

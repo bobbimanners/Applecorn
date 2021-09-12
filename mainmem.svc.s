@@ -25,7 +25,7 @@ DELFILE      >>>   ENTMAIN
              JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy back to aux mem
              PHA                      ; Save object type
-             JSR   DESTROY
+             JSR   DODELETE
              BCC   :DELETED
              PLX                      ; Drop object
              JSR   CHKNOTFND
@@ -33,7 +33,7 @@ DELFILE      >>>   ENTMAIN
 :DELETED     PLA                      ; Get object back
 :EXIT        >>>   XF2AUX,OSFILERET
 
-DESTROY      LDA   #<MOSFILE          ; Attempt to destroy file
+DODELETE     LDA   #<MOSFILE          ; Attempt to destroy file
              STA   DESTPL+1
              LDA   #>MOSFILE
              STA   DESTPL+2
@@ -91,7 +91,12 @@ RENFILE      >>>   ENTMAIN
 OFILE        >>>   ENTMAIN
              PHA                      ; Preserve arg for later
              JSR   PREPATH            ; Preprocess pathname
-             JSR   EXISTS             ; See if file exists ...
+             PLA
+             PHA
+             CMP   #$80               ; Is it "w"?
+             BEQ   :NOWILD            ; If so, no wildcards
+             JSR   WILDONE            ; Handle any wildcards
+:NOWILD      JSR   EXISTS             ; See if file exists ...
              CMP   #$02               ; ... and is a directory
              BNE   :NOTDIR
              JMP   :NOTFND            ; Bail out if directory
@@ -99,7 +104,7 @@ OFILE        >>>   ENTMAIN
              PHA
              CMP   #$80               ; Write mode
              BNE   :S0
-             JSR   DESTROY
+             JSR   DODELETE
              LDA   #$01               ; Storage type - file
              STA   CREATEPL+7
              LDA   #$06               ; Filetype BIN
@@ -306,6 +311,7 @@ TELL         >>>   ENTMAIN
 *        A>$1F ProDOS error, translated by FILERET
 LOADFILE     >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
+             JSR   WILDONE            ; Handle any wildcards
              JSR   EXISTS             ; See if it exists ...
              CMP   #$01               ; ... and is a file
              BEQ   :ISFILE
@@ -642,6 +648,7 @@ CATALOG      >>>   ENTMAIN
              LDA   MOSFILE            ; Length of pathname
              BEQ   :NOPATH            ; If zero use prefix
              JSR   PREPATH            ; Preprocess pathname
+             JSR   WILDONE            ; Handle any wildcards
              JSR   EXISTS             ; See if path exists ...
              CMP   #$01               ; ... and is a file
              BNE   :NOTFILE
@@ -684,7 +691,7 @@ CATALOGRET
 * Set prefix. Used by *CHDIR to change directory
 SETPFX       >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
-             JSR   WILDCARD           ; EXPERIMENTAL
+             JSR   WILDONE            ; Handle any wildcards
              BCS   :ERR
              LDA   #<MOSFILE
              STA   SPFXPL+1
@@ -727,7 +734,9 @@ DRVINFO      >>>   ENTMAIN
 * Filename in MOSFILE, flags in MOSFILE2
 SETPERM      >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
-             BCS   :ERR
+             BCS   :SYNERR
+             JSR   WILDCARD           ; Handle any wildcards
+             BCS   :NONE
              STZ   :LFLAG
              STZ   :WFLAG
              STZ   :RFLAG
@@ -735,7 +744,7 @@ SETPERM      >>>   ENTMAIN
              INX
 :L1          DEX
              CPX   #$00
-             BEQ   :DONEARG
+             BEQ   :MAINLOOP
              LDA   MOSFILE2,X         ; Read arg2 char
              CMP   #'L'               ; L=Locked
              BNE   :S1
@@ -749,7 +758,12 @@ SETPERM      >>>   ENTMAIN
              BNE   :ERR2              ; Bad attribute
              STA   :WFLAG
              BRA   :L1
-:DONEARG     LDA   #<MOSFILE
+:SYNERR      LDA   #$40               ; Invalid pathname syn
+             BRA   :EXIT
+:NONE        JSR   CLSDIR
+             LDA   #$40               ; TODO PROPER ERROR CODE
+             BRA   :EXIT
+:MAINLOOP    LDA   #<MOSFILE
              STA   GINFOPL+1
              LDA   #>MOSFILE
              STA   GINFOPL+2
@@ -769,14 +783,44 @@ SETPERM      >>>   ENTMAIN
              AND   #$3D               ; Turn off destroy/ren/write
 :S5          STA   GINFOPL+3          ; Access byte
              JSR   SETINFO            ; SET_FILE_INFO
+             JSR   WILDNEXT
+             BCS   :NOMORE
+             BRA   :MAINLOOP
 :EXIT        >>>   XF2AUX,ACCRET
-:ERR         LDA   #$40               ; Invalid pathname syn
+:NOMORE      JSR   CLSDIR
+             LDA   #$00
              BRA   :EXIT
 :ERR2        LDA   #$53               ; Invalid parameter
              BRA   :EXIT
 :LFLAG       DB    $00                ; 'L' attribute
 :WFLAG       DB    $00                ; 'W' attribute
 :RFLAG       DB    $00                ; 'R' attribute
+
+* Multi file delete, for *DESTROY
+* Filename in MOSFILE
+MULTIDEL     >>>   ENTMAIN
+             JSR   PREPATH            ; Preprocess pathname
+             BCS   :SYNERR
+             JSR   WILDCARD           ; Handle any wildcards
+             BCS   :NONE
+             BRA   :MAINLOOP
+:SYNERR      LDA   #$40               ; Invalid pathname syn
+             BRA   :EXIT
+:NONE        JSR   CLSDIR
+             LDA   #$40               ; TODO PROPER ERROR CODE
+             BRA   :EXIT
+:MAINLOOP    JSR   DODELETE
+             BCS   :DELERR
+             JSR   WILDNEXT
+             BCS   :NOMORE
+             BRA   :MAINLOOP
+:EXIT        >>>   XF2AUX,DESTRET
+:DELERR      JSR   CLSDIR
+             LDA   #$40               ; TODO PROPER ERROR CODE
+             BRA   :EXIT
+:NOMORE      JSR   CLSDIR
+             LDA   #$00
+             BRA   :EXIT
 
 * Read mainmem from auxmem
 MACHRD       LDA   $C081
@@ -793,13 +837,4 @@ MAINRDMEM    STA   A1L
              LDA   $C081
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
-
-
-
-
-
-
-
-
-
 
