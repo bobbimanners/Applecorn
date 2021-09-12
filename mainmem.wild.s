@@ -37,7 +37,7 @@ WILDCARD    STZ   :LAST
 :WILD       LDX   #<MFTEMP      ; Invoke SRCHBLK to look for pattern
             LDY   #>MFTEMP      ; in the directory path MFTEMP
 :AGAIN      JSR   SRCHBLK
-            BCS   :NOMATCH      ; Wildcard did not match anything
+            BCC   :NOMATCH      ; Wildcard did not match anything
             JSR   APPMATCH      ; Append MATCHBUF to MFTEMP
 :NEXT       LDA   :LAST
             BEQ   :L1
@@ -69,7 +69,7 @@ WILDNEXT    LDX   MFTEMP        ; Length of MFTEMP
 :S2         DEX
             BRA   :L1
 :S1         JSR   SRCHBLK
-            BCS   :NOMATCH
+            BCC   :NOMATCH
             JSR   APPMATCH      ; Append MATCHBUF to MFTEMP
             JSR   TMPtoMF       ; Copy back to MOSFILE
             CLC
@@ -161,8 +161,7 @@ WILDIDX     DB    $00           ; Dirent idx in current block
 
 * Read directory block, apply wildcard match
 * Inputs: directory name in XY (Pascal string)
-* If there is a match, carry clear
-* If no match, or any other error, returns with carry set
+* On exit: set carry if match, clear carry otherwise
 * Leaves the directory open to allow resumption of search.
 SRCHBLK     LDA   WILDIDX
             CMP   #$F0          ; Is it a new search?
@@ -189,10 +188,6 @@ SRCHBLK     LDA   WILDIDX
             RTS                 ; .. to see if another block
 
 :CONT       JSR   SRCHBLK2      ; Handle one block
-            BCS   :MATCH
-            SEC
-            RTS
-:MATCH      CLC
             RTS
 
 * Close directory, if it was open
