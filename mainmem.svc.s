@@ -701,16 +701,13 @@ CATARG       DB    $00
 
 * Handle *INFO
 INFO         JSR   PREPATH            ; Preprocess pathname
+             SEC
              JSR   WILDCARD           ; Handle any wildcards
              JSR   EXISTS             ; Check matches something
              CMP   #$00
              BNE   INFOFIRST
              LDA   #$46               ; Not found (TO DO: err code?)
              BRA   CATEXIT
-
-** BUG: If the last segment is a literal with no wildcard, then
-**      the directory block is never loaded into memory, so printing
-**      it does not go well ;)
 
 INFOREENTRY
              JSR   WILDNEXT2          ; Start of new block
@@ -729,7 +726,7 @@ INFOEXIT     CMP   #$4C               ; EOF
              LDA   #$00               ; EOF is not an error
 INFOCLS      JSR   CLSDIR             ; Be sure to close it!
              BRA   CATEXIT
-             
+
 
 * Set prefix. Used by *CHDIR to change directory
 SETPFX       >>>   ENTMAIN
@@ -778,6 +775,7 @@ DRVINFO      >>>   ENTMAIN
 SETPERM      >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
              BCS   :SYNERR
+             CLC
              JSR   WILDCARD           ; Handle any wildcards
              BCS   :NONE
              STZ   :LFLAG
@@ -844,6 +842,7 @@ SETPERM      >>>   ENTMAIN
 MULTIDEL     >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
              BCS   :SYNERR
+             CLC
              JSR   WILDCARD           ; Handle any wildcards
              BCS   :NONE
              BRA   :MAINLOOP
@@ -880,4 +879,6 @@ MAINRDMEM    STA   A1L
              LDA   $C081
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
+
+
 
