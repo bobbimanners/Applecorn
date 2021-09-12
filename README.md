@@ -18,8 +18,11 @@ of memory and a 65C02 processor.  This includes the following:
 - Apple //c and //c+
 - Apple IIgs
   - You must enable the Alt Text Mode CDA!
-  - ROM1: Only `MODE 1` (40 cols) works
-  - ROM3: Both `MODE 0` and `MODE 1` work
+  - ROM1: Only the 40 column modes `MODE 6` and `MODE 7` can be used.
+    (This is because the ROM1 GS is unable to shadow PAGE2 80 column.)
+  - ROM3: You may also use the 80 column `MODE 3`.  (Apple fixed the
+    PAGE2 shadowing problem in ROM3. You do still need to run the Alt
+    text mode CDA however.)
 
 ## How to Run the Software
 
@@ -67,8 +70,9 @@ is set to `&0E0`.
 ### Video Modes
 
 Two text video modes are currently supported:
-- 80x24 `MODE 0`
-- 40x24 `MODE 1`
+- 40x24 `MODE 6` and `MODE 7` (in mode 7, chars $80 to $9F are converted
+  to spaces)
+- 80x24 `MODE 3`
 
 We plan to support HGR graphics eventually.
 
@@ -149,6 +153,10 @@ An Applecorn path such as `/FOO/0DIR/50DIR/FILE01` would be converted to
 `/FOO/N0DIR/N50DIR/FILE01`, for example, in order to make it a legal
 ProDOS path.
 
+#### HostFS Wildcards
+
+...
+
 ### Star Commands
 
 `*QUIT` - Terminate Applecorn and quit to ProDOS.  Because the 'BBC Micro'
@@ -158,6 +166,8 @@ again and recover your program with `OLD`.
 `*HELP` - Prints out information similar to the same command on the BBC micro.
 Specifically it lists the version of Applecorn MOS and the name of the current
 language ROM.
+  - `*HELP MOS` shows the available MOS star commands.
+  - `*HELP HOSTFS` shows the available HostFS star commands.
 
 `*CAT [dirpath]` (or `*. [dirpath]`) - Simple listing of the files in the
 specified directory, or the current working directory ('current prefix') if
@@ -165,6 +175,8 @@ no directory argument is given.
 
 `*EX` - Detailed listing of files in the current directory showing load
 address, length and permissions.
+
+`*INFO` - ...
 
 `*DIR dirpath` - Allows the current directory to be changed to any ProDOS
 path.  `*CD` and `*CHDIR` are synonyms for `*DIR`.
@@ -184,6 +196,8 @@ starting machine code programs.
 `*DELETE pathname` - Delete file `pathname` from disk.  This command
 can also delete directories, provided they are empty.
 
+`*DESTROY <obj-list>` - ...
+
 `*RENAME oldpathname newpathname` - Rename file or directory `oldpathname`
 to `newpathname`.
 
@@ -197,7 +211,7 @@ device.
 
 `*CDIR dirname` - create directory `dirname`.  `*MKDIR` is a synonym.
 
-`*ACCESS pathname attribs` - change file permisions.  The string `attribs`
+`*ACCESS <obj-list> attribs` - change file permisions.  The string `attribs`
 can contain any of the following:
   - `R` - File is readable
   - `W` - File is writeable
