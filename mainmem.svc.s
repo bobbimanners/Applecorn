@@ -711,7 +711,7 @@ INFO         JSR   PREPATH            ; Preprocess pathname
 **      it does not go well ;)
 
 INFOREENTRY
-             JSR   WILDNEXT
+             JSR   WILDNEXT           ; Start of new block
              BCS   INFOEXIT           ; No more matches
 INFOFIRST    LDA   WILDIDX
              CMP   #$FF               ; Is WILDNEXT about to read new blk?

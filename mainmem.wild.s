@@ -56,6 +56,7 @@ WILDCARD    STZ   :LAST
 * Obtain subsequent wildcard matches
 * WILDCARD must have been called first
 * Returns with carry set if wildcard match fails, clear otherwise
+* Caller should check WILDIDX and call again if value is $FF
 WILDNEXT    LDX   MFTEMP        ; Length of MFTEMP
 :L1         CPX   #$00          ; Find final segment (previous match)
             BEQ   :S1
@@ -73,10 +74,7 @@ WILDNEXT    LDX   MFTEMP        ; Length of MFTEMP
             JSR   TMPtoMF       ; Copy back to MOSFILE
             CLC
             RTS
-:NOMATCH    LDA   WILDIDX       ; See if there are more blocks
-            CMP   #$FF
-            BEQ   :S1           ; Yes, go again
-            SEC
+:NOMATCH    SEC
             RTS
 
 * Copy a segment of the path into SEGBUF
@@ -163,7 +161,7 @@ WILDIDX     DB    $00           ; Dirent idx in current block
 
 * Read directory block, apply wildcard match
 * Inputs: directory name in XY (Pascal string)
-* If there is a match, replaces SEGBUF with the first match and CLC
+* If there is a match, carry clear
 * If no match, or any other error, returns with carry set
 * Leaves the directory open to allow resumption of search.
 SRCHBLK     LDA   WILDIDX
@@ -192,6 +190,8 @@ SRCHBLK     LDA   WILDIDX
 
 :CONT       JSR   SRCHBLK2      ; Handle one block
             BCS   :MATCH
+            SEC
+            RTS
 :MATCH      CLC
             RTS
 
