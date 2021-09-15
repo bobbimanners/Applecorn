@@ -58,6 +58,8 @@ MAKEDIR      >>>   ENTMAIN
              STA   CREATEPL+4         ; ->File type
              STZ   CREATEPL+5         ; Aux type LSB
              STZ   CREATEPL+6         ; Aux type MSB
+             LDA   #$C3               ; Default permissions
+             STA   CREATEPL+3
              JSR   CRTFILE            ; Create MOSFILE
              BCS   :EXIT              ; Failed, exit with ProDOS result
              JSR   UPDFB              ; Update FILEBLK
@@ -150,6 +152,8 @@ COPY1FILE    STA   :DESTTYPE          ; TODO: USE THE DEST TYPE!!!!
              STA   GINFOPL+2
              LDA   #$07               ; Fix num parms in PL
              STA   GINFOPL
+             LDA   #$C3               ; Default permissions
+             STA   GINFOPL+3
              JSR   MLI                ; Call CREATE with ..
              DB    CREATCMD           ; .. PL from GET_FILE_INFO
              DW    GINFOPL
@@ -240,6 +244,8 @@ OFILE        >>>   ENTMAIN
              STA   CREATEPL+5
              LDA   #$00
              STA   CREATEPL+6
+             LDA   #$C3               ; Default permissions
+             STA   CREATEPL+3
              JSR   CRTFILE            ; Create MOSFILE
 :S1          LDA   #$00               ; Look for empty slot
              JSR   FINDBUF
@@ -524,6 +530,8 @@ SAVEFILE     >>>   ENTMAIN
              STA   CREATEPL+5
              LDA   FBLOAD+1
              STA   CREATEPL+6
+             LDA   #$C3               ; Default permissions
+             STA   CREATEPL+3
              JSR   CRTFILE
              BCS   :FWD1              ; :CANTOPEN error
              JSR   OPENFILE
