@@ -156,36 +156,26 @@ COPY1FILE    STA   :DESTTYPE          ; TODO: USE THE DEST TYPE!!!!
              LDA   #$0A               ; Num parms back as we found it
              STA   GINFOPL
              BCS   :ERR               ; Error creating dest file
-             LDA   #$00               ; Look for empty slot
-             JSR   FINDBUF
-             STX   :BUFIDX
-             JSR   BUFADDR
-             BCS   :ERR               ; No I/O bufs available
-             STA   OPENPL+3
-             STY   OPENPL+4
              JSR   OPENFILE
              BCS   :ERR               ; Open error
              LDA   OPENPL+5           ; File ref num
              STA   READPL+1
-             LDX   :BUFIDX
-             STA   FILEREFS,X         ; Store file ref number
              LDA   #<MOSFILE2
-             STA   OPENPL+1
+             STA   OPENPL2+1
              LDA   #>MOSFILE2
-             STA   OPENPL+2
+             STA   OPENPL2+2
              LDA   #$00               ; Look for empty slot
              JSR   FINDBUF
-             STX   :BUFIDX
              JSR   BUFADDR
              BCS   :ERR               ; No I/O bufs available
-             STA   OPENPL+3
-             STY   OPENPL+4
-             JSR   OPENFILE
+             STA   OPENPL2+3
+             STY   OPENPL2+4
+             JSR   MLI
+             DB    OPENCMD
+             DW    OPENPL2
              BCS   :ERRCLS1
-             LDA   OPENPL+5           ; File ref num
+             LDA   OPENPL2+5           ; File ref num
              STA   WRITEPL+1
-             LDX   :BUFIDX
-             STA   FILEREFS,X         ; Store file ref number
              BRA   :MAINLOOP
 :ERR         SEC                      ; Report error
              RTS
@@ -218,7 +208,6 @@ COPY1FILE    STA   :DESTTYPE          ; TODO: USE THE DEST TYPE!!!!
              PHP
              BRA   :CLOSE2
 :DESTTYPE    DB    $00
-:BUFIDX      DB    $00
 
 * ProDOS file handling for MOS OSFIND OPEN call
 * Options in A: $40 'r', $80 'w', $C0 'rw'
