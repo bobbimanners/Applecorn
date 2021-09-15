@@ -53,6 +53,9 @@ CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $8B
             DW    STARBYTE-1         ; OPT    -> OSBYTE &8B,X,Y  XY=>params
 * others
+            ASC   'COPY'
+            DB    $FF
+            DW    COPY-1             ; COPY   -> XY=>params
             ASC   'QUIT'
             DB    $80
             DW    STARQUIT-1         ; QUIT   -> (LPTR)=>params

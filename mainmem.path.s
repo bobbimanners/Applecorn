@@ -61,7 +61,7 @@ PREPATH     LDX   MOSFILE      ; Length
             JSR   DEL1CHAR     ; Delete '/' from MOSFILE
             BRA   :REENTER     ; Go again!
 :APPEND     JSR   APFXMF       ; Append MOSFILE->PREFIX
-            JSR   COPYPFXMF    ; Copy back to MOSFILE
+            JSR   PFXtoMF      ; Copy back to MOSFILE
 :EXIT       JSR   DIGCONV      ; Handle initial digits
             CLC
             RTS
@@ -218,7 +218,7 @@ MFtoTMP     LDA   #<MOSFILE
             JSR   STRCPY
             RTS
 
-* Copy MFTEMP to MOSFILE1
+* Copy MFTEMP to MOSFILE
 TMPtoMF     LDA   #<MFTEMP
             STA   A1L
             LDA   #>MFTEMP
@@ -226,6 +226,18 @@ TMPtoMF     LDA   #<MFTEMP
             LDA   #<MOSFILE
             STA   A4L
             LDA   #>MOSFILE
+            STA   A4H
+            JSR   STRCPY
+            RTS
+
+* Copy MFTEMP to MOSFILE2
+TMPtoMF2    LDA   #<MFTEMP
+            STA   A1L
+            LDA   #>MFTEMP
+            STA   A1H
+            LDA   #<MOSFILE2
+            STA   A4L
+            LDA   #>MOSFILE2
             STA   A4H
             JSR   STRCPY
             RTS
@@ -255,8 +267,7 @@ COPYMF21    LDA   #<MOSFILE2
             RTS
 
 * Copy PREFIX to MOSFILE
-COPYPFXMF
-            LDA   #<PREFIX
+PFXtoMF     LDA   #<PREFIX
             STA   A1L
             LDA   #>PREFIX
             STA   A1H

@@ -86,6 +86,140 @@ RENFILE      >>>   ENTMAIN
              DW    RENPL
              >>>   XF2AUX,RENRET
 
+* ProDOS file handling for file copying
+COPYFILE     >>>   ENTMAIN
+             JSR   MFtoTMP            ; Swap MOSFILE & MOSFILE2
+             JSR   COPYMF21
+             JSR   TMPtoMF2
+             JSR   PREPATH            ; Preprocess arg2 (in MOSFILE)
+             JSR   WILDONE            ; Handle any wildcards
+             JSR   EXISTS             ; See if destination exists
+             STA   :DESTTYPE          ; Stash for later
+             JSR   MFtoTMP            ; Swap MOSFILE & MOSFILE2 again
+             JSR   COPYMF21
+             JSR   TMPtoMF2
+             JSR   PREPATH            ; Preprocess arg1
+             JSR   WILDCARD           ; Handle any wildcards in arg1
+             BCS   :NONE
+             JSR   HASWILD
+             BCC   :MAINLOOP          ; No wildcards in final segment
+             LDA   :DESTTYPE          ; Wildcards, check dest type
+             CMP   #$02               ; Existing directory?
+             BNE   :BADDEST           ; If not, error
+             BRA   :MAINLOOP          ; Source: wildcard, dest: dir
+:NOWILD      
+:MAINLOOP
+             LDA   :DESTTYPE          ; Recover destination type
+             JSR   COPY1FILE          ; Copy an individual file
+             BCS   :COPYERR
+             JSR   WILDNEXT
+             BCS   :NOMORE
+             BRA   :MAINLOOP
+             JSR   CLSDIR
+:EXIT        >>>   XF2AUX,COPYRET
+:NONE        JSR   CLSDIR
+             LDA   #$40               ; TODO PROPER ERROR CODE
+             BRA   :EXIT
+:BADDEST     JSR   CLSDIR
+             LDA   #$40               ; TODO PROPER ERROR CODE
+             BRA   :EXIT
+:NOMORE      JSR   CLSDIR
+             LDA   #$00
+             BRA   :EXIT
+:COPYERR     JSR   CLSDIR
+             LDA   #$40               ; TODO PROPER ERROR CODE
+             BRA   :EXIT
+:DESTTYPE    DB    $00
+
+* Copy a single file
+* Source is in MOSFILE, DEST in MOSFILE2
+* On entry: A=0 dest doesn't exist, A=1 dest is file, A=2 dest is dir
+* Returns with carry set if error, carry clear otherwise
+COPY1FILE    STA   :DESTTYPE          ; TODO: USE THE DEST TYPE!!!!
+             LDA   #<MOSFILE
+             STA   GINFOPL+1
+             STA   OPENPL+1
+             LDA   #>MOSFILE
+             STA   GINFOPL+2
+             STA   OPENPL+2
+             JSR   GETINFO            ; GET_FILE_INFO
+             BCS   :ERR
+             LDA   #<MOSFILE2
+             STA   GINFOPL+1
+             LDA   #>MOSFILE2
+             STA   GINFOPL+2
+             LDA   #$07               ; Fix num parms in PL
+             STA   GINFOPL
+             JSR   MLI                ; Call CREATE with ..
+             DB    CREATCMD           ; .. PL from GET_FILE_INFO
+             DW    GINFOPL
+             LDA   #$0A               ; Num parms back as we found it
+             STA   GINFOPL
+             BCS   :ERR               ; Error creating dest file
+             LDA   #$00               ; Look for empty slot
+             JSR   FINDBUF
+             STX   :BUFIDX
+             JSR   BUFADDR
+             BCS   :ERR               ; No I/O bufs available
+             STA   OPENPL+3
+             STY   OPENPL+4
+             JSR   OPENFILE
+             BCS   :ERR               ; Open error
+             LDA   OPENPL+5           ; File ref num
+             STA   READPL+1
+             LDX   :BUFIDX
+             STA   FILEREFS,X         ; Store file ref number
+             LDA   #<MOSFILE2
+             STA   OPENPL+1
+             LDA   #>MOSFILE2
+             STA   OPENPL+2
+             LDA   #$00               ; Look for empty slot
+             JSR   FINDBUF
+             STX   :BUFIDX
+             JSR   BUFADDR
+             BCS   :ERR               ; No I/O bufs available
+             STA   OPENPL+3
+             STY   OPENPL+4
+             JSR   OPENFILE
+             BCS   :ERRCLS1
+             LDA   OPENPL+5           ; File ref num
+             STA   WRITEPL+1
+             LDX   :BUFIDX
+             STA   FILEREFS,X         ; Store file ref number
+             BRA   :MAINLOOP
+:ERR         SEC                      ; Report error
+             RTS
+:MAINLOOP    JSR   RDFILE             ; Read a block
+             BCC   :RDOKAY
+             CMP   #$4C               ; Is it EOF?
+             BEQ   :EOFEXIT
+             BRA   :ERRCLS2           ; Any other error
+:RDOKAY      LDA   READPL+6           ; Trans count MSB
+             STA   WRITEPL+4          ; Request count MSB
+             LDA   READPL+7           ; Trans count MSB
+             STA   WRITEPL+5          ; Request count MSB
+             JSR   WRTFILE            ; Write a block
+             BCS   :ERRCLS2           ; Write error
+             BRA   :MAINLOOP
+:EOFEXIT     CLC                      ; No error
+             PHP
+:CLOSE2      LDA   READPL+1           ; Close output file
+             STA   CLSPL+1
+             JSR   CLSFILE
+:CLOSE1      LDA   WRITEPL+1          ; Close input file
+             STA   CLSPL+1
+             JSR   CLSFILE
+             PLP
+             RTS
+:ERRCLS1     SEC
+             PHP
+             BRA   :CLOSE1
+:ERRCLS2     SEC
+             PHP
+             BRA   :CLOSE2
+:DESTTYPE    DB    $00
+:BUFIDX      DB    $00
+
 * ProDOS file handling for MOS OSFIND OPEN call
 * Options in A: $40 'r', $80 'w', $C0 'rw'
 OFILE        >>>   ENTMAIN
@@ -103,7 +237,7 @@ OFILE        >>>   ENTMAIN
 :NOTDIR      PLA
              PHA
              CMP   #$80               ; Write mode
-             BNE   :S0
+             BNE   :S1
              JSR   DODELETE
              LDA   #$01               ; Storage type - file
              STA   CREATEPL+7
@@ -118,32 +252,13 @@ OFILE        >>>   ENTMAIN
              LDA   #$00
              STA   CREATEPL+6
              JSR   CRTFILE            ; Create MOSFILE
-:S0          LDA   #$00               ; Look for empty slot
+:S1          LDA   #$00               ; Look for empty slot
              JSR   FINDBUF
              STX   BUFIDX
-             CPX   #$00
-             BNE   :S1
-             LDA   #<IOBUF1
-             LDY   #>IOBUF1
-             BRA   :S4
-:S1          CPX   #$01
-             BNE   :S2
-             LDA   #<IOBUF2
-             LDY   #>IOBUF2
-             BRA   :S4
-:S2          CPX   #$02
-             BNE   :S3
-             LDA   #<IOBUF3
-             LDY   #>IOBUF3
-             BRA   :S4
-:S3          CPX   #$03
-             BNE   :NOTFND            ; Out of buffers really
-             LDA   #<IOBUF4
-             LDY   #>IOBUF4
-
-:S4          STA   OPENPL2+3
+             JSR   BUFADDR
+             BCS   :NOTFND
+             STA   OPENPL2+3
              STY   OPENPL2+4
-
              LDA   #<MOSFILE
              STA   OPENPL2+1
              LDA   #>MOSFILE
@@ -169,8 +284,7 @@ CFILE        >>>   ENTMAIN
              JSR   CLSFILE
              LDA   MOSFILE
              JSR   FINDBUF
-             CPX   #$FF
-             BEQ   :S1
+             BCS   :S1
              LDA   #$00
              STA   FILEREFS,X
 :S1          JMP   FINDEXIT
