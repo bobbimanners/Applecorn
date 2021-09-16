@@ -273,13 +273,14 @@ the `*COPY` command:
      If the target file exists and is writeable it will be overwritten.
      If a directory is specified as the destination then the file will
      be copied into the directory using the same filename.  No wildcards
-     are allowed in the source filename in this case.  For example:
-     `*COPY TEXT/ABC.TXT ../BACKUPS/ABC.BACKUP.TXT`
+     are allowed in the source filename in this case.  An example of
+     this type of usage is `*COPY TEXT/ABC.TXT ../BACKUPS/ABC.BACKUP.TXT`
   - `*COPY <listspec> <objspec>` - Copy multiple files.  The first
      argument refers to a list of files, specified using wildcards.  The
      second argument must refer to a directory.  All the files included
      in the wildcard pattern will be copied into the destination
-     directory.  For example `*COPY :71/DOCS/ABC.TXT :72/MYDIR`.
+     directory.  For example of copying multiple files is 
+     `*COPY :71/DOCS/*.TXT :72/TEXTDIR`
 
 `*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
 
