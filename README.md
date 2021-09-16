@@ -268,14 +268,14 @@ For example: `*ACCESS *.ASM WR`
 
 `*COPY <listspec> <*objspec*>` - Copy file(s).  There are two forms of
 the `*COPY` command:
-  - `*COPY <objspec> <objspec>` - Copy a single file.  The first argument
+  - `*COPY <objspec> <*objspec*>` - Copy a single file.  The first argument
      must refer to a file and the second can be a file or a directory.
      If the target file exists and is writeable it will be overwritten.
      If a directory is specified as the destination then the file will
      be copied into the directory using the same filename.  No wildcards
      are allowed in the source filename in this case.  An example of
      this type of usage is `*COPY TEXT/ABC.TXT ../BACKUPS/ABC.BACKUP.TXT`
-  - `*COPY <listspec> <objspec>` - Copy multiple files.  The first
+  - `*COPY <listspec> <*objspec*>` - Copy multiple files.  The first
      argument refers to a list of files, specified using wildcards.  The
      second argument must refer to a directory.  All the files included
      in the wildcard pattern will be copied into the destination
