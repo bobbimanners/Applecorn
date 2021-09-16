@@ -89,6 +89,7 @@ RENFILE      >>>   ENTMAIN
              >>>   XF2AUX,RENRET
 
 * ProDOS file handling for file copying
+* Returns with ProDOS error code in A
 COPYFILE     >>>   ENTMAIN
              JSR   MFtoTMP            ; Swap MOSFILE & MOSFILE2
              JSR   COPYMF21
@@ -165,6 +166,7 @@ COPYFILE     >>>   ENTMAIN
 * Copy a single file
 * Source is in MOSFILE, DEST in MOSFILE2
 * Returns with carry set if error, carry clear otherwise
+* Returns with ProDOS error code in A
 * Buffer COPYBUF is used for the file copy, to avoid trashing
 * directory block in RDBUF (when doing wilcard search)
 COPY1FILE    LDA   #<MOSFILE
@@ -191,8 +193,8 @@ COPY1FILE    LDA   #<MOSFILE
              JSR   MLI                ; Call CREATE with ..
              DB    CREATCMD           ; .. PL from GET_FILE_INFO
              DW    GINFOPL
-             LDA   #$0A               ; Num parms back as we found it
-             STA   GINFOPL
+             LDX   #$0A               ; Num parms back as we found it
+             STX   GINFOPL
              BCS   :ERR               ; Error creating dest file
              LDA   #$00               ; Look for empty slot
              JSR   FINDBUF
@@ -249,6 +251,8 @@ COPY1FILE    LDA   #<MOSFILE
              BRA   :MAINLOOP
 :EOFEXIT     CLC                      ; No error
              PHP
+             LDA   #$00
+             PHA
 :CLOSE2      LDA   WRTPLCP+1          ; Close output file
              STA   CLSPL+1
              JSR   CLSFILE
@@ -259,13 +263,16 @@ COPY1FILE    LDA   #<MOSFILE
              JSR   CLSFILE
              LDX   :BUFIDX1
              STZ   FILEREFS,X
+             PLA
              PLP
              RTS
 :ERRCLS1     SEC
              PHP
+             PHA
              BRA   :CLOSE1
 :ERRCLS2     SEC
              PHP
+             PHA
              BRA   :CLOSE2
 :BUFIDX1     DB    $00
 :BUFIDX2     DB    $00
