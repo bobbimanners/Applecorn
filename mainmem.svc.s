@@ -111,11 +111,31 @@ COPYFILE     >>>   ENTMAIN
              BRA   :MAINLOOP          ; Source: wildcard, dest: dir
 :NOWILD      
 :MAINLOOP
-             LDA   :DESTTYPE          ; Recover destination type
+             LDA   MOSFILE2           ; Length
+             STA   :OLDLEN
+             LDA   :DESTTYPE          ; Check dest type
+             CMP   #$02               ; Existing directory?
+             BNE   :NOTDIR
+             LDY   MOSFILE2           ; Dest idx = length
+             LDA   #'/'               ; Add a '/' separator
+             STA   MOSFILE2+1,Y
+             INY
+             LDX   #$00               ; Source id
+:APPLOOP     CPX   MATCHBUF           ; At end?
+             BEQ   :DONEAPP
+             LDA   MATCHBUF+1,X       ; Appending MATCHBUF to MOSFILE2
+             STA   MOSFILE2+1,Y
+             INX
+             INY
+             BRA   :APPLOOP
+:DONEAPP     STY   MOSFILE2           ; Update length
+:NOTDIR      LDA   :DESTTYPE          ; Recover destination type
              JSR   COPY1FILE          ; Copy an individual file
              BCS   :COPYERR
              JSR   WILDNEXT
              BCS   :NOMORE
+             LDA   :OLDLEN            ; Restore MOSFILE2
+             STA   MOSFILE2
              BRA   :MAINLOOP
              JSR   CLSDIR
 :EXIT        >>>   XF2AUX,COPYRET
@@ -132,18 +152,17 @@ COPYFILE     >>>   ENTMAIN
              LDA   #$40               ; TODO PROPER ERROR CODE
              BRA   :EXIT
 :DESTTYPE    DB    $00
+:OLDLEN      DB    $00
 
 * Copy a single file
 * Source is in MOSFILE, DEST in MOSFILE2
-* On entry: A=0 dest doesn't exist, A=1 dest is file, A=2 dest is dir
 * Returns with carry set if error, carry clear otherwise
-COPY1FILE    STA   :DESTTYPE          ; TODO: USE THE DEST TYPE!!!!
-             LDA   #<MOSFILE
+COPY1FILE    LDA   #<MOSFILE
              STA   GINFOPL+1
-             STA   OPENPL+1
+             STA   OPENPL2+1
              LDA   #>MOSFILE
              STA   GINFOPL+2
-             STA   OPENPL+2
+             STA   OPENPL2+2
              JSR   GETINFO            ; GET_FILE_INFO
              BCS   :ERR
              LDA   #<MOSFILE2
@@ -160,16 +179,9 @@ COPY1FILE    STA   :DESTTYPE          ; TODO: USE THE DEST TYPE!!!!
              LDA   #$0A               ; Num parms back as we found it
              STA   GINFOPL
              BCS   :ERR               ; Error creating dest file
-             JSR   OPENFILE
-             BCS   :ERR               ; Open error
-             LDA   OPENPL+5           ; File ref num
-             STA   READPL+1
-             LDA   #<MOSFILE2
-             STA   OPENPL2+1
-             LDA   #>MOSFILE2
-             STA   OPENPL2+2
              LDA   #$00               ; Look for empty slot
              JSR   FINDBUF
+             STX   :BUFIDX1
              JSR   BUFADDR
              BCS   :ERR               ; No I/O bufs available
              STA   OPENPL2+3
@@ -177,32 +189,61 @@ COPY1FILE    STA   :DESTTYPE          ; TODO: USE THE DEST TYPE!!!!
              JSR   MLI
              DB    OPENCMD
              DW    OPENPL2
+             BCS   :ERR               ; Open error
+             LDA   OPENPL2+5          ; File ref num
+             STA   RDPLCP+1
+             LDX   :BUFIDX1
+             STA   FILEREFS,X         ; Record the ref number
+             LDA   #<MOSFILE2
+             STA   OPENPL2+1
+             LDA   #>MOSFILE2
+             STA   OPENPL2+2
+             LDA   #$00               ; Look for empty slot
+             JSR   FINDBUF
+             STX   :BUFIDX2
+             JSR   BUFADDR
+             BCS   :ERRCLS1           ; No I/O bufs available
+             STA   OPENPL2+3
+             STY   OPENPL2+4
+             JSR   MLI
+             DB    OPENCMD
+             DW    OPENPL2
              BCS   :ERRCLS1
-             LDA   OPENPL2+5           ; File ref num
-             STA   WRITEPL+1
+             LDA   OPENPL2+5          ; File ref num
+             STA   WRTPLCP+1
+             LDX   :BUFIDX2
+             STA   FILEREFS,X         ; Record the ref number
              BRA   :MAINLOOP
 :ERR         SEC                      ; Report error
              RTS
-:MAINLOOP    JSR   RDFILE             ; Read a block
+:MAINLOOP    JSR   MLI                ; Read a block
+             DB    READCMD
+             DW    RDPLCP
              BCC   :RDOKAY
              CMP   #$4C               ; Is it EOF?
              BEQ   :EOFEXIT
              BRA   :ERRCLS2           ; Any other error
-:RDOKAY      LDA   READPL+6           ; Trans count MSB
-             STA   WRITEPL+4          ; Request count MSB
-             LDA   READPL+7           ; Trans count MSB
-             STA   WRITEPL+5          ; Request count MSB
-             JSR   WRTFILE            ; Write a block
+:RDOKAY      LDA   RDPLCP+6           ; Trans count MSB
+             STA   WRTPLCP+4          ; Request count MSB
+             LDA   RDPLCP+7           ; Trans count MSB
+             STA   WRTPLCP+5          ; Request count MSB
+             JSR   MLI                ; Write a block
+             DB    WRITECMD
+             DW    WRTPLCP
              BCS   :ERRCLS2           ; Write error
              BRA   :MAINLOOP
 :EOFEXIT     CLC                      ; No error
              PHP
-:CLOSE2      LDA   READPL+1           ; Close output file
+:CLOSE2      LDA   WRTPLCP+1          ; Close output file
              STA   CLSPL+1
              JSR   CLSFILE
-:CLOSE1      LDA   WRITEPL+1          ; Close input file
+             LDX   :BUFIDX2
+             STZ   FILEREFS,X
+:CLOSE1      LDA   RDPLCP+1           ; Close input file
              STA   CLSPL+1
              JSR   CLSFILE
+             LDX   :BUFIDX1
+             STZ   FILEREFS,X
              PLP
              RTS
 :ERRCLS1     SEC
@@ -211,7 +252,8 @@ COPY1FILE    STA   :DESTTYPE          ; TODO: USE THE DEST TYPE!!!!
 :ERRCLS2     SEC
              PHP
              BRA   :CLOSE2
-:DESTTYPE    DB    $00
+:BUFIDX1     DB    $00
+:BUFIDX2     DB    $00
 
 * ProDOS file handling for MOS OSFIND OPEN call
 * Options in A: $40 'r', $80 'w', $C0 'rw'
