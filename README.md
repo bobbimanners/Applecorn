@@ -76,6 +76,9 @@ Two text video modes are currently supported:
 
 We plan to support HGR graphics eventually.
 
+You can set the startup video mode by holding down the appropriate number
+key while Applecorn starting (while it is loading the ROM file.)
+
 ### Escape Key
 
 The BBC Micro uses interrupts extensively and the Escape key is handled
