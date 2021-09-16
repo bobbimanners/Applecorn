@@ -113,11 +113,11 @@ COPYFILE     >>>   ENTMAIN
              BRA   :MAINLOOP          ; Source: wildcard, dest: dir
 :NOWILD      
 :MAINLOOP
+             LDA   MOSFILE2           ; Length
+             STA   :OLDLEN
              JSR   EXISTS             ; See if source is file or dir
              CMP   #$02               ; Directory
              BEQ   :SKIP              ; Skip directories
-             LDA   MOSFILE2           ; Length
-             STA   :OLDLEN
              LDA   :DESTTYPE          ; Check dest type
              CMP   #$02               ; Existing directory?
              BNE   :NOTDIR
