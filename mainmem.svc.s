@@ -112,6 +112,9 @@ COPYFILE     >>>   ENTMAIN
              BRA   :MAINLOOP          ; Source: wildcard, dest: dir
 :NOWILD      
 :MAINLOOP
+             JSR   EXISTS             ; See if source is file or dir
+             CMP   #$02               ; Directory
+             BEQ   :SKIP              ; Skip directories
              LDA   MOSFILE2           ; Length
              STA   :OLDLEN
              LDA   :DESTTYPE          ; Check dest type
@@ -136,7 +139,7 @@ COPYFILE     >>>   ENTMAIN
 :NOTDIR      LDA   :DESTTYPE          ; Recover destination type
              JSR   COPY1FILE          ; Copy an individual file
              BCS   :COPYERR
-             JSR   WILDNEXT
+:SKIP        JSR   WILDNEXT
              BCS   :NOMORE
              LDA   :OLDLEN            ; Restore MOSFILE2
              STA   MOSFILE2
