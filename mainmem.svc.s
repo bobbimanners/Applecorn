@@ -101,6 +101,7 @@ COPYFILE     >>>   ENTMAIN
              JSR   COPYMF21
              JSR   TMPtoMF2
              JSR   PREPATH            ; Preprocess arg1
+             SEC                      ; Force wildcard lookup
              JSR   WILDCARD           ; Handle any wildcards in arg1
              BCS   :NONE
              JSR   HASWILD
@@ -117,10 +118,13 @@ COPYFILE     >>>   ENTMAIN
              CMP   #$02               ; Existing directory?
              BNE   :NOTDIR
              LDY   MOSFILE2           ; Dest idx = length
+             LDA   MOSFILE2,Y         ; Get last char
+             CMP   #'/'               ; Is it slash?
+             BEQ   :HASSLSH
              LDA   #'/'               ; Add a '/' separator
              STA   MOSFILE2+1,Y
              INY
-             LDX   #$00               ; Source id
+:HASSLSH     LDX   #$00               ; Source id
 :APPLOOP     CPX   MATCHBUF           ; At end?
              BEQ   :DONEAPP
              LDA   MATCHBUF+1,X       ; Appending MATCHBUF to MOSFILE2
@@ -140,16 +144,17 @@ COPYFILE     >>>   ENTMAIN
              JSR   CLSDIR
 :EXIT        >>>   XF2AUX,COPYRET
 :NONE        JSR   CLSDIR
-             LDA   #$40               ; TODO PROPER ERROR CODE
+             LDA   #$46               ; 'File not found'
              BRA   :EXIT
 :BADDEST     JSR   CLSDIR
-             LDA   #$40               ; TODO PROPER ERROR CODE
+             LDA   #$FD               ; 'Wildcards' error
              BRA   :EXIT
 :NOMORE      JSR   CLSDIR
              LDA   #$00
              BRA   :EXIT
-:COPYERR     JSR   CLSDIR
-             LDA   #$40               ; TODO PROPER ERROR CODE
+:COPYERR     PHA
+             JSR   CLSDIR
+             PLA
              BRA   :EXIT
 :DESTTYPE    DB    $00
 :OLDLEN      DB    $00
@@ -157,6 +162,8 @@ COPYFILE     >>>   ENTMAIN
 * Copy a single file
 * Source is in MOSFILE, DEST in MOSFILE2
 * Returns with carry set if error, carry clear otherwise
+* Buffer COPYBUF is used for the file copy, to avoid trashing
+* directory block in RDBUF (when doing wilcard search)
 COPY1FILE    LDA   #<MOSFILE
              STA   GINFOPL+1
              STA   OPENPL2+1
@@ -167,8 +174,13 @@ COPY1FILE    LDA   #<MOSFILE
              BCS   :ERR
              LDA   #<MOSFILE2
              STA   GINFOPL+1
+             STA   DESTPL+1
              LDA   #>MOSFILE2
              STA   GINFOPL+2
+             STA   DESTPL+2
+             JSR   MLI                ; DESTROY
+             DB    DESTCMD
+             DW    DESTPL
              LDA   #$07               ; Fix num parms in PL
              STA   GINFOPL
              LDA   #$C3               ; Default permissions
@@ -190,7 +202,10 @@ COPY1FILE    LDA   #<MOSFILE
              DB    OPENCMD
              DW    OPENPL2
              BCS   :ERR               ; Open error
-             LDA   OPENPL2+5          ; File ref num
+             BRA   :S1
+:ERR         SEC                      ; Report error
+             RTS
+:S1          LDA   OPENPL2+5          ; File ref num
              STA   RDPLCP+1
              LDX   :BUFIDX1
              STA   FILEREFS,X         ; Record the ref number
@@ -213,9 +228,6 @@ COPY1FILE    LDA   #<MOSFILE
              STA   WRTPLCP+1
              LDX   :BUFIDX2
              STA   FILEREFS,X         ; Record the ref number
-             BRA   :MAINLOOP
-:ERR         SEC                      ; Report error
-             RTS
 :MAINLOOP    JSR   MLI                ; Read a block
              DB    READCMD
              DW    RDPLCP
@@ -955,7 +967,7 @@ SETPERM      >>>   ENTMAIN
 :SYNERR      LDA   #$40               ; Invalid pathname syn
              BRA   :EXIT
 :NONE        JSR   CLSDIR
-             LDA   #$40               ; TODO PROPER ERROR CODE
+             LDA   #$46               ; 'File not found'
              BRA   :EXIT
 :MAINLOOP    LDA   #<MOSFILE
              STA   GINFOPL+1
@@ -1002,7 +1014,7 @@ MULTIDEL     >>>   ENTMAIN
 :SYNERR      LDA   #$40               ; Invalid pathname syn
              BRA   :EXIT
 :NONE        JSR   CLSDIR
-             LDA   #$40               ; TODO PROPER ERROR CODE
+             LDA   #$46               ; 'File not found'
              BRA   :EXIT
 :MAINLOOP    JSR   DODELETE
              BCS   :DELERR
@@ -1010,8 +1022,9 @@ MULTIDEL     >>>   ENTMAIN
              BCS   :NOMORE
              BRA   :MAINLOOP
 :EXIT        >>>   XF2AUX,DESTRET
-:DELERR      JSR   CLSDIR
-             LDA   #$40               ; TODO PROPER ERROR CODE
+:DELERR      PHA
+             JSR   CLSDIR
+             PLA
              BRA   :EXIT
 :NOMORE      JSR   CLSDIR
              LDA   #$00

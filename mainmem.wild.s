@@ -14,7 +14,7 @@ WILDONE     CLC
 * by '/'), and for each segment see if it contains wildcard chars.
 * If so, pass it to SRCHBLK to expand the wildcard.  If not, just 
 * append the segment as it is. Uses MFTEMP to build up the path.
-* On entry: SEC to force leaf noden lookup even if no wildcard,
+* On entry: SEC to force leaf node lookup even if no wildcard,
 *           CLC otherwise
 * Returns with carry set if wildcard match fails, clear otherwise
 WILDCARD    STZ   :ALWAYS       ; Set :ALWAYS if carry set
