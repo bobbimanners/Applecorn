@@ -10,13 +10,15 @@
 * 3) '..' or '^' for parent directory
 * Carry set on error, clear otherwise
 PREPATH     LDX   MOSFILE      ; Length
-            BEQ   :EXIT        ; If zero length
-            LDA   MOSFILE+1    ; 1st char of pathname
+            BNE   :S1
+            JMP   :EXIT        ; If zero length
+:S1         LDA   MOSFILE+1    ; 1st char of pathname
             CMP   #':'
             BNE   :NOTCOLN     ; Not colon
             CPX   #$03         ; Length >= 3?
-            BCC   :ERR         ; If not
-            LDA   MOSFILE+3    ; Drive
+            BCS   :S2
+            JMP   :ERR         ; If not
+:S2         LDA   MOSFILE+3    ; Drive
             SEC
             SBC   #'1'
             TAX
@@ -47,10 +49,16 @@ PREPATH     LDX   MOSFILE      ; Length
             CMP   #'.'         ; ...
             BEQ   :UPDIR1
             BRA   :APPEND
-:UPDIR1     LDA   MOSFILE+2
+:UPDIR1     LDA   MOSFILE      ; Length
+            CMP   #$01
+            BEQ   :CWD         ; '.' on its own
+            LDA   MOSFILE+2
             CMP   #'.'         ; '..'
-            BNE   :EXIT
-            JSR   DEL1CHAR     ; Delete first char of MOSFILE
+            BEQ   :DOTDOT
+            CMP   #'/'         ; './'
+            BEQ   :CWD
+            BRA   :ERR
+:DOTDOT     JSR   DEL1CHAR     ; Delete first char of MOSFILE
 :CARET      JSR   PARENT       ; Parent dir -> PREFIX
 :CWD        JSR   DEL1CHAR     ; Delete first char of MOSFILE
             LDA   MOSFILE      ; Is there more?
