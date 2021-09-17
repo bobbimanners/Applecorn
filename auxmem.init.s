@@ -7,8 +7,8 @@
 * BBC Micro 'virtual machine' in Apple //e aux memory
 ***********************************************************
 
-ZP1         EQU   $90             ; $90-$9f are spare Econet space
-                                  ; so safe to use
+ZP1         EQU   $90                        ; $90-$9f are spare Econet space
+                                             ; so safe to use
 ZP2         EQU   $92
 ZP3         EQU   $94
 
@@ -16,11 +16,11 @@ ZP3         EQU   $94
 ** TO DO: will be moved to VDU space
 *COL         EQU   $96            ; Cursor column
 *ROW         EQU   $97            ; Cursor row
-STRTBCKL    EQU   $9D             ; *TO DO* don't need to preserve
+STRTBCKL    EQU   $9D                        ; *TO DO* don't need to preserve
 STRTBCKH    EQU   $9E
 
 MOSSHIM
-            ORG   AUXMOS          ; MOS shim implementation
+            ORG   AUXMOS                     ; MOS shim implementation
 
 *
 * Shim code to service Acorn MOS entry points using
@@ -30,23 +30,23 @@ MOSSHIM
 *
 * Initially executing at $3000 until copied to $D000
 
-MOSINIT     LDX   #$FF            ; Initialize Alt SP to $1FF
+MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             TXS
 
-            STA   $C005           ; Make sure we are writing aux
-            STA   $C000           ; Make sure 80STORE is off
+            STA   $C005                      ; Make sure we are writing aux
+            STA   $C000                      ; Make sure 80STORE is off
 
-            LDA   $C08B           ; LC RAM Rd/Wt, 1st 4K bank
+            LDA   $C08B                      ; LC RAM Rd/Wt, 1st 4K bank
             LDA   $C08B
 
-:MODBRA     BRA   :RELOC          ; NOPped out on first run
+:MODBRA     BRA   :RELOC                     ; NOPped out on first run
             BRA   :NORELOC
 
-            LDA   #$EA            ; NOP opcode
+            LDA   #$EA                       ; NOP opcode
             STA   :MODBRA
             STA   :MODBRA+1
 
-:RELOC      LDA   #<AUXMOS1       ; Relocate MOS shim
+:RELOC      LDA   #<AUXMOS1                  ; Relocate MOS shim
             STA   A1L
             LDA   #>AUXMOS1
             STA   A1H
@@ -105,30 +105,30 @@ MOSINIT     LDX   #$FF            ; Initialize Alt SP to $1FF
 :S7         BRA   :L2
 
 :NORELOC
-:S8         STA   $C00D           ; 80 col on
-            STA   $C003           ; Alt charset off
-            STA   $C055           ; PAGE2
-            JMP   MOSHIGH         ; Ensure executing in high memory here
+:S8         STA   $C00D                      ; 80 col on
+            STA   $C003                      ; Alt charset off
+            STA   $C055                      ; PAGE2
+            JMP   MOSHIGH                    ; Ensure executing in high memory here
 
 MOSHIGH     SEI
             LDX   #$FF
-            TXS                   ; Initialise stack
-            INX                   ; X=$00
+            TXS                              ; Initialise stack
+            INX                              ; X=$00
             TXA
-:SCLR       STA   $0000,X         ; Clear Kernel memory
+:SCLR       STA   $0000,X                    ; Clear Kernel memory
             STA   $0200,X
             STA   $0300,X
             INX
             BNE   :SCLR
 
             LDX   #ENDVEC-DEFVEC-1
-:INITPG2    LDA   DEFVEC,X        ; Set up vectors
+:INITPG2    LDA   DEFVEC,X                   ; Set up vectors
             STA   $200,X
             DEX
             BPL   :INITPG2
 
-            JSR   KBDINIT         ; Returns A=startup MODE
-            JSR   VDUINIT         ; Initialise VDU driver
+            JSR   KBDINIT                    ; Returns A=startup MODE
+            JSR   VDUINIT                    ; Initialise VDU driver
             JSR   PRHELLO
             LDA   #7
             JSR   OSWRCH
@@ -138,33 +138,33 @@ MOSHIGH     SEI
 
 * OSBYTE $8E - Enter language ROM
 *
-BYTE8E       PHP                  ; Save CLC=RESET, SEC=Not RESET
-             LDA   #$00
-             STA   FAULT+0
-             LDA   #$80
-             STA   FAULT+1
-             LDY   #$09
-             JSR   PRERRLP        ; Print ROM name with PRERR to set
-             STY   FAULT+0        ;  FAULT pointing to version string
-             JSR   OSNEWL
-             JSR   OSNEWL
-             PLP                  ; Get entry type back
-             LDA   #$01
-             JMP   AUXADDR
+BYTE8E      PHP                              ; Save CLC=RESET, SEC=Not RESET
+            LDA   #$00
+            STA   FAULT+0
+            LDA   #$80
+            STA   FAULT+1
+            LDY   #$09
+            JSR   PRERRLP                    ; Print ROM name with PRERR to set
+            STY   FAULT+0                    ;  FAULT pointing to version string
+            JSR   OSNEWL
+            JSR   OSNEWL
+            PLP                              ; Get entry type back
+            LDA   #$01
+            JMP   AUXADDR
 
 * OSBYTE $8F - Issue service call
 * X=service call, Y=parameter
 *
 BYTE8F
-SERVICEX     TXA
-SERVICE      LDX   #$0F
-             BIT   $8006
-             BPL   :SERVSKIP      ; No service entry
-             JSR   $8003          ; Call service entry
-             TAX
-             BEQ   :SERVDONE
-:SERVSKIP    LDX   #$FF
-:SERVDONE    RTS
+SERVICEX    TXA
+SERVICE     LDX   #$0F
+            BIT   $8006
+            BPL   :SERVSKIP                  ; No service entry
+            JSR   $8003                      ; Call service entry
+            TAX
+            BEQ   :SERVDONE
+:SERVSKIP   LDX   #$FF
+:SERVDONE   RTS
 
 
 PRHELLO     LDA   #<HELLO
@@ -172,11 +172,15 @@ PRHELLO     LDA   #<HELLO
             JSR   PRSTR
             JMP   OSNEWL
 
-BYTE00XX    BEQ   BYTE00A         ; OSBYTE 0,0 - generate error
-            LDX   #$0A            ; $00 = identify Host
-            RTS                   ; %000x1xxx host type, 'A'pple
+BYTE00XX    BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
+            LDX   #$0A                       ; $00 = identify Host
+            RTS                              ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2021-09-10 snapshot'
-            DB    $00             ; Unify MOS messages
+HELLO       ASC   'Applecorn MOS 2021-09-16 snapshot'
+            DB    $00                        ; Unify MOS messages
+
+
+
+
 

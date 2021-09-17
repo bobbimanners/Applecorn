@@ -18,8 +18,11 @@ of memory and a 65C02 processor.  This includes the following:
 - Apple //c and //c+
 - Apple IIgs
   - You must enable the Alt Text Mode CDA!
-  - ROM1: Only `MODE 1` (40 cols) works
-  - ROM3: Both `MODE 0` and `MODE 1` work
+  - ROM1: Only the 40 column modes `MODE 6` and `MODE 7` can be used.
+    (This is because the ROM1 GS is unable to shadow PAGE2 80 column.)
+  - ROM3: You may also use the 80 column `MODE 3`.  (Apple fixed the
+    PAGE2 shadowing problem in ROM3. You do still need to run the Alt
+    text mode CDA however.)
 
 ## How to Run the Software
 
@@ -67,10 +70,14 @@ is set to `&0E0`.
 ### Video Modes
 
 Two text video modes are currently supported:
-- 80x24 `MODE 0`
-- 40x24 `MODE 1`
+- 40x24 `MODE 6` and `MODE 7` (in mode 7, chars $80 to $9F are converted
+  to spaces)
+- 80x24 `MODE 3`
 
 We plan to support HGR graphics eventually.
+
+_NOTE:_ You can set the startup video mode by holding down the appropriate number
+key while Applecorn starting (while it is loading the ROM file.)
 
 ### Escape Key
 
@@ -130,18 +137,25 @@ drive 1.  Applecorn uses the ProDOS `ON_LINE` MLI call to find the
 volume associated with the physical device.  If slot 6, drive 1, contains
 the volume 'FLOPPY', then a path `:S61/TESTFILE` will be converted to
 `/FLOPPY/TESTFILE`.
+- It is possible to refer to the current working directory (current prefix
+in ProDOS terms) using `.` (like Linux or Windows) or `@` (like BBC ADFS.)
+The current working directory notation is only supported at the beginning
+of pathnames.
 - Support is provided for easily accessing the parent directory.  This
 may be denoted using `..` (like Linux or Windows) or `^` (like BBC ADFS.)
 The parent directory notation is only supported at the beginning of
 pathnames, but it may be applied multiple times to navigate further up
-the tree.  Some examples:
+the tree.
+- Some examples:
    - `/H1/APPLECORN` - absolute path
    - `APPLECORN` - relative path
+   - `./APPLECORN` - relative path (explicit)
    - `^` - parent dir
    - `..` - parent dir (alternate form)
    - `^/^` - up two levels
    - `../..` - up two levels (alternate form)
    - `^/MYSTUFF` - file or directory in parent
+   - `../MYSTUFF` - alternative way to refer to sibling directory
 - Since Acorn's DFS allows filenames beginning with a digit, while ProDOS
 requires names to begin with an alphabetic character, Applecorn prefixes
 any file or directory names beginning with a digit with the letter 'N'.
@@ -149,63 +163,142 @@ An Applecorn path such as `/FOO/0DIR/50DIR/FILE01` would be converted to
 `/FOO/N0DIR/N50DIR/FILE01`, for example, in order to make it a legal
 ProDOS path.
 
+#### HostFS Wildcards
+
+Applecorn HostFS provides support for wildcards.  The following wildcard
+characters are used:
+   - `#` or `?` - matches any single character
+   - `*` - matches zero or more characters
+
+The HostFS tries to follow the same conventions as Acorn's ADFS, which 
+allows wildcards to be used in some cases to abbreviate long pathnames
+and in others to specify a list of files to operate on at once.
+
+Like ADFS, HostFS commands accept several different types of file argument.
+Following Acorn's convention, these may be described as follows:
+   - `<obspec>` is an 'object specification'.  This is a pathname without
+     any wildcard characters, as described in the previous section.
+   - `<*obspec*>` is an 'wildcard object specification'.  This is a
+     pathname which may include the wildcard characters.  If the
+     wildcard characters specified result in multiple matching objects,
+     the first one is used.
+   - `<listspec>` is an 'list specification'.  This is also a
+     pathname which may include the wildcard characters.  However, if the
+     wildcard results in multiple matches, the command will operate
+     on all of these files.
+   - `<dry>` is a drive number.  (For example, `:61`).
+
+Wildcards are expanded wherever they appear in the path with one
+exception.  For non-leaf nodes, the first match will be always be 
+substituted.  In the case of `<*objspec*>` the first match for the leaf
+node will always be used.  However for `<listspec>` all matches of the 
+leaf node will be operated upon.
+
+Examples: `:71/T*DIR/TEST??.TXT`, `*A*/FILES/C*/TEST*.TXT`
+
+Wildcards may also be used for `OSFILE` and `OSFIND` system calls, so
+BASIC command like `LOAD""`, `CHAIN""`, `OPENIN""` and `OPENUP""` can
+use wildcards to specify the file to open.
+
+The attentive reader will have noticed that I mention an exception to
+wildcard matching.  Volume directory names are not currently subject
+to wildcard search.  Either type them in full, or use the colon
+notation to specify physical drive as an abbreviation.
+
 ### Star Commands
 
 `*QUIT` - Terminate Applecorn and quit to ProDOS.  Because the 'BBC Micro'
 lives in auxiliary memory, you can usually restart Applecorn by running it
 again and recover your program with `OLD`.
 
-`*HELP` - Prints out information similar to the same command on the BBC micro.
+`*HELP [topic]` - Prints out information similar to the same command on the BBC micro.
 Specifically it lists the version of Applecorn MOS and the name of the current
 language ROM.
+  - `*HELP` shows the version number and the language ROM in use.
+  - `*HELP MOS` shows the available MOS star commands.
+  - `*HELP HOSTFS` shows the available HostFS star commands.
 
-`*CAT [dirpath]` (or `*. [dirpath]`) - Simple listing of the files in the
+`*CAT [<*objspec*>]` (or `*. [*objspec*]`) - Simple listing of the files in the
 specified directory, or the current working directory ('current prefix') if
 no directory argument is given.
 
-`*EX` - Detailed listing of files in the current directory showing load
-address, length and permissions.
+`*EX [<*objspec*>]` - Detailed listing of files in the current directory 
+showing the load address, length and permissions.  `*EX` expects a directory
+as an argument, for example `*EX :71/MYDIR`.
 
-`*DIR dirpath` - Allows the current directory to be changed to any ProDOS
-path.  `*CD` and `*CHDIR` are synonyms for `*DIR`.
+`*INFO [<listspec>]` - Displays the same detailed file listing as `*EX`,
+but accepting a `<listspec>`.  `*INFO` expects a list of objects as an
+argument, so `*INFO :71/MYDIR/*` would display the same info as the `*EX`
+example above.
 
-`*LOAD filepath SSSS` - Load file `filename` into memory at hex address
+`*DIR <*objspec*>` - Allows the current directory to be changed to any ProDOS
+path.  `*CD` and `*CHDIR` are synonyms for `*DIR`.  The argument is expected
+to be a directory.
+
+`*LOAD <*objspec*> SSSS` - Load file `<*objspec*>` into memory at hex address
 `SSSS`. If the address `SSSS` is omitted then the file is loaded to the
 address stored in its aux filetype.
 
-`*SAVE filepath SSSS EEEE` - Save memory from hex address `SSSS` to hex
-address `EEEE` into file `filepath`.  The start address `SSSS` is
-recorded in the aux filetype.
+`*SAVE <objspec> SSSS EEEE` - Save memory from hex address `SSSS` to hex
+address `EEEE` into file `<objspec>`.  The start address `SSSS` is
+recorded in the aux filetype.  (Note, no wildcards when saving.)
 
-`*RUN filepath` - Load file `filepath` into memory at the address stored
+`*RUN <*objspec*>` - Load file `filepath` into memory at the address stored
 in its aux filetype and jump to to it.  This is used for loading and
-starting machine code programs.
+starting machine code programs.  You can also simply do `*<*objspec*>` or
+`*/<*objspec*>` (the latter form is useful if the name is the same as that
+of a ROM routine.)
 
-`*DELETE pathname` - Delete file `pathname` from disk.  This command
-can also delete directories, provided they are empty.
+`*DELETE <objspec>` - Delete file `<objspec>` from disk.  This command
+can also delete directories, provided they are empty.  No wildcards are
+allowed.
 
-`*RENAME oldpathname newpathname` - Rename file or directory `oldpathname`
-to `newpathname`.
+`*DESTROY <listspec>` - Deletes multiple files as specified by
+`<listspec>`. For example, `*DESTROY PROJECT/*.ASM`.
 
-`*DRIVE :sd` - Switch to the specified physical drive.  This is equivalent
+`*RENAME <objspec1> <objspec2>` - Rename file or directory `<objspec1>`
+to `<objspec2>`.  No wildcards are allowed.
+
+`*DRIVE <dry>` - Switch to the specified physical drive.  This is equivalent
 to using `*DIR` but does not allow subdirectories to be specified.  The
 working directory will be set to the volume directory corresponding to
 the physical device specified.
 
-`*FREE :sd` - Shows blocks used and blocks free on the specified physical
+`*FREE <dry>` - Shows blocks used and blocks free on the specified physical
 device.
 
-`*CDIR dirname` - create directory `dirname`.  `*MKDIR` is a synonym.
+`*CDIR <objspec>` - create directory `dirname`.  `*MKDIR` is a synonym.
 
-`*ACCESS pathname attribs` - change file permisions.  The string `attribs`
+`*ACCESS <listspec> attribs` - change file permisions.  The string `attribs`
 can contain any of the following:
   - `R` - File is readable
   - `W` - File is writeable
   - `L` - File is locked against deletion, renaming and writing.
+For example: `*ACCESS *.ASM WR`
+
+`*COPY <listspec> <*objspec*>` - Copy file(s).  There are two forms of
+the `*COPY` command:
+  - `*COPY <objspec> <*objspec*>` - Copy a single file.  The first argument
+    must refer to a file and the second can be a file or a directory.
+    If the target file exists and is writeable it will be overwritten.
+    If a directory is specified as the destination then the file will
+    be copied into the directory using the same filename.  No wildcards
+    are allowed in the source filename in this case.  An example of
+    this type of usage is `*COPY TEXT/ABC.TXT ../BACKUPS/ABC.BACKUP.TXT`
+  - `*COPY <listspec> <*objspec*>` - Copy multiple files.  The first
+    argument refers to a list of files, specified using wildcards.  The
+    second argument must refer to a directory.  All the files included
+    in the wildcard pattern will be copied into the destination
+    directory.  For example of copying multiple files is 
+    `*COPY :71/DOCS/*.TXT :72/TEXTDIR`
+  - Recall that `@` or `.` may be used to specify the current working
+    directory, while `^` or `..` may be used to specify the parent
+    directory.
 
 `*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
 
-`*OPT` - sets file system options.  Currently does not do anything.
+`*OPT` - sets file system options.  `*OPT 255,x` may be used to enable or
+disable debugging output.
 
 ## How to Build
 

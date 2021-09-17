@@ -9,9 +9,10 @@
 * Also allows '^' as '^' is illegal character in ProDOS
 * Carry set on error, clear otherwise
 PREPATH     LDX   MOSFILE      ; Length
-            BEQ   :EXIT        ; If zero length
-            LDA   MOSFILE+1    ; 1st char of pathname
-            CMP   #$3A         ; ':'
+            BNE   :S1
+            JMP   :EXIT        ; If zero length
+:S1         LDA   MOSFILE+1    ; 1st char of pathname
+            CMP   #':'
             BNE   :NOTCOLN     ; Not colon
             CPX   #$03         ; Length >= 3?
             BCC   :ERR         ; If not
@@ -31,37 +32,42 @@ PREPATH     LDX   MOSFILE      ; Length
             CMP   #$02         ; Length >= 2
             BCC   :ERR         ; If not
             LDA   MOSFILE+1    ; 1st char of filename
-            CMP   #$2F         ; '/'
+            CMP   #'/'
             BNE   :ERR
             JSR   DEL1CHAR     ; Delete '/' from MOSFILE
             BRA   :APPEND
 :NOTCOLN    JSR   GETPREF      ; Current pfx -> PREFIX
 :REENTER    LDA   MOSFILE+1    ; First char of dirname
             CMP   #'.'
-            BEQ   :UPDIR1
-            CMP   #$5E         ; '^' char
-            BEQ   :CARET       ; If '^'
-            CMP   #$2F         ; '/' char - abs path
+            BEQ   :ONEDOT
+            CMP   #'@'
+            BEQ   :CWD
+            CMP   #'^'
+            BEQ   :CARET
+            CMP   #'/'         ; Absolute path
             BEQ   :EXIT        ; Nothing to do
             BRA   :APPEND
-
-:UPDIR1     LDA   MOSFILE+2
+:ONEDOT     JSR   DEL1CHAR     ; Delete the dot
+            LDA   MOSFILE      ; Is there more?
+            BEQ   :APPEND      ; Nope - '.' alone
+            LDA   MOSFILE+1
+            CMP   #'/'         ; './'
+            BEQ   :CWD2
             CMP   #'.'         ; '..'
             BNE   :EXIT
-            JSR   DEL1CHAR     ; Delete two leading characters
-:CARET      JSR   DEL1CHAR     ; Delete '^' from MOSFILE
-            JSR   PARENT       ; Parent dir -> MOSFILE
-            LDA   MOSFILE      ; Is there more?
-            BEQ   :APPEND      ; Only '^'
+:CARET      JSR   PARENT       ; Parent dir -> PREFIX
+:CWD        JSR   DEL1CHAR     ; Delete first char from MOSFILE
+:CWD2       LDA   MOSFILE      ; Is there more?
+            BEQ   :APPEND      ; Nope!
             CMP   #$02         ; Len at least two?
             BCC   :ERR         ; Nope!
             LDA   MOSFILE+1    ; What is next char?
-            CMP   #$2F         ; Is it slash?
+            CMP   #'/'         ; Is it slash?
             BNE   :ERR         ; Nope!
             JSR   DEL1CHAR     ; Delete '/' from MOSFILE
             BRA   :REENTER     ; Go again!
 :APPEND     JSR   APFXMF       ; Append MOSFILE->PREFIX
-            JSR   COPYPFXMF    ; Copy back to MOSFILE
+            JSR   PFXtoMF      ; Copy back to MOSFILE
 :EXIT       JSR   DIGCONV      ; Handle initial digits
             CLC
             RTS
@@ -74,7 +80,7 @@ PARENT      LDX   PREFIX       ; Length of string
             BEQ   :EXIT        ; Prefix len zero
             DEX                ; Ignore trailing '/'
 :L1         LDA   PREFIX,X
-            CMP   #$2F         ; Slash '/'
+            CMP   #'/'
             BEQ   :FOUND
             DEX
             CPX   #$01
@@ -104,7 +110,7 @@ DRV2PFX     CLC                ; Cy=0 A=00000sss
             INC                ; Plus '/' at each end
             INC
             STA   PREFIX       ; Store length
-            LDA   #$2F         ; '/'
+            LDA   #'/'
             STA   PREFIX+1
             STA   PREFIX+2,X
 :L1         CPX   #$00         ; Copy -> PREFIX
@@ -154,7 +160,7 @@ DIGCONV     LDY   #$01         ; First char
             CPY   #$01         ; First char?
             BEQ   :INS         ; First char is digit
             LDA   MOSFILE-1,Y  ; Prev char
-            CMP   #$2F         ; Slash
+            CMP   #'/'
             BEQ   :INS         ; Slash followed by digit
             BRA   :NOINS       ; Otherwise leave it alone
 :INS        LDA   #'N'         ; Char to insert
@@ -218,7 +224,7 @@ MFtoTMP     LDA   #<MOSFILE
             JSR   STRCPY
             RTS
 
-* Copy MFTEMP to MOSFILE1
+* Copy MFTEMP to MOSFILE
 TMPtoMF     LDA   #<MFTEMP
             STA   A1L
             LDA   #>MFTEMP
@@ -226,6 +232,18 @@ TMPtoMF     LDA   #<MFTEMP
             LDA   #<MOSFILE
             STA   A4L
             LDA   #>MOSFILE
+            STA   A4H
+            JSR   STRCPY
+            RTS
+
+* Copy MFTEMP to MOSFILE2
+TMPtoMF2    LDA   #<MFTEMP
+            STA   A1L
+            LDA   #>MFTEMP
+            STA   A1H
+            LDA   #<MOSFILE2
+            STA   A4L
+            LDA   #>MOSFILE2
             STA   A4H
             JSR   STRCPY
             RTS
@@ -255,8 +273,7 @@ COPYMF21    LDA   #<MOSFILE2
             RTS
 
 * Copy PREFIX to MOSFILE
-COPYPFXMF
-            LDA   #<PREFIX
+PFXtoMF     LDA   #<PREFIX
             STA   A1L
             LDA   #>PREFIX
             STA   A1H
@@ -269,6 +286,10 @@ COPYPFXMF
 
 MFTEMP      DS    65           ; Temp copy of MOSFILE
 PREFIX      DS    65           ; Buffer for ProDOS prefix
+
+
+
+
 
 
 

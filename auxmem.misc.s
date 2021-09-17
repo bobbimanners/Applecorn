@@ -132,7 +132,7 @@ PRDECXY     LDA   #' '
 PRDECPAD    STA   OSPAD
             STX   OSNUM+0
             STY   OSNUM+1
-:PRDEC16    LDY   #$08            ; Five digits (5-1)*2
+:PRDEC16    LDY   #$08           ; Five digits (5-1)*2
 :LP1        LDX   #$FF
             SEC
 :LP2        LDA   OSNUM+0
@@ -479,6 +479,10 @@ MOSVEND
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      ASC   '**ENDOFCODE**'
             DS    $200-13
+
+
+
+
 
 
 

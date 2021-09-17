@@ -33,7 +33,7 @@ SETPRFX     LDA   #GPFXCMD
             TAX
             INX
             STX   DRVBUF1           ; was $0300
-            LDA   #$2F
+            LDA   #'/'
             STA   DRVBUF2           ; was $0301
             DEC   :OPC7
             BNE   :L1
@@ -89,6 +89,10 @@ RESET       TSX
             TRB   $C035
             >>>   XF2AUX,AUXMOS
             RTS
+
+
+
+
 
 
 

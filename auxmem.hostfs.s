@@ -418,8 +418,6 @@ CHKEOFRET
 FSCCAT      PHA
             JSR   PARSNAME            ; Copy filename->MOSFILE
             PLA
-            CMP   #10                 ; *TEMP*
-            BEQ   CATDONE             ; *TEMP*
             ASL   A
             ASL   A
             ASL   A                   ; 0101xxxx=*CAT
@@ -569,16 +567,35 @@ PRSPACE     LDA   #' '
 * Parameter string in XY
 RENAME      JSR   PARSNAME            ; Copy Arg1->MOSFILE
             CMP   #$00                ; Length of arg1
-            BEQ   :RENSYN
+            BEQ   :SYNTAX
             JSR   PARSLPTR2           ; Copy Arg2->MOSFILE2
             CMP   #$00                ; Length of arg2
-            BEQ   :RENSYN
+            BEQ   :SYNTAX
             >>>   XF2MAIN,RENFILE
-:RENSYN     BRK
+:SYNTAX     BRK
             DB    $DC
-            ASC   'Syntax: RENAME <old fname> <new fname>'
+            ASC   'Syntax: RENAME <objspec> <objspec>'
             BRK
 RENRET
+            >>>   ENTAUX
+            JSR   CHKERROR
+            LDA   #$00
+            RTS
+
+* Perform *COPY function
+* Parameter string in XY
+COPY        JSR   PARSNAME            ; Copy Arg1->MOSFILE
+            CMP   #$00                ; Length of arg1
+            BEQ   :SYNTAX
+            JSR   PARSLPTR2           ; Copy Arg2->MOSFILE2
+            CMP   #$00                ; Length of arg2
+            BEQ   :SYNTAX
+            >>>   XF2MAIN,COPYFILE
+:SYNTAX     BRK
+            DB    $DC
+            ASC   'Syntax: COPY <listspec> <*objspec*>'
+            BRK
+COPYRET
             >>>   ENTAUX
             JSR   CHKERROR
             LDA   #$00
@@ -591,7 +608,7 @@ CHDIR       JSR   PARSNAME            ; Copy filename->MOSFILE
             BNE   :HASPARM
             BRK
             DB    $DC
-            ASC   'Syntax: DIR <pathname>'
+            ASC   'Syntax: DIR <*objspec*>'
             BRK
 :HASPARM    >>>   XF2MAIN,SETPFX
 
@@ -605,7 +622,7 @@ DRIVE       LDA   (OSLPTR),Y          ; First char
             BEQ   :HASPARM
 :ERR        BRK
             DB    $DC
-            ASC   'Syntax: DRIVE :sd  (eg: DRIVE :61)'
+            ASC   'Syntax: DRIVE <dry>  (eg: DRIVE :61)'
             BRK
 :HASPARM    >>>   XF2MAIN,SETPFX
 
@@ -629,7 +646,7 @@ FREE        LDA   (OSLPTR),Y          ; First char
             BEQ   :HASPARM
 :ERR        BRK
             DB    $DC
-            ASC   'Syntax: FREE :sd  (eg: DRIVE :61)'
+            ASC   'Syntax: FREE <dry>  (eg: DRIVE :61)'
             BRK
 :HASPARM    >>>   XF2MAIN,DRVINFO
 
@@ -674,7 +691,7 @@ ACCESS      JSR   PARSLPTR            ; Copy filename->MOSFILE
             >>>   XF2MAIN,SETPERM
 :SYNTAX     BRK
             DB    $DC
-            ASC   'Syntax: ACCESS <obj-list> <L|R|W>'
+            ASC   'Syntax: ACCESS <listspec> <L|R|W>'
             BRK
 
 ACCRET      >>>   ENTAUX
@@ -688,14 +705,14 @@ DESTROY     JSR   PARSLPTR            ; Copy filename->MOSFILE
             >>>   XF2MAIN,MULTIDEL
 :SYNTAX     BRK
             DB    $DC
-            ASC   'Syntax: DESTROY <obj-list>'
+            ASC   'Syntax: DESTROY <listspec>'
             BRK
 
 DESTRET     >>>   ENTAUX
             JSR   CHKERROR
             LDA   #$00
             RTS
-           
+
 * Parse filename pointed to by XY
 * Write filename to MOSFILE in main memory
 * Returns length in A
@@ -911,6 +928,10 @@ ERROR5E     DW    $C000
 ERROR2E     DW    $C800
             ASC   'Disk changed'      ; $2E - Disk switched
             DB    $00
+
+
+
+
 
 
 

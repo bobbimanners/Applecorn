@@ -27,6 +27,7 @@ COPYAUXBLK  >>>   ALTZP          ; Alt ZP & Alt LC on
             RTS
 
 * Search FILEREFS for value in A
+* On return, buffer number is in X (or $FF if no bufs)
 FINDBUF     LDX   #$00
 :L1         CMP   FILEREFS,X
             BEQ   :END
@@ -36,8 +37,36 @@ FINDBUF     LDX   #$00
             LDX   #$FF           ; $FF for not found
 :END        RTS
 
+* Obtain I/O buffer address
+* On entry: buffer number in X
+* On exit: buffer address in AY
+*          Carry set if no bufs, clear otherwise
+BUFADDR     CPX   #$00
+            BNE   :S1
+            LDA   #<IOBUF1
+            LDY   #>IOBUF1
+            BRA   :EXIT
+:S1         CPX   #$01
+            BNE   :S2
+            LDA   #<IOBUF2
+            LDY   #>IOBUF2
+            BRA   :EXIT
+:S2         CPX   #$02
+            BNE   :S3
+            LDA   #<IOBUF3
+            LDY   #>IOBUF3
+            BRA   :EXIT
+:S3         CPX   #$03
+            BNE   :NOBUFS
+            LDA   #<IOBUF4
+            LDY   #>IOBUF4
+:EXIT       CLC
+            RTS
+:NOBUFS     SEC
+            RTS
+
 * Check if file exists
-* Return A=0 if doesn't exist, A=1 file, A=2 fir
+* Return A=0 if doesn't exist, A=1 file, A=2 dir
 EXISTS      LDA   #<MOSFILE
             STA   GINFOPL+1
             LDA   #>MOSFILE
@@ -141,6 +170,10 @@ GETPREF     JSR   MLI
 
 * Map of file reference numbers to IOBUF1..4
 FILEREFS    DB    $00,$00,$00,$00
+
+
+
+
 
 
 

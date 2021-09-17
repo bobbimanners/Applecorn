@@ -5,16 +5,22 @@
 
 * Performs wildcard matching for operations that only require the
 * first match.  <*obj-spec*> in Acorn ADFS terminology.
-WILDONE     JSR   WILDCARD
+WILDONE     CLC
+            JSR   WILDCARD
             JSR   CLSDIR
             RTS
 
 * Scan path in MOSFILE, break it into segments (ie: chunks delimited
 * by '/'), and for each segment see if it contains wildcard chars.
-* If so, pass it to SRCHDIR to expand the wildcard.  If not, just 
+* If so, pass it to SRCHBLK to expand the wildcard.  If not, just 
 * append the segment as it is. Uses MFTEMP to build up the path.
+* On entry: SEC to force leaf node lookup even if no wildcard,
+*           CLC otherwise
 * Returns with carry set if wildcard match fails, clear otherwise
-WILDCARD    STZ   :LAST
+WILDCARD    STZ   :ALWAYS       ; Set :ALWAYS if carry set
+            BCC   :NORMAL
+            DEC   :ALWAYS
+:NORMAL     STZ   :LAST
             LDX   #$00          ; Start with first char
             STX   MFTEMP        ; Clear MFTEMP (len=0)
             PHX
@@ -32,12 +38,16 @@ WILDCARD    STZ   :LAST
             BEQ   :L1           ; ... go again
 :S1         JSR   HASWILD       ; See if it has '*'/'#'/'?'
             BCS   :WILD         ; It does
-            JSR   APPSEG        ; Not wild: Append SEGBUF to MFTEMP
+            LDA   :ALWAYS       ; Always do leaf-node lookup?
+            BEQ   :S2
+            LDA   :LAST         ; If it is the last segment do ..
+            BNE   :WILD         ; .. wildcard lookup anyhow (for *INFO)
+:S2         JSR   APPSEG        ; Not wild: Append SEGBUF to MFTEMP
             BRA   :NEXT
-:WILD       LDX   #<MFTEMP      ; Invoke SRCHDIR to look for pattern
+:WILD       LDX   #<MFTEMP      ; Invoke SRCHBLK to look for pattern
             LDY   #>MFTEMP      ; in the directory path MFTEMP
-            JSR   SRCHDIR
-            BCS   :NOMATCH      ; Wildcard did not match anything
+:AGAIN      JSR   SRCHBLK
+            BCC   :NOMATCH      ; Wildcard did not match anything
             JSR   APPMATCH      ; Append MATCHBUF to MFTEMP
 :NEXT       LDA   :LAST
             BEQ   :L1
@@ -45,31 +55,64 @@ WILDCARD    STZ   :LAST
             JSR   TMPtoMF       ; Copy the path we built to MOSFILE
             CLC
             RTS
-:NOMATCH    PLX
+:NOMATCH    LDA   WILDIDX       ; See if there are more blocks
+            CMP   #$FF
+            BEQ   :AGAIN        ; Yes, go again
+            PLX
             SEC
             RTS
 :LAST       DB    $00           ; Flag for last segment
+:ALWAYS     DB    $00           ; Flag to always lookup leafnode
 
 * Obtain subsequent wildcard matches
 * WILDCARD must have been called first
 * Returns with carry set if wildcard match fails, clear otherwise
+* Caller should check WILDIDX and call again if value is $FF
 WILDNEXT    LDX   MFTEMP        ; Length of MFTEMP
 :L1         CPX   #$00          ; Find final segment (previous match)
-            BEQ   :S1
+            BEQ   :AGAIN
             LDA   MFTEMP,X
             CMP   #'/'
             BNE   :S2
             DEX
             STX   MFTEMP        ; Trim MFTEMP
-            BRA   :S1
+            BRA   :AGAIN
 :S2         DEX
             BRA   :L1
-:S1         JSR   SRCHDIR
-            BCS   :NOMATCH
+:AGAIN      JSR   SRCHBLK
+            BCC   :NOMATCH
             JSR   APPMATCH      ; Append MATCHBUF to MFTEMP
             JSR   TMPtoMF       ; Copy back to MOSFILE
             CLC
-:NOMATCH    RTS
+            RTS
+:NOMATCH    LDA   WILDIDX       ; See if there are more blocks
+            CMP   #$FF
+            BEQ   :AGAIN        ; Yes, go again
+            SEC
+            RTS
+
+* Different version of WILDNEXT which is used by the *INFO handler
+* Because it needs to intercept each block.
+* TODO: Once this works, refactor/cleanup
+WILDNEXT2   LDX   MFTEMP        ; Length of MFTEMP
+:L1         CPX   #$00          ; Find final segment (previous match)
+            BEQ   :AGAIN
+            LDA   MFTEMP,X
+            CMP   #'/'
+            BNE   :S2
+            DEX
+            STX   MFTEMP        ; Trim MFTEMP
+            BRA   :AGAIN
+:S2         DEX
+            BRA   :L1
+:AGAIN      JSR   SRCHBLK
+            BCC   :NOMATCH
+            JSR   APPMATCH      ; Append MATCHBUF to MFTEMP
+            JSR   TMPtoMF       ; Copy back to MOSFILE
+            CLC
+            RTS
+:NOMATCH    SEC
+            RTS
 
 * Copy a segment of the path into SEGBUF
 * PREPATH makes all paths absolute, so always begins with '/'
@@ -153,17 +196,16 @@ APPMATCH    LDY   MFTEMP        ; Dest idx = length
 WILDFILE    DB    $00           ; File ref num for open dir
 WILDIDX     DB    $00           ; Dirent idx in current block
 
-* Read directory, apply wildcard match
+* Read directory block, apply wildcard match
 * Inputs: directory name in XY (Pascal string)
-* If there is a match, replaces SEGBUF with the first match and CLC
-* If no match, or any other error, returns with carry set
+* On exit: set carry if match, clear carry otherwise
 * Leaves the directory open to allow resumption of search.
-SRCHDIR     LDA   WILDIDX
+SRCHBLK     LDA   WILDIDX
             CMP   #$F0          ; Is it a new search?
             BEQ   :NEW
             CMP   #$FF          ; Time to load another blk?
-            BEQ   :L1           ; Continue search in next blk
-            BRA   :S1           ; Continue search in curr blk
+            BEQ   :READ         ; Continue search in next blk
+            BRA   :CONT         ; Continue search in curr blk
 :NEW        STX   OPENPL+1
             STY   OPENPL+2
             JSR   OPENFILE
@@ -171,20 +213,19 @@ SRCHDIR     LDA   WILDIDX
             LDA   OPENPL+5      ; File ref num
             STA   WILDFILE      ; Stash for later
             STA   READPL+1
-:L1         JSR   RDFILE        ; Read->BLKBUF
-            BCC   :S1
+:READ       JSR   RDFILE        ; Read->BLKBUF
+            BCC   :CONT
             CMP   #$4C          ; EOF
-            BEQ   :EOF
-            BRA   :BADDIR
-:S1         JSR   SRCHBLK       ; Handle one block
-            BCS   :MATCH
-            BRA   :L1
-:MATCH      CLC
-            BRA   :EXIT
-:BADDIR
+            BNE   :BADDIR
+            STZ   WILDIDX       ; So caller knows not to call again
 :EOF
-:NODIR      SEC
-:EXIT       RTS
+:BADDIR
+:NODIR
+            CLC                 ; No match, caller checks WILDIDX ..
+            RTS                 ; .. to see if another block
+
+:CONT       JSR   SRCHBLK2      ; Handle one block
+            RTS
 
 * Close directory, if it was open
 * Preserves flags
@@ -200,7 +241,7 @@ CLSDIR      PHP
 * Apply wildcard match to a directory block
 * Directory block is in BLKBUF
 * On exit: set carry if match, clear carry otherwise
-SRCHBLK     LDX   WILDIDX
+SRCHBLK2    LDX   WILDIDX
             CPX   #$F0          ; Is it a new search?
             BEQ   :NEW
             BRA   :CONT
@@ -253,11 +294,13 @@ MATCHENT    LDA   #<BLKBUF+4    ; Skip pointers
             BNE   :S2
             INC   A1H
 :S2         JSR   MATCH         ; Try wildcard match
-            BCC   :NOMATCH
+            PHP
             LDA   A1L           ; Decrement ptr again
             BNE   :S3
             DEC   A1H
 :S3         DEC   A1L
+            PLP
+            BCC   :NOMATCH
             LDY   #$00          ; If matches, copy matching filename
             LDA   (A1L),Y       ; Length of filename
             AND   #$0F          ; Mask out other ProDOS stuff
@@ -271,7 +314,10 @@ MATCHENT    LDA   #<BLKBUF+4    ; Skip pointers
             BRA   :L2
 :MATCH      SEC
             RTS
-:NOMATCH    CLC
+:NOMATCH    LDA   #$00
+            LDY   #$00
+            STA   (A1L),Y       ; Pretend entry is deleted
+            CLC
             RTS
 
 * From: http://6502.org/source/strings/patmatch.htm
@@ -325,6 +371,10 @@ MATCH       LDX   #$00          ; X is an index in the pattern
 
 SEGBUF      DS    65            ; For storing path segments (Pascal str)
 MATCHBUF    DS    65            ; For storing match results (Pascal str)
+
+
+
+
 
 
 
