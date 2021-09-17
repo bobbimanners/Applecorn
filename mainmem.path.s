@@ -9,10 +9,9 @@
 * Also allows '^' as '^' is illegal character in ProDOS
 * Carry set on error, clear otherwise
 PREPATH     LDX   MOSFILE      ; Length
-            BNE   :S1
-            JMP   :EXIT        ; If zero length
-:S1         LDA   MOSFILE+1    ; 1st char of pathname
-            CMP   #':'
+            BEQ   :EXIT        ; If zero length
+            LDA   MOSFILE+1    ; 1st char of pathname
+            CMP   #$3A         ; ':'
             BNE   :NOTCOLN     ; Not colon
             CPX   #$03         ; Length >= 3?
             BCC   :ERR         ; If not
@@ -32,38 +31,32 @@ PREPATH     LDX   MOSFILE      ; Length
             CMP   #$02         ; Length >= 2
             BCC   :ERR         ; If not
             LDA   MOSFILE+1    ; 1st char of filename
-            CMP   #'/'
+            CMP   #$2F         ; '/'
             BNE   :ERR
             JSR   DEL1CHAR     ; Delete '/' from MOSFILE
             BRA   :APPEND
 :NOTCOLN    JSR   GETPREF      ; Current pfx -> PREFIX
 :REENTER    LDA   MOSFILE+1    ; First char of dirname
-            CMP   #'@'
-            BEQ   :CWD         ; '@' means current dir
-            CMP   #'^'
-            BEQ   :CARET       ; '^' means parent
-            CMP   #'/'         ; Absolute path
-            BEQ   :EXIT        ; Nothing to do
             CMP   #'.'
-            BNE   :APPEND      ; Relative path
-            LDA   MOSFILE      ; Length
-            CMP   #$01
-            BEQ   :CWD         ; '.' on its own
-            LDA   MOSFILE+2
+            BEQ   :UPDIR1
+            CMP   #$5E         ; '^' char
+            BEQ   :CARET       ; If '^'
+            CMP   #$2F         ; '/' char - abs path
+            BEQ   :EXIT        ; Nothing to do
+            BRA   :APPEND
+
+:UPDIR1     LDA   MOSFILE+2
             CMP   #'.'         ; '..'
-            BEQ   :DOTDOT
-            CMP   #'/'         ; './'
-            BEQ   :CWD
-            BRA   :ERR         ; Anything else is invalid
-:DOTDOT     JSR   DEL1CHAR     ; Delete first char from MOSFILE
-:CARET      JSR   PARENT       ; Parent dir -> PREFIX
-:CWD        JSR   DEL1CHAR     ; Delete first char from MOSFILE
+            BNE   :EXIT
+            JSR   DEL1CHAR     ; Delete two leading characters
+:CARET      JSR   DEL1CHAR     ; Delete '^' from MOSFILE
+            JSR   PARENT       ; Parent dir -> MOSFILE
             LDA   MOSFILE      ; Is there more?
-            BEQ   :APPEND      ; Nothing more
+            BEQ   :APPEND      ; Only '^'
             CMP   #$02         ; Len at least two?
             BCC   :ERR         ; Nope!
             LDA   MOSFILE+1    ; What is next char?
-            CMP   #'/'
+            CMP   #$2F         ; Is it slash?
             BNE   :ERR         ; Nope!
             JSR   DEL1CHAR     ; Delete '/' from MOSFILE
             BRA   :REENTER     ; Go again!
@@ -81,7 +74,7 @@ PARENT      LDX   PREFIX       ; Length of string
             BEQ   :EXIT        ; Prefix len zero
             DEX                ; Ignore trailing '/'
 :L1         LDA   PREFIX,X
-            CMP   #'/'
+            CMP   #$2F         ; Slash '/'
             BEQ   :FOUND
             DEX
             CPX   #$01
@@ -111,7 +104,7 @@ DRV2PFX     CLC                ; Cy=0 A=00000sss
             INC                ; Plus '/' at each end
             INC
             STA   PREFIX       ; Store length
-            LDA   #'/'
+            LDA   #$2F         ; '/'
             STA   PREFIX+1
             STA   PREFIX+2,X
 :L1         CPX   #$00         ; Copy -> PREFIX
@@ -161,7 +154,7 @@ DIGCONV     LDY   #$01         ; First char
             CPY   #$01         ; First char?
             BEQ   :INS         ; First char is digit
             LDA   MOSFILE-1,Y  ; Prev char
-            CMP   #'/'
+            CMP   #$2F         ; Slash
             BEQ   :INS         ; Slash followed by digit
             BRA   :NOINS       ; Otherwise leave it alone
 :INS        LDA   #'N'         ; Char to insert
