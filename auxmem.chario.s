@@ -3,6 +3,7 @@
 *
 * AppleMOS Character I/O
 
+
 * KERNEL/CHARIO.S
 *****************
 * Character read and write
@@ -24,15 +25,13 @@
 * 05-Sep-2021 KBDINIT returns startup value to pass to VDUINT.
 * 09-Sep-2021 Moved keyboard OSBYTEs to here.
 * 12-Sep-2021 COPY calls new VDU entry point.
+* 15-Sep-2021 INKEY(0) tests once and returns immediately.
 
+* TO DO: move these to VDU
+OLDCHAR      EQU   OSKBD1 ; *TEMP*  ; character under cursor
+* COPYCHAR     EQU   OSKBD2 ; *TEMP*  ; character under copy cursor
 
-OLDCHAR      EQU   OSKBD1                    ; *TEMP*  ; character under cursor
-
-** Moved to AUXMEM.MOSEQU.S for Merlin-8/-16
-*COPYCHAR EQU OSKBD2 ; *TEMP*  ; character under copy cursor
-
-FLASHER      EQU   BYTEVARBASE+193           ; flash counter for cursor
-
+FLASHER      EQU   BYTEVARBASE+176  ; VSync counter for flashing cursor
 FXEXEC       EQU   BYTEVARBASE+198
 FXSPOOL      EQU   BYTEVARBASE+199
 
@@ -57,19 +56,27 @@ WRCHHND      PHA
              PHX
              PHY
 * TO DO Check any output redirections
-* TO DO Check any spool output
-*  LDY FXSPOOL
-*  BEQ WRCHHND1
-*  JSR OSBPUT
-* WRCHHND1
-*
+*            TSX
+*            LDA   $103,X
+*            PHA
+
              JSR   OUTCHAR
 * TO DO Check any printer output
-*  BCC WRCHHND2
-*  TSX
-*  LDA $103,X
+*  BCC WRCHHND3
+*  PLA
+*  PHA
 *  JSR PRNCHAR
-* WRCHHND2
+* WRCHHND3
+
+* TO DO Check any spool output
+*  LDY FXSPOOL
+*  BEQ WRCHHND4
+*  PLA
+*  PHA
+*  JSR OSBPUT
+* WRCHHND4
+*  PLA
+*
              PLY
              PLX
              PLA
@@ -112,7 +119,7 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
 **********************
 * Read a character from current input
 * All registers preserved except A, Carry
-* Flashes a fake cursor while waiting for input
+* Flashes a soft cursor while waiting for input
 *
 RDCHHND      LDA   #$80                      ; flag=wait forever
              PHY
@@ -134,9 +141,7 @@ INKEYGO2     JSR   GETCHRC                   ; Get character under cursor
              STA   OLDCHAR
              CLI
              BRA   INKEY1                    ; Turn cursor on
-*
-INKEYLP1     PHX
-INKEYLP2     PHY
+
 INKEYLP      CLC
              LDA   #$01                      ; Slow flash, every 32 frames
              BIT   VDUSTATUS
@@ -157,73 +162,69 @@ INKEY2       JSR   PUTCHRC                   ; Toggle cursor
 INKEY3       LDA   ESCFLAG
              BMI   INKEYOK                   ; Escape pending, return it
 INKEY4       JSR   KEYREAD                   ; Test for input, all can be trashed
-             BCC   INKEYOK                   ; Char returned, return it
+             PLY
+             BCC   INKEYOK         ; Char returned, return it
+             BMI   INKEY6          ; Loop forever, skip countdown
+             PLX
+             BNE   INKEY5
+             TYA
+             BEQ   INKEYOUT        ; XY=0, timed out
+             DEY                   ; 16-bit decrement
+INKEY5       DEX
+             PHX
+INKEY6       PHY
 *
-* VBLK pulses at 50Hz, changes at 100Hz
-* (60Hz in US, will need tweeking)
-             LDX   $C019                     ; Get initial VBLK state
-INKEY5       BIT   $C000
-             BMI   INKEY4                    ; Key pressed
+* VBLK pulses at 50Hz/60Hz, toggles at 100Hz/120Hz
+             LDX   $C019          ; Get initial VBLK state
+INKEY8       BIT   $C000
+             BMI   INKEY4         ; Key pressed
              TXA
              EOR   $C019
-             BPL   INKEY5                    ; Wait for VBLK change
+             BPL   INKEY8         ; Wait for VBLK change
+             BMI   INKEYLP        ; Loop back to key test
+
+INKEYOUT     PLA                  ; Drop stacked Y
+             LDA   #$FF           ; Prepare to stack $FF
 *
-             PLY
-             BMI   INKEYLP2                  ; Loop forever
-             PLX
-             TXA
-             BNE   INKEYDEC                  ; Decrement XY
-             DEY
-INKEYDEC     DEX
-             BNE   INKEYLP1                  ; Not 0, loop back
-             TYA
-             BNE   INKEYLP1                  ; Not 0, loop back
-             PHY
-             JSR   INKEYOFF                  ; Restore cursors
-             PLY
-             DEY                             ; Y=$FF
-             TYA                             ; A=$FF
-             PLX                             ; Drop dummy PHY
-             SEC
-             RTS
-* Timeout: CS, AY=$FFFF, becomes XY=$FFFF
-
-INKEYOK      PHA
-             JSR   INKEYOFF                  ; Restore cursors
-INKEYOK2     PLA
-             PLY                             ; <$80=INKEY or $80=RDCH
-             PLX                             ; Restore X
-             PLY                             ; <$80=INKEY or restore=RDCH
-             PHA                             ; Save char for a mo
-             LDA   ESCFLAG
-             ASL   A                         ; Cy=Escape flag
-             PLA                             ; Get char back
-             RTS
-* Character read: CC, A=char, X=???, Y<$80
-* Escape:         CS, A=??  , X=???, Y<$80
-
-INKEYOFF     LDA   OLDCHAR                   ; Remove editing cursor
+INKEYOK      PHA                  ; Save key or timeout
+             PHP                  ; Save CC=key, CS=timeout
+             LDA   OLDCHAR        ; Prepare for main cursor
              BIT   VDUSTATUS
-             BVC   INKEYOFF2                 ; No editing cursor
-             JSR   PUTCHRC                   ; Remove cursor
-             JSR   COPYSWAP1                 ; Swap cursor back
-             LDA   COPYCHAR                  ; Remove edit cursor
-INKEYOFF2    JMP   PUTCHRC
+             BVC   INKEYOFF2      ; No editing cursor
+             JSR   PUTCHRC        ; Remove cursor
+             JSR   COPYSWAP1      ; Swap cursor back
+             LDA   COPYCHAR       ; Remove main cursor
+INKEYOFF2    JSR   PUTCHRC        ; Remove cursor
+*
+             PLP
+             BCS   INKEYOK3       ; Timeout
+             LDA   ESCFLAG        ; Keypress, test for Escape
+             ASL   A              ; Cy=Escape flag
+             PLA                  ; Get char back
+             PLX                  ; Restore X,Y for key pressed
+INKEYOK3     PLY                  ; Or pop TimeOut
+             RTS
+* RDCH  Character read: CC, A=char, X=restored, Y=restored
+* RDCH  Escape:         CS, A=char, X=restored, Y=restored
+* INKEY Character read: CC, A=char, X=???, Y<$80
+* INKEY Escape:         CS, A=char, X=???, Y<$80
+* INKEY Timeout:        CS, A=???,  X=???, Y=$FF
+
 
 BYTE81       TYA
-             BMI   NEGINKEY                  ; XY<0, scan for keypress
-             JSR   INKEY                     ; XY>=0, wait for keypress
-*  Y=$FF, A=FF,   X=??, CS - timeout
-*  Y<$80, A=esc,  X=??, CS - escape
-*  Y<$80, A=char, X=??, CC - character read
-             TAX                             ; X=character returned
+             BMI   NEGINKEY       ; XY<0, scan for keypress
+             JSR   INKEY          ; XY>=0, wait for keypress
+* Character read: CC, A=char, X=???, Y<$80
+* Escape:         CS, A=char, X=???, Y<$80
+* Timeout:        CS, A=???,  X=???, Y=$FF
+             TAX                  ; X=character returned
              TYA
-             BMI   BYTE81DONE                ; Y=$FF, timeout
+             BMI   BYTE81DONE     ; Y=$FF, timeout
              LDY   #$00
-             BCC   BYTE81DONE                ; CC, not Escape
-             LDY   #$1B                      ; Y=27
+             BCC   BYTE81DONE     ; CC, not Escape
+             LDY   #$1B           ; Y=27
 BYTE81DONE   RTS
-* Returns: Y=$FF, X=$FF, CS  - timeout
+* Returns: Y=$FF, X=???, CS  - timeout
 *          Y=$1B, X=???, CS  - escape
 *          Y=$00, X=char, CC - keypress
 
@@ -233,15 +234,18 @@ NEGINKEY     CPX   #$01
              BCS   NEGINKEY0
 
              JSR   NEGCALL                   ; Read machine ID from aux
+ TAX           ; *TEST*
+ BIT $E0       ; *TEST*
+ BVS NEGINKEY1 ; *TEST*
              LDX   #$2C
              TAY
-             BEQ   NEGINKEY0                 ;  $00 = Apple IIc -> INKEY-256 = $2C
+             BEQ   NEGINKEY0                 ;  $00 = Apple IIc  -> INKEY-256 = $2C
              LDX   #$2E
              AND   #$0F
-             BEQ   NEGINKEY0                 ;  $x0 = Apple IIe -> INKEY-256 = $2E
-             LDX   #$2A                      ; else = Apple IIgs INKEY-256 = $2A
+             BEQ   NEGINKEY0                 ;  $x0 = Apple IIe  -> INKEY-256 = $2E
+             LDX   #$2A                      ; else = Apple IIgs -> INKEY-256 = $2A
 NEGINKEY0    LDY   #$00
-             CLC
+NEGINKEY1    CLC
              RTS
 
 NEGCALL      >>>   XF2MAIN,MACHRD            ; Try to read Machine ID
@@ -443,4 +447,3 @@ BYTE7DOK     RTS
 
 BYTE76       LDX   #$00                      ; Update LEDs and return X=SHIFT
              RTS                             ; Not possible with Apple
-
