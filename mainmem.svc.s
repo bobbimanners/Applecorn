@@ -111,7 +111,7 @@ COPYFILE     >>>   ENTMAIN
              CMP   #$02               ; Existing directory?
              BNE   :BADDEST           ; If not, error
              BRA   :MAINLOOP          ; Source: wildcard, dest: dir
-:NOWILD      
+:NOWILD
 :MAINLOOP
              LDA   MOSFILE2           ; Length
              STA   :OLDLEN
@@ -1055,6 +1055,8 @@ MAINRDMEM    STA   A1L
              LDA   $C081
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
+
+
 
 
 

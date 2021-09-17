@@ -27,7 +27,10 @@
 
 
 OLDCHAR      EQU   OSKBD1                    ; *TEMP*  ; character under cursor
-COPYCHAR     EQU   OSKBD2                    ; *TEMP*  ; character under copy cursor
+
+** Moved to AUXMEM.MOSEQU.S for Merlin-8/-16
+*COPYCHAR EQU OSKBD2 ; *TEMP*  ; character under copy cursor
+
 FLASHER      EQU   BYTEVARBASE+193           ; flash counter for cursor
 
 FXEXEC       EQU   BYTEVARBASE+198
@@ -440,13 +443,4 @@ BYTE7DOK     RTS
 
 BYTE76       LDX   #$00                      ; Update LEDs and return X=SHIFT
              RTS                             ; Not possible with Apple
-
-
-
-
-
-
-
-
-
 
