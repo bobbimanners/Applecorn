@@ -38,31 +38,32 @@ PREPATH     LDX   MOSFILE      ; Length
             BRA   :APPEND
 :NOTCOLN    JSR   GETPREF      ; Current pfx -> PREFIX
 :REENTER    LDA   MOSFILE+1    ; First char of dirname
-            CMP   #'.'
-            BEQ   :ONEDOT
             CMP   #'@'
-            BEQ   :CWD
+            BEQ   :CWD         ; '@' means current dir
             CMP   #'^'
-            BEQ   :CARET
+            BEQ   :CARET       ; '^' means parent
             CMP   #'/'         ; Absolute path
             BEQ   :EXIT        ; Nothing to do
-            BRA   :APPEND
-:ONEDOT     JSR   DEL1CHAR     ; Delete the dot
-            LDA   MOSFILE      ; Is there more?
-            BEQ   :APPEND      ; Nope - '.' alone
-            LDA   MOSFILE+1
-            CMP   #'/'         ; './'
-            BEQ   :CWD2
+            CMP   #'.'
+            BNE   :APPEND      ; Relative path
+            LDA   MOSFILE      ; Length
+            CMP   #$01
+            BEQ   :CWD         ; '.' on its own
+            LDA   MOSFILE+2
             CMP   #'.'         ; '..'
-            BNE   :EXIT
+            BEQ   :DOTDOT
+            CMP   #'/'         ; './'
+            BEQ   :CWD
+            BRA   :ERR         ; Anything else is invalid
+:DOTDOT     JSR   DEL1CHAR     ; Delete first char from MOSFILE
 :CARET      JSR   PARENT       ; Parent dir -> PREFIX
 :CWD        JSR   DEL1CHAR     ; Delete first char from MOSFILE
-:CWD2       LDA   MOSFILE      ; Is there more?
-            BEQ   :APPEND      ; Nope!
+            LDA   MOSFILE      ; Is there more?
+            BEQ   :APPEND      ; Nothing more
             CMP   #$02         ; Len at least two?
             BCC   :ERR         ; Nope!
             LDA   MOSFILE+1    ; What is next char?
-            CMP   #'/'         ; Is it slash?
+            CMP   #'/'
             BNE   :ERR         ; Nope!
             JSR   DEL1CHAR     ; Delete '/' from MOSFILE
             BRA   :REENTER     ; Go again!
@@ -286,8 +287,6 @@ PFXtoMF     LDA   #<PREFIX
 
 MFTEMP      DS    65           ; Temp copy of MOSFILE
 PREFIX      DS    65           ; Buffer for ProDOS prefix
-
-
 
 
 
