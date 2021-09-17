@@ -12,7 +12,7 @@
 PREPATH     LDX   MOSFILE      ; Length
             BEQ   :EXIT        ; If zero length
             LDA   MOSFILE+1    ; 1st char of pathname
-            CMP   #$3A         ; ':'
+            CMP   #':'
             BNE   :NOTCOLN     ; Not colon
             CPX   #$03         ; Length >= 3?
             BCC   :ERR         ; If not
@@ -58,7 +58,7 @@ PREPATH     LDX   MOSFILE      ; Length
             CMP   #$02         ; Len at least two?
             BCC   :ERR         ; Too short!
             LDA   MOSFILE+1    ; What is next char?
-            CMP   #$2F         ; Is it slash?
+            CMP   #'/'         ; Is it slash?
             BNE   :ERR         ; Nope!
             JSR   DEL1CHAR     ; Delete '/' from MOSFILE
             BRA   :REENTER     ; Go again!
@@ -76,7 +76,7 @@ PARENT      LDX   PREFIX       ; Length of string
             BEQ   :EXIT        ; Prefix len zero
             DEX                ; Ignore trailing '/'
 :L1         LDA   PREFIX,X
-            CMP   #$2F         ; Slash '/'
+            CMP   #'/'
             BEQ   :FOUND
             DEX
             CPX   #$01
@@ -106,7 +106,7 @@ DRV2PFX     CLC                ; Cy=0 A=00000sss
             INC                ; Plus '/' at each end
             INC
             STA   PREFIX       ; Store length
-            LDA   #$2F         ; '/'
+            LDA   #'/'
             STA   PREFIX+1
             STA   PREFIX+2,X
 :L1         CPX   #$00         ; Copy -> PREFIX
@@ -156,7 +156,7 @@ DIGCONV     LDY   #$01         ; First char
             CPY   #$01         ; First char?
             BEQ   :INS         ; First char is digit
             LDA   MOSFILE-1,Y  ; Prev char
-            CMP   #$2F         ; Slash
+            CMP   #'/'         ; Slash
             BEQ   :INS         ; Slash followed by digit
             BRA   :NOINS       ; Otherwise leave it alone
 :INS        LDA   #'N'         ; Char to insert
