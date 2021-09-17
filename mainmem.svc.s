@@ -881,6 +881,7 @@ INFO         JSR   PREPATH            ; Preprocess pathname
              JSR   EXISTS             ; Check matches something
              CMP   #$00
              BNE   INFOFIRST
+             JSR   CLSDIR
              LDA   #$46               ; Not found (TO DO: err code?)
              BRA   CATEXIT
 
