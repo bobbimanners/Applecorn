@@ -76,7 +76,7 @@ Two text video modes are currently supported:
 
 We plan to support HGR graphics eventually.
 
-You can set the startup video mode by holding down the appropriate number
+_NOTE:_ You can set the startup video mode by holding down the appropriate number
 key while Applecorn starting (while it is loading the ROM file.)
 
 ### Escape Key
@@ -137,18 +137,25 @@ drive 1.  Applecorn uses the ProDOS `ON_LINE` MLI call to find the
 volume associated with the physical device.  If slot 6, drive 1, contains
 the volume 'FLOPPY', then a path `:S61/TESTFILE` will be converted to
 `/FLOPPY/TESTFILE`.
+- It is possible to refer to the current working directory (current prefix
+in ProDOS terms) using `.` (like Linux or Windows) or `@` (like BBC ADFS.)
+The current working directory notation is only supported at the beginning
+of pathnames.
 - Support is provided for easily accessing the parent directory.  This
 may be denoted using `..` (like Linux or Windows) or `^` (like BBC ADFS.)
 The parent directory notation is only supported at the beginning of
 pathnames, but it may be applied multiple times to navigate further up
-the tree.  Some examples:
+the tree.
+- Some examples:
    - `/H1/APPLECORN` - absolute path
    - `APPLECORN` - relative path
+   - `./APPLECORN` - relative path (explicit)
    - `^` - parent dir
    - `..` - parent dir (alternate form)
    - `^/^` - up two levels
    - `../..` - up two levels (alternate form)
    - `^/MYSTUFF` - file or directory in parent
+   - `../MYSTUFF` - alternative way to refer to sibling directory
 - Since Acorn's DFS allows filenames beginning with a digit, while ProDOS
 requires names to begin with an alphabetic character, Applecorn prefixes
 any file or directory names beginning with a digit with the letter 'N'.
@@ -272,18 +279,21 @@ For example: `*ACCESS *.ASM WR`
 `*COPY <listspec> <*objspec*>` - Copy file(s).  There are two forms of
 the `*COPY` command:
   - `*COPY <objspec> <*objspec*>` - Copy a single file.  The first argument
-     must refer to a file and the second can be a file or a directory.
-     If the target file exists and is writeable it will be overwritten.
-     If a directory is specified as the destination then the file will
-     be copied into the directory using the same filename.  No wildcards
-     are allowed in the source filename in this case.  An example of
-     this type of usage is `*COPY TEXT/ABC.TXT ../BACKUPS/ABC.BACKUP.TXT`
+    must refer to a file and the second can be a file or a directory.
+    If the target file exists and is writeable it will be overwritten.
+    If a directory is specified as the destination then the file will
+    be copied into the directory using the same filename.  No wildcards
+    are allowed in the source filename in this case.  An example of
+    this type of usage is `*COPY TEXT/ABC.TXT ../BACKUPS/ABC.BACKUP.TXT`
   - `*COPY <listspec> <*objspec*>` - Copy multiple files.  The first
-     argument refers to a list of files, specified using wildcards.  The
-     second argument must refer to a directory.  All the files included
-     in the wildcard pattern will be copied into the destination
-     directory.  For example of copying multiple files is 
-     `*COPY :71/DOCS/*.TXT :72/TEXTDIR`
+    argument refers to a list of files, specified using wildcards.  The
+    second argument must refer to a directory.  All the files included
+    in the wildcard pattern will be copied into the destination
+    directory.  For example of copying multiple files is 
+    `*COPY :71/DOCS/*.TXT :72/TEXTDIR`
+  - Recall that `@` or `.` may be used to specify the current working
+    directory, while `^` or `..` may be used to specify the parent
+    directory.
 
 `*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
 
