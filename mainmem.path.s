@@ -4,9 +4,10 @@
 * Code for handling Applecorn paths and converting them to
 * ProDOS paths.  Runs in main memory.
 
-* Preprocess path in MOSFILE, handling '..' sequence
-* dir/file.ext filesystem, so '..' means parent dir (eg: '../SOMEDIR')
-* Also allows '^' as '^' is illegal character in ProDOS
+* Preprocess path in MOSFILE, handles:
+* 1) ':sd' type slot and drive prefix (s,d are digits)
+* 2) '.' or '@' for current working directory
+* 3) '..' or '^' for parent directory
 * Carry set on error, clear otherwise
 PREPATH     LDX   MOSFILE      ; Length
             BEQ   :EXIT        ; If zero length
@@ -31,7 +32,7 @@ PREPATH     LDX   MOSFILE      ; Length
             CMP   #$02         ; Length >= 2
             BCC   :ERR         ; If not
             LDA   MOSFILE+1    ; 1st char of filename
-            CMP   #$2F         ; '/'
+            CMP   #'/'
             BNE   :ERR
             JSR   DEL1CHAR     ; Delete '/' from MOSFILE
             BRA   :APPEND
@@ -39,22 +40,21 @@ PREPATH     LDX   MOSFILE      ; Length
 :REENTER    LDA   MOSFILE+1    ; First char of dirname
             CMP   #'.'
             BEQ   :UPDIR1
-            CMP   #$5E         ; '^' char
+            CMP   #'^'
             BEQ   :CARET       ; If '^'
-            CMP   #$2F         ; '/' char - abs path
+            CMP   #'/'         ; Absolute path
             BEQ   :EXIT        ; Nothing to do
             BRA   :APPEND
-
 :UPDIR1     LDA   MOSFILE+2
             CMP   #'.'         ; '..'
             BNE   :EXIT
-            JSR   DEL1CHAR     ; Delete two leading characters
-:CARET      JSR   DEL1CHAR     ; Delete '^' from MOSFILE
-            JSR   PARENT       ; Parent dir -> MOSFILE
+            JSR   DEL1CHAR     ; Delete first char of MOSFILE
+:CARET      JSR   DEL1CHAR     ; Delete first char of MOSFILE
+            JSR   PARENT       ; Parent dir -> PREFIX
             LDA   MOSFILE      ; Is there more?
-            BEQ   :APPEND      ; Only '^'
+            BEQ   :APPEND      ; No more
             CMP   #$02         ; Len at least two?
-            BCC   :ERR         ; Nope!
+            BCC   :ERR         ; Too short!
             LDA   MOSFILE+1    ; What is next char?
             CMP   #$2F         ; Is it slash?
             BNE   :ERR         ; Nope!
