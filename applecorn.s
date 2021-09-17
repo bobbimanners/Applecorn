@@ -47,12 +47,12 @@ IOBUF3      EQU   $1800
 IOBUF4      EQU   $1C00
 
 * 512 byte buffer sufficient for one disk block
-BLKBUF      EQU   $5000       ; Can't use $400 as ProDOS uses
-BLKBUFEND   EQU   $5200       ;  'hidden' bytes within screen
+BLKBUF      EQU   $6000       ; Can't use $400 as ProDOS uses
+BLKBUFEND   EQU   $6200       ;  'hidden' bytes within screen
 
 * 512 byte buffer for file copy (*COPY)
-COPYBUF     EQU   $5200       ; File copy needs separate buffer
-*COPYBUFEND  EQU   $5400
+COPYBUF     EQU   $6200       ; File copy needs separate buffer
+*COPYBUFEND  EQU   $6400
 
 * Address in aux memory where ROM will be loaded
 AUXADDR     EQU   $8000
