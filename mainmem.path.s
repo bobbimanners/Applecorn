@@ -41,7 +41,7 @@ PREPATH     LDX   MOSFILE      ; Length
 :NOTCOLN    JSR   GETPREF      ; Current pfx -> PREFIX
 :REENTER    LDA   MOSFILE+1    ; First char of dirname
             CMP   #'@'         ; '@' means current working dir
-            BEQ  :CWD
+            BEQ   :CWD
             CMP   #'^'         ; '^' means parent dir
             BEQ   :CARET
             CMP   #'/'         ; Absolute path
@@ -290,6 +290,8 @@ PFXtoMF     LDA   #<PREFIX
 
 MFTEMP      DS    65           ; Temp copy of MOSFILE
 PREFIX      DS    65           ; Buffer for ProDOS prefix
+
+
 
 
 
