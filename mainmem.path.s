@@ -38,19 +38,21 @@ PREPATH     LDX   MOSFILE      ; Length
             BRA   :APPEND
 :NOTCOLN    JSR   GETPREF      ; Current pfx -> PREFIX
 :REENTER    LDA   MOSFILE+1    ; First char of dirname
-            CMP   #'.'
-            BEQ   :UPDIR1
-            CMP   #'^'
-            BEQ   :CARET       ; If '^'
+            CMP   #'@'         ; '@' means current working dir
+            BEQ  :CWD
+            CMP   #'^'         ; '^' means parent dir
+            BEQ   :CARET
             CMP   #'/'         ; Absolute path
             BEQ   :EXIT        ; Nothing to do
+            CMP   #'.'         ; ...
+            BEQ   :UPDIR1
             BRA   :APPEND
 :UPDIR1     LDA   MOSFILE+2
             CMP   #'.'         ; '..'
             BNE   :EXIT
             JSR   DEL1CHAR     ; Delete first char of MOSFILE
-:CARET      JSR   DEL1CHAR     ; Delete first char of MOSFILE
-            JSR   PARENT       ; Parent dir -> PREFIX
+:CARET      JSR   PARENT       ; Parent dir -> PREFIX
+:CWD        JSR   DEL1CHAR     ; Delete first char of MOSFILE
             LDA   MOSFILE      ; Is there more?
             BEQ   :APPEND      ; No more
             CMP   #$02         ; Len at least two?
