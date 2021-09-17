@@ -63,8 +63,8 @@ FSCV         EQU   $21E        ; FSCV misc file ops
 BYTEVARBASE  EQU   $190        ; Base of OSBYTE variables
 OSFILECB     EQU   $2EE        ; OSFILE control block
 
+COPYCHAR     EQU   OSKBD2      ; ** TEMP **
 
 * $0300-$03DF
 * $03E0-$03FF Used for interfacing with ProDOS XFER
-
 

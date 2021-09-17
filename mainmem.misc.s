@@ -41,29 +41,29 @@ FINDBUF     LDX   #$00
 * On entry: buffer number in X
 * On exit: buffer address in AY
 *          Carry set if no bufs, clear otherwise
-BUFADDR      CPX   #$00
-             BNE   :S1
-             LDA   #<IOBUF1
-             LDY   #>IOBUF1
-             BRA   :EXIT
-:S1          CPX   #$01
-             BNE   :S2
-             LDA   #<IOBUF2
-             LDY   #>IOBUF2
-             BRA   :EXIT
-:S2          CPX   #$02
-             BNE   :S3
-             LDA   #<IOBUF3
-             LDY   #>IOBUF3
-             BRA   :EXIT
-:S3          CPX   #$03
-             BNE   :NOBUFS
-             LDA   #<IOBUF4
-             LDY   #>IOBUF4
-:EXIT        CLC
-             RTS
-:NOBUFS      SEC
-             RTS
+BUFADDR     CPX   #$00
+            BNE   :S1
+            LDA   #<IOBUF1
+            LDY   #>IOBUF1
+            BRA   :EXIT
+:S1         CPX   #$01
+            BNE   :S2
+            LDA   #<IOBUF2
+            LDY   #>IOBUF2
+            BRA   :EXIT
+:S2         CPX   #$02
+            BNE   :S3
+            LDA   #<IOBUF3
+            LDY   #>IOBUF3
+            BRA   :EXIT
+:S3         CPX   #$03
+            BNE   :NOBUFS
+            LDA   #<IOBUF4
+            LDY   #>IOBUF4
+:EXIT       CLC
+            RTS
+:NOBUFS     SEC
+            RTS
 
 * Check if file exists
 * Return A=0 if doesn't exist, A=1 file, A=2 dir
@@ -170,6 +170,8 @@ GETPREF     JSR   MLI
 
 * Map of file reference numbers to IOBUF1..4
 FILEREFS    DB    $00,$00,$00,$00
+
+
 
 
 
