@@ -1057,7 +1057,13 @@ MAINRDMEM    STA   A1L
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
 
-
+* Call FDraw DrawLine routine
+DRAWLINE     >>>   ENTMAIN
+             LDA   #7
+             STA   Entry+5            ; Color 7
+             JSR   Entry+16           ; FDRAW: SetColor
+             JSR   Entry+28           ; FDRAW: DrawLine
+             >>>   XF2AUX,VDU25RET
 
 
 

@@ -441,6 +441,7 @@ VDUINIT      STA   VDUQ+8
 *  MODE 3 - 80x24 text
 *  MODE 6 - 40x24 text
 *  MODE 7 - 40x24 with $80-$9F converted to spaces
+*  MODE 2 - 280x192 HGR graphics
 *  MODE 0 defaults to MODE 3
 *  All others default to MODE 6
 *
@@ -452,14 +453,23 @@ VDU22        LDA   VDUQ+8
              BEQ   VDU22A           ; MODE 0 -> MODE 3, 80x24, text
              CMP   #$03
              BEQ   VDU22A           ; MODE 3 -> MODE 3, 80x24 text
+             CMP   #$02
+             BEQ   VDU22G           ; MODE 2 -> 280x192 HGR
              DEX                    ; All other MODEs default to 40-col
-VDU22A       STA   $C00C,X          ; Select 40col/80col
+VDU22A       STA   $C051            ; Enable Text
+             STA   $C00C,X          ; Select 40col/80col
              STA   $C003            ; Alt charset off
              STA   $C055            ; PAGE2
              STA   $C00F
-*
+             BRA   VDU22C
+
+VDU22G       STA   $C057            ; Hi-Res
+             STA   $C054            ; PAGE1
+             STA   $C052            ; Clear MIXED
+             STA   $C050            ; Enable Graphics
+
 * Set up default cursors
-             LDA   #'_'
+VDU22C       LDA   #'_'
              STA   CURSOR           ; Normal cursor
              STA   CURSORCP         ; Copy cursor when editing
              LDA   #$A0
@@ -572,7 +582,8 @@ SCNTAB       DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
 VDU01        RTS
 
 * VDU 16 - CLG, clear graphics window
-VDU16        RTS
+VDU16        JSR   Entry+22       ; FDRAW: Clear HGR screen
+             RTS
 
 * VDU 17 - COLOUR n - select text or border colour
 VDU17        RTS
@@ -593,7 +604,23 @@ VDU23        RTS
 VDU24        RTS
 
 * VDU 25,k,x;y; - PLOT k,x;y; - PLOT point, line, etc.
-VDU25        RTS
+VDU25
+             >>>   WRTMAIN
+             STZ   Entry+6        ; LSB of X0
+             STZ   Entry+7        ; MSB of X0
+             STZ   Entry+8        ; Y0
+             LDA   #<279
+             STA   Entry+9        ; LSB of X1
+             LDA   #>279
+             STA   Entry+10       ; MSB of X1
+             LDA   #191
+             STA   Entry+11       ; Y1
+             >>>   WRTAUX
+             >>>   XF2MAIN,DRAWLINE
+
+VDU25RET
+             >>>   ENTAUX
+             RTS
 
 * VDU 26 - Reset to default windows
 VDU26        RTS
