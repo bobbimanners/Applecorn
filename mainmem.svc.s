@@ -1069,12 +1069,9 @@ SETCOLOR     >>>   ENTMAIN
 
 * Call FDraw DrawLine routine
 DRAWLINE     >>>   ENTMAIN
-             LDA   #7                 ; TEMP
-             STA   Entry+5            ; TEMP Color 7
              JSR   Entry+16           ; FDRAW: SetColor
              JSR   Entry+28           ; FDRAW: DrawLine
              >>>   XF2AUX,VDU25RET
-
 
 
 

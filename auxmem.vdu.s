@@ -594,8 +594,9 @@ VDU16RET     >>>   ENTAUX
 VDU17        RTS
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action
-VDU18        >>>   WRTMAIN
-             LDA   VDUQ+8
+VDU18        LDA   VDUQ+8
+             STA   HCOLOR
+             >>>   WRTMAIN
              STA   Entry+5
              >>>   WRTAUX
              >>>   XF2MAIN,SETCOLOR
@@ -623,6 +624,8 @@ VDU25        LDA   VDUQ+4
              CMP   #$04           ; Move absolute
              BEQ   HGRPOS         ; Just update pos
 :NOTMOVE     >>>   WRTMAIN
+             LDA   HCOLOR
+             STA   Entry+5        ; Colour
              LDA   XPIXEL+0
              STA   Entry+6
              LDA   XPIXEL+1
@@ -650,8 +653,9 @@ HGRPOS       LDA   VDUQ+5
              LDA   VDUQ+8
              STA   YPIXEL+1
              RTS
-XPIXEL       DW    $0000
-YPIXEL       DW    $0000
+XPIXEL       DW    $0000          ; Previous plot x-coord
+YPIXEL       DW    $0000          ; Previous plot y-coord
+HCOLOR       DB    $00            ; High res colour
 
 * VDU 26 - Reset to default windows
 VDU26        RTS
