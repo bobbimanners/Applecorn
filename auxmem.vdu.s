@@ -576,20 +576,26 @@ SCNTAB       DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
 
 
 * Unimplemented
-* May end up moving graphics bits to seperate source
+* May end up moving graphics bits to separate source
 
 * VDU 1 - Send one character to printer
 VDU01        RTS
 
 * VDU 16 - CLG, clear graphics window
-VDU16        JSR   Entry+22       ; FDRAW: Clear HGR screen
+VDU16        >>>   XF2MAIN,CLRHGR
+VDU16RET     >>>   ENTAUX
              RTS
 
 * VDU 17 - COLOUR n - select text or border colour
 VDU17        RTS
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action
-VDU18        RTS
+VDU18        >>>   WRTMAIN
+             STA   Entry+5
+             >>>   WRTAUX
+             >>>   XF2MAIN,SETCOLOR
+VDU18RET     >>>   ENTAUX
+             RTS
 
 * VDU 19 - Select palette colours
 VDU19        RTS
@@ -604,8 +610,7 @@ VDU23        RTS
 VDU24        RTS
 
 * VDU 25,k,x;y; - PLOT k,x;y; - PLOT point, line, etc.
-VDU25
-             >>>   WRTMAIN
+VDU25        >>>   WRTMAIN
              STZ   Entry+6        ; LSB of X0
              STZ   Entry+7        ; MSB of X0
              STZ   Entry+8        ; Y0
@@ -617,9 +622,7 @@ VDU25
              STA   Entry+11       ; Y1
              >>>   WRTAUX
              >>>   XF2MAIN,DRAWLINE
-
-VDU25RET
-             >>>   ENTAUX
+VDU25RET     >>>   ENTAUX
              RTS
 
 * VDU 26 - Reset to default windows
