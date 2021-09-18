@@ -584,6 +584,10 @@ VDU01        RTS
 * VDU 16 - CLG, clear graphics window
 VDU16        >>>   XF2MAIN,CLRHGR
 VDU16RET     >>>   ENTAUX
+             STZ   XPIXEL+0
+             STZ   XPIXEL+1
+             STZ   YPIXEL+0
+             STZ   YPIXEL+1
              RTS
 
 * VDU 17 - COLOUR n - select text or border colour
@@ -591,6 +595,7 @@ VDU17        RTS
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action
 VDU18        >>>   WRTMAIN
+             LDA   VDUQ+8
              STA   Entry+5
              >>>   WRTAUX
              >>>   XF2MAIN,SETCOLOR
@@ -610,20 +615,43 @@ VDU23        RTS
 VDU24        RTS
 
 * VDU 25,k,x;y; - PLOT k,x;y; - PLOT point, line, etc.
-VDU25        >>>   WRTMAIN
-             STZ   Entry+6        ; LSB of X0
-             STZ   Entry+7        ; MSB of X0
-             STZ   Entry+8        ; Y0
-             LDA   #<279
+* x is in VDUQ+7,VDUQ+8
+* y is in VDUQ+5,VDUQ+6
+* k is in VDUQ+4
+VDU25        LDA   VDUQ+4
+             AND   #$07
+             CMP   #$04           ; Move absolute
+             BEQ   HGRPOS         ; Just update pos
+:NOTMOVE     >>>   WRTMAIN
+             LDA   XPIXEL+0
+             STA   Entry+6
+             LDA   XPIXEL+1
+             STA   Entry+7
+             LDA   YPIXEL+0
+             STA   Entry+8
+             LDA   VDUQ+5
              STA   Entry+9        ; LSB of X1
-             LDA   #>279
+             LDA   VDUQ+6
              STA   Entry+10       ; MSB of X1
-             LDA   #191
+             LDA   VDUQ+7
              STA   Entry+11       ; Y1
              >>>   WRTAUX
              >>>   XF2MAIN,DRAWLINE
 VDU25RET     >>>   ENTAUX
+* Fall through into HGRPOS
+
+* Save pixel X,Y position
+HGRPOS       LDA   VDUQ+5
+             STA   XPIXEL+0
+             LDA   VDUQ+6
+             STA   XPIXEL+1
+             LDA   VDUQ+7
+             STA   YPIXEL+0
+             LDA   VDUQ+8
+             STA   YPIXEL+1
              RTS
+XPIXEL       DW    $0000
+YPIXEL       DW    $0000
 
 * VDU 26 - Reset to default windows
 VDU26        RTS
