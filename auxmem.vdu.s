@@ -619,7 +619,8 @@ VDU24        RTS
 * x is in VDUQ+7,VDUQ+8
 * y is in VDUQ+5,VDUQ+6
 * k is in VDUQ+4
-VDU25        LDA   VDUQ+4
+VDU25        JSR   CVTCOORD       ; Convert coordinate system
+             LDA   VDUQ+4
              AND   #$07
              CMP   #$04           ; Move absolute
              BEQ   HGRPOS         ; Just update pos
