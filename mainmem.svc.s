@@ -1069,7 +1069,6 @@ SETCOLOR     >>>   ENTMAIN
 
 * Call FDraw DrawLine routine
 DRAWLINE     >>>   ENTMAIN
-             JSR   Entry+16           ; FDRAW: SetColor
              JSR   Entry+28           ; FDRAW: DrawLine
              >>>   XF2AUX,VDU25RET
 

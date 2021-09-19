@@ -624,8 +624,6 @@ VDU25        LDA   VDUQ+4
              CMP   #$04           ; Move absolute
              BEQ   HGRPOS         ; Just update pos
 :NOTMOVE     >>>   WRTMAIN
-             LDA   HCOLOR
-             STA   Entry+5        ; Colour
              LDA   XPIXEL+0
              STA   Entry+6
              LDA   XPIXEL+1
