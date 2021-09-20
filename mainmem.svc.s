@@ -1065,7 +1065,12 @@ CLRHGR       >>>   ENTMAIN
 * Call FDraw SetColor routine
 SETCOLOR     >>>   ENTMAIN
              JSR   Entry+16           ; FDRAW: SetColor
-             >>>   XF2AUX,VDU18RET
+             >>>   XF2AUX,VDU18RET2
+
+* Call FDraw SetLineMode routine
+SETLINE      >>>   ENTMAIN
+             JSR   Entry+43           ; FDRAW: SetLineMode
+             >>>   XF2AUX,VDU18RET1
 
 * Call FDraw DrawLine routine
 DRAWLINE     >>>   ENTMAIN
