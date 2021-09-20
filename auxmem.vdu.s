@@ -599,13 +599,23 @@ VDU16RET     >>>   ENTAUX
 VDU17        RTS
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action
-VDU18        LDA   VDUQ+8
+VDU18        LDA   VDUQ+7          ; 'k'
+             CMP   #$04            ; k=4 means XOR
+             LDA   #$00            ; Normal drawing mode
+             BNE   :NORM
+             LDA   #$01            ; XOR mode
+:NORM        >>>   WRTMAIN
+             STA   Entry+5
+             >>>   WRTAUX
+             >>>   XF2MAIN,SETLINE
+VDU18RET1    >>>   ENTAUX
+:NORM        LDA   VDUQ+8          ; 'a'
              STA   HCOLOR
              >>>   WRTMAIN
              STA   Entry+5
              >>>   WRTAUX
              >>>   XF2MAIN,SETCOLOR
-VDU18RET     >>>   ENTAUX
+VDU18RET2    >>>   ENTAUX
              RTS
 
 * VDU 19 - Select palette colours
@@ -659,7 +669,8 @@ HGRPOS       LDA   VDUQ+5
              RTS
 XPIXEL       DW    $0000          ; Previous plot x-coord
 YPIXEL       DW    $0000          ; Previous plot y-coord
-HCOLOR       DB    $00            ; High res colour
+HCOLOR       DB    $00            ; High res foreground colour
+BCOLOR       DB    $00            ; High res background colour
 
 * VDU 26 - Reset to default windows
 VDU26        RTS
