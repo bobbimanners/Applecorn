@@ -1059,7 +1059,13 @@ MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
 
 * Call FDraw Clear routine
 CLRHGR       >>>   ENTMAIN
+             LDA   BGCOLOR
+             STA   Entry+5
+             JSR   Entry+16           ; FDRAW: SetColor
              JSR   Entry+22           ; FDRAW: Clear
+             LDA   FGCOLOR
+             STA   Entry+5
+             JSR   Entry+16           ; FDRAW: SetColor
              >>>   XF2AUX,VDU16RET
 
 * Call FDraw SetColor routine
@@ -1077,6 +1083,25 @@ DRAWLINE     >>>   ENTMAIN
              JSR   Entry+28           ; FDRAW: DrawLine
              >>>   XF2AUX,VDU25RET
 
+* Reset colours and linetype
+GFXINIT      JSR   Entry+0            ; Initialize FDRAW library
+             LDA   #$20
+             STA   Entry+5
+             JSR   Entry+19           ; FDRAW: Set page $2000
+             STZ   LINETYPE
+             STZ   Entry+5
+             JSR   Entry+43           ; FDRAW: SetLineMode
+             LDA   #$07
+             STA   FGCOLOR
+             STA   Entry+5
+             JSR   Entry+16           ; FDRAW: SetColor
+             STZ   BGCOLOR
+             JSR   Entry+22           ; FDRAW: clear HGR screen
+             RTS
+
+FGCOLOR      DB    $00                ; Foreground colour
+BGCOLOR      DB    $00                ; Background colour
+LINETYPE     DB    $00                ; 0 normal, 1 XOR
 
 
 
