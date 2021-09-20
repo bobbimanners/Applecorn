@@ -102,15 +102,7 @@ START       JSR   ROMMENU
             LDA   #>GSBRK
             STA   $3F0+1
 
-*            LDA   $C057            ; Enable hi-res
-*            LDA   $C054            ; Enable page 1
-*            LDA   $C050            ; Enable graphics
-            JSR   Entry+0          ; Initialize FDRAW library
-            LDA   #$20
-            STA   Entry+5
-            JSR   Entry+19         ; FDRAW: Set page $2000
-            JSR   Entry+22         ; FDRAW: clear HGR screen
-*            LDA   $C051            ; Enable text again
+            JSR   GFXINIT          ; Initialize FDraw graphics
 
             TSX                    ; Save SP at $0100 in aux
             STA   $C005            ; Write to aux

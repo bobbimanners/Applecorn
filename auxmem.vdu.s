@@ -276,12 +276,6 @@ CLREOL       LDA   VDUTEXTY         ; ROW
              RTS
 
 * Clear the screen
-*VDUINIT     STA   $C00F
-*            LDA   #'_'
-*            STA   CURSOR        ; Normal cursor
-*            STA   CURSORCP      ; Copy cursor when editing
-*            LDA   #$A0
-*            STA   CURSORED      ; Edit cursor when editing
 CLEAR        STZ   VDUTEXTY         ; ROW
              STZ   VDUTEXTX         ; COL
 :L1          JSR   CLREOL
@@ -463,15 +457,16 @@ VDU22        LDA   VDUQ+8
              DEX                    ; All other MODEs default to 40-col
 VDU22A       STA   $C051            ; Enable Text
              STA   $C00C,X          ; Select 40col/80col
-             STA   $C003            ; Alt charset off
              STA   $C055            ; PAGE2
-             STA   $C00F
+             STA   $C052            ; Clear MIXED
+             STA   $C00F            ; Enable alt charset
              BRA   VDU22C
 
-VDU22G       STA   $C057            ; Hi-Res
+VDU22G       STA   $C050            ; Enable Graphics
+             STA   $C057            ; Hi-Res
              STA   $C054            ; PAGE1
              STA   $C052            ; Clear MIXED
-             STA   $C050            ; Enable Graphics
+             JSR   VDU16            ; Clear HGR screen
 
 * Set up default cursors
 VDU22C       LDA   #'_'
@@ -580,7 +575,6 @@ SCNTAB       DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
              DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
 
 
-* Unimplemented
 * May end up moving graphics bits to separate source
 
 * VDU 1 - Send one character to printer
@@ -599,19 +593,25 @@ VDU16RET     >>>   ENTAUX
 VDU17        RTS
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action
-VDU18        LDA   VDUQ+7          ; 'k'
+VDU18        LDA   VDUQ+7          ; Argument 'k'
              CMP   #$04            ; k=4 means XOR
              LDA   #$00            ; Normal drawing mode
              BNE   :NORM
              LDA   #$01            ; XOR mode
 :NORM        >>>   WRTMAIN
+             STA   LINETYPE
              STA   Entry+5
              >>>   WRTAUX
              >>>   XF2MAIN,SETLINE
 VDU18RET1    >>>   ENTAUX
-:NORM        LDA   VDUQ+8          ; 'a'
-             STA   HCOLOR
+:NORM        LDA   VDUQ+8          ; Argument 'a'
+             BPL   :FOREGND        ; <128 is foreground
              >>>   WRTMAIN
+             STA   BGCOLOR         ; Stored in main memory
+             >>>   WRTAUX
+             RTS
+:FOREGND     >>>   WRTMAIN
+             STA   FGCOLOR         ; Stored in main memory
              STA   Entry+5
              >>>   WRTAUX
              >>>   XF2MAIN,SETCOLOR
@@ -669,8 +669,6 @@ HGRPOS       LDA   VDUQ+5
              RTS
 XPIXEL       DW    $0000          ; Previous plot x-coord
 YPIXEL       DW    $0000          ; Previous plot y-coord
-HCOLOR       DB    $00            ; High res foreground colour
-BCOLOR       DB    $00            ; High res background colour
 
 * VDU 26 - Reset to default windows
 VDU26        RTS
