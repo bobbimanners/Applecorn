@@ -28,7 +28,7 @@
 * 15-Sep-2021 INKEY(0) tests once and returns immediately.
 
 * TO DO: move these to VDU
-OLDCHAR      EQU   OSKBD1                    ; *TEMP*  ; character under cursor
+* OLDCHAR      EQU   OSKBD1 ; *TEMP*  ; character under cursor
 * COPYCHAR     EQU   OSKBD2 ; *TEMP*  ; character under copy cursor
 
 FLASHER      EQU   BYTEVARBASE+176           ; VSync counter for flashing cursor

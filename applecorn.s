@@ -184,6 +184,7 @@ MAINZP      MAC
             PUT   AUXMEM.MOSEQU
             PUT   AUXMEM.INIT
             PUT   AUXMEM.VDU
+            PUT   AUXMEM.GFX
             PUT   AUXMEM.HOSTFS
             PUT   AUXMEM.OSCLI
             PUT   AUXMEM.BYTWRD
