@@ -34,6 +34,11 @@ VDUSTATUS    EQU   $D0              ; $D0 # VDU status
 VDUCHAR      EQU   VDUSTATUS+1      ; $D1
 VDUADDR      EQU   VDUSTATUS+4      ; $D4  address of current char cell
 
+* TO DO: move these to VDU
+OLDCHAR      EQU   OSKBD1 ; *TEMP*  ; character under cursor
+COPYCHAR     EQU   OSKBD2 ; *TEMP*  ; character under copy cursor
+
+
 * VDU DRIVER MAIN WORKSPACE
 ***************************
 FXLINES      EQU   BYTEVARBASE+217  ; Paged scrolling line counter
