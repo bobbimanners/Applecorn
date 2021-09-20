@@ -112,7 +112,7 @@ CTRLCHARGO   ASL   A
              CMP   #$E5             ; (13*2) EOR 255
 CTRLCHARGO2  PHP
              JSR   CTRLCHARJMP      ; Call routine
-             PLP
+             PLP                    ; Recover CS=(ctrl>=8 && ctrl<=13)
              BCS   OUTCHEXIT        ; If echoable, test if printer enabled
              RTS                    ; Return, CC=Don't echo to printer
 
@@ -127,7 +127,7 @@ CTRLCHAR6    LDA   CTRLADDRS+1,Y
              LDA   CTRLADDRS+0,Y
              PHA
 VDU27
-VDU00        RTS                    ; Enters code with CS=(ctrl>=8 && ctrl<=13)
+VDU00        RTS
 
 QLEN         DB    -0,-1,-2,-5,-0,-0,-1,-9  ; 32,1 or 17,18,19,20,21,22,23
              DB    -8,-5,-0,-0,-4,-4,-0,-2  ; 24,25,26,27,28,29,30,31

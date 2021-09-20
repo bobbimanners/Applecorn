@@ -53,9 +53,6 @@ CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $8B
             DW    STARBYTE-1         ; OPT    -> OSBYTE &8B,X,Y  XY=>params
 * others
-            ASC   'COPY'
-            DB    $FF
-            DW    COPY-1             ; COPY   -> XY=>params
             ASC   'QUIT'
             DB    $80
             DW    STARQUIT-1         ; QUIT   -> (LPTR)=>params
@@ -495,41 +492,10 @@ STARDONE    RTS
 
 * *ECHO <GSTRANS string>
 ************************
-ECHO
-*             PHY
-*             CLC
-*             JSR   ECHO0
-*             PLY
-            SEC
+ECHO        SEC
 ECHO0       JSR   GSINIT
-*             PHP
-*             PLA
-*             JSR   OUTHEX
 ECHOLP1     JSR   GSREAD
             BCS   STARDONE
-*             BCS   ECHO3
-*             CMP   #$20
-*             BCC   ECHO2
-*             CMP   #$7F
-*             BCS   ECHO2
             JSR   OSWRCH
             JMP   ECHOLP1
-*ECHO2        PHA
-*             LDA   #'<'
-*             JSR   OSWRCH
-*             PLA
-*             JSR   OUTHEX
-*             LDA   #'>'
-*             JSR   OSWRCH
-*             JMP   ECHOLP1
-*ECHO3
-*             PHP
-*             PLA
-*             JSR   OUTHEX
-*             JMP   OSNEWL
-
-
-
-
-
 

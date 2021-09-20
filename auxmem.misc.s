@@ -4,6 +4,7 @@
 * Misc functions and API entry block
 * 02-Sep-2021 Written GSINIT/GSREAD
 * 11-Sep-2021 PR16DEC uses OS workspace, added rest of default vectors/etc.
+* 20-Sep-2021 Updated PRDECIMAL routine, prints up to 32 bits.
 
 
 * OSBYTE $80 - ADVAL
@@ -100,7 +101,7 @@ FORCENL     LDA   #$86
 * Print XY in hex
 OUT2HEX     TYA
             JSR   OUTHEX
-            TAX                  ; Continue into OUTHEX
+            TXA                  ; Continue into OUTHEX
 
 * Print hex byte in A
 OUTHEX      PHA
@@ -123,50 +124,101 @@ PRNIB       CMP   #$0A
 :S1         ADC   #'0'           ; < $0A
             JMP   OSWRCH
 
+* TEMP ENTRY *
 * Print 16-bit value in XY in decimal
-* beebwiki.mdfs.net/Number_output_in_6502_machine_code
 OSNUM       EQU   OSTEXT+0
 OSPAD       EQU   OSTEXT+4
-
-PRDECXY     LDA   #' '
-PRDECPAD    STA   OSPAD
-            STX   OSNUM+0
+PRDECXY
+PRDECPAD    STX   OSNUM+0
             STY   OSNUM+1
-:PRDEC16    LDY   #$08           ; Five digits (5-1)*2
-:LP1        LDX   #$FF
-            SEC
-:LP2        LDA   OSNUM+0
-            SBC   :TENS+0,Y
-            STA   OSNUM+0
-            LDA   OSNUM+1
-            SBC   :TENS+1,Y
-            STA   OSNUM+1
-            INX
-            BCS   :LP2
-            LDA   OSNUM+0
-            ADC   :TENS+0,Y
-            STA   OSNUM+0
-            LDA   OSNUM+1
-            ADC   :TENS+1,Y
-            STA   OSNUM+1
-            TXA
-            BNE   :DIGIT
-            LDA   OSPAD
-            BNE   :PRINT
-            BEQ   :NEXT
-:DIGIT      LDX   #'0'
-            STX   OSPAD
-            ORA   #'0'
-:PRINT      JSR   OSWRCH
-:NEXT       DEY
-            DEY
-            BPL   :LP1
-            RTS
-:TENS       DW    1
-            DW    10
-            DW    100
-            DW    1000
-            DW    10000
+            STZ   OSNUM+2
+            STZ   OSNUM+3
+:PRDEC16    LDY   #$05       ; 5 digits
+            LDX   #OSNUM     ; number stored in OSNUM
+
+* Print up to 32-bit decimal number
+* See forum.6502.org/viewtopic.php?f=2&t=4894
+* X=>four byte zero page locations
+* Y= number of digits, 0 for no padding
+*
+PRINTDEC    sty   OSPAD      ; Number of padding+digits
+            ldy   #0         ; Digit counter
+PRDECDIGIT  lda   #32        ; 32-bit divide
+            sta   OSTEMP
+            lda   #0         ; Remainder=0
+            clv              ; V=0 means div result = 0
+PRDECDIV10  cmp   #10/2      ; Calculate OSNUM/10
+            bcc   PRDEC10
+            sbc   #10/2+$80  ; Remove digit & set V=1 to show div result > 0
+            sec              ; Shift 1 into div result
+PRDEC10     rol   0,x        ; Shift /10 result into OSNUM
+            rol   1,x
+            rol   2,x
+            rol   3,x
+            rol   a          ; Shift bits of input into acc (input mod 10)
+            dec   OSTEMP
+            bne   PRDECDIV10 ; Continue 32-bit divide
+            ora   #48
+            pha              ; Push low digit 0-9 to print
+            iny
+            bvs   PRDECDIGIT ; If V=1, result of /10 was > 0 & do next digit
+            lda   #32
+PRDECLP1    cpy   OSPAD
+            bcs   PRDECLP2   ; Enough padding pushed
+            pha              ; Push leading space characters
+            iny
+            bne   PRDECLP1
+PRDECLP2    pla              ; Pop character left to right
+            jsr   OSWRCH     ; Print it
+            dey
+            bne   PRDECLP2
+            rts
+
+
+** Print 16-bit value in XY in decimal
+** beebwiki.mdfs.net/Number_output_in_6502_machine_code
+*OSNUM       EQU   OSTEXT+0
+*OSPAD       EQU   OSTEXT+4
+*
+*PRDECXY     LDA   #' '
+*PRDECPAD    STA   OSPAD
+*            STX   OSNUM+0
+*            STY   OSNUM+1
+*:PRDEC16    LDY   #$08           ; Five digits (5-1)*2
+*:LP1        LDX   #$FF
+*            SEC
+*:LP2        LDA   OSNUM+0
+*            SBC   :TENS+0,Y
+*            STA   OSNUM+0
+*            LDA   OSNUM+1
+*            SBC   :TENS+1,Y
+*            STA   OSNUM+1
+*            INX
+*            BCS   :LP2
+*            LDA   OSNUM+0
+*            ADC   :TENS+0,Y
+*            STA   OSNUM+0
+*            LDA   OSNUM+1
+*            ADC   :TENS+1,Y
+*            STA   OSNUM+1
+*            TXA
+*            BNE   :DIGIT
+*            LDA   OSPAD
+*            BNE   :PRINT
+*            BEQ   :NEXT
+*:DIGIT      LDX   #'0'
+*            STX   OSPAD
+*            ORA   #'0'
+*:PRINT      JSR   OSWRCH
+*:NEXT       DEY
+*            DEY
+*            BPL   :LP1
+*            RTS
+*:TENS       DW    1
+*            DW    10
+*            DW    100
+*            DW    1000
+*            DW    10000
 
 
 * GSINIT - Initialise for GSTRANS string parsing
@@ -436,7 +488,7 @@ OSFFA4      JMP   NULLRTS        ; FFA4 (DISKACC)
 OSFFA7      JMP   NULLRTS        ; FFA7 (DISKCCP)
 PRHEX       JMP   OUTHEX         ; FFAA PRHEX
 PR2HEX      JMP   OUT2HEX        ; FFAD PR2HEX
-OSFFB0      JMP   NULLRTS        ; FFB0 (USERINT)
+OSFFB0      JMP   PRINTDEC       ; FFB0 (USERINT)
 OSWRRM      JMP   NULLRTS        ; FFB3 OSWRRM
 
 * COMPULSARY ENTRIES
@@ -479,26 +531,4 @@ MOSVEND
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      ASC   '**ENDOFCODE**'
             DS    $200-13
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
