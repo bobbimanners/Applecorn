@@ -96,3 +96,17 @@ CVTCOORD
 
             RTS
 
+* Add coordinates to XPIXEL, YPIXEL
+RELCOORD    CLC
+            LDA   XPIXEL+0
+            ADC   VDUQ+5
+            STA   VDUQ+5
+            LDA   XPIXEL+1
+            ADC   VDUQ+6
+            STA   VDUQ+6
+            CLC
+            LDA   YPIXEL
+            ADC   VDUQ+7
+            STA   VDUQ+7
+            RTS
+

@@ -1068,11 +1068,6 @@ CLRHGR       >>>   ENTMAIN
              JSR   Entry+16           ; FDRAW: SetColor
              >>>   XF2AUX,VDU16RET
 
-* Call FDraw SetColor routine
-SETCOLOR     >>>   ENTMAIN
-             JSR   Entry+16           ; FDRAW: SetColor
-             >>>   XF2AUX,VDU18RET2
-
 * Call FDraw SetLineMode routine
 SETLINE      >>>   ENTMAIN
              JSR   Entry+43           ; FDRAW: SetLineMode
@@ -1080,6 +1075,21 @@ SETLINE      >>>   ENTMAIN
 
 * Call FDraw DrawLine routine
 DRAWLINE     >>>   ENTMAIN
+             LDA   PLOTMODE
+             AND   #$03
+             CMP   #$01               ; Draw in foreground colour
+             BNE   :S1
+             LDA   FGCOLOR
+             BRA   :SETCOLOR
+:S1          CMP   #$02               ; Draw in inverse colour
+             BNE   :S2
+             SEC
+             LDA   #$07
+             SBC   FGCOLOR
+             BRA   :SETCOLOR
+:S2          LDA   BGCOLOR            ; Draw in background colour
+:SETCOLOR    STA   Entry+5
+             JSR   Entry+16           ; FDRAW: SetColor
              JSR   Entry+28           ; FDRAW: DrawLine
              >>>   XF2AUX,VDU25RET
 
@@ -1102,6 +1112,7 @@ GFXINIT      JSR   Entry+0            ; Initialize FDRAW library
 FGCOLOR      DB    $00                ; Foreground colour
 BGCOLOR      DB    $00                ; Background colour
 LINETYPE     DB    $00                ; 0 normal, 1 XOR
+PLOTMODE     DB    $00                ; K value for PLOT K,X,Y
 
 
 
