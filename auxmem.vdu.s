@@ -585,8 +585,7 @@ VDU16        >>>   XF2MAIN,CLRHGR
 VDU16RET     >>>   ENTAUX
              STZ   XPIXEL+0
              STZ   XPIXEL+1
-             STZ   YPIXEL+0
-             STZ   YPIXEL+1
+             STZ   YPIXEL
              RTS
 
 * VDU 17 - COLOUR n - select text or border colour
@@ -612,10 +611,7 @@ VDU18RET1    >>>   ENTAUX
              RTS
 :FOREGND     >>>   WRTMAIN
              STA   FGCOLOR         ; Stored in main memory
-             STA   Entry+5
              >>>   WRTAUX
-             >>>   XF2MAIN,SETCOLOR
-VDU18RET2    >>>   ENTAUX
              RTS
 
 * VDU 19 - Select palette colours
@@ -636,15 +632,21 @@ VDU24        RTS
 * k is in VDUQ+4
 VDU25        JSR   CVTCOORD       ; Convert coordinate system
              LDA   VDUQ+4
-             AND   #$07
-             CMP   #$04           ; Move absolute
+             AND   #$04           ; Bit 2 set -> absolute
+             BNE   :ABS
+             JSR   RELCOORD       ; Add coords to XPIXEL/YPIXEL
+:ABS         LDA   VDUQ+4
+             AND   #$03
+             CMP   #$0            ; Bits 0,1 clear -> just move
              BEQ   HGRPOS         ; Just update pos
 :NOTMOVE     >>>   WRTMAIN
+             LDA   VDUQ+4
+             STA   PLOTMODE
              LDA   XPIXEL+0
              STA   Entry+6
              LDA   XPIXEL+1
              STA   Entry+7
-             LDA   YPIXEL+0
+             LDA   YPIXEL
              STA   Entry+8
              LDA   VDUQ+5
              STA   Entry+9        ; LSB of X1
@@ -656,19 +658,16 @@ VDU25        JSR   CVTCOORD       ; Convert coordinate system
              >>>   XF2MAIN,DRAWLINE
 VDU25RET     >>>   ENTAUX
 * Fall through into HGRPOS
-
 * Save pixel X,Y position
 HGRPOS       LDA   VDUQ+5
              STA   XPIXEL+0
              LDA   VDUQ+6
              STA   XPIXEL+1
              LDA   VDUQ+7
-             STA   YPIXEL+0
-             LDA   VDUQ+8
-             STA   YPIXEL+1
+             STA   YPIXEL
              RTS
 XPIXEL       DW    $0000          ; Previous plot x-coord
-YPIXEL       DW    $0000          ; Previous plot y-coord
+YPIXEL       DB    $00            ; Previous plot y-coord
 
 * VDU 26 - Reset to default windows
 VDU26        RTS
