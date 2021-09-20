@@ -7,7 +7,8 @@
 * Assembled with the Merlin 8 v2.58 assembler on Apple II.
 
             XC                ; 65c02
-            ORG   $2000       ; Load addr of loader in main memory
+            ORG   $4000       ; Load addr of loader in main memory
+                              ; Clear of first HGR frame buffer
 
 * Monitor routines
 BELL        EQU   $FBDD
@@ -47,12 +48,12 @@ IOBUF3      EQU   $1800
 IOBUF4      EQU   $1C00
 
 * 512 byte buffer sufficient for one disk block
-BLKBUF      EQU   $5000       ; Can't use $400 as ProDOS uses
-BLKBUFEND   EQU   $5200       ;  'hidden' bytes within screen
+BLKBUF      EQU   $9000       ; Can't use $400 as ProDOS uses
+BLKBUFEND   EQU   $9200       ;  'hidden' bytes within screen
 
 * 512 byte buffer for file copy (*COPY)
-COPYBUF     EQU   $5200       ; File copy needs separate buffer
-*COPYBUFEND  EQU   $5400
+COPYBUF     EQU   $9200       ; File copy needs separate buffer
+*COPYBUFEND  EQU   $9400
 
 * Address in aux memory where ROM will be loaded
 AUXADDR     EQU   $8000
@@ -176,6 +177,10 @@ MAINZP      MAC
             PUT   MAINMEM.WILD
             PUT   MAINMEM.LISTS
             PUT   MAINMEM.MISC
+            PUT   FDRAW
+            PUT   FDRAW.LINE
+            PUT   FDRAW.CIRCLE
+            PUT   FDRAW.TABLES
             PUT   AUXMEM.MOSEQU
             PUT   AUXMEM.INIT
             PUT   AUXMEM.VDU
@@ -187,6 +192,8 @@ MAINZP      MAC
 
 * Automatically save the object file:
             SAV   APPLECORN
+
+
 
 
 

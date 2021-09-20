@@ -4,9 +4,10 @@
 * Code for handling Applecorn paths and converting them to
 * ProDOS paths.  Runs in main memory.
 
-* Preprocess path in MOSFILE, handling '..' sequence
-* dir/file.ext filesystem, so '..' means parent dir (eg: '../SOMEDIR')
-* Also allows '^' as '^' is illegal character in ProDOS
+* Preprocess path in MOSFILE, handles:
+* 1) ':sd' type slot and drive prefix (s,d are digits)
+* 2) '.' or '@' for current working directory
+* 3) '..' or '^' for parent directory
 * Carry set on error, clear otherwise
 PREPATH     LDX   MOSFILE      ; Length
             BNE   :S1
@@ -15,8 +16,9 @@ PREPATH     LDX   MOSFILE      ; Length
             CMP   #':'
             BNE   :NOTCOLN     ; Not colon
             CPX   #$03         ; Length >= 3?
-            BCC   :ERR         ; If not
-            LDA   MOSFILE+3    ; Drive
+            BCS   :S2
+            JMP   :ERR         ; If not
+:S2         LDA   MOSFILE+3    ; Drive
             SEC
             SBC   #'1'
             TAX
@@ -38,29 +40,31 @@ PREPATH     LDX   MOSFILE      ; Length
             BRA   :APPEND
 :NOTCOLN    JSR   GETPREF      ; Current pfx -> PREFIX
 :REENTER    LDA   MOSFILE+1    ; First char of dirname
-            CMP   #'.'
-            BEQ   :ONEDOT
-            CMP   #'@'
+            CMP   #'@'         ; '@' means current working dir
             BEQ   :CWD
-            CMP   #'^'
+            CMP   #'^'         ; '^' means parent dir
             BEQ   :CARET
             CMP   #'/'         ; Absolute path
             BEQ   :EXIT        ; Nothing to do
+            CMP   #'.'         ; ...
+            BEQ   :UPDIR1
             BRA   :APPEND
-:ONEDOT     JSR   DEL1CHAR     ; Delete the dot
-            LDA   MOSFILE      ; Is there more?
-            BEQ   :APPEND      ; Nope - '.' alone
-            LDA   MOSFILE+1
-            CMP   #'/'         ; './'
-            BEQ   :CWD2
+:UPDIR1     LDA   MOSFILE      ; Length
+            CMP   #$01
+            BEQ   :CWD         ; '.' on its own
+            LDA   MOSFILE+2
             CMP   #'.'         ; '..'
-            BNE   :EXIT
+            BEQ   :DOTDOT
+            CMP   #'/'         ; './'
+            BEQ   :CWD
+            BRA   :ERR
+:DOTDOT     JSR   DEL1CHAR     ; Delete first char of MOSFILE
 :CARET      JSR   PARENT       ; Parent dir -> PREFIX
-:CWD        JSR   DEL1CHAR     ; Delete first char from MOSFILE
-:CWD2       LDA   MOSFILE      ; Is there more?
-            BEQ   :APPEND      ; Nope!
+:CWD        JSR   DEL1CHAR     ; Delete first char of MOSFILE
+            LDA   MOSFILE      ; Is there more?
+            BEQ   :APPEND      ; No more
             CMP   #$02         ; Len at least two?
-            BCC   :ERR         ; Nope!
+            BCC   :ERR         ; Too short!
             LDA   MOSFILE+1    ; What is next char?
             CMP   #'/'         ; Is it slash?
             BNE   :ERR         ; Nope!
@@ -160,7 +164,7 @@ DIGCONV     LDY   #$01         ; First char
             CPY   #$01         ; First char?
             BEQ   :INS         ; First char is digit
             LDA   MOSFILE-1,Y  ; Prev char
-            CMP   #'/'
+            CMP   #'/'         ; Slash
             BEQ   :INS         ; Slash followed by digit
             BRA   :NOINS       ; Otherwise leave it alone
 :INS        LDA   #'N'         ; Char to insert

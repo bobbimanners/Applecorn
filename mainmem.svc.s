@@ -881,6 +881,7 @@ INFO         JSR   PREPATH            ; Preprocess pathname
              JSR   EXISTS             ; Check matches something
              CMP   #$00
              BNE   INFOFIRST
+             JSR   CLSDIR
              LDA   #$46               ; Not found (TO DO: err code?)
              BRA   CATEXIT
 
@@ -1056,6 +1057,20 @@ MAINRDMEM    STA   A1L
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
 
+* Call FDraw Clear routine
+CLRHGR       >>>   ENTMAIN
+             JSR   Entry+22           ; FDRAW: Clear
+             >>>   XF2AUX,VDU16RET
+
+* Call FDraw SetColor routine
+SETCOLOR     >>>   ENTMAIN
+             JSR   Entry+16           ; FDRAW: SetColor
+             >>>   XF2AUX,VDU18RET
+
+* Call FDraw DrawLine routine
+DRAWLINE     >>>   ENTMAIN
+             JSR   Entry+28           ; FDRAW: DrawLine
+             >>>   XF2AUX,VDU25RET
 
 
 
