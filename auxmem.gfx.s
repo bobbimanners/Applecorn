@@ -57,9 +57,11 @@ CVTCOORD
             LSR   A
             ROR   ZP2+0
             LSR   A
-            STA   VDUQ+8        ; ZP2 -> Y-coord
-            LDA   ZP2+0
-            ROR
+            ROR   ZP2+0
+            STZ   VDUQ+8        ; MSB always zero
+            SEC
+            LDA   #191          ; 191 - ZP2 -> Y-coord
+            SBC   ZP2+0
             STA   VDUQ+7
             RTS
 

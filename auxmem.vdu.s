@@ -585,7 +585,8 @@ VDU16        >>>   XF2MAIN,CLRHGR
 VDU16RET     >>>   ENTAUX
              STZ   XPIXEL+0
              STZ   XPIXEL+1
-             STZ   YPIXEL
+             LDA   #191
+             STA   YPIXEL
              RTS
 
 * VDU 17 - COLOUR n - select text or border colour
