@@ -1093,6 +1093,32 @@ DRAWLINE     >>>   ENTMAIN
              JSR   Entry+28           ; FDRAW: DrawLine
              >>>   XF2AUX,VDU25RET
 
+* Call FDraw DrawPoint routine
+DRAWPNT      >>>   ENTMAIN
+             LDA   PLOTMODE
+             AND   #$03
+             CMP   #$01               ; Draw in foreground colour
+             BNE   :S1
+             LDA   FGCOLOR
+             BRA   :SETCOLOR
+:S1          CMP   #$02               ; Draw in inverse colour
+             BNE   :S2
+             SEC
+             LDA   #$07
+             SBC   FGCOLOR
+             BRA   :SETCOLOR
+:S2          LDA   BGCOLOR            ; Draw in background colour
+:SETCOLOR    STA   Entry+5
+             JSR   Entry+16           ; FDRAW: SetColor
+             LDA   PLOTMODE
+             AND   #$C0
+             CMP   #$40
+             BEQ   :POINT
+             JSR   Entry+28           ; FDRAW: DrawLine
+             >>>   XF2AUX,VDU25RET
+:POINT       JSR   Entry+25           ; FDRAW: DrawPoint
+             >>>   XF2AUX,VDU25RET
+
 * Reset colours and linetype
 GFXINIT      JSR   Entry+0            ; Initialize FDRAW library
              LDA   #$20

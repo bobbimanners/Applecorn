@@ -638,8 +638,24 @@ VDU25        JSR   CVTCOORD       ; Convert coordinate system
 :ABS         LDA   VDUQ+4
              AND   #$03
              CMP   #$0            ; Bits 0,1 clear -> just move
-             BEQ   HGRPOS         ; Just update pos
-:NOTMOVE     >>>   WRTMAIN
+             BNE   :NOTMOVE
+             JMP   HGRPOS         ; Just update pos
+:NOTMOVE     LDA   VDUQ+4
+             AND   #$C0
+             CMP   #$40           ; Bit 7 clr, bit 6 set -> point
+             BNE   :LINE
+             >>>   WRTMAIN
+             LDA   VDUQ+4
+             STA   PLOTMODE
+             LDA   VDUQ+5
+             STA   Entry+6        ; LSB of X1
+             LDA   VDUQ+6
+             STA   Entry+7        ; MSB of X1
+             LDA   VDUQ+7
+             STA   Entry+8        ; Y1
+             >>>   WRTAUX
+             >>>   XF2MAIN,DRAWPNT
+:LINE        >>>   WRTMAIN
              LDA   VDUQ+4
              STA   PLOTMODE
              LDA   XPIXEL+0
