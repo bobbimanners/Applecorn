@@ -11,6 +11,7 @@
 * 21-Aug-2021 If screen scrolls, copy cursor adjusted.
 * 05-Sep-2021 Starting to prepare VDU workspace.
 * 09-Sep-2021 New dispatch routine.
+* 22-Sep-2021 More VDU workspace, started MODE definitions.
 
 
 **********************************
@@ -21,7 +22,7 @@
 * VDU DRIVER ZERO PAGE
 **********************
 * $00D0-$00DF VDU driver zero page workspace
-VDUSTATUS    EQU   $D0               ; $D0 # VDU status
+VDUSTATUS    EQU   $D0            ; $D0 # VDU status
 * bit 7 = VDU 21 VDU disabled
 * bit 6 = COPY cursor active
 * bit 5 = VDU 5 Text at graphics cursor
@@ -31,12 +32,10 @@ VDUSTATUS    EQU   $D0               ; $D0 # VDU status
 * bit 1 = Don't scroll (COPY cursor or VDU 5 mode)
 * bit 0 = VDU 2 printer echo active
 *
-VDUCHAR      EQU   VDUSTATUS+1       ; $D1
-VDUADDR      EQU   VDUSTATUS+4       ; $D4  address of current char cell
-
-* TO DO: move these to VDU
-OLDCHAR      EQU   OSKBD1            ; *TEMP*  ; character under cursor
-COPYCHAR     EQU   OSKBD2            ; *TEMP*  ; character under copy cursor
+VDUCHAR      EQU   VDUSTATUS+1    ; $D1
+VDUADDR      EQU   VDUSTATUS+4    ; $D4  address of current char cell
+OLDCHAR      EQU   OSKBD1         ; *TEMP* character under cursor
+COPYCHAR     EQU   OSKBD2         ; *TEMP* character under copy cursor
 
 
 * VDU DRIVER MAIN WORKSPACE
@@ -44,27 +43,46 @@ COPYCHAR     EQU   OSKBD2            ; *TEMP*  ; character under copy cursor
 FXLINES      EQU   BYTEVARBASE+217   ; Paged scrolling line counter
 FXVDUQLEN    EQU   BYTEVARBASE+218   ; Length of pending VDU queue
 VDUVARS      EQU   $290
+VDUVAREND    EQU   $2DF
 
-VDUTWINL     EQU   VDUVARS+$08       ; # text window left
-VDUTWINB     EQU   VDUVARS+$09       ; # text window bottom \ window
-VDUTWINR     EQU   VDUVARS+$0A       ; # text window right  /  size
-VDUTWINT     EQU   VDUVARS+$0B       ; # text window top
+GFXWINLFT    EQU   VDUVARS+$00    ; # graphics window left
+GFXWINBOT    EQU   VDUVARS+$02    ; # graphics window bottom \ window
+GFXWINRGT    EQU   VDUVARS+$04    ; # graphics window right  /  size
+GFXWINTOP    EQU   VDUVARS+$06    ; # graphics window top
+TXTWINLFT    EQU   VDUVARS+$08    ; # text window left
+TXTWINBOT    EQU   VDUVARS+$09    ; # text window bottom \ window
+TXTWINRGT    EQU   VDUVARS+$0A    ; # text window right  /  size
+TXTWINTOP    EQU   VDUVARS+$0B    ; # text window top
+GFXORIGX     EQU   VDUVARS+$0C    ;   graphics X origin
+GFXORIGY     EQU   VDUVARS+$0E    ;   graphics Y origin
 *
-VDUPIXELS    EQU   VDUVARS+$13       ; *TEMP*
-VDUBYTES     EQU   VDUVARS+$14       ; *TEMP*  ; bytes per char
-VDUMODE      EQU   VDUVARS+$15       ; *TEMP*  ; current MODE
-VDUSCREEN    EQU   VDUVARS+$16       ; *TEMP*  ; Screen type, MODE 7?
+GFXPOSNX     EQU   VDUVARS+$10    ;   current graphics X posn
+GFXPOSNY     EQU   VDUVARS+$12    ;   current graphics Y posn   
+GFXLASTX     EQU   VDUVARS+$14    ;   last graphics X posn
+GFXLASTY     EQU   VDUVARS+$16    ;   last graphics Y posn
+VDUTEXTX     EQU   VDUVARS+$18    ;   absolute text X posn = POS+WINLFT
+VDUTEXTY     EQU   VDUVARS+$19    ;   absolute text Y posn = VPOS+WINTOP
+VDUCOPYX     EQU   VDUVARS+$1A    ;   absolute COPY text X posn
+VDUCOPYY     EQU   VDUVARS+$1B    ;   absolute COPY text Y posn
 *
-VDUTEXTX     EQU   VDUVARS+$18       ; absolute POS
-VDUTEXTY     EQU   VDUVARS+$19       ; absolute VPOS
-VDUCOPYX     EQU   VDUVARS+$1A       ; absolute COPY cursor X posn
-VDUCOPYY     EQU   VDUVARS+$1B       ; absolute COPY cursor Y posn
+VDUQ         EQU   VDUVARS+$27    ; *TEMP* $27.$2F
+CURSOR       EQU   VDUVARS+$30    ; *TEMP* character used for cursor
+CURSORED     EQU   VDUVARS+$31    ; *TEMP* character used for edit cursor
+CURSORCP     EQU   VDUVARS+$32    ; *TEMP* character used for copy cursor
 *
-CURSOR       EQU   VDUVARS+$20       ; *TEMP* character used for cursor
-CURSORED     EQU   VDUVARS+$21       ; *TEMP* character used for edit cursor
-CURSORCP     EQU   VDUVARS+$22       ; *TEMP* character used for copy cursor
+VDUPIXELS    EQU   VDUVARS+$33    ; *TEMP* pixels per byte
+VDUBYTES     EQU   VDUVARS+$34    ; *TEMP* bytes per char, 1=text only
+VDUMODE      EQU   VDUVARS+$35    ; *TEMP* current MODE
+VDUSCREEN    EQU   VDUVARS+$36    ; *TEMP* MODE type, b2=MODE 7
+VDUCOLOURS   EQU   VDUVARS+$37    ; *TEMP* colours-1
 *
-VDUQ         EQU   VDUVARS+$27       ; *TEMP* $27..$2F
+
+* Screen definitions
+SCNTXTMAXX   DB   79,39,19,79,39,19,39,39 ; Max text column
+SCNTXTMAXY   DB   23,23,23,23,23,23,23,23 ; Max text row
+SCNBYTES     DB    1, 1, 1, 1, 1, 1, 1, 1 ; Bytes per character
+SCNCOLOURS   DB    1, 1, 1, 1, 1, 1, 1, 1 ; Colours-1
+SCNTYPE      DB    0, 0, 0, 0, 0, 0, 0, 4 ; Screen type
 
 
 * Output character to VDU driver
@@ -430,7 +448,6 @@ VDU13
 * Initialise VDU driver
 ***********************
 * On entry, A=MODE to start in
-* Assumes workspace has been zero'd by kernel startup
 *
 VDUINIT      STA   VDUQ+8
 
@@ -447,6 +464,25 @@ VDUINIT      STA   VDUQ+8
 VDU22        LDA   VDUQ+8
              AND   #$07
              STA   VDUMODE
+             TAX                  ; Set up MODE
+             LDA   SCNTXTMAXX,X
+             STA   TXTWINRGT
+             LDA   SCNTXTMAXY,X
+             STA   TXTWINBOT
+             LDA   SCNBYTES,X
+             STA   VDUBYTES
+             LDA   SCNCOLOURS,X
+             STA   VDUCOLOURS
+             LDA   SCNTYPE,X
+             STA   VDUSCREEN
+             LDA   #'_'            ; Set up default cursors
+             STA   CURSOR          ; Normal cursor
+             STA   CURSORCP        ; Copy cursor when editing
+             LDA   #$A0
+             STA   CURSORED        ; Edit cursor when editing
+             LDA   #$01
+             JSR   CLRSTATUS       ; Clear everything except PrinterEcho
+*
              LDX   #$01              ; 80-col
              CMP   #$00
              BEQ   VDU22A            ; MODE 0 -> MODE 3, 80x24, text
@@ -468,12 +504,7 @@ VDU22G       STA   $C050             ; Enable Graphics
              STA   $C052             ; Clear MIXED
              JSR   VDU16             ; Clear HGR screen
 
-* Set up default cursors
-VDU22C       LDA   #'_'
-             STA   CURSOR            ; Normal cursor
-             STA   CURSORCP          ; Copy cursor when editing
-             LDA   #$A0
-             STA   CURSORED          ; Edit cursor when editing
+VDU22C
 * JSR VDU15 ; Turn off paged scrolling
 * JSR VDU20 ; Reset colours
 * JSR VDU26 ; Reset windows
@@ -575,7 +606,6 @@ SCNTAB       DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
              DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
 
 
-* May end up moving graphics bits to separate source
 
 * VDU 1 - Send one character to printer
 VDU01        RTS
@@ -703,18 +733,10 @@ VDU29        RTS
 BYTE75       LDX   VDUSTATUS
              RTS
 
-* TEST code for VIEW
 * OSBYTE &A0 - Read VDU variable
 ********************************
-BYTEA0       LDY   #79               ; Read VDU variable $09,$0A
-             LDX   #23
+BYTEA0       LDY VDUVARS+1,X
+             LDA VDUVARS+0,X
+             TAX
              RTS
-* TEST
-
-
-
-
-
-
-
 
