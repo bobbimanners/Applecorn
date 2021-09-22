@@ -1041,7 +1041,7 @@ MULTIDEL     >>>   ENTMAIN
              LDA   #$00
              BRA   :EXIT
 
-* Read mainmem from auxmem
+* Read machid from auxmem
 MACHRD       LDA   $C081
              LDA   $C081
              LDA   $FBC0
