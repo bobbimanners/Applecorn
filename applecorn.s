@@ -55,6 +55,9 @@ BLKBUFEND   EQU   $9200       ;  'hidden' bytes within screen
 COPYBUF     EQU   $9200       ; File copy needs separate buffer
 *COPYBUFEND  EQU   $9400
 
+* Location of FDraw library in main memory
+FDRAWADDR   EQU   $9400
+
 * Address in aux memory where ROM will be loaded
 AUXADDR     EQU   $8000
 
@@ -177,10 +180,6 @@ MAINZP      MAC
             PUT   MAINMEM.WILD
             PUT   MAINMEM.LISTS
             PUT   MAINMEM.MISC
-            PUT   FDRAW
-            PUT   FDRAW.LINE
-            PUT   FDRAW.CIRCLE
-            PUT   FDRAW.TABLES
             PUT   AUXMEM.MOSEQU
             PUT   AUXMEM.INIT
             PUT   AUXMEM.VDU
@@ -193,6 +192,8 @@ MAINZP      MAC
 
 * Automatically save the object file:
             SAV   APPLECORN
+
+
 
 
 

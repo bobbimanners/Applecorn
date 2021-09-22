@@ -16,7 +16,7 @@ FSAREG      EQU   $B2
 FSCTRL      EQU   FSXREG
 FSPTR1      EQU   $B4
 FSPTR2      EQU   $B6
-FSNUM       EQU   $C8 ; *TEMP*
+FSNUM       EQU   $C8                 ; *TEMP*
 FSCMDLINE   EQU   $CE
 
 
@@ -671,19 +671,19 @@ FREERET
             LDA   AUXBLK+3            ; MSB of total blks
             SBC   AUXBLK+1            ; MSB of blocks used
             TAY
-            LDA   #$00       ; *TO DO* b16-b23 of free
+            LDA   #$00                ; *TO DO* b16-b23 of free
 * NEW
-            JSR   :FREEDEC   ; Print 'AAYYXX blocks aaayyyxxx bytes '
+            JSR   :FREEDEC            ; Print 'AAYYXX blocks aaayyyxxx bytes '
             LDX   #<:FREE
             LDY   #>:FREE
-            JSR   OUTSTR     ; Print 'free'<nl>
-            LDX   AUXBLK+0   ; Blocks used
+            JSR   OUTSTR              ; Print 'free'<nl>
+            LDX   AUXBLK+0            ; Blocks used
             LDY   AUXBLK+1
-            LDA   #$00       ; *TO DO* b16-b23 of used
-            JSR   :FREEDEC   ; Print 'AAYYXX blocks aaayyyxxx bytes '
+            LDA   #$00                ; *TO DO* b16-b23 of used
+            JSR   :FREEDEC            ; Print 'AAYYXX blocks aaayyyxxx bytes '
             LDX   #<:USED
             LDY   #>:USED
-            JMP   OUTSTR     ; Print 'used'<nl>
+            JMP   OUTSTR              ; Print 'used'<nl>
 
 * OLD
 *            JSR   PRDECXY             ; Print in decimal
@@ -706,20 +706,20 @@ FREERET
             STA   FSNUM+3
 * What's the maximum number of blocks?
 *           JSR   PRHEX           ; Blocks b16-b23 in hex
-            JSR   PR2HEX          ; Blocks b0-b15 in hex
+            JSR   PR2HEX              ; Blocks b0-b15 in hex
             LDX   #<:BLOCKS
             LDY   #>:BLOCKS
-            JSR   OUTSTR          ; ' blocks '
-            STZ   FSNUM+0         ; FSNUM=blocks*512
+            JSR   OUTSTR              ; ' blocks '
+            STZ   FSNUM+0             ; FSNUM=blocks*512
             ASL   FSNUM+1
             ROL   FSNUM+2
             ROL   FSNUM+3
-            LDX   #FSNUM          ; X=>number to print
-            LDY   #8              ; Y=pad up to 8 digits
-            JSR   PRINTDEC        ; Print it in decimal
+            LDX   #FSNUM              ; X=>number to print
+            LDY   #8                  ; Y=pad up to 8 digits
+            JSR   PRINTDEC            ; Print it in decimal
             LDX   #<:BYTES
             LDY   #>:BYTES
-            JMP   OUTSTR          ; ' bytes '
+            JMP   OUTSTR              ; ' bytes '
 :BLOCKS     ASC   ' blocks '
             DB    0
 :BYTES      ASC   ' bytes '
@@ -979,3 +979,5 @@ ERROR5E     DW    $C000
 ERROR2E     DW    $C800
             ASC   'Disk changed'      ; $2E - Disk switched
             DB    $00
+
+
