@@ -19,7 +19,7 @@ NOISE_ON equ   0
 
 
          lst   off
-**         org   $6000
+         org   $9400          ;;; CUSTOMIZED FOR APPLECORN
 
 *
 * Macros.
@@ -781,25 +781,25 @@ fixrastxor
 
 
 * include the line functions
-**         put   FDRAW.LINE
+         put   FDRAW.LINE
 
 * include the circle functions
-**         put   FDRAW.CIRCLE
+         put   FDRAW.CIRCLE
 
          lst   on
 CODE_END equ   *          ;end of code section
          lst   off
 
 * include the data tables
-**         put   FDRAW.TABLES
+         put   FDRAW.TABLES
 
          lst   on
 DAT_END  equ   *          ;end of data / BSS
          lst   off
 
 * Save the appropriate object file.
-**         do    USE_FAST
-**         sav   FDRAW.FAST
-**         else
-**         sav   FDRAW.SMALL
-**         fin
+         do    USE_FAST
+         sav   FDRAW.FAST
+         else
+         sav   FDRAW.SMALL
+         fin

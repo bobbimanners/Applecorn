@@ -3,6 +3,28 @@
 *
 * Miscellaneous routines used by main memory code.
 
+* Copy a block of main memory
+* A1L/A1H: Start address
+* A2L/A2H: End address
+* A4L/A4H: Destination start address
+MEMCPY      LDA   (A1L)
+            STA   (A4L)
+            LDA   A1H
+            CMP   A2H
+            BNE   :S1
+            LDA   A1L
+            CMP   A2L
+            BNE   :S1
+            BRA   :DONE
+:S1         INC   A1L
+            BNE   :S2
+            INC   A1H
+:S2         INC   A4L
+            BNE   :S3
+            INC   A4H
+:S3         BRA   MEMCPY
+:DONE       RTS
+
 * Copy 512 bytes from BLKBUF to AUXBLK in aux LC
 COPYAUXBLK  >>>   ALTZP          ; Alt ZP & Alt LC on
             LDY   #$00
