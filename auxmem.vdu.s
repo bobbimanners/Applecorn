@@ -73,16 +73,26 @@ CURSORCP     EQU   VDUVARS+$32    ; *TEMP* character used for copy cursor
 VDUPIXELS    EQU   VDUVARS+$33    ; *TEMP* pixels per byte
 VDUBYTES     EQU   VDUVARS+$34    ; *TEMP* bytes per char, 1=text only
 VDUMODE      EQU   VDUVARS+$35    ; *TEMP* current MODE
-VDUSCREEN    EQU   VDUVARS+$36    ; *TEMP* MODE type, b2=MODE 7
+VDUSCREEN    EQU   VDUVARS+$36    ; *TEMP* MODE type
 VDUCOLOURS   EQU   VDUVARS+$37    ; *TEMP* colours-1
 *
 
 * Screen definitions
-SCNTXTMAXX   DB   79,39,19,79,39,19,39,39 ; Max text column
-SCNTXTMAXY   DB   23,23,23,23,23,23,23,23 ; Max text row
-SCNBYTES     DB    1, 1, 1, 1, 1, 1, 1, 1 ; Bytes per character
-SCNCOLOURS   DB    1, 1, 1, 1, 1, 1, 1, 1 ; Colours-1
-SCNTYPE      DB    0, 0, 0, 0, 0, 0, 0, 4 ; Screen type
+*                           3        6  7
+SCNTXTMAXX   DB   79,39,19,79,39,19,39,39  ; Max text column
+SCNTXTMAXY   DB   23,23,23,23,23,23,23,23  ; Max text row
+SCNBYTES     DB    1, 1, 1, 1, 1, 1, 1, 1  ; Bytes per character
+SCNCOLOURS   DB    1, 1, 1, 1, 1, 1, 1, 1  ; Colours-1
+SCNTYPE      DB    1, 0,128,1, 0, 0, 0,64  ; Screen type
+* b7=FastDraw
+* b6=Teletext
+* b0=40COL/80COL
+*   =
+
+* Addresses of start of text rows in PAGE2
+SCNTAB       DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
+             DW    $828,$8A8,$928,$9A8,$A28,$AA8,$B28,$BA8
+             DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
 
 
 * Output character to VDU driver
@@ -101,7 +111,12 @@ OUTCHAR      LDX   FXVDUQLEN
              BMI   OUTCHEXIT         ; VDU disabled
 OUTCHARCP    JSR   PRCHRC            ; Store char, checking keypress
              JSR   VDU09             ; Move cursor right
+
+* OSBYTE &75 - Read VDUSTATUS
+*****************************
+BYTE75
 OUTCHEXIT    LDA   VDUSTATUS
+             TAX
              LSR   A                 ; Return Cy=Printer Echo Enabled
              RTS
 
@@ -128,7 +143,7 @@ CTRLCHARGO   ASL   A
              BCC   CTRLCHARGO2       ; ctrl<$08, don't echo to printer
              EOR   #$FF              ; ctrl>$0D, don't echo to printer
              CMP   #$E5              ; (13*2) EOR 255
-CTRLCHARGO2  PHP
+CTRLCHARGO2  PHP                     ; Save CS=(ctrl>=8 && ctrl<=13)
              JSR   CTRLCHARJMP       ; Call routine
              PLP
              BCS   OUTCHEXIT         ; If echoable, test if printer enabled
@@ -145,7 +160,7 @@ CTRLCHAR6    LDA   CTRLADDRS+1,Y
              LDA   CTRLADDRS+0,Y
              PHA
 VDU27
-VDU00        RTS                     ; Enters code with CS=(ctrl>=8 && ctrl<=13)
+VDU00        RTS
 
 QLEN         DB    -0,-1,-2,-5,-0,-0,-1,-9  ; 32,1 or 17,18,19,20,21,22,23
              DB    -8,-5,-0,-0,-4,-4,-0,-2  ; 24,25,26,27,28,29,30,31
@@ -212,7 +227,6 @@ CLRSTATUS    AND   VDUSTATUS
              RTS
 
 
-
 * Move editing cursor
 * A=cursor key, CS from caller
 COPYMOVE     PHA
@@ -234,23 +248,7 @@ COPYMOVE2    PLA
              ORA   #8
 COPYMOVE3    JMP   OUTCHARGO         ; Move edit cursor
 
-** Turn editing cursor on/off
-*COPYCURSOR  BIT   VDUSTATUS
-*            BVC   COPYSWAP4  ; Copy cursor not active
-*            PHP              ; Save CS=Turn On, CC=Turn Off
-*            JSR   COPYSWAP1  ; Swap to edit cursor
-*            LDA   COPYCHAR   ; Prepare to turn edit cursor off
-*            PLP
-*            BCC   COPYCURS2  ; Restore character
-*COPYCURS1   JSR   GETCHRC    ; Get character under edit cursor
-*            STA   COPYCHAR
-*            LDA   #$A0       ; Output edit cursor
-*COPYCURS2   JSR   PUTCHRC
-**                            ; Drop through to swap back
-
 * Swap between edit and copy cursors
-*COPYSWAP    BIT   VDUSTATUS
-*            BVC   COPYSWAP4  ; Edit cursor off
 COPYSWAP1    CLC                     ; CC=Swap TEXT and COPY
 COPYSWAP2    LDX   #1
 COPYSWAPLP   LDY   VDUCOPYX,X
@@ -262,6 +260,286 @@ COPYSWAPLP   LDY   VDUCOPYX,X
 COPYSWAP3    DEX
              BPL   COPYSWAPLP
 COPYSWAP4    RTS
+
+
+* Perform backspace & delete operation
+VDU127       JSR   VDU08             ; Move cursor back
+             LDA   #' '              ; Overwrite with a space
+             BNE   PUTCHRC
+
+* Display character at current (TEXTX,TEXTY)
+PRCHRC       PHA                     ; Save character
+             LDA   $C000
+             BPL   :RESUME           ; No key pressed
+             EOR   #$80
+:PAUSE1      JSR   KBDCHKESC         ; Ask KBD to test if Escape
+             BIT   ESCFLAG
+             BMI   :RESUMEACK        ; Escape, skip pausing
+             CMP   #$13
+             BNE   :RESUME           ; Not Ctrl-S
+             STA   $C010             ; Ack. keypress
+:PAUSE2      LDA   $C000
+             BPL   :PAUSE2           ; Loop until keypress
+             EOR   #$80
+             CMP   #$11              ; Ctrl-Q
+             BEQ   :RESUMEACK        ; Stop pausing
+             JSR   KBDCHKESC         ; Ask KBD to test if Escape
+             BIT   ESCFLAG
+             BPL   :PAUSE2           ; No Escape, keep pausing
+:RESUMEACK   STA   $C010             ; Ack. keypress
+:RESUME      PLA
+
+* Put character to screen
+PUTCHRC      LDY   VDUBYTES
+             DEY                     ; If VDUBYTE=1, text mode
+             BNE   PRCHRSOFT         ; Graphics mode
+             EOR   #$80              ; Convert character
+             TAY
+             AND   #$A0
+             BNE   PRCHR4
+             CPY   #$20
+             BCS   PRCHR3            ; Not $80-$9F
+             BIT   VDUSCREEN
+             BVC   PRCHR3            ; Not teletext
+             LDY   #$E0              ; Convert $80-$9F to space
+PRCHR3       TYA
+             EOR   #$40
+             TAY
+PRCHR4       PHY
+             JSR   CHARADDR          ; Find character address
+             PLA                     ; Get character back
+             PHP                     ; Disable IRQs while
+             SEI                     ;  toggling memory
+             BCC   PRCHR6            ; Aux memory
+             STA   $C004             ; Switch to main memory
+PRCHR6       STA   (VDUADDR),Y       ; Store it
+             STA   $C005             ; Back to aux memory
+             PLP                     ; Restore IRQs
+             RTS
+PRCHRSOFT    RTS                     ; *TODO* Jump to gfx
+
+* Fetch character from screen at (TEXTX,TEXTY) and return MODE in Y
+BYTE87
+GETCHRC      LDY   VDUBYTES
+             DEY                     ; If VDUBYTE=1, text mode
+             BNE   GETCHRSOFT        ; Graphics mode
+             JSR   CHARADDR          ; Find character address
+             PHP                     ; Disable IRQs while
+             SEI                     ;  toggling memory
+             BCC   GETCHR6           ; Aux memory
+             STA   $C002             ; Switch to main memory
+GETCHR6      LDA   (VDUADDR),Y       ; Get character
+             STA   $C003             ; Back to aux memory
+             PLP                     ; Restore IRQs
+             TAY                     ; Convert character
+             AND   #$A0
+             BNE   GETCHR7
+             TYA
+             EOR   #$40
+             TAY
+GETCHR7      TYA
+             EOR   #$80
+             TAX                     ; X=char for OSBYTE
+             LDY   #$00
+             BIT   $C01F
+             BMI   GETCHROK
+             INY                     ; Y=MODE
+GETCHROK     RTS
+GETCHRSOFT   RTS                     ; *TODO* Jump to gfx
+
+* Get text cursor position
+BYTE86       LDY   VDUTEXTY          ; ROW           ; $86 = read cursor pos
+             LDX   VDUTEXTX          ; COL
+             RTS
+
+* Calculate character address
+CHARADDR     LDA   VDUTEXTY
+             ASL
+             TAX
+             LDA   SCNTAB+0,X        ; LSB of row address
+             STA   VDUADDR+0
+             LDA   SCNTAB+1,X        ; MSB of row address
+             STA   VDUADDR+1
+             LDA   VDUTEXTX
+             BIT   $C01F
+             SEC
+             BPL   CHARADDR40        ; 40-col
+             LSR   A
+CHARADDR40   TAY                     ; Y=offset into this row
+             RTS
+* (VDUADDR),Y=>character address
+* CC=auxmem
+* CS=mainmem
+
+
+* Move cursor left
+VDU08        LDA   VDUTEXTX          ; COL
+             BEQ   :S1
+             DEC   VDUTEXTX          ; COL
+             BRA   :S3
+:S1          LDA   VDUTEXTY          ; ROW
+             BEQ   :S3
+             DEC   VDUTEXTY          ; ROW
+             LDA   #39
+             BIT   $C01F
+             BPL   :S2
+             LDA   #79
+:S2          STA   VDUTEXTX          ; COL
+:S3          RTS
+
+* Move cursor right
+VDU09        LDA   VDUTEXTX          ; COL
+             CMP   #39
+             BCC   :S2
+             BIT   $C01F
+             BPL   :T11
+             CMP   #79
+             BCC   :S2
+:T11         STZ   VDUTEXTX          ; COL
+             LDA   VDUTEXTY          ; ROW
+             CMP   #23
+             BEQ   SCROLL
+             INC   VDUTEXTY          ; ROW
+:DONE        RTS
+:S2          INC   VDUTEXTX          ; COL
+             BRA   :DONE
+SCROLL       JSR   SCROLLER
+             JSR   CLREOL
+             RTS
+
+* Move cursor down
+VDU10        LDA   VDUTEXTY          ; ROW
+             CMP   #23
+             BEQ   :TOSCRL           ; JGH
+             INC   VDUTEXTY          ; ROW
+             RTS
+:TOSCRL      JMP   SCROLL            ; JGH
+
+* Move cursor up
+VDU11        LDA   VDUTEXTY          ; ROW
+             BEQ   :DONE
+             DEC   VDUTEXTY          ; ROW
+:DONE        RTS
+
+* Move to start of line
+VDU13        LDA   #$BF
+             JSR   CLRSTATUS         ; Turn copy cursor off
+             STZ   VDUTEXTX          ; COL
+             RTS
+
+* Move to (0,0)
+VDU30        STZ   VDUTEXTY          ; ROW
+             STZ   VDUTEXTX          ; COL
+             RTS
+
+* Move to (X,Y)
+VDU31        LDY   VDUQ+8
+             CPY   #24
+             BCS   :DONE
+             LDX   VDUQ+7
+             CPX   #80
+             BCS   :DONE
+             BIT   $C01F
+             BMI   :T9A
+             CPX   #40
+             BCS   :DONE
+:T9A         STX   VDUTEXTX          ; COL
+             STY   VDUTEXTY          ; ROW
+:DONE        RTS
+
+
+* VDU 26 - Reset to default windows
+VDU26        LDX   VDUMODE
+VDU26A       LDA   SCNTXTMAXX,X
+             STA   TXTWINRGT
+             LDA   SCNTXTMAXY,X
+             STA   TXTWINBOT
+             RTS
+
+
+
+* Initialise VDU driver
+***********************
+* On entry, A=MODE to start in
+*
+VDUINIT      STA   VDUQ+8
+
+* VDU 22 - MODE n
+*****************
+* At the moment only MODEs available:
+*  MODE 3 - 80x24 text
+*  MODE 6 - 40x24 text
+*  MODE 7 - 40x24 with $80-$9F converted to spaces
+*  MODE 2 - 280x192 HGR graphics
+*  MODE 0 defaults to MODE 3
+*  All others default to MODE 6
+*
+VDU22        LDA   VDUQ+8
+             AND   #$07
+             STA   VDUMODE
+             TAX                     ; Set up MODE
+             LDA   #'_'              ; Set up default cursors
+             STA   CURSOR            ; Normal cursor
+             STA   CURSORCP          ; Copy cursor when editing
+             LDA   #$A0
+             STA   CURSORED          ; Edit cursor when editing
+             LDA   #$01
+             JSR   CLRSTATUS         ; Clear everything except PrinterEcho
+             JSR   VDU26A
+*
+             LDA   SCNBYTES,X
+             STA   VDUBYTES
+             LDA   SCNCOLOURS,X
+             STA   VDUCOLOURS
+             LDA   SCNTYPE,X
+             STA   VDUSCREEN
+             BMI   VDU22G            ; b7=1, graphics mode
+* TEMP
+             CPX   #2
+             BEQ   VDU22G    ; Jump out for MODE 2
+* TEMP
+*
+             AND   #$01              ; 40col/80col bit
+             TAX
+             STA   $C00C,X           ; Select 40col/80col
+             STA   $C051             ; Enable Text
+             STA   $C055             ; PAGE2
+             STA   $C052             ; Clear MIXED
+             STA   $C00F             ; Enable alt charset
+             BRA   VDU22CLR
+
+             
+VDU22G       STA   $C050             ; Enable Graphics
+             STA   $C057             ; Hi-Res
+             STA   $C054             ; PAGE1
+             STA   $C052             ; Clear MIXED
+             JMP   VDU16             ; Clear HGR screen
+
+VDU22CLR
+* JSR VDU15 ; Turn off paged scrolling
+* JSR VDU20 ; Reset colours
+* JSR VDU26 ; Reset windows
+* ; Drop through into VDU12, clear screen
+
+
+VDU12        LDY   VDUBYTES
+             DEY                     ; If VDUBYTE=1, text mode
+             BNE   VDU12SOFT         ; Graphics mode
+             JMP   CLEAR
+
+* Clear the screen
+CLEAR        STZ   VDUTEXTY          ; ROW
+             STZ   VDUTEXTX          ; COL
+:L1          JSR   CLREOL
+:S2          LDA   VDUTEXTY          ; ROW
+             CMP   #23
+             BEQ   :S3
+             INC   VDUTEXTY          ; ROW
+             BRA   :L1
+:S3          STZ   VDUTEXTY          ; ROW
+             STZ   VDUTEXTX          ; COL
+             RTS
+VDU12SOFT    JMP   VDU16 ; *TEMP*
 
 
 * Clear to EOL
@@ -291,270 +569,6 @@ CLREOL       LDA   VDUTEXTY          ; ROW
              BRA   :L1
 :S2          PLA
              STA   VDUTEXTX          ; COL
-             RTS
-
-* Clear the screen
-CLEAR        STZ   VDUTEXTY          ; ROW
-             STZ   VDUTEXTX          ; COL
-:L1          JSR   CLREOL
-:S2          LDA   VDUTEXTY          ; ROW
-             CMP   #23
-             BEQ   :S3
-             INC   VDUTEXTY          ; ROW
-             BRA   :L1
-:S3          STZ   VDUTEXTY          ; ROW
-             STZ   VDUTEXTX          ; COL
-             RTS
-
-* Calculate character address
-CHARADDR     LDA   VDUTEXTY
-             ASL
-             TAX
-             LDA   SCNTAB+0,X        ; LSB of row address
-             STA   VDUADDR+0
-             LDA   SCNTAB+1,X        ; MSB of row address
-             STA   VDUADDR+1
-             LDA   VDUTEXTX
-             BIT   $C01F
-             SEC
-             BPL   CHARADDR40        ; 40-col
-             LSR   A
-CHARADDR40   TAY                     ; Y=offset into this row
-             RTS
-* (VDUADDR),Y=>character address
-* CC=auxmem
-* CS=mainmem
-
-
-* Print char in A at ROW,COL
-PRCHRC       PHA                     ; Save character
-             LDA   $C000
-             BPL   :RESUME           ; No key pressed
-             EOR   #$80
-:PAUSE1      JSR   KBDCHKESC         ; Ask KBD to test if Escape
-             BIT   ESCFLAG
-             BMI   :RESUMEACK        ; Escape, skip pausing
-             CMP   #$13
-             BNE   :RESUME           ; Not Ctrl-S
-             STA   $C010             ; Ack. keypress
-:PAUSE2      LDA   $C000
-             BPL   :PAUSE2           ; Loop until keypress
-             EOR   #$80
-             CMP   #$11              ; Ctrl-Q
-             BEQ   :RESUMEACK        ; Stop pausing
-             JSR   KBDCHKESC         ; Ask KBD to test if Escape
-             BIT   ESCFLAG
-             BPL   :PAUSE2           ; No Escape, keep pausing
-:RESUMEACK   STA   $C010             ; Ack. keypress
-:RESUME      PLA
-
-* Put character to screen
-PUTCHRC      EOR   #$80              ; Convert character
-             TAY
-             AND   #$A0
-             BNE   PRCHR4
-             TYA
-             EOR   #$40
-             TAY
-PRCHR4       PHY
-             JSR   CHARADDR          ; Find character address
-             PLA                     ; Get character back
-             PHP                     ; Disable IRQs while
-             SEI                     ;  toggling memory
-             BCC   PRCHR6            ; Aux memory
-             STA   $C004             ; Switch to main memory
-PRCHR6       STA   (VDUADDR),Y       ; Store it
-             STA   $C005             ; Back to aux memory
-             PLP                     ; Restore IRQs
-             RTS
-
-
-* Return char at ROW,COL in A and X, MODE in Y
-BYTE87
-GETCHRC      JSR   CHARADDR          ; Find character address
-             PHP                     ; Disable IRQs while
-             SEI                     ;  toggling memory
-             BCC   GETCHR6           ; Aux memory
-             STA   $C002             ; Switch to main memory
-GETCHR6      LDA   (VDUADDR),Y       ; Get character
-             STA   $C003             ; Back to aux memory
-             PLP                     ; Restore IRQs
-             TAY                     ; Convert character
-             AND   #$A0
-             BNE   GETCHR7
-             TYA
-             EOR   #$40
-             TAY
-GETCHR7      TYA
-             EOR   #$80
-             TAX                     ; X=char for OSBYTE
-             LDY   #$00
-             BIT   $C01F
-             BMI   GETCHROK
-             INY                     ; Y=MODE
-GETCHROK     RTS
-
-
-BYTE86       LDY   VDUTEXTY          ; ROW           ; $86 = read cursor pos
-             LDX   VDUTEXTX          ; COL
-             RTS
-
-* Perform backspace & delete operation
-VDU127
-DELETE       JSR   BACKSPC
-:S2          LDA   #' '
-             JMP   PUTCHRC
-*:S3         RTS
-
-* Perform backspace/cursor left operation
-VDU08
-BACKSPC
-             LDA   VDUTEXTX          ; COL
-             BEQ   :S1
-             DEC   VDUTEXTX          ; COL
-             BRA   :S3
-:S1          LDA   VDUTEXTY          ; ROW
-             BEQ   :S3
-             DEC   VDUTEXTY          ; ROW
-             LDA   #39
-             BIT   $C01F
-             BPL   :S2
-             LDA   #79
-:S2
-             STA   VDUTEXTX          ; COL
-:S3          RTS
-
-
-VDU10
-             LDA   VDUTEXTY          ; ROW
-             CMP   #23
-             BEQ   :TOSCRL           ; JGH
-             INC   VDUTEXTY          ; ROW
-             RTS
-:TOSCRL      JMP   SCROLL            ; JGH
-
-VDU11
-             LDA   VDUTEXTY          ; ROW
-             BEQ   :DONE
-             DEC   VDUTEXTY          ; ROW
-:DONE        RTS
-
-VDU13
-             LDA   #$BF
-             JSR   CLRSTATUS         ; Turn copy cursor off
-             STZ   VDUTEXTX          ; COL
-             RTS
-
-* Initialise VDU driver
-***********************
-* On entry, A=MODE to start in
-*
-VDUINIT      STA   VDUQ+8
-
-* VDU 22 - MODE n
-*****************
-* At the moment only MODEs available:
-*  MODE 3 - 80x24 text
-*  MODE 6 - 40x24 text
-*  MODE 7 - 40x24 with $80-$9F converted to spaces
-*  MODE 2 - 280x192 HGR graphics
-*  MODE 0 defaults to MODE 3
-*  All others default to MODE 6
-*
-VDU22        LDA   VDUQ+8
-             AND   #$07
-             STA   VDUMODE
-             TAX                  ; Set up MODE
-             LDA   SCNTXTMAXX,X
-             STA   TXTWINRGT
-             LDA   SCNTXTMAXY,X
-             STA   TXTWINBOT
-             LDA   SCNBYTES,X
-             STA   VDUBYTES
-             LDA   SCNCOLOURS,X
-             STA   VDUCOLOURS
-             LDA   SCNTYPE,X
-             STA   VDUSCREEN
-             LDA   #'_'            ; Set up default cursors
-             STA   CURSOR          ; Normal cursor
-             STA   CURSORCP        ; Copy cursor when editing
-             LDA   #$A0
-             STA   CURSORED        ; Edit cursor when editing
-             LDA   #$01
-             JSR   CLRSTATUS       ; Clear everything except PrinterEcho
-*
-             LDX   #$01              ; 80-col
-             CMP   #$00
-             BEQ   VDU22A            ; MODE 0 -> MODE 3, 80x24, text
-             CMP   #$03
-             BEQ   VDU22A            ; MODE 3 -> MODE 3, 80x24 text
-             CMP   #$02
-             BEQ   VDU22G            ; MODE 2 -> 280x192 HGR
-             DEX                     ; All other MODEs default to 40-col
-VDU22A       STA   $C051             ; Enable Text
-             STA   $C00C,X           ; Select 40col/80col
-             STA   $C055             ; PAGE2
-             STA   $C052             ; Clear MIXED
-             STA   $C00F             ; Enable alt charset
-             BRA   VDU22C
-
-VDU22G       STA   $C050             ; Enable Graphics
-             STA   $C057             ; Hi-Res
-             STA   $C054             ; PAGE1
-             STA   $C052             ; Clear MIXED
-             JSR   VDU16             ; Clear HGR screen
-
-VDU22C
-* JSR VDU15 ; Turn off paged scrolling
-* JSR VDU20 ; Reset colours
-* JSR VDU26 ; Reset windows
-* ; Drop through into VDU12, clear screen
-
-
-VDU12
-             JMP   CLEAR
-
-VDU30
-             STZ   VDUTEXTY          ; ROW
-             STZ   VDUTEXTX          ; COL
-             RTS
-
-VDU31
-             LDY   VDUQ+8
-             CPY   #24
-             BCS   :DONE
-             LDX   VDUQ+7
-             CPX   #80
-             BCS   :DONE
-             BIT   $C01F
-             BMI   :T9A
-             CPX   #40
-             BCS   :DONE
-:T9A
-             STX   VDUTEXTX          ; COL
-             STY   VDUTEXTY          ; ROW
-:DONE        RTS
-
-* Perform cursor right operation
-VDU09
-             LDA   VDUTEXTX          ; COL
-             CMP   #39
-             BCC   :S2
-             BIT   $C01F
-             BPL   :T11
-             CMP   #79
-             BCC   :S2
-:T11
-             STZ   VDUTEXTX          ; COL
-             LDA   VDUTEXTY          ; ROW
-             CMP   #23
-             BEQ   SCROLL
-             INC   VDUTEXTY          ; ROW
-:DONE        RTS
-:S2          INC   VDUTEXTX          ; COL
-             BRA   :DONE
-SCROLL       JSR   SCROLLER
-             JSR   CLREOL
              RTS
 
 * Scroll whole screen one line
@@ -599,12 +613,6 @@ SCR1LINE     ASL                     ; Dest addr->ZP1
              CPY   #40
              BNE   :L1
              RTS
-
-* Addresses of screen rows in PAGE2
-SCNTAB       DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
-             DW    $828,$8A8,$928,$9A8,$A28,$AA8,$B28,$BA8
-             DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
-
 
 
 * VDU 1 - Send one character to printer
@@ -716,9 +724,6 @@ HGRPOS       LDA   VDUQ+5
 XPIXEL       DW    $0000             ; Previous plot x-coord
 YPIXEL       DB    $00               ; Previous plot y-coord
 
-* VDU 26 - Reset to default windows
-VDU26        RTS
-
 * VDU 28,left,bottom,right,top - define text window
 VDU28        RTS
 
@@ -727,11 +732,6 @@ VDU29        RTS
 
 
 
-
-* OSBYTE &75 - Read VDUSTATUS
-*****************************
-BYTE75       LDX   VDUSTATUS
-             RTS
 
 * OSBYTE &A0 - Read VDU variable
 ********************************
