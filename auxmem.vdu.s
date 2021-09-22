@@ -22,7 +22,7 @@
 * VDU DRIVER ZERO PAGE
 **********************
 * $00D0-$00DF VDU driver zero page workspace
-VDUSTATUS    EQU   $D0            ; $D0 # VDU status
+VDUSTATUS    EQU   $D0               ; $D0 # VDU status
 * bit 7 = VDU 21 VDU disabled
 * bit 6 = COPY cursor active
 * bit 5 = VDU 5 Text at graphics cursor
@@ -32,10 +32,10 @@ VDUSTATUS    EQU   $D0            ; $D0 # VDU status
 * bit 1 = Don't scroll (COPY cursor or VDU 5 mode)
 * bit 0 = VDU 2 printer echo active
 *
-VDUCHAR      EQU   VDUSTATUS+1    ; $D1
-VDUADDR      EQU   VDUSTATUS+4    ; $D4  address of current char cell
-OLDCHAR      EQU   OSKBD1         ; *TEMP* character under cursor
-COPYCHAR     EQU   OSKBD2         ; *TEMP* character under copy cursor
+VDUCHAR      EQU   VDUSTATUS+1       ; $D1
+VDUADDR      EQU   VDUSTATUS+4       ; $D4  address of current char cell
+OLDCHAR      EQU   OSKBD1            ; *TEMP* character under cursor
+COPYCHAR     EQU   OSKBD2            ; *TEMP* character under copy cursor
 
 
 * VDU DRIVER MAIN WORKSPACE
@@ -45,45 +45,45 @@ FXVDUQLEN    EQU   BYTEVARBASE+218   ; Length of pending VDU queue
 VDUVARS      EQU   $290
 VDUVAREND    EQU   $2DF
 
-GFXWINLFT    EQU   VDUVARS+$00    ; # graphics window left
-GFXWINBOT    EQU   VDUVARS+$02    ; # graphics window bottom \ window
-GFXWINRGT    EQU   VDUVARS+$04    ; # graphics window right  /  size
-GFXWINTOP    EQU   VDUVARS+$06    ; # graphics window top
-TXTWINLFT    EQU   VDUVARS+$08    ; # text window left
-TXTWINBOT    EQU   VDUVARS+$09    ; # text window bottom \ window
-TXTWINRGT    EQU   VDUVARS+$0A    ; # text window right  /  size
-TXTWINTOP    EQU   VDUVARS+$0B    ; # text window top
-GFXORIGX     EQU   VDUVARS+$0C    ;   graphics X origin
-GFXORIGY     EQU   VDUVARS+$0E    ;   graphics Y origin
+GFXWINLFT    EQU   VDUVARS+$00       ; # graphics window left
+GFXWINBOT    EQU   VDUVARS+$02       ; # graphics window bottom \ window
+GFXWINRGT    EQU   VDUVARS+$04       ; # graphics window right  /  size
+GFXWINTOP    EQU   VDUVARS+$06       ; # graphics window top
+TXTWINLFT    EQU   VDUVARS+$08       ; # text window left
+TXTWINBOT    EQU   VDUVARS+$09       ; # text window bottom \ window
+TXTWINRGT    EQU   VDUVARS+$0A       ; # text window right  /  size
+TXTWINTOP    EQU   VDUVARS+$0B       ; # text window top
+GFXORIGX     EQU   VDUVARS+$0C       ;   graphics X origin
+GFXORIGY     EQU   VDUVARS+$0E       ;   graphics Y origin
 *
-GFXPOSNX     EQU   VDUVARS+$10    ;   current graphics X posn
-GFXPOSNY     EQU   VDUVARS+$12    ;   current graphics Y posn   
-GFXLASTX     EQU   VDUVARS+$14    ;   last graphics X posn
-GFXLASTY     EQU   VDUVARS+$16    ;   last graphics Y posn
-VDUTEXTX     EQU   VDUVARS+$18    ;   absolute text X posn = POS+WINLFT
-VDUTEXTY     EQU   VDUVARS+$19    ;   absolute text Y posn = VPOS+WINTOP
-VDUCOPYX     EQU   VDUVARS+$1A    ;   absolute COPY text X posn
-VDUCOPYY     EQU   VDUVARS+$1B    ;   absolute COPY text Y posn
+GFXPOSNX     EQU   VDUVARS+$10       ;   current graphics X posn
+GFXPOSNY     EQU   VDUVARS+$12       ;   current graphics Y posn   
+GFXLASTX     EQU   VDUVARS+$14       ;   last graphics X posn
+GFXLASTY     EQU   VDUVARS+$16       ;   last graphics Y posn
+VDUTEXTX     EQU   VDUVARS+$18       ;   absolute text X posn = POS+WINLFT
+VDUTEXTY     EQU   VDUVARS+$19       ;   absolute text Y posn = VPOS+WINTOP
+VDUCOPYX     EQU   VDUVARS+$1A       ;   absolute COPY text X posn
+VDUCOPYY     EQU   VDUVARS+$1B       ;   absolute COPY text Y posn
 *
-VDUQ         EQU   VDUVARS+$27    ; *TEMP* $27.$2F
-CURSOR       EQU   VDUVARS+$30    ; *TEMP* character used for cursor
-CURSORED     EQU   VDUVARS+$31    ; *TEMP* character used for edit cursor
-CURSORCP     EQU   VDUVARS+$32    ; *TEMP* character used for copy cursor
+VDUQ         EQU   VDUVARS+$27       ; *TEMP* $27.$2F
+CURSOR       EQU   VDUVARS+$30       ; *TEMP* character used for cursor
+CURSORED     EQU   VDUVARS+$31       ; *TEMP* character used for edit cursor
+CURSORCP     EQU   VDUVARS+$32       ; *TEMP* character used for copy cursor
 *
-VDUPIXELS    EQU   VDUVARS+$33    ; *TEMP* pixels per byte
-VDUBYTES     EQU   VDUVARS+$34    ; *TEMP* bytes per char, 1=text only
-VDUMODE      EQU   VDUVARS+$35    ; *TEMP* current MODE
-VDUSCREEN    EQU   VDUVARS+$36    ; *TEMP* MODE type
-VDUCOLOURS   EQU   VDUVARS+$37    ; *TEMP* colours-1
+VDUPIXELS    EQU   VDUVARS+$33       ; *TEMP* pixels per byte
+VDUBYTES     EQU   VDUVARS+$34       ; *TEMP* bytes per char, 1=text only
+VDUMODE      EQU   VDUVARS+$35       ; *TEMP* current MODE
+VDUSCREEN    EQU   VDUVARS+$36       ; *TEMP* MODE type
+VDUCOLOURS   EQU   VDUVARS+$37       ; *TEMP* colours-1
 *
 
 * Screen definitions
-*                           3        6  7
-SCNTXTMAXX   DB   79,39,19,79,39,19,39,39  ; Max text column
-SCNTXTMAXY   DB   23,23,23,23,23,23,23,23  ; Max text row
-SCNBYTES     DB    1, 1, 1, 1, 1, 1, 1, 1  ; Bytes per character
-SCNCOLOURS   DB    1, 1, 1, 1, 1, 1, 1, 1  ; Colours-1
-SCNTYPE      DB    1, 0,128,1, 0, 0, 0,64  ; Screen type
+*                       3        6  7
+SCNTXTMAXX   DB    79,39,19,79,39,19,39,39  ; Max text column
+SCNTXTMAXY   DB    23,23,23,23,23,23,23,23  ; Max text row
+SCNBYTES     DB    1,1
+SCNCOLOURS   DB    1,1
+SCNTYPE      DB    1,0,128,1
 * b7=FastDraw
 * b6=Teletext
 * b0=40COL/80COL
@@ -496,7 +496,7 @@ VDU22        LDA   VDUQ+8
              BMI   VDU22G            ; b7=1, graphics mode
 * TEMP
              CPX   #2
-             BEQ   VDU22G    ; Jump out for MODE 2
+             BEQ   VDU22G            ; Jump out for MODE 2
 * TEMP
 *
              AND   #$01              ; 40col/80col bit
@@ -508,7 +508,7 @@ VDU22        LDA   VDUQ+8
              STA   $C00F             ; Enable alt charset
              BRA   VDU22CLR
 
-             
+
 VDU22G       STA   $C050             ; Enable Graphics
              STA   $C057             ; Hi-Res
              STA   $C054             ; PAGE1
@@ -539,7 +539,7 @@ CLEAR        STZ   VDUTEXTY          ; ROW
 :S3          STZ   VDUTEXTY          ; ROW
              STZ   VDUTEXTX          ; COL
              RTS
-VDU12SOFT    JMP   VDU16 ; *TEMP*
+VDU12SOFT    JMP   VDU16             ; *TEMP*
 
 
 * Clear to EOL
@@ -735,8 +735,8 @@ VDU29        RTS
 
 * OSBYTE &A0 - Read VDU variable
 ********************************
-BYTEA0       LDY VDUVARS+1,X
-             LDA VDUVARS+0,X
+BYTEA0       LDY   VDUVARS+1,X
+             LDA   VDUVARS+0,X
              TAX
              RTS
 
