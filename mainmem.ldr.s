@@ -141,10 +141,12 @@ LOADCODE    PHP                    ; Save carry flag
             JSR   CROUT
             PLP
             RTS
-:ADDRL      DB    $00                ; Destination address (LSB)
-:ADDRH      DB    $00                ; Destination address (MSB)
-:BLOCKS     DB    $00                ; Counter for blocks read
-:LEN        DB    $00                ; Length of filename
+:ADDRL      DB    $00              ; Destination address (LSB)
+:ADDRH      DB    $00              ; Destination address (MSB)
+:BLOCKS     DB    $00              ; Counter for blocks read
+:LEN        DB    $00              ; Length of filename
 :CANTOPEN   ASC   "Unable to open "
             DB    $00
+
+
 

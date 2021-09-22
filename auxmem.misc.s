@@ -133,43 +133,43 @@ PRDECPAD    STX   OSNUM+0
             STY   OSNUM+1
             STZ   OSNUM+2
             STZ   OSNUM+3
-:PRDEC16    LDY   #$05       ; 5 digits
-            LDX   #OSNUM     ; number stored in OSNUM
+:PRDEC16    LDY   #$05           ; 5 digits
+            LDX   #OSNUM         ; number stored in OSNUM
 
 * Print up to 32-bit decimal number
 * See forum.6502.org/viewtopic.php?f=2&t=4894
 * X=>four byte zero page locations
 * Y= number of digits, 0 for no padding
 *
-PRINTDEC    sty   OSPAD      ; Number of padding+digits
-            ldy   #0         ; Digit counter
-PRDECDIGIT  lda   #32        ; 32-bit divide
+PRINTDEC    sty   OSPAD          ; Number of padding+digits
+            ldy   #0             ; Digit counter
+PRDECDIGIT  lda   #32            ; 32-bit divide
             sta   OSTEMP
-            lda   #0         ; Remainder=0
-            clv              ; V=0 means div result = 0
-PRDECDIV10  cmp   #10/2      ; Calculate OSNUM/10
+            lda   #0             ; Remainder=0
+            clv                  ; V=0 means div result = 0
+PRDECDIV10  cmp   #10/2          ; Calculate OSNUM/10
             bcc   PRDEC10
-            sbc   #10/2+$80  ; Remove digit & set V=1 to show div result > 0
-            sec              ; Shift 1 into div result
-PRDEC10     rol   0,x        ; Shift /10 result into OSNUM
+            sbc   #10/2+$80      ; Remove digit & set V=1 to show div result > 0
+            sec                  ; Shift 1 into div result
+PRDEC10     rol   0,x            ; Shift /10 result into OSNUM
             rol   1,x
             rol   2,x
             rol   3,x
-            rol   a          ; Shift bits of input into acc (input mod 10)
+            rol   a              ; Shift bits of input into acc (input mod 10)
             dec   OSTEMP
-            bne   PRDECDIV10 ; Continue 32-bit divide
+            bne   PRDECDIV10     ; Continue 32-bit divide
             ora   #48
-            pha              ; Push low digit 0-9 to print
+            pha                  ; Push low digit 0-9 to print
             iny
-            bvs   PRDECDIGIT ; If V=1, result of /10 was > 0 & do next digit
+            bvs   PRDECDIGIT     ; If V=1, result of /10 was > 0 & do next digit
             lda   #32
 PRDECLP1    cpy   OSPAD
-            bcs   PRDECLP2   ; Enough padding pushed
-            pha              ; Push leading space characters
+            bcs   PRDECLP2       ; Enough padding pushed
+            pha                  ; Push leading space characters
             iny
             bne   PRDECLP1
-PRDECLP2    pla              ; Pop character left to right
-            jsr   OSWRCH     ; Print it
+PRDECLP2    pla                  ; Pop character left to right
+            jsr   OSWRCH         ; Print it
             dey
             bne   PRDECLP2
             rts
@@ -531,4 +531,6 @@ MOSVEND
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      ASC   '**ENDOFCODE**'
             DS    $200-13
+
+
 

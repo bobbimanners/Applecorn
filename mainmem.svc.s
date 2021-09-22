@@ -1061,16 +1061,16 @@ MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
 CLRHGR       >>>   ENTMAIN
              LDA   BGCOLOR
              STA   FDRAWADDR+5
-             JSR   FDRAWADDR+16           ; FDRAW: SetColor
-             JSR   FDRAWADDR+22           ; FDRAW: Clear
+             JSR   FDRAWADDR+16       ; FDRAW: SetColor
+             JSR   FDRAWADDR+22       ; FDRAW: Clear
              LDA   FGCOLOR
              STA   FDRAWADDR+5
-             JSR   FDRAWADDR+16           ; FDRAW: SetColor
+             JSR   FDRAWADDR+16       ; FDRAW: SetColor
              >>>   XF2AUX,VDU16RET
 
 * Call FDraw SetLineMode routine
 SETLINE      >>>   ENTMAIN
-             JSR   FDRAWADDR+43           ; FDRAW: SetLineMode
+             JSR   FDRAWADDR+43       ; FDRAW: SetLineMode
              >>>   XF2AUX,VDU18RET1
 
 * Call FDraw DrawLine routine
@@ -1089,8 +1089,8 @@ DRAWLINE     >>>   ENTMAIN
              BRA   :SETCOLOR
 :S2          LDA   BGCOLOR            ; Draw in background colour
 :SETCOLOR    STA   FDRAWADDR+5
-             JSR   FDRAWADDR+16           ; FDRAW: SetColor
-             JSR   FDRAWADDR+28           ; FDRAW: DrawLine
+             JSR   FDRAWADDR+16       ; FDRAW: SetColor
+             JSR   FDRAWADDR+28       ; FDRAW: DrawLine
              >>>   XF2AUX,VDU25RET
 
 * Call FDraw DrawPoint routine
@@ -1109,30 +1109,32 @@ DRAWPNT      >>>   ENTMAIN
              BRA   :SETCOLOR
 :S2          LDA   BGCOLOR            ; Draw in background colour
 :SETCOLOR    STA   FDRAWADDR+5
-             JSR   FDRAWADDR+16           ; FDRAW: SetColor
-             JSR   FDRAWADDR+25           ; FDRAW: DrawPoint
+             JSR   FDRAWADDR+16       ; FDRAW: SetColor
+             JSR   FDRAWADDR+25       ; FDRAW: DrawPoint
              >>>   XF2AUX,VDU25RET
 
 * Reset colours and linetype
-GFXINIT      JSR   FDRAWADDR+0            ; Initialize FDRAW library
+GFXINIT      JSR   FDRAWADDR+0        ; Initialize FDRAW library
              LDA   #$20
              STA   FDRAWADDR+5
-             JSR   FDRAWADDR+19           ; FDRAW: Set page $2000
+             JSR   FDRAWADDR+19       ; FDRAW: Set page $2000
              STZ   LINETYPE
              STZ   FDRAWADDR+5
-             JSR   FDRAWADDR+43           ; FDRAW: SetLineMode
+             JSR   FDRAWADDR+43       ; FDRAW: SetLineMode
              LDA   #$07
              STA   FGCOLOR
              STA   FDRAWADDR+5
-             JSR   FDRAWADDR+16           ; FDRAW: SetColor
+             JSR   FDRAWADDR+16       ; FDRAW: SetColor
              STZ   BGCOLOR
-             JSR   FDRAWADDR+22           ; FDRAW: clear HGR screen
+             JSR   FDRAWADDR+22       ; FDRAW: clear HGR screen
              RTS
 
 FGCOLOR      DB    $00                ; Foreground colour
 BGCOLOR      DB    $00                ; Background colour
 LINETYPE     DB    $00                ; 0 normal, 1 XOR
 PLOTMODE     DB    $00                ; K value for PLOT K,X,Y
+
+
 
 
 
