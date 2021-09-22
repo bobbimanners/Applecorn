@@ -600,7 +600,7 @@ VDU18        LDA   VDUQ+7          ; Argument 'k'
              LDA   #$01            ; XOR mode
 :NORM        >>>   WRTMAIN
              STA   LINETYPE
-             STA   Entry+5
+             STA   FDRAWADDR+5
              >>>   WRTAUX
              >>>   XF2MAIN,SETLINE
 VDU18RET1    >>>   ENTAUX
@@ -649,28 +649,28 @@ VDU25        JSR   CVTCOORD       ; Convert coordinate system
              LDA   VDUQ+4
              STA   PLOTMODE
              LDA   VDUQ+5
-             STA   Entry+6        ; LSB of X1
+             STA   FDRAWADDR+6        ; LSB of X1
              LDA   VDUQ+6
-             STA   Entry+7        ; MSB of X1
+             STA   FDRAWADDR+7        ; MSB of X1
              LDA   VDUQ+7
-             STA   Entry+8        ; Y1
+             STA   FDRAWADDR+8        ; Y1
              >>>   WRTAUX
              >>>   XF2MAIN,DRAWPNT
 :LINE        >>>   WRTMAIN
              LDA   VDUQ+4
              STA   PLOTMODE
              LDA   XPIXEL+0
-             STA   Entry+6
+             STA   FDRAWADDR+6
              LDA   XPIXEL+1
-             STA   Entry+7
+             STA   FDRAWADDR+7
              LDA   YPIXEL
-             STA   Entry+8
+             STA   FDRAWADDR+8
              LDA   VDUQ+5
-             STA   Entry+9        ; LSB of X1
+             STA   FDRAWADDR+9        ; LSB of X1
              LDA   VDUQ+6
-             STA   Entry+10       ; MSB of X1
+             STA   FDRAWADDR+10       ; MSB of X1
              LDA   VDUQ+7
-             STA   Entry+11       ; Y1
+             STA   FDRAWADDR+11       ; Y1
              >>>   WRTAUX
              >>>   XF2MAIN,DRAWLINE
 VDU25RET     >>>   ENTAUX
