@@ -8,69 +8,16 @@
 * to aux memory starting at AUXMOS1 and jumps to it.
 * (Note that the MOS code will copy itself to $D000.)
 
-START       JSR   ROMMENU
-
-            STZ   :BLOCKS
-            LDX   #$00
-:S1         JSR   CROUT
+START       JSR   CROUT
             JSR   SETPRFX
             JSR   DISCONN
 
             LDA   #$20             ; PAGE2 shadow on ROM3 GS
             TRB   $C035
 
-            JSR   OPENFILE         ; Open ROM file
-            BCC   :S2
-            LDX   #$00
-:L2         LDA   CANTOPEN,X
-            BEQ   :ER1
-            JSR   COUT1
-            INX
-            BRA   :L2
-            BRA   :S2
-:ER1        JSR   CROUT
-            JSR   BELL
-            RTS
-
-:S2         LDA   OPENPL+5         ; File reference number
-            STA   READPL+1
-
-:L3         LDA   #'.'+$80         ; Read file block by block
-            JSR   COUT1
-            JSR   RDFILE
-            BCS   :S3              ; EOF (0 bytes left) or some error
-
-            LDA   #<BLKBUF         ; Source start addr -> A1L,A1H
-            STA   A1L
-            LDA   #>BLKBUF
-            STA   A1H
-
-            LDA   #<BLKBUFEND      ; Source end addr -> A2L,A2H
-            STA   A2L
-            LDA   #>BLKBUFEND
-            STA   A2H
-
-            LDA   #<AUXADDR        ; Dest in aux -> A4L, A4H
-            STA   A4L
-            LDA   #>AUXADDR
-            LDX   :BLOCKS
-:L4         CPX   #$00
-            BEQ   :S25
-            INC
-            INC
-            DEX
-            BRA   :L4
-:S25        STA   A4H
-
-            SEC                    ; Copy Main -> Aux
-            JSR   AUXMOVE
-
-            INC   :BLOCKS
-            BRA   :L3
-
-:S3         LDA   OPENPL+5         ; File reference number
-            STA   CLSPL+1
-            JSR   CLSFILE
+            JSR   ROMMENU
+            JSR   LOADROM
+            JSR   LOADFDRAW
 
             LDA   #<MOSSHIM        ; Start address of MOS shim
             STA   A1L
@@ -110,12 +57,60 @@ START       JSR   ROMMENU
             STA   $C004            ; Write to main
             >>>   XF2AUX,AUXMOS1
 
-:BLOCKS     DB    0                ; Counter for blocks read
 
-CANTOPEN    ASC   "Unable to open ROM file"
+* Load ROM image from file and copy to aux RAM
+LOADROM     STZ   :BLOCKS
+            JSR   OPENFILE         ; Open ROM file
+            BCC   :S2
+            LDX   #$00
+:L2         LDA   :CANTOPEN,X
+            BEQ   :ER1
+            JSR   COUT1
+            INX
+            BRA   :L2
+            BRA   :S2
+:ER1        JSR   CROUT
+            JSR   BELL
+:SPIN       BRA   :SPIN
+:S2         LDA   OPENPL+5         ; File reference number
+            STA   READPL+1
+:L3         LDA   #'.'+$80         ; Read file block by block
+            JSR   COUT1
+            JSR   RDFILE
+            BCS   :S3              ; EOF (0 bytes left) or some error
+            LDA   #<BLKBUF         ; Source start addr -> A1L,A1H
+            STA   A1L
+            LDA   #>BLKBUF
+            STA   A1H
+            LDA   #<BLKBUFEND      ; Source end addr -> A2L,A2H
+            STA   A2L
+            LDA   #>BLKBUFEND
+            STA   A2H
+            LDA   #<AUXADDR        ; Dest in aux -> A4L, A4H
+            STA   A4L
+            LDA   #>AUXADDR
+            LDX   :BLOCKS
+:L4         CPX   #$00
+            BEQ   :S25
+            INC
+            INC
+            DEX
+            BRA   :L4
+:S25        STA   A4H
+            SEC                    ; Copy Main -> Aux
+            JSR   AUXMOVE
+            INC   :BLOCKS
+            BRA   :L3
+:S3         LDA   OPENPL+5         ; File reference number
+            STA   CLSPL+1
+            JSR   CLSFILE
+            RTS
+:BLOCKS     DB    0                ; Counter for blocks read
+:CANTOPEN   ASC   "Unable to open ROM file"
             DB    $00
 
-
+LOADFDRAW
+            RTS
 
 
 
