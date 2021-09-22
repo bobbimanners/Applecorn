@@ -68,7 +68,7 @@ START       JSR   CROUT
             STA   $C004            ; Write to main
             >>>   XF2AUX,AUXMOS1
 
-:FDFILE     STR   'FDRAW.FAST'     ; Filename for FDraw lib
+:FDFILE     STR   "FDRAW.FAST"     ; Filename for FDraw lib
 
 * Load image from file into memory
 * On entry: OPENPL set up to point to file to load
@@ -147,8 +147,4 @@ LOADCODE    PHP                    ; Save carry flag
 :LEN        DB    $00              ; Length of filename
 :CANTOPEN   ASC   "Unable to open "
             DB    $00
-
-
-
-
 
