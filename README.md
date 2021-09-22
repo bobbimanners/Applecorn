@@ -69,15 +69,19 @@ is set to `&0E0`.
 
 ### Video Modes
 
-Two text video modes are currently supported:
-- 40x24 `MODE 6` and `MODE 7` (in mode 7, chars $80 to $9F are converted
+Two text video modes and one graphics mode are currently supported:
+- `MODE 6` and `MODE 7` - 40x24 text (in mode 7, chars $80 to $9F are converted
   to spaces)
-- 80x24 `MODE 3`
-
-We plan to support HGR graphics eventually.
+- `MODE 3` - 80x24 text.
+- `MODE 2` - Apple II high resolution mode.  The physical resolution is 280x192
+  pixels.  This is mapped onto the normal BBC Micro 1280x1024 virtual resolution,
+  with the origin at the bottom left of the screen.
 
 _NOTE:_ You can set the startup video mode by holding down the appropriate number
 key while Applecorn starting (while it is loading the ROM file.)
+
+Andy McFadden's [FDraw library](https://github.com/fadden/fdraw) is used for 
+efficient high resolution line and point plotting.
 
 ### Escape Key
 
