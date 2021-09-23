@@ -102,8 +102,8 @@ VDUWORKSZ    EQU   VDUVAREND-VDUWORKSP+1
 *                           3        6  7
 SCNTXTMAXX   DB    79,39,19,79,39,19,39,39  ; Max text column
 SCNTXTMAXY   DB    23,23,23,23,23,23,23,23  ; Max text row
-SCNBYTES     DB    1,1
-SCNCOLOURS   DB    1,1
+SCNBYTES     DB    1,1,8
+SCNCOLOURS   DB    1,1,8
 SCNTYPE      DB    1,0,128,1
 * b7=FastDraw
 * b6=Teletext
@@ -342,22 +342,30 @@ PRCHR4       PHY
 PRCHR6       STA   (VDUADDR),Y            ; Store it
              STA   $C005                  ; Back to aux memory
              PLP                          ; Restore IRQs
-
              LDY   VDUBYTES
              DEY                          ; If VDUBYTE=1, text mode
              BEQ   :DONE
-
-             JSR   HCHARADDR
-* TODO: GRAPHICS!
-
+             JSR   HCHARADDR              ; Addr in VDUADDR
+             PHP                          ; Disable IRQs while
+             SEI                          ;  toggling memory
+             STA   $C004                  ; Write to main
+             LDA   VDUADDR+0
+             STA   HGRADDR+0
+             LDA   VDUADDR+1
+             STA   HGRADDR+1
+             STA   $C005                  ; Write to aux
+             PLP                          ; Restore IRQs
+             >>>   XF2MAIN,DRAWCHAR       ; Plot char on HGR screen
 :DONE        RTS
 
+PUTCHRET
+             >>>   ENTAUX
+             RTS
+
 * Fetch character from screen at (TEXTX,TEXTY) and return MODE in Y
+* Always uses text screen (which we maintain even in graphics mode)
 BYTE87
-GETCHRC      LDY   VDUBYTES
-             DEY                          ; If VDUBYTE=1, text mode
-             BNE   GETCHRSOFT             ; Graphics mode
-             JSR   CHARADDR               ; Find character address
+GETCHRC      JSR   CHARADDR               ; Find character address
              PHP                          ; Disable IRQs while
              SEI                          ;  toggling memory
              BCC   GETCHR6                ; Aux memory
@@ -376,7 +384,6 @@ GETCHR7      TYA
              LDY   VDUMODE                ; Y=MODE
              TAX                          ; X=char
 GETCHROK     RTS
-GETCHRSOFT   RTS                          ; *TODO* Jump to gfx
 
 * Get text cursor position
 BYTE86       LDY   VDUTEXTY               ; ROW           ; $86 = read cursor pos
@@ -408,13 +415,15 @@ CHARADDR40   TAY                          ; Y=offset into this row
 HCHARADDR    LDA   VDUTEXTY
              ASL
              TAX
+             CLC
              LDA   HGRTAB+0,X             ; LSB of row address
+             ADC   VDUTEXTX
              STA   VDUADDR+0
              LDA   HGRTAB+1,X             ; MSB of row address
+             ADC   #$00
              STA   VDUADDR+1
-             LDY   VDUTEXTX
              RTS
-* (VDUADDR),Y=>character address
+* (VDUADDR)=>character address
 
 * Move cursor left
 VDU08        LDA   VDUTEXTX               ; COL
