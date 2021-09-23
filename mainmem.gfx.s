@@ -75,11 +75,21 @@ GFXINIT      JSR   FDRAWADDR+0        ; Initialize FDRAW library
              JSR   FDRAWADDR+22       ; FDRAW: clear HGR screen
              RTS
 
+* Plot bitmap character on the HGR screen
+DRAWCHAR     >>>   ENTMAIN
+             LDA   HGRADDR+0
+             STA   A1L
+             LDA   HGRADDR+1
+             STA   A1H
+             LDA   #$FF
+             STA   (A1L)
+             >>>   XF2AUX,PUTCHRET
+
 FGCOLOR      DB    $00                ; Foreground colour
 BGCOLOR      DB    $00                ; Background colour
 LINETYPE     DB    $00                ; 0 normal, 1 XOR
 PLOTMODE     DB    $00                ; K value for PLOT K,X,Y
-
+HGRADDR      DW    $0000              ; Address 1st line of HGR char
 
 
 
