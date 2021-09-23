@@ -12,6 +12,7 @@
 * 05-Sep-2021 Starting to prepare VDU workspace.
 * 09-Sep-2021 New dispatch routine.
 * 22-Sep-2021 More VDU workspace, started MODE definitions.
+* 23-Sep-2021 More or less sorted VDU workspace.
 
 
 **********************************
@@ -37,13 +38,12 @@ VDUADDR      EQU   VDUSTATUS+4    ; $D4  address of current char cell
 OLDCHAR      EQU   OSKBD1         ; *TEMP* character under cursor
 COPYCHAR     EQU   OSKBD2         ; *TEMP* character under copy cursor
 
-
 * VDU DRIVER MAIN WORKSPACE
 ***************************
 FXLINES      EQU   BYTEVARBASE+217   ; Paged scrolling line counter
 FXVDUQLEN    EQU   BYTEVARBASE+218   ; Length of pending VDU queue
 VDUVARS      EQU   $290
-VDUVAREND    EQU   $2DF
+VDUVAREND    EQU   $2ED
 
 GFXWINLFT    EQU   VDUVARS+$00    ; # graphics window left
 GFXWINBOT    EQU   VDUVARS+$02    ; # graphics window bottom \ window
@@ -60,21 +60,42 @@ GFXPOSNX     EQU   VDUVARS+$10    ;   current graphics X posn
 GFXPOSNY     EQU   VDUVARS+$12    ;   current graphics Y posn   
 GFXLASTX     EQU   VDUVARS+$14    ;   last graphics X posn
 GFXLASTY     EQU   VDUVARS+$16    ;   last graphics Y posn
-VDUTEXTX     EQU   VDUVARS+$18    ;   absolute text X posn = POS+WINLFT
-VDUTEXTY     EQU   VDUVARS+$19    ;   absolute text Y posn = VPOS+WINTOP
+VDUTEXTX     EQU   VDUVARS+$18    ; # absolute text X posn = POS+WINLFT
+VDUTEXTY     EQU   VDUVARS+$19    ; # absolute text Y posn = VPOS+WINTOP
 VDUCOPYX     EQU   VDUVARS+$1A    ;   absolute COPY text X posn
 VDUCOPYY     EQU   VDUVARS+$1B    ;   absolute COPY text Y posn
 *
-VDUQ         EQU   VDUVARS+$27    ; *TEMP* $27.$2F
-CURSOR       EQU   VDUVARS+$30    ; *TEMP* character used for cursor
-CURSORED     EQU   VDUVARS+$31    ; *TEMP* character used for edit cursor
-CURSORCP     EQU   VDUVARS+$32    ; *TEMP* character used for copy cursor
+PIXELPLOTX   EQU   VDUVARS+$1C    ;   PLOT graphics X in pixels
+PIXELPLOTY   EQU   VDUVARS+$1E    ;   PLOT graphics Y in pixels
+PIXELPOSNX   EQU   VDUVARS+$20    ;   current graphics X in pixels
+PIXELPOSNY   EQU   VDUVARS+$22    ;   current graphics Y in pixels
+PIXELLASTX   EQU   VDUVARS+$24    ;   last graphics X in pixels
+PIXELLASTY   EQU   VDUVARS+$26    ;   last graphics Y in pixels
 *
-VDUPIXELS    EQU   VDUVARS+$33    ; *TEMP* pixels per byte
-VDUBYTES     EQU   VDUVARS+$34    ; *TEMP* bytes per char, 1=text only
-VDUMODE      EQU   VDUVARS+$35    ; *TEMP* current MODE
-VDUSCREEN    EQU   VDUVARS+$36    ; *TEMP* MODE type
-VDUCOLOURS   EQU   VDUVARS+$37    ; *TEMP* colours-1
+CURSOR       EQU   VDUVARS+$28    ;   character used for cursor
+CURSORED     EQU   VDUVARS+$29    ;   character used for edit cursor
+CURSORCP     EQU   VDUVARS+$2A    ;   character used for copy cursor
+*
+VDUQ         EQU   VDUVARS+$2B    ;   $2B..$33
+VDUQLAST     EQU   VDUQ+1         ;   Neatly becomes VDUVARS+$2C
+VDUQPLOT     EQU   VDUQ+5         ;   Neatly becomes VDUVARS+$30
+*
+VDUBORDER    EQU   VDUVARS+$34    ;   Border colour
+VDUMODE      EQU   VDUVARS+$35    ; # current MODE
+VDUSCREEN    EQU   VDUVARS+$36    ; # MODE type
+TXTFGD       EQU   VDUVARS+$37    ; # Text foreground
+TXTBGD       EQU   VDUVARS+$38    ; # Text background
+GFXFGD       EQU   VDUVARS+$39    ; # Graphics foreground
+GFXBGD       EQU   VDUVARS+$3A    ; # Graphics background
+GFXPLOTFGD   EQU   VDUVARS+$3B    ; # Foreground GCOL action
+GFXPLOTBGD   EQU   VDUVARS+$3C    ; # Background GCOL action
+VDUVAR3D     EQU   VDUVARS+$3D
+VDUVAR3E     EQU   VDUVARS+$3E
+VDUBYTES     EQU   VDUVARS+$3F    ; # bytes per char, 1=text only
+VDUCOLOURS   EQU   VDUVARS+$40    ; # colours-1
+VDUPIXELS    EQU   VDUVARS+$41    ; # pixels per byte
+VDUWORKSP    EQU   VDUVARS+$42    ;   28 bytes of general workspace
+VDUWORKSZ    EQU   VDUVAREND-VDUWORKSP+1
 *
 
 * Screen definitions
@@ -339,11 +360,8 @@ GETCHR6      LDA   (VDUADDR),Y       ; Get character
              TAY
 GETCHR7      TYA
              EOR   #$80
-             TAX                     ; X=char for OSBYTE
-             LDY   #$00
-             BIT   $C01F
-             BMI   GETCHROK
-             INY                     ; Y=MODE
+             LDY   VDUMODE           ; Y=MODE
+             TAX                     ; X=char
 GETCHROK     RTS
 GETCHRSOFT   RTS                     ; *TODO* Jump to gfx
 
@@ -735,8 +753,13 @@ VDU29        RTS
 
 * OSBYTE &A0 - Read VDU variable
 ********************************
-BYTEA0       LDY VDUVARS+1,X
-             LDA VDUVARS+0,X
+BYTEA0       CPX   #$40              ; Index into VDU variables
+             BCC   BYTEA02
+             TXA
+             SBC   #$20
+             TAX
+BYTEA02      LDY   VDUVARS+1,X
+             LDA   VDUVARS+0,X
              TAX
              RTS
 
