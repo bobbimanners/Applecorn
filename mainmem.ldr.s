@@ -30,15 +30,6 @@ START       JSR   CROUT
             CLC                    ; Load into main
             JSR   LOADCODE
 
-            LDA   #<:FNTFILE
-            STA   OPENPL+1
-            LDA   #>:FNTFILE
-            STA   OPENPL+2
-            LDA   #>FONTADDR       ; Address in main
-            LDX   #<FONTADDR
-            CLC                    ; Load into main
-            JSR   LOADCODE
-
             LDA   #<MOSSHIM        ; Start address of MOS shim
             STA   A1L
             LDA   #>MOSSHIM
@@ -78,7 +69,6 @@ START       JSR   CROUT
             >>>   XF2AUX,AUXMOS1
 
 :FDFILE     STR   "FDRAW.FAST"     ; Filename for FDraw lib
-:FNTFILE    STR   "FONT.DAT"       ; Filename for bitmap font
 
 * Load image from file into memory
 * On entry: OPENPL set up to point to file to load
