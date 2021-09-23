@@ -58,6 +58,9 @@ COPYBUF     EQU   $9200       ; File copy needs separate buffer
 * Location of FDraw library in main memory
 FDRAWADDR   EQU   $9400
 
+* Location of bitmap font in main memory
+FONTADDR    EQU   $A900
+
 * Address in aux memory where ROM will be loaded
 AUXADDR     EQU   $8000
 
