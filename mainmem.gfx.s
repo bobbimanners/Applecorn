@@ -76,13 +76,38 @@ GFXINIT      JSR   FDRAWADDR+0        ; Initialize FDRAW library
              RTS
 
 * Plot bitmap character on the HGR screen
+* On entry: char is in A
 DRAWCHAR     >>>   ENTMAIN
-             LDA   HGRADDR+0
+             AND   #$7F
+             STA   A1L                ; A*8 -> A1L,A1H
+             STZ   A1H
+             ASL   A1L
+             ROL   A1H
+             ASL   A1L
+             ROL   A1H
+             ASL   A1L
+             ROL   A1H
+             CLC                      ; FONTADDR+A*8 -> A1L,A1H
+             LDA   A1L
+             ADC   #<FONTADDR
              STA   A1L
-             LDA   HGRADDR+1
+             LDA   A1H
+             ADC   #>FONTADDR
              STA   A1H
-             LDA   #$FF
-             STA   (A1L)
+             LDA   HGRADDR+0          ; HGRADDR -> A4L,A4H
+             STA   A4L
+             LDA   HGRADDR+1
+             STA   A4H
+             LDY   #$00
+:L1          LDA   (A1L),Y            ; Load line of pixels from font
+             STA   (A4L)              ; Store them on screen
+             INC   A4H                ; Skip 1024 bytes to next row
+             INC   A4H
+             INC   A4H
+             INC   A4H
+             INY
+             CPY   #$08               ; All eight rows done?
+             BNE   :L1
              >>>   XF2AUX,PUTCHRET
 
 FGCOLOR      DB    $00                ; Foreground colour
