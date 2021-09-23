@@ -110,11 +110,20 @@ SCNTYPE      DB    1,0,128,1
 * b0=40COL/80COL
 *   =
 
+********************************************************************
+* Note that we use PAGE2 80 column mode ($800-$BFF in main and aux)
+*           and    PAGE1 HGR mode ($2000-$23ff in main only)
+********************************************************************
+
 * Addresses of start of text rows in PAGE2
 SCNTAB       DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
              DW    $828,$8A8,$928,$9A8,$A28,$AA8,$B28,$BA8
              DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
 
+* Addresses of start of pixel rows in PAGE1
+HGRTAB       DW    $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380
+             DW    $2028,$20A8,$2128,$21A8,$2228,$22A8,$2328,$23A8
+             DW    $2050,$20D0,$2150,$21D0,$2250,$22D0,$2350,$23D0
 
 * Output character to VDU driver
 ********************************
@@ -311,10 +320,7 @@ PRCHRC       PHA                          ; Save character
 :RESUME      PLA
 
 * Put character to screen
-PUTCHRC      LDY   VDUBYTES
-             DEY                          ; If VDUBYTE=1, text mode
-             BNE   PRCHRSOFT              ; Graphics mode
-             EOR   #$80                   ; Convert character
+PUTCHRC      EOR   #$80                   ; Convert character
              TAY
              AND   #$A0
              BNE   PRCHR4
@@ -336,8 +342,15 @@ PRCHR4       PHY
 PRCHR6       STA   (VDUADDR),Y            ; Store it
              STA   $C005                  ; Back to aux memory
              PLP                          ; Restore IRQs
-             RTS
-PRCHRSOFT    RTS                          ; *TODO* Jump to gfx
+
+             LDY   VDUBYTES
+             DEY                          ; If VDUBYTE=1, text mode
+             BEQ   :DONE
+
+             JSR   HCHARADDR
+* TODO: GRAPHICS!
+
+:DONE        RTS
 
 * Fetch character from screen at (TEXTX,TEXTY) and return MODE in Y
 BYTE87
@@ -389,6 +402,19 @@ CHARADDR40   TAY                          ; Y=offset into this row
 * CC=auxmem
 * CS=mainmem
 
+* Calculate character address in HGR mode
+* This is the address of the first pixel row of the char
+* Add $0400 for each subsequent row of the char
+HCHARADDR    LDA   VDUTEXTY
+             ASL
+             TAX
+             LDA   HGRTAB+0,X             ; LSB of row address
+             STA   VDUADDR+0
+             LDA   HGRTAB+1,X             ; MSB of row address
+             STA   VDUADDR+1
+             LDY   VDUTEXTX
+             RTS
+* (VDUADDR),Y=>character address
 
 * Move cursor left
 VDU08        LDA   VDUTEXTX               ; COL
