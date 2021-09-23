@@ -335,6 +335,7 @@ PRCHR3       TYA
 PRCHR4       PHY
              JSR   CHARADDR               ; Find character address
              PLA                          ; Get character back
+             PHA                          ; Stash it again
              PHP                          ; Disable IRQs while
              SEI                          ;  toggling memory
              BCC   PRCHR6                 ; Aux memory
@@ -355,8 +356,10 @@ PRCHR6       STA   (VDUADDR),Y            ; Store it
              STA   HGRADDR+1
              STA   $C005                  ; Write to aux
              PLP                          ; Restore IRQs
+             PLA                          ; Recover character
              >>>   XF2MAIN,DRAWCHAR       ; Plot char on HGR screen
-:DONE        RTS
+:DONE        PLA                          ; Discard character
+             RTS
 
 PUTCHRET
              >>>   ENTAUX
