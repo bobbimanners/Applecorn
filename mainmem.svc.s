@@ -1129,11 +1129,6 @@ GFXINIT      JSR   FDRAWADDR+0        ; Initialize FDRAW library
              JSR   FDRAWADDR+22       ; FDRAW: clear HGR screen
              RTS
 
-* Draw character on graphics screen (byte aligned)
-* On entry: Character in A
-DRAWCHAR     
-             RTS
-
 FGCOLOR      DB    $00                ; Foreground colour
 BGCOLOR      DB    $00                ; Background colour
 LINETYPE     DB    $00                ; 0 normal, 1 XOR
