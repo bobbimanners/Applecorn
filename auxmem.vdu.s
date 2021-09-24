@@ -104,7 +104,7 @@ SCNTXTMAXX   DB    79,39,19,79,39,19,39,39  ; Max text column
 SCNTXTMAXY   DB    23,23,23,23,23,23,23,23  ; Max text row
 SCNBYTES     DB    1,1,8,1,1,1,1,1
 SCNCOLOURS   DB    1,1,8,1,1,1,1,1
-SCNTYPE      DB    1,0,128,1
+SCNTYPE      DB    1,0,128,1,0,0,0,0
 * b7=FastDraw
 * b6=Teletext
 * b0=40COL/80COL
