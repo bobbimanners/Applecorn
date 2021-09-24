@@ -99,11 +99,11 @@ VDUWORKSZ    EQU   VDUVAREND-VDUWORKSP+1
 *
 
 * Screen definitions
-*                           3        6  7
+*                   0  1  2  3  4  5  6  7
 SCNTXTMAXX   DB    79,39,19,79,39,19,39,39  ; Max text column
 SCNTXTMAXY   DB    23,23,23,23,23,23,23,23  ; Max text row
-SCNBYTES     DB    1,1,8
-SCNCOLOURS   DB    1,1,8
+SCNBYTES     DB    1,1,8,1,1,1,1,1
+SCNCOLOURS   DB    1,1,8,1,1,1,1,1
 SCNTYPE      DB    1,0,128,1
 * b7=FastDraw
 * b6=Teletext
@@ -526,7 +526,7 @@ VDUINIT      STA   VDUQ+8
 *  MODE 3 - 80x24 text
 *  MODE 6 - 40x24 text
 *  MODE 7 - 40x24 with $80-$9F converted to spaces
-*  MODE 2 - 280x192 HGR graphics
+*  MODE 2 - 280x192 HGR graphics, 40 cols bitmap text
 *  MODE 0 defaults to MODE 3
 *  All others default to MODE 6
 *
@@ -552,7 +552,7 @@ VDU22        LDA   VDUQ+8
              BMI   VDU22G                 ; b7=1, graphics mode
 * TEMP
              CPX   #2
-             BEQ   VDU22G                 ; Jump out for MODE 2
+             BEQ   VDU22G                 ; Jump out for MODE 1
 * TEMP
 *
              AND   #$01                   ; 40col/80col bit
@@ -631,12 +631,15 @@ CLREOL       LDA   VDUTEXTY               ; ROW
 * Scroll whole screen one line
 SCROLLER     LDA   #$00
 :L1          PHA
-             JSR   SCR1LINE
+             JSR   SCR1LINE               ; Scroll text screen 1 line
              PLA
+             LDY   VDUBYTES
+             DEY                          ; If VDUBYTE=1, text mode
+             BEQ   :TEXTONLY              ; Text mode, skip HGR scroll
              PHA
-             JSR   HSCR1LINE              ;;;; TODO ONLY DO THIS FOR MODE 2!!
+             JSR   HSCR1LINE              ; Scroll HGR screen 1 text line
              PLA
-             INC
+:TEXTONLY    INC
              CMP   #23
              BNE   :L1
              BIT   VDUSTATUS
