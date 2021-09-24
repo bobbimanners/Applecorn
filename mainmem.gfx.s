@@ -110,18 +110,48 @@ DRAWCHAR    >>>   ENTMAIN
             BNE   :L1
             >>>   XF2AUX,PUTCHRET
 
+* Copy text line A+1 to line A 
+HGRSCR1L    >>>   ENTMAIN
+            ASL                     ; Dest addr->A4L,A4H
+            TAX
+            LDA   MHGRTAB,X
+            STA   A4L
+            LDA   MHGRTAB+1,X
+            STA   A4H
+            INX                     ; Source addr->A1L,A1H
+            INX
+            LDA   MHGRTAB,X
+            STA   A1L
+            LDA   MHGRTAB+1,X
+            STA   A1H
+            LDX   #$00
+:L1         LDY   #$00
+:L2         LDA   (A1L),Y
+            STA   (A4L),Y
+            INY
+            CPY   #40               ; 40 chars in line
+            BNE   :L2
+            INC   A1H               ; Advance source 1024 bytes
+            INC   A1H
+            INC   A1H
+            INC   A1H
+            INC   A4H               ; Advance dest 1024 bytes
+            INC   A4H
+            INC   A4H
+            INC   A4H
+            INX
+            CPX   #8                ; 8 pixel rows in character
+            BNE   :L1
+            >>>   XF2AUX,HSCR1RET
+
 FGCOLOR     DB    $00               ; Foreground colour
 BGCOLOR     DB    $00               ; Background colour
 LINETYPE    DB    $00               ; 0 normal, 1 XOR
 PLOTMODE    DB    $00               ; K value for PLOT K,X,Y
 HGRADDR     DW    $0000             ; Address 1st line of HGR char
 
-
-
-
-
-
-
-
-
+* Addresses of start of pixel rows in PAGE1
+MHGRTAB      DW    $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380
+             DW    $2028,$20A8,$2128,$21A8,$2228,$22A8,$2328,$23A8
+             DW    $2050,$20D0,$2150,$21D0,$2250,$22D0,$2350,$23D0
 

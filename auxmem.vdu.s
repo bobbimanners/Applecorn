@@ -632,6 +632,9 @@ SCROLLER     LDA   #$00
 :L1          PHA
              JSR   SCR1LINE
              PLA
+             PHA
+             JSR   HSCR1LINE
+             PLA
              INC
              CMP   #23
              BNE   :L1
@@ -670,6 +673,10 @@ SCR1LINE     ASL                          ; Dest addr->ZP1
              BNE   :L1
              RTS
 
+* Copy text line A+1 to line A for HGR bitmap gfx mode
+HSCR1LINE    >>>   XF2MAIN,HGRSCR1L
+HSCR1RET     >>>   ENTAUX
+             RTS
 
 * VDU 1 - Send one character to printer
 VDU01        RTS
