@@ -633,7 +633,7 @@ SCROLLER     LDA   #$00
              JSR   SCR1LINE
              PLA
              PHA
-             JSR   HSCR1LINE
+             JSR   HSCR1LINE              ;;;; TODO ONLY DO THIS FOR MODE 2!!
              PLA
              INC
              CMP   #23
@@ -807,6 +807,8 @@ BYTEA02      LDY   VDUVARS+1,X
              LDA   VDUVARS+0,X
              TAX
              RTS
+
+
 
 
 
