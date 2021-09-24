@@ -144,6 +144,28 @@ HGRSCR1L    >>>   ENTMAIN
             BNE   :L1
             >>>   XF2AUX,HSCR1RET
 
+* Clear one text line on HGR screen
+HCLRLINE    >>>   ENTMAIN
+            LDA   HGRADDR+0         ; HGRADDR -> A4L,A4H
+            STA   A4L
+            LDA   HGRADDR+1
+            STA   A4H
+            LDA   #$00
+            LDX   #$00
+:L1         LDY   #$00
+:L2         STA   (A4L),Y
+            INY
+            CPY   #$39
+            BNE   :L2
+            INC   A4H
+            INC   A4H
+            INC   A4H
+            INC   A4H
+            INX
+            CPX   #$08
+            BNE   :L1
+            >>>   XF2AUX,CLRLNRET
+
 FGCOLOR     DB    $00               ; Foreground colour
 BGCOLOR     DB    $00               ; Background colour
 LINETYPE    DB    $00               ; 0 normal, 1 XOR

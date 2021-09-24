@@ -361,8 +361,7 @@ PRCHR6       STA   (VDUADDR),Y            ; Store it
 :DONE        PLA                          ; Discard character
              RTS
 
-PUTCHRET
-             >>>   ENTAUX
+PUTCHRET     >>>   ENTAUX
              RTS
 
 * Fetch character from screen at (TEXTX,TEXTY) and return MODE in Y
@@ -460,7 +459,7 @@ VDU09        LDA   VDUTEXTX               ; COL
 :S2          INC   VDUTEXTX               ; COL
              BRA   :DONE
 SCROLL       JSR   SCROLLER
-             JSR   CLREOL
+             JSR   CLRLINE
              RTS
 
 * Move cursor down
@@ -587,7 +586,7 @@ VDU12        LDY   VDUBYTES
 * Clear the screen
 CLEAR        STZ   VDUTEXTY               ; ROW
              STZ   VDUTEXTX               ; COL
-:L1          JSR   CLREOL
+:L1          JSR   CLRLINE
 :S2          LDA   VDUTEXTY               ; ROW
              CMP   #23
              BEQ   :S3
@@ -599,8 +598,8 @@ CLEAR        STZ   VDUTEXTY               ; ROW
 VDU12SOFT    JMP   VDU16                  ; *TEMP*
 
 
-* Clear to EOL
-CLREOL       LDA   VDUTEXTY               ; ROW
+* Clear screen line
+CLRLINE      LDA   VDUTEXTY               ; ROW
              ASL
              TAX
              LDA   SCNTAB,X               ; LSB of row
@@ -610,8 +609,7 @@ CLREOL       LDA   VDUTEXTY               ; ROW
              LDA   VDUTEXTX               ; COL
              PHA
              STZ   VDUTEXTX               ; COL
-:L1
-             LDA   VDUTEXTX               ; COL
+:L1          LDA   VDUTEXTX               ; COL
              LSR
              TAY
              BCC   :S1
@@ -626,6 +624,22 @@ CLREOL       LDA   VDUTEXTY               ; ROW
              BRA   :L1
 :S2          PLA
              STA   VDUTEXTX               ; COL
+             LDY   VDUBYTES
+             DEY                          ; If VDUBYTE=1, text mode
+             BEQ   :DONE
+             LDA   VDUTEXTY
+             ASL
+             TAX
+             >>>   WRTMAIN
+             LDA   HGRTAB+0,X
+             STA   HGRADDR+0
+             LDA   HGRTAB+1,X
+             STA   HGRADDR+1
+             >>>   WRTAUX
+             >>>   XF2MAIN,HCLRLINE
+:DONE        RTS
+
+CLRLNRET     >>>   ENTAUX
              RTS
 
 * Scroll whole screen one line
