@@ -569,6 +569,7 @@ VDU22G       STA   $C050                  ; Enable Graphics
              STA   $C057                  ; Hi-Res
              STA   $C054                  ; PAGE1
              STA   $C052                  ; Clear MIXED
+             STA   $C00C                  ; Select 40col text
              JMP   VDU16                  ; Clear HGR screen
 
 VDU22CLR
