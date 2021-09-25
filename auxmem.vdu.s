@@ -750,9 +750,6 @@ HSCR1LINE    >>>   XF2MAIN,HGRSCR1L
 HSCR1RET     >>>   ENTAUX
              RTS
 
-* VDU 1 - Send one character to printer
-VDU01        RTS
-
 * VDU 16 - CLG, clear graphics window
 VDU16        >>>   XF2MAIN,CLRHGR
 VDU16RET     >>>   ENTAUX
@@ -894,6 +891,7 @@ BYTEA02      LDY   VDUVARS+1,X
 * PRINTER DRIVER
 ****************
 * VDU 1 - Send one character to printer
+VDU01        RTS
 
 
 
