@@ -606,7 +606,7 @@ VDU22        LDA   VDUQ+8
              JSR   NEGCALL           ; Find machine type
              AND   #$0F
              BEQ   :MODEGS           ; MCHID=$x0 -> Not AppleGS, bank=0
-             LDA   #$E0              ;  Not $x0  -> AppleGS, point to screen bank
+**DEBUG             LDA   #$E0              ;  Not $x0  -> AppleGS, point to screen bank
 :MODEGS      STA   VDUBANK
              LDA   #$01
              JSR   CLRSTATUS         ; Clear everything except PrinterEcho
