@@ -332,33 +332,41 @@ PRCHRC       PHA                          ; Save character
 :RESUME      PLA
 
 * Put character to screen
-PUTCHRC      EOR   #$80                   ; Convert character
-             TAY
+* Puts character to text screen buffer, then in graphics mode,
+* writes bitmap to graphics screen
+PUTCHRC      PHA
+             EOR   #$80              ; Convert character
+             TAX
              AND   #$A0
              BNE   PRCHR4
-             CPY   #$20
-             BCS   PRCHR3                 ; Not $80-$9F
+             CPX   #$20
+             BCS   PRCHR3            ; Not $80-$9F
              BIT   VDUSCREEN
-             BVC   PRCHR3                 ; Not teletext
-             LDY   #$E0                   ; Convert $80-$9F to space
-PRCHR3       TYA
+             BVC   PRCHR3            ; Not teletext
+             LDX   #$E0              ; Convert $80-$9F to space
+PRCHR3       TXA
              EOR   #$40
-             TAY
-PRCHR4       PHY
-             JSR   CHARADDR               ; Find character address
-             PLA                          ; Get character back
-             PHA                          ; Stash it again
-             PHP                          ; Disable IRQs while
-             SEI                          ;  toggling memory
-             BCC   PRCHR6                 ; Aux memory
-             STA   $C004                  ; Switch to main memory
-PRCHR6       STA   (VDUADDR),Y            ; Store it
-             STA   $C005                  ; Back to aux memory
-             PLP                          ; Restore IRQs
-             LDY   VDUBYTES
-             DEY                          ; If VDUBYTE=1, text mode
-             BEQ   :DONE
-             JSR   HCHARADDR              ; Addr in VDUADDR
+             TAX
+PRCHR4       JSR   CHARADDR          ; Find character address
+             TXA                     ; Get buffer code
+             BIT   VDUBANK
+             BPL   PRCHR5            ; Not AppleGS, use short write
+             DB    $97,VDUADDR       ; STA [VDUADDR],Y
+             BRA   PRCHR8 
+PRCHR5       PHP                     ; Disable IRQs while
+             SEI                     ;  toggling memory
+             BCC   PRCHR6            ; Aux memory
+             STA   $C004             ; Switch to main memory
+PRCHR6       STA   (VDUADDR),Y       ; Store it
+PRCHR7       STA   $C005             ; Back to aux memory
+             PLP                     ; Restore IRQs
+PRCHR8       BIT   VDUSCREEN
+             BMI   PRCHRSOFT         ; Write character to graphics
+             PLA
+             RTS
+
+* Write character to HGR screen
+PRCHRSOFT    JSR   HCHARADDR              ; Addr in VDUADDR
              PHP                          ; Disable IRQs while
              SEI                          ;  toggling memory
              STA   $C004                  ; Write to main
@@ -370,58 +378,70 @@ PRCHR6       STA   (VDUADDR),Y            ; Store it
              PLP                          ; Restore IRQs
              PLA                          ; Recover character
              >>>   XF2MAIN,DRAWCHAR       ; Plot char on HGR screen
-:DONE        PLA                          ; Discard character
-             RTS
 
 PUTCHRET     >>>   ENTAUX
              RTS
 
+* OSBYTE &87 - Read character at cursor
+***************************************
 * Fetch character from screen at (TEXTX,TEXTY) and return MODE in Y
-* Always uses text screen (which we maintain even in graphics mode)
+* Reads from text screen buffer regardless of screen type
 BYTE87
-GETCHRC      JSR   CHARADDR               ; Find character address
-             PHP                          ; Disable IRQs while
-             SEI                          ;  toggling memory
-             BCC   GETCHR6                ; Aux memory
-             STA   $C002                  ; Switch to main memory
-GETCHR6      LDA   (VDUADDR),Y            ; Get character
-             STA   $C003                  ; Back to aux memory
-             PLP                          ; Restore IRQs
-             TAY                          ; Convert character
+GETCHRC      JSR   CHARADDR          ; Find character address
+             BIT   VDUBANK
+             BPL   GETCHR5           ; Not AppleGS, use short read
+             DB    $B7,VDUADDR       ; LDA [VDUADDR],Y
+             BRA   GETCHR7
+GETCHR5      PHP                     ; Disable IRQs while
+             SEI                     ;  toggling memory
+             BCC   GETCHR6           ; Aux memory
+             STA   $C002             ; Switch to main memory
+GETCHR6      LDA   (VDUADDR),Y       ; Get character
+             STA   $C003             ; Back to aux memory
+             PLP                     ; Restore IRQs
+GETCHR7      TAY                     ; Convert character
              AND   #$A0
-             BNE   GETCHR7
+             BNE   GETCHR8
              TYA
              EOR   #$40
              TAY
-GETCHR7      TYA
+GETCHR8      TYA
              EOR   #$80
-             LDY   VDUMODE                ; Y=MODE
-             TAX                          ; X=char
+             LDY   VDUMODE           ; Y=MODE
+             TAX                     ; X=char, flag=NE
 GETCHROK     RTS
 
-* Get text cursor position
+
+* OSBYTE &86 - Get text cursor position
+***************************************
 BYTE86       LDY   VDUTEXTY               ; ROW           ; $86 = read cursor pos
              LDX   VDUTEXTX               ; COL
              RTS
 
 * Calculate character address
+* NB: VDUBANK (VDUADDR+2) is set by VDU22
 CHARADDR     LDA   VDUTEXTY
-             ASL
-             TAX
-             LDA   SCNTAB+0,X             ; LSB of row address
+CHARADDRY    ASL
+             TAY
+             LDA   SCNTAB+0,Y        ; LSB of row address
              STA   VDUADDR+0
-             LDA   SCNTAB+1,X             ; MSB of row address
+             LDA   SCNTAB+1,Y        ; MSB of row address
              STA   VDUADDR+1
              LDA   VDUTEXTX
              BIT   $C01F
              SEC
-             BPL   CHARADDR40             ; 40-col
+             BPL   CHARADDR40        ; 40-col
              LSR   A
-CHARADDR40   TAY                          ; Y=offset into this row
+CHARADDR40   TAY                     ; Y=offset into this row
+             LDA   VDUBANK
+             AND   #$FE
+             BCS   CHARADDROK
+             ORA   #$01
+CHARADDROK   STA   VDUBANK
              RTS
 * (VDUADDR),Y=>character address
-* CC=auxmem
-* CS=mainmem
+*  VDUBANK   = AppleGS screen bank
+* CC=auxmem, CS=mainmem, X=preserved
 
 * Calculate character address in HGR mode
 * This is the address of the first pixel row of the char
