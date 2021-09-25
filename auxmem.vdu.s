@@ -357,6 +357,7 @@ PRCHR4       JSR   CHARADDR          ; Find character address
              CLC                     ; Enter 65816 native mode
              XCE
              SEP   #$30              ; 8-bit M and X
+             MX    %11               ; Tell Merlin about it
              STA   [VDUADDR],Y
              SEC                     ; Return to emulation mode
              XCE
@@ -401,6 +402,7 @@ GETCHRC      JSR   CHARADDR          ; Find character address
              CLC                     ; Enter 65816 native mode
              XCE
              SEP   #$30              ; 8-bit M and X
+             MX    %11               ; Tell Merlin about it
              LDA   [VDUADDR],Y
              SEC                     ; Enter emulation mode
              XCE
@@ -763,6 +765,7 @@ SCROLLGS     LDX   #1
 :L5          CLC                     ; Enter 65816 native mode
              XCE
              SEP   #$30              ; 8-bit M and X
+             MX    %11               ; Tell Merlin about it
              LDA   [VDUADDR],Y
              STA   [VDUADDR2],Y
              SEC                     ; Enter emulation mode
