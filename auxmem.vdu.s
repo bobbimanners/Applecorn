@@ -528,8 +528,10 @@ VDU26A       LDA   SCNTXTMAXX,X
 * Initialise VDU driver
 ***********************
 * On entry, A=MODE to start in
+* Assumes kernel has cleared workspace
 *
 VDUINIT      STA   VDUQ+8
+*            JSR   FONTIMPLODE       ; Reset VDU 23 font
 
 * VDU 22 - MODE n
 *****************
@@ -541,59 +543,47 @@ VDUINIT      STA   VDUQ+8
 *  MODE 0 defaults to MODE 3
 *  All others default to MODE 6
 *
+* Wait for VSync?
 VDU22        LDA   VDUQ+8
              AND   #$07
-             STA   VDUMODE
-             TAX                          ; Set up MODE
-             LDA   #'_'                   ; Set up default cursors
-             STA   CURSOR                 ; Normal cursor
-             STA   CURSORCP               ; Copy cursor when editing
-             LDA   #$A0
-             STA   CURSORED               ; Edit cursor when editing
-             LDA   #$01
-             JSR   CLRSTATUS              ; Clear everything except PrinterEcho
-             JSR   VDU26A
-*
-             LDA   SCNBYTES,X
-             STA   VDUBYTES
+             TAX                     ; Set up MODE
+             STX   VDUMODE           ; Screen MODE
              LDA   SCNCOLOURS,X
-             STA   VDUCOLOURS
+             STA   VDUCOLOURS        ; Colours-1
+             LDA   SCNBYTES,X
+             STA   VDUBYTES          ; Bytes per char
+             LDA   SCNPIXELS,X
+             STA   VDUPIXELS         ; Pixels per byte
              LDA   SCNTYPE,X
-             STA   VDUSCREEN
-             BMI   VDU22G                 ; b7=1, graphics mode
-* TEMP
-             CPX   #2
-             BEQ   VDU22G                 ; Jump out for MODE 1
-* TEMP
-*
-             AND   #$01                   ; 40col/80col bit
+             STA   VDUSCREEN         ; Screen type
+             JSR   NEGCALL           ; Find machine type
+             AND   #$0F
+             BEQ   :MODEGS           ; MCHID=$x0 -> Not AppleGS, bank=0
+             LDA   #$E0              ;  Not $x0  -> AppleGS, point to screen bank
+:MODEGS      STA   VDUBANK
+             LDA   #$01
+             JSR   CLRSTATUS         ; Clear everything except PrinterEcho
+             LDA   #'_'              ; Set up default cursors
+             STA   CURSOR            ; Normal cursor
+             STA   CURSORCP          ; Copy cursor when editing
+             LDA   #$A0
+             STA   CURSORED          ; Edit cursor when editing
+             JSR   VDU20             ; Default colours
+             JSR   VDU26             ; Default windows
+             STA   $C052             ; Clear MIXED
+             LDA   VDUSCREEN
+             BMI   VDU22G            ; b7=1, graphics mode
+             AND   #$01              ; 40col/80col bit
              TAX
-             STA   $C00C,X                ; Select 40col/80col
-             STA   $C051                  ; Enable Text
-             STA   $C055                  ; PAGE2
-             STA   $C052                  ; Clear MIXED
-             STA   $C00F                  ; Enable alt charset
-             BRA   VDU22CLR
+             STA   $C00C,X           ; Select 40col/80col
+             STA   $C051             ; Enable Text
+             STA   $C055             ; PAGE2
+             STA   $C00F             ; Enable alt charset
+* Fall through into CLS
 
-
-VDU22G       STA   $C050                  ; Enable Graphics
-             STA   $C057                  ; Hi-Res
-             STA   $C054                  ; PAGE1
-             STA   $C052                  ; Clear MIXED
-             STA   $C00C                  ; Select 40col text
-             JMP   VDU16                  ; Clear HGR screen
-
-VDU22CLR
-* JSR VDU15 ; Turn off paged scrolling
-* JSR VDU20 ; Reset colours
-* JSR VDU26 ; Reset windows
-* ; Drop through into VDU12, clear screen
-
-
-VDU12        LDY   VDUBYTES
-             DEY                          ; If VDUBYTE=1, text mode
-             BNE   VDU12SOFT              ; Graphics mode
-             JMP   CLEAR
+VDU12        STZ   FXLINES
+             BIT   VDUSCREEN
+             BMI   VDU12SOFT         ; Graphics mode
 
 * Clear the screen
 CLEAR        STZ   VDUTEXTY               ; ROW
@@ -609,6 +599,11 @@ CLEAR        STZ   VDUTEXTY               ; ROW
              RTS
 VDU12SOFT    JMP   VDU16                  ; *TEMP*
 
+VDU22G       STA   $C050             ; Enable Graphics
+             STA   $C057             ; Hi-Res
+             STA   $C054             ; PAGE1
+             STA   $C00C             ; Select 40col text
+             JMP   VDU16             ; Clear HGR screen
 
 * Clear screen line
 CLRLINE      LDA   VDUTEXTY               ; ROW
