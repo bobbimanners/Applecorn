@@ -699,56 +699,69 @@ CLRLNRET     >>>   ENTAUX
 * Scroll whole screen one line
 SCROLLER     LDA   #$00
 :L1          PHA
-             JSR   SCR1LINE               ; Scroll text screen 1 line
+             JSR   SCR1LINE
              PLA
-             LDY   VDUBYTES
-             DEY                          ; If VDUBYTE=1, text mode
-             BEQ   :TEXTONLY              ; Text mode, skip HGR scroll
-             PHA
-             JSR   HSCR1LINE              ; Scroll HGR screen 1 text line
-             PLA
-:TEXTONLY    INC
+             INC
              CMP   #23
              BNE   :L1
              BIT   VDUSTATUS
-             BVC   :L2                    ; Copy cursor not active
+             BVC   :L2               ; Copy cursor not active
              JSR   COPYSWAP1
              LDA   #11
              JSR   OUTCHARGO
              JSR   COPYSWAP1
 :L2          RTS
 
-* Copy line A+1 to line A
-SCR1LINE     ASL                          ; Dest addr->ZP1
-             TAX
-             LDA   SCNTAB,X
-             STA   ZP1
-             LDA   SCNTAB+1,X
-             STA   ZP1+1
-             INX                          ; Source addr->ZP2
-             INX
-             LDA   SCNTAB,X
-             STA   ZP2
-             LDA   SCNTAB+1,X
-             STA   ZP2+1
-             LDY   #$00
-:L1          LDA   (ZP2),Y
-             STA   (ZP1),Y
-             STA   $C002                  ; Read main mem
-             >>>   WRTMAIN
-             LDA   (ZP2),Y
-             STA   (ZP1),Y
-             STA   $C003                  ; Read aux mem
-             >>>   WRTAUX
-             INY
-             CPY   #40
-             BNE   :L1
-             RTS
-
 * Copy text line A+1 to line A for HGR bitmap gfx mode
+SCR1SOFT
 HSCR1LINE    >>>   XF2MAIN,HGRSCR1L
 HSCR1RET     >>>   ENTAUX
              RTS
+
+* Copy line A+1 to line A
+SCR1LINE     BIT   VDUSCREEN
+             BMI   SCR1SOFT
+             PHA
+             JSR   CHARADDRY         ; VDUADDR=>line A
+             LDX   #2
+:L1          LDA   VDUADDR,X         ; Copy to VDUADDR2
+             STA   VDUADDR2,X
+             DEX
+             BPL   :L1
+             PLA
+             INC   A
+             JSR   CHARADDRY         ; VDUADDR=>line A+1
+             BIT   VDUBANK
+             BMI   SCROLLGS
+             LDY   #39
+:L2          LDA   (VDUADDR),Y
+             STA   (VDUADDR2),Y
+             PHP
+             SEI
+             STA   $C002             ; Read main mem
+             STA   $C004             ; Write main mem
+             LDA   (VDUADDR),Y
+             STA   (VDUADDR2),Y
+             STA   $C003             ; Read aux mem
+             STA   $C005             ; Write aux mem
+             PLP
+             DEY
+             BPL   :L2
+             RTS
+SCROLLGS     LDX   #1
+:L4          LDY   #39
+:L5          DB    $B7,VDUADDR       ; LDA [VDUADDR],Y
+             DB    $97,VDUADDR2      ; STA [VDUADDR2],Y
+             DEY
+             BPL   :L5
+             LDA   VDUBANK
+             EOR   #$01
+             STA   VDUBANK
+             STA   VDUBANK2
+             DEX
+             BPL   :L4
+             RTS
+
 
 * VDU 16 - CLG, clear graphics window
 VDU16        >>>   XF2MAIN,CLRHGR
