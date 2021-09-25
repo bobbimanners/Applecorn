@@ -33,10 +33,15 @@ VDUSTATUS    EQU   $D0                    ; $D0 # VDU status
 * bit 1 = Don't scroll (COPY cursor or VDU 5 mode)
 * bit 0 = VDU 2 printer echo active
 *
-VDUCHAR      EQU   VDUSTATUS+1            ; $D1
-VDUADDR      EQU   VDUSTATUS+4            ; $D4  address of current char cell
-OLDCHAR      EQU   OSKBD1                 ; *TEMP* character under cursor
-COPYCHAR     EQU   OSKBD2                 ; *TEMP* character under copy cursor
+VDUCHAR      EQU   VDUSTATUS+1    ; $D1 current control character
+VDUTEMP      EQU   VDUCHAR        ; &D1
+VDUADDR      EQU   VDUSTATUS+2    ; $D2 address of current char cell
+VDUBANK      EQU   VDUADDR+2      ; $D4 screen bank
+VDUADDR2     EQU   VDUADDR+3      ; $D5 address being scrolled
+VDUBANK2     EQU   VDUBANK+3      ; $D7 screen bank being scrolled
+*
+OLDCHAR      EQU   OSKBD1         ; &EC character under cursor
+COPYCHAR     EQU   OSKBD2         ; &ED character under copy cursor
 
 * VDU DRIVER MAIN WORKSPACE
 ***************************
@@ -66,49 +71,56 @@ VDUCOPYX     EQU   VDUVARS+$1A            ;   absolute COPY text X posn
 VDUCOPYY     EQU   VDUVARS+$1B            ;   absolute COPY text Y posn
 *
 PIXELPLOTX   EQU   VDUVARS+$1C            ;   PLOT graphics X in pixels
-PIXELPLOTY   EQU   VDUVARS+$1E            ;   PLOT graphics Y in pixels
-PIXELPOSNX   EQU   VDUVARS+$20            ;   current graphics X in pixels
-PIXELPOSNY   EQU   VDUVARS+$22            ;   current graphics Y in pixels
-PIXELLASTX   EQU   VDUVARS+$24            ;   last graphics X in pixels
-PIXELLASTY   EQU   VDUVARS+$26            ;   last graphics Y in pixels
+PIXELPLOTY   EQU   VDUVARS+$1E    ;   PLOT graphics Y in pixels
+PIXELPOSNX   EQU   VDUVARS+$20    ;   current graphics X in pixels
+PIXELPOSNY   EQU   VDUVARS+$22    ;   current graphics Y in pixels
+PIXELLASTX   EQU   VDUVARS+$24    ;   last graphics X in pixels
+PIXELLASTY   EQU   VDUVARS+$26    ;   last graphics Y in pixels
+VDURESETEND  EQU   VDUVARS+$27    ;   end of section reset by VDU 26
 *
-CURSOR       EQU   VDUVARS+$28            ;   character used for cursor
-CURSORED     EQU   VDUVARS+$29            ;   character used for edit cursor
-CURSORCP     EQU   VDUVARS+$2A            ;   character used for copy cursor
+CURSOR       EQU   VDUVARS+$28    ;   character used for cursor
+CURSORCP     EQU   VDUVARS+$29    ;   character used for copy cursor
+CURSORED     EQU   VDUVARS+$2A    ;   character used for edit cursor
 *
-VDUQ         EQU   VDUVARS+$2B            ;   $2B..$33
-VDUQLAST     EQU   VDUQ+1                 ;   Neatly becomes VDUVARS+$2C
-VDUQPLOT     EQU   VDUQ+5                 ;   Neatly becomes VDUVARS+$30
+VDUQ         EQU   VDUVARS+$2B    ;   $2B..$33
+VDUQLAST     EQU   VDUQ+1         ;   Neatly becomes VDUVARS+$2C
+VDUQPLOT     EQU   VDUQ+5         ;   Neatly becomes VDUVARS+$30
 *
-VDUBORDER    EQU   VDUVARS+$34            ;   Border colour
-VDUMODE      EQU   VDUVARS+$35            ; # current MODE
-VDUSCREEN    EQU   VDUVARS+$36            ; # MODE type
-TXTFGD       EQU   VDUVARS+$37            ; # Text foreground
-TXTBGD       EQU   VDUVARS+$38            ; # Text background
-GFXFGD       EQU   VDUVARS+$39            ; # Graphics foreground
-GFXBGD       EQU   VDUVARS+$3A            ; # Graphics background
-GFXPLOTFGD   EQU   VDUVARS+$3B            ; # Foreground GCOL action
-GFXPLOTBGD   EQU   VDUVARS+$3C            ; # Background GCOL action
+VDUBORDER    EQU   VDUVARS+$34    ;   border colour
+VDUMODE      EQU   VDUVARS+$35    ; # current MODE
+VDUSCREEN    EQU   VDUVARS+$36    ; # MODE type
+TXTFGD       EQU   VDUVARS+$37    ; # text foreground
+TXTBGD       EQU   VDUVARS+$38    ; # text background
+GFXFGD       EQU   VDUVARS+$39    ; # graphics foreground
+GFXBGD       EQU   VDUVARS+$3A    ; # graphics background
+GFXPLOTFGD   EQU   VDUVARS+$3B    ; # foreground GCOL action
+GFXPLOTBGD   EQU   VDUVARS+$3C    ; # background GCOL action
 VDUVAR3D     EQU   VDUVARS+$3D
 VDUVAR3E     EQU   VDUVARS+$3E
-VDUBYTES     EQU   VDUVARS+$3F            ; # bytes per char, 1=text only
-VDUCOLOURS   EQU   VDUVARS+$40            ; # colours-1
-VDUPIXELS    EQU   VDUVARS+$41            ; # pixels per byte
-VDUWORKSP    EQU   VDUVARS+$42            ;   28 bytes of general workspace
+VDUBYTES     EQU   VDUVARS+$3F    ; # bytes per char, 1=text only
+VDUCOLOURS   EQU   VDUVARS+$40    ; # colours-1
+VDUPIXELS    EQU   VDUVARS+$41    ; # pixels per byte
+VDUWORKSP    EQU   VDUVARS+$42    ;   28 bytes of general workspace
 VDUWORKSZ    EQU   VDUVAREND-VDUWORKSP+1
 *
 
 * Screen definitions
-*                   0  1  2  3  4  5  6  7
-SCNTXTMAXX   DB    79,39,19,79,39,19,39,39  ; Max text column
-SCNTXTMAXY   DB    23,23,23,23,23,23,23,23  ; Max text row
-SCNBYTES     DB    1,1,8,1,1,1,1,1
-SCNCOLOURS   DB    1,1,8,1,1,1,1,1
-SCNTYPE      DB    1,0,128,1,0,0,0,0
+*                           3        6  7
+SCNTXTMAXX   DB   79,39,19,79,39,19,39,39  ; Max text column
+SCNTXTMAXY   DB   23,23,23,23,23,23,23,23  ; Max text row
+*SCNBYTES     DB    1, 1, 1, 1, 1, 1, 1, 1  ; Bytes per character
+SCNBYTES     DB    1, 1, 8, 1, 1, 1, 1, 1  ; Bytes per character
+SCNCOLOURS   DB   15,15,15,15,15,15,15,15  ; Colours-1
+SCNPIXELS    DB    0, 0, 7, 0, 0, 0, 0, 0  ; Pixels per byte
+SCNTYPE      DB    1, 0,128,1, 0, 0, 0,64  ; Screen type
 * b7=FastDraw
 * b6=Teletext
 * b0=40COL/80COL
 *   =
+
+* Colour table
+CLRTRANS     DB   00,01,04,09,02,03,07,10
+             DB   05,08,12,13,06,14,11,15
 
 ********************************************************************
 * Note that we use PAGE2 80 column mode ($800-$BFF in main and aux)
