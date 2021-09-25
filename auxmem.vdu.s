@@ -354,7 +354,12 @@ PRCHR4       JSR   CHARADDR          ; Find character address
              TXA                     ; Get buffer code
              BIT   VDUBANK
              BPL   PRCHR5            ; Not AppleGS, use short write
-             DB    $97,VDUADDR       ; STA [VDUADDR],Y
+             CLC                     ; Enter 65816 native mode
+             XCE
+             SEP   #$30              ; 8-bit M and X
+             STA   [VDUADDR],Y
+             SEC                     ; Return to emulation mode
+             XCE
              BRA   PRCHR8 
 PRCHR5       PHP                     ; Disable IRQs while
              SEI                     ;  toggling memory
@@ -393,7 +398,12 @@ BYTE87
 GETCHRC      JSR   CHARADDR          ; Find character address
              BIT   VDUBANK
              BPL   GETCHR5           ; Not AppleGS, use short read
-             DB    $B7,VDUADDR       ; LDA [VDUADDR],Y
+             CLC                     ; Enter 65816 native mode
+             XCE
+             SEP   #$30              ; 8-bit M and X
+             LDA   [VDUADDR],Y
+             SEC                     ; Enter emulation mode
+             XCE
              BRA   GETCHR7
 GETCHR5      PHP                     ; Disable IRQs while
              SEI                     ;  toggling memory
@@ -606,7 +616,7 @@ VDU22        LDA   VDUQ+8
              JSR   NEGCALL           ; Find machine type
              AND   #$0F
              BEQ   :MODEGS           ; MCHID=$x0 -> Not AppleGS, bank=0
-**DEBUG             LDA   #$E0              ;  Not $x0  -> AppleGS, point to screen bank
+             LDA   #$E0              ;  Not $x0  -> AppleGS, point to screen bank
 :MODEGS      STA   VDUBANK
              LDA   #$01
              JSR   CLRSTATUS         ; Clear everything except PrinterEcho
@@ -750,8 +760,13 @@ SCR1LINE     BIT   VDUSCREEN
              RTS
 SCROLLGS     LDX   #1
 :L4          LDY   #39
-:L5          DB    $B7,VDUADDR       ; LDA [VDUADDR],Y
-             DB    $97,VDUADDR2      ; STA [VDUADDR2],Y
+:L5          CLC                     ; Enter 65816 native mode
+             XCE
+             SEP   #$30              ; 8-bit M and X
+             LDA   [VDUADDR],Y
+             STA   [VDUADDR2],Y
+             SEC                     ; Enter emulation mode
+             XCE
              DEY
              BPL   :L5
              LDA   VDUBANK
