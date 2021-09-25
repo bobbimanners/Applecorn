@@ -13,6 +13,9 @@
 * 09-Sep-2021 New dispatch routine.
 * 22-Sep-2021 More VDU workspace, started MODE definitions.
 * 23-Sep-2021 More or less sorted VDU workspace.
+* 24-Sep-2021 Characters always stored in text buffer even with graphics screen.
+* 24-Sep-2021 AppleGS text written/read via 65816 screen banks.
+* 25-Sep-2021 VDU 22 sets up MODE definitions.
 
 
 **********************************
@@ -536,12 +539,36 @@ VDU31        LDY   VDUQ+8
 
 
 * VDU 26 - Reset to default windows
-VDU26        LDX   VDUMODE
-VDU26A       LDA   SCNTXTMAXX,X
-             STA   TXTWINRGT
-             LDA   SCNTXTMAXY,X
-             STA   TXTWINBOT
+VDU26        LDA   #$F7
+             JSR   CLRSTATUS         ; Clear 'soft window'
+VDU26A       LDX   #VDURESETEND-VDUVARS
+             LDA   #$00
+VDU26LP      STA   VDUVARS,X         ; Clear all windows
+             DEX                     ; and all coords
+             BPL   VDU26LP           ; and origin, etc.
+             LDY   VDUMODE
+             LDA   SCNTXTMAXY,Y
+             STA   TXTWINBOT         ; Text window height
+             STA   GFXWINTOP         ; Graphics height
+             LDX   #GFXWINTOP-VDUVARS
+             LDA   SCNTXTMAXX,Y
+             STA   TXTWINRGT         ; Text window width
+             STA   GFXWINRGT         ; Graphics width
+             LDX   #GFXWINRGT-VDUVARS
+* TO DO *
              RTS
+
+
+
+* VDU 24,left;bottom;right;top; - define graphics window
+VDU24        RTS
+
+* VDU 28,left,bottom,right,top - define text window
+VDU28        RTS
+
+* VDU 29,x;y; - define graphics origin
+VDU29        RTS
+
 
 
 
@@ -736,7 +763,22 @@ VDU16RET     >>>   ENTAUX
              RTS
 
 * VDU 17 - COLOUR n - select text or border colour
-VDU17        RTS
+VDU17        LDA VDUQ+8  ; *TEMP*
+             AND #15
+             TAY
+             LDX CLRTRANS,Y
+             BIT VDUQ+8
+             BPL VDU17FGD
+             BVC VDU17BGD
+             STX $C034
+             RTS
+VDU17BGD     LDA $C022
+             AND #$F0
+             STA $C022
+             TXA
+             ORA $C022
+             STA $C022
+VDU17FGD     RTS
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action
 VDU18        LDA   VDUQ+7                 ; Argument 'k'
@@ -765,13 +807,14 @@ VDU18RET1    >>>   ENTAUX
 VDU19        RTS
 
 * VDU 20 - Reset to default colours
-VDU20        RTS
+VDU20        LDA   #$00 ; *TEMP*
+             STA   $C034
+             LDA   #$F0
+             STA   $C022
+             RTS
 
 * VDU 23 - Program video system and define characters
 VDU23        RTS
-
-* VDU 24,left;bottom;right;top; - define graphics window
-VDU24        RTS
 
 * VDU 25,k,x;y; - PLOT k,x;y; - PLOT point, line, etc.
 * x is in VDUQ+7,VDUQ+8
@@ -832,12 +875,6 @@ HGRPOS       LDA   VDUQ+5
 XPIXEL       DW    $0000                  ; Previous plot x-coord
 YPIXEL       DB    $00                    ; Previous plot y-coord
 
-* VDU 28,left,bottom,right,top - define text window
-VDU28        RTS
-
-* VDU 29,x;y; - define graphics origin
-VDU29        RTS
-
 
 
 
@@ -854,6 +891,9 @@ BYTEA02      LDY   VDUVARS+1,X
              RTS
 
 
+* PRINTER DRIVER
+****************
+* VDU 1 - Send one character to printer
 
 
 
