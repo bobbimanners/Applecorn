@@ -78,7 +78,7 @@ GFXINIT     JSR   FDRAWADDR+0       ; Initialize FDRAW library
 * Plot bitmap character on the HGR screen
 * On entry: char is in A
 DRAWCHAR    >>>   ENTMAIN
-            AND   #$7F
+*            AND   #$7F ; Don't!
             STA   A1L               ; A*8 -> A1L,A1H
             STZ   A1H
             ASL   A1L
@@ -155,7 +155,8 @@ HCLRLINE    >>>   ENTMAIN
 :L1         LDY   #$00
 :L2         STA   (A4L),Y
             INY
-            CPY   #$39
+*            CPY   #$39
+            CPY   #40
             BNE   :L2
             INC   A4H
             INC   A4H
