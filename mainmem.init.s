@@ -85,8 +85,8 @@ RESET       TSX
             LDA   $C05A             ; AN1 off
             LDA   $C05D             ; AN2 on
             LDA   $C05F             ; AN3 on
-**            LDA   #$20              ; PAGE2 shadow on ROM3 GS
-**            TRB   $C035
+            LDA   #$20              ; PAGE2 shadow on ROM3 GS
+            TRB   $C035
             >>>   XF2AUX,AUXMOS
             RTS
 

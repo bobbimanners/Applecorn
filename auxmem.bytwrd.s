@@ -9,6 +9,8 @@
 * 09-Sep-2021 Moved keyboard and VDU OSBYTEs to Keyboard and VDU.
 
 
+             XC                           ; 65c02
+
 *************************
 * OSBYTE DISPATCH TABLE *
 *************************

@@ -12,8 +12,8 @@ START       JSR   CROUT
             JSR   SETPRFX
             JSR   DISCONN
 
-**            LDA   #$20             ; PAGE2 shadow on ROM3 GS
-**            TRB   $C035
+            LDA   #$20             ; PAGE2 shadow on ROM3 GS
+            TRB   $C035
 
             JSR   ROMMENU
             LDA   #>AUXADDR        ; Address in aux
