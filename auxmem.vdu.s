@@ -644,8 +644,6 @@ VDU22        LDA   VDUQ+8
 * Fall through into CLS
 
 VDU12        STZ   FXLINES
-             BIT   VDUSCREEN
-             BMI   VDU12SOFT         ; Graphics mode
 
 * Clear the screen
 CLEAR        STZ   VDUTEXTY               ; ROW
@@ -658,6 +656,8 @@ CLEAR        STZ   VDUTEXTY               ; ROW
              BRA   :L1
 :S3          STZ   VDUTEXTY               ; ROW
              STZ   VDUTEXTX               ; COL
+             BIT   VDUSCREEN
+             BMI   VDU12SOFT         ; Graphics mode
              RTS
 VDU12SOFT    JMP   VDU16                  ; *TEMP*
 
@@ -665,7 +665,7 @@ VDU22G       STA   $C050             ; Enable Graphics
              STA   $C057             ; Hi-Res
              STA   $C054             ; PAGE1
              STA   $C00C             ; Select 40col text
-             JMP   VDU16             ; Clear HGR screen
+             JMP   CLEAR             ; Clear HGR & text screen
 
 * Clear screen line
 CLRLINE      LDA   VDUTEXTY               ; ROW
@@ -734,10 +734,11 @@ HSCR1RET     >>>   ENTAUX
              RTS
 
 * Copy line A+1 to line A
-SCR1LINE     BIT   VDUSCREEN
-             BMI   SCR1SOFT
-             PHA
-             JSR   CHARADDRY         ; VDUADDR=>line A
+SCR1LINE     PHA
+             BIT   VDUSCREEN
+             BPL   :NOSOFT
+             JSR   SCR1SOFT
+:NOSOFT      JSR   CHARADDRY         ; VDUADDR=>line A
              LDX   #2
 :L1          LDA   VDUADDR,X         ; Copy to VDUADDR2
              STA   VDUADDR2,X
