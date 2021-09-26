@@ -354,6 +354,7 @@ PRCHR4       JSR   CHARADDR          ; Find character address
              TXA                     ; Get buffer code
              BIT   VDUBANK
              BPL   PRCHR5            ; Not AppleGS, use short write
+             >>>   WRTMAIN           ; Need this or long write fails!!
              CLC                     ; Enter 65816 native mode
              XCE
              SEP   #$30              ; 8-bit M and X
@@ -361,6 +362,7 @@ PRCHR4       JSR   CHARADDR          ; Find character address
              STA   [VDUADDR],Y
              SEC                     ; Return to emulation mode
              XCE
+             >>>   WRTAUX            ; As we were
              BRA   PRCHR8 
 PRCHR5       PHP                     ; Disable IRQs while
              SEI                     ;  toggling memory
@@ -619,7 +621,7 @@ VDU22        LDA   VDUQ+8
              AND   #$0F
              BEQ   :MODEGS           ; MCHID=$x0 -> Not AppleGS, bank=0
              LDA   #$E0              ;  Not $x0  -> AppleGS, point to screen bank
-             LDA   #$00              ;;; DISABLE GS STUFF
+             LDA   #$00              ;;; DISABLE GS STUFF FOR NOW
 :MODEGS      STA   VDUBANK
              LDA   #$01
              JSR   CLRSTATUS         ; Clear everything except PrinterEcho
