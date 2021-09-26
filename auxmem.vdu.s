@@ -619,6 +619,7 @@ VDU22        LDA   VDUQ+8
              AND   #$0F
              BEQ   :MODEGS           ; MCHID=$x0 -> Not AppleGS, bank=0
              LDA   #$E0              ;  Not $x0  -> AppleGS, point to screen bank
+             LDA   #$00              ;;; DISABLE GS STUFF
 :MODEGS      STA   VDUBANK
              LDA   #$01
              JSR   CLRSTATUS         ; Clear everything except PrinterEcho
