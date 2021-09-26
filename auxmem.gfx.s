@@ -2,6 +2,160 @@
 * (c) Bobbi 2021 GPLv3
 *
 * Graphics operations
+*
+* 26-Sep-2021 All graphics screen code moved to here.
+
+
+* Write character to HGR screen
+PRCHRSOFT    CMP   #$A0              ; Convert to screen code
+             BCS   :B0
+             CMP   #$80
+             BCC   :B0
+             EOR   #$80
+:B0          TAX
+             AND   #$20
+             BNE   :B1
+             TXA
+             EOR   #$40
+             TAX
+:B1          PHX
+             JSR   HCHARADDR              ; Addr in VDUADDR
+             PHP                          ; Disable IRQs while
+             SEI                          ;  toggling memory
+             STA   $C004                  ; Write to main
+             LDA   VDUADDR+0
+             STA   HGRADDR+0
+             LDA   VDUADDR+1
+             STA   HGRADDR+1
+             STA   $C005                  ; Write to aux
+             PLP                          ; Restore IRQs
+             PLA                          ; Recover character
+             >>>   XF2MAIN,DRAWCHAR       ; Plot char on HGR screen
+PUTCHRET     >>>   ENTAUX
+             RTS
+
+HSCR1LINE    >>>   XF2MAIN,HGRSCR1L
+HSCR1RET     >>>   ENTAUX
+             RTS
+
+HSCRCLREOL   LDA   VDUTEXTY
+             ASL
+             TAX
+             >>>   WRTMAIN
+             LDA   HGRTAB+0,X
+             STA   HGRADDR+0
+             LDA   HGRTAB+1,X
+             STA   HGRADDR+1
+             >>>   WRTAUX
+             >>>   XF2MAIN,HCLRLINE
+
+HSCRCLEAR    >>>   XF2MAIN,CLRHGR
+VDU16RET     >>>   ENTAUX
+             STZ   XPIXEL+0
+             STZ   XPIXEL+1
+             LDA   #191
+             STA   YPIXEL
+             RTS
+CLRLNRET     >>>   ENTAUX
+             RTS
+
+
+* X=txt colour
+HSCRSETTCOL  RTS
+
+
+* X=gfx colour, A=gcol action
+* GCOL actions:
+*  0 = SET pixel
+*  1 = ORA with pixel
+*  2 = AND with pixel
+*  3 = XOR with pixel
+*  4 = NOT pixel
+*  5 = NUL no change to pixel
+*  6 = CLR clear pixel to background
+*  7 = UND undefined
+HSCRSETGCOL  PHX
+             LDX   #$00                   ; Normal drawing mode
+             CMP   #$04                   ; k=4 means toggle
+             BNE   :NORM
+             LDX   #$01                   ; Change to toggle mode
+:NORM        >>>   WRTMAIN
+             TXA
+             STX   LINETYPE
+             STX   FDRAWADDR+5
+             >>>   WRTAUX
+             >>>   XF2MAIN,SETLINE
+VDU18RET1    >>>   ENTAUX
+:NORM        PLA                          ; Colour
+             BPL   :FOREGND               ; <128 is foreground
+             >>>   WRTMAIN
+             AND   #$7F
+             STA   BGCOLOR                ; Stored in main memory
+             >>>   WRTAUX
+             RTS
+:FOREGND     >>>   WRTMAIN
+             STA   FGCOLOR                ; Stored in main memory
+             >>>   WRTAUX
+             RTS
+
+* Plot actions, PLOT k,x,y
+* k is in VDUQ+4
+* x is in VDUQ+5,VDUQ+6
+* y is in VDUQ+7,VDUQ+8
+HGRPLOT      JSR   CVTCOORD               ; Convert coordinate system
+HGRPLOT2     LDA   VDUQ+4
+             AND   #$04                   ; Bit 2 set -> absolute
+             BNE   HGRPLOTABS
+             JSR   RELCOORD               ; Add coords to XPIXEL/YPIXEL
+HGRPLOTABS   LDA   VDUQ+4
+             AND   #$03
+             CMP   #$0                    ; Bits 0,1 clear -> just move
+             BNE   HGRPLOTACT
+HGRPLOTPOS   JMP   HGRPOS                 ; Just update pos
+HGRPLOTACT   LDA   VDUQ+4
+             AND   #$C0
+             CMP   #$40                   ; Bit 7 clr, bit 6 set -> point
+             BNE   :LINE
+             >>>   WRTMAIN
+             LDA   VDUQ+4
+             STA   PLOTMODE
+             LDA   VDUQ+5
+             STA   FDRAWADDR+6            ; LSB of X1
+             LDA   VDUQ+6
+             STA   FDRAWADDR+7            ; MSB of X1
+             LDA   VDUQ+7
+             STA   FDRAWADDR+8            ; Y1
+             >>>   WRTAUX
+             >>>   XF2MAIN,DRAWPNT
+:LINE        >>>   WRTMAIN
+             LDA   VDUQ+4
+             STA   PLOTMODE
+             LDA   XPIXEL+0
+             STA   FDRAWADDR+6
+             LDA   XPIXEL+1
+             STA   FDRAWADDR+7
+             LDA   YPIXEL
+             STA   FDRAWADDR+8
+             LDA   VDUQ+5
+             STA   FDRAWADDR+9            ; LSB of X1
+             LDA   VDUQ+6
+             STA   FDRAWADDR+10           ; MSB of X1
+             LDA   VDUQ+7
+             STA   FDRAWADDR+11           ; Y1
+             >>>   WRTAUX
+             >>>   XF2MAIN,DRAWLINE
+VDU25RET     >>>   ENTAUX
+* Fall through into HGRPOS
+* Save pixel X,Y position
+HGRPOS       LDA   VDUQ+5
+             STA   XPIXEL+0
+             LDA   VDUQ+6
+             STA   XPIXEL+1
+             LDA   VDUQ+7
+             STA   YPIXEL
+             RTS
+XPIXEL       DW    $0000                  ; Previous plot x-coord
+YPIXEL       DW    $0000                  ; Previous plot y-coord
 
 * Convert high-resolution screen coordinates
 * from 1280x1024 to 280x192
@@ -59,7 +213,7 @@ CVTCOORD
             ROR   ZP2+0
             LSR   A
             ROR   ZP2+0
-            LSR   A
+:YCOORD4    LSR   A
             ROR   ZP2+0
             LSR   A
             ROR   ZP2+0
@@ -91,6 +245,4 @@ RELCOORD    CLC
             ADC   VDUQ+7
             STA   VDUQ+7
             RTS
-
-
 
