@@ -7,7 +7,6 @@
 * Assembled with the Merlin 8 v2.58 assembler on Apple II.
 
             XC                ; 65c02
-            XC                ; 65816
             ORG   $4000       ; Load addr of loader in main memory
                               ; Clear of first HGR frame buffer
 
