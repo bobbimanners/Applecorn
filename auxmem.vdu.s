@@ -352,7 +352,9 @@ PRCHR4       JSR   CHARADDR               ; Find character address
              TXA                          ; Get character back
              BIT   VDUBANK
 *             BPL   PRCHR5            ; Not AppleGS, use short write
-*             DB    $97,VDUADDR       ; STA [VDUADDR],Y
+*             >>>   WRTMAIN
+*             STA   [VDUADDR],Y
+*             >>>   WRTAUX
 *             BRA   PRCHR8 
 PRCHR5       PHP                          ; Disable IRQs while
              SEI                          ;  toggling memory
@@ -648,7 +650,9 @@ CLREOLOK     RTS
 CLREOLGS     LDX   #1
 :L2          LDY   #39
              LDA   #$A0
-:L3          DB    $97,VDUADDR            ; STA [VDUADDR],Y
+:L3          >>>   WRTMAIN
+             STA   [VDUADDR],Y
+             >>>   WRTAUX
              DEY
              BPL   :L3
              LDA   VDUBANK
@@ -708,8 +712,12 @@ SCR1LINE     PHA
              RTS
 SCROLLGS     LDX   #1
 :L4          LDY   #39
-:L5          DB    $B7,VDUADDR            ; LDA [VDUADDR],Y
-             DB    $97,VDUADDR2           ; STA [VDUADDR2],Y
+:L5          >>>   WRTMAIN
+             STA   $C002                  ; Read main mem
+             LDA   [VDUADDR],Y
+             STA   [VDUADDR2],Y
+             STA   $C003                  ; Read aux mem
+             >>>   WRTAUX
              DEY
              BPL   :L5
              LDA   VDUBANK
