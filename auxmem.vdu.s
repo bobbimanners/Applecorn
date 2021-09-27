@@ -351,11 +351,11 @@ PRCHR3       TXA
 PRCHR4       JSR   CHARADDR               ; Find character address
              TXA                          ; Get character back
              BIT   VDUBANK
-*             BPL   PRCHR5            ; Not AppleGS, use short write
-*             >>>   WRTMAIN
-*             STA   [VDUADDR],Y
-*             >>>   WRTAUX
-*             BRA   PRCHR8 
+             BPL   PRCHR5            ; Not AppleGS, use short write
+             >>>   WRTMAIN
+             STA   [VDUADDR],Y
+             >>>   WRTAUX
+             BRA   PRCHR8 
 PRCHR5       PHP                          ; Disable IRQs while
              SEI                          ;  toggling memory
              BCC   PRCHR6                 ; Aux memory
@@ -374,6 +374,8 @@ PRCHR8       PLA
 * Always read from text screen (which we maintain even in graphics mode)
 BYTE87
 GETCHRC      JSR   CHARADDR               ; Find character address
+             BIT   VDUBANK
+             BMI   GETCHRGS
              PHP                          ; Disable IRQs while
              SEI                          ;  toggling memory
              BCC   GETCHR6                ; Aux memory
@@ -392,6 +394,24 @@ GETCHR7      TYA
              LDY   VDUMODE                ; Y=MODE
              TAX                          ; X=char
 GETCHROK     RTS
+GETCHRGS     PHP                          ; Disable IRQs while
+             SEI                          ;  toggling memory
+             BCC   GETCHR8                ; Aux memory
+             STA   $C002                  ; Switch to main memory
+GETCHR8      LDA   [VDUADDR],Y            ; Get character
+             STA   $C003                  ; Back to aux memory
+             PLP                          ; Restore IRQs
+             TAY                          ; Convert character
+             AND   #$A0
+             BNE   GETCHR9
+             TYA
+             EOR   #$40
+             TAY
+GETCHR9      TYA
+             EOR   #$80
+             LDY   VDUMODE                ; Y=MODE
+             TAX                          ; X=char
+             RTS
 
 
 * OSBYTE &86 - Get text cursor position
@@ -630,8 +650,8 @@ VDU22G       STA   $C050                  ; Enable Graphics
 * Clear to EOL
 CLRLINE
 CLREOL       JSR   CHARADDR               ; Set VDUADDR=>start of line
-*             BIT   VDUBANK
-*             BMI   CLREOLGS          ; AppleGS
+             BIT   VDUBANK
+             BMI   CLREOLGS          ; AppleGS
              LDY   #39
              LDA   #$A0
 :L1          STA   (VDUADDR),Y
@@ -690,8 +710,8 @@ SCR1LINE     PHA
              PHA
              INC   A
              JSR   CHARADDRY              ; VDUADDR=>line A+1
-*             BIT   VDUBANK
-*             BMI   SCROLLGS
+             BIT   VDUBANK
+             BMI   SCROLLGS
              LDY   #39
 :L2          LDA   (VDUADDR),Y
              STA   (VDUADDR2),Y
