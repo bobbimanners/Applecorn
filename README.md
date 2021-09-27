@@ -17,12 +17,9 @@ of memory and a 65C02 processor.  This includes the following:
 - Apple //e Enhanced (but not the original \]\[e, which has a 6502.)
 - Apple //c and //c+
 - Apple IIgs
-  - You must enable the Alt Text Mode CDA!
-  - ROM1: Only the 40 column modes `MODE 6` and `MODE 7` can be used.
-    (This is because the ROM1 GS is unable to shadow PAGE2 80 column.)
-  - ROM3: You may also use the 80 column `MODE 3`.  (Apple fixed the
-    PAGE2 shadowing problem in ROM3. You do still need to run the Alt
-    text mode CDA however.)
+
+Note, for the Apple IIgs, with the latest code (as of September 26, 2021),
+you must NOT enable the "Alternate Text Mode" CDA!
 
 ## How to Run the Software
 
