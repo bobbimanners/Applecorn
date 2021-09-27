@@ -12,8 +12,8 @@ START       JSR   CROUT
             JSR   SETPRFX
             JSR   DISCONN
 
-            LDA   #$20             ; PAGE2 shadow on ROM3 GS
-            TRB   $C035
+            LDA   #$20             ; Turn off PAGE2 shadow on ROM3 GS
+            TSB   $C035
 
             JSR   ROMMENU
             LDA   #>AUXADDR        ; Address in aux
@@ -27,6 +27,15 @@ START       JSR   CROUT
             STA   OPENPL+2
             LDA   #>FDRAWADDR      ; Address in main
             LDX   #<FDRAWADDR
+            CLC                    ; Load into main
+            JSR   LOADCODE
+
+            LDA   #<:FNTFILE
+            STA   OPENPL+1
+            LDA   #>:FNTFILE
+            STA   OPENPL+2
+            LDA   #>FONTADDR       ; Address in main
+            LDX   #<FONTADDR
             CLC                    ; Load into main
             JSR   LOADCODE
 
@@ -68,7 +77,8 @@ START       JSR   CROUT
             STA   $C004            ; Write to main
             >>>   XF2AUX,AUXMOS1
 
-:FDFILE     STR   'FDRAW.FAST'     ; Filename for FDraw lib
+:FDFILE     STR   "FDRAW.FAST"     ; Filename for FDraw lib
+:FNTFILE    STR   "FONT.DAT"       ; Filename for bitmap font
 
 * Load image from file into memory
 * On entry: OPENPL set up to point to file to load
@@ -147,6 +157,14 @@ LOADCODE    PHP                    ; Save carry flag
 :LEN        DB    $00              ; Length of filename
 :CANTOPEN   ASC   "Unable to open "
             DB    $00
+
+
+
+
+
+
+
+
 
 
 

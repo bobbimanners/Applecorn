@@ -17,12 +17,9 @@ of memory and a 65C02 processor.  This includes the following:
 - Apple //e Enhanced (but not the original \]\[e, which has a 6502.)
 - Apple //c and //c+
 - Apple IIgs
-  - You must enable the Alt Text Mode CDA!
-  - ROM1: Only the 40 column modes `MODE 6` and `MODE 7` can be used.
-    (This is because the ROM1 GS is unable to shadow PAGE2 80 column.)
-  - ROM3: You may also use the 80 column `MODE 3`.  (Apple fixed the
-    PAGE2 shadowing problem in ROM3. You do still need to run the Alt
-    text mode CDA however.)
+
+Note, for the Apple IIgs, with the latest code (as of September 26, 2021),
+you must NOT enable the "Alternate Text Mode" CDA!
 
 ## How to Run the Software
 
@@ -73,7 +70,7 @@ Two text video modes and one graphics mode are currently supported:
 - `MODE 6` and `MODE 7` - 40x24 text (in mode 7, chars $80 to $9F are converted
   to spaces)
 - `MODE 3` - 80x24 text.
-- `MODE 2` - Apple II high resolution mode.  The physical resolution is 280x192
+- `MODE 1` - Apple II high resolution mode.  The physical resolution is 280x192
   pixels.  This is mapped onto the normal BBC Micro 1280x1024 virtual resolution,
   with the origin at the bottom left of the screen.
 
@@ -489,7 +486,7 @@ AUX BANK:
 ## Limitations
 
 Applecorn currently has the following limitations:
-- Not all MOS calls are implemented.
+- Most MOS calls are implemented.
 - There is file I/O support for file-orientated (`OSFILE`) file
   operations.  This allows `LOAD` and `SAVE` to work in languages such as
   BASIC or COMAL.
@@ -498,15 +495,9 @@ Applecorn currently has the following limitations:
   languages to work correctly.  For example in BBC BASIC the following
   commands work: `OPENIN`, `OPENOUT`, `OPENUP`, `BGET#` `BPUT#` `PTR#=`,
   `EOF#`, `EXT#`.
-- The VDU driver is quite primitive at present.  Is supports 80 column
-  text mode (`MODE 0`) and 40 column text mode (`MODE 1`).  There is
-  currently no graphics support.
-- Only a limited number of `OSBYTE` and `OSWORD` calls are implemented.
-  More will be added in due course.
+- Many `OSBYTE` and `OSWORD` calls are implemented.
 - Special BBC Micro functions such as sound, A/D interfaces, programmable
   function keys and so on are currently not supported.
-- The Applecorn MOS command line is currently quite limited.  More commands
-  will be added in due course.
 
 
 

@@ -36,92 +36,92 @@ VDUSTATUS    EQU   $D0                    ; $D0 # VDU status
 * bit 1 = Don't scroll (COPY cursor or VDU 5 mode)
 * bit 0 = VDU 2 printer echo active
 *
-VDUCHAR      EQU   VDUSTATUS+1    ; $D1 current control character
-VDUTEMP      EQU   VDUCHAR        ; &D1
-VDUADDR      EQU   VDUSTATUS+2    ; $D2 address of current char cell
-VDUBANK      EQU   VDUADDR+2      ; $D4 screen bank
-VDUADDR2     EQU   VDUADDR+3      ; $D5 address being scrolled
-VDUBANK2     EQU   VDUBANK+3      ; $D7 screen bank being scrolled
+VDUCHAR      EQU   VDUSTATUS+1            ; $D1 current control character
+VDUTEMP      EQU   VDUCHAR                ; &D1
+VDUADDR      EQU   VDUSTATUS+2            ; $D2 address of current char cell
+VDUBANK      EQU   VDUADDR+2              ; $D4 screen bank
+VDUADDR2     EQU   VDUADDR+3              ; $D5 address being scrolled
+VDUBANK2     EQU   VDUBANK+3              ; $D7 screen bank being scrolled
 *
-OLDCHAR      EQU   OSKBD1         ; &EC character under cursor
-COPYCHAR     EQU   OSKBD2         ; &ED character under copy cursor
+OLDCHAR      EQU   OSKBD1                 ; &EC character under cursor
+COPYCHAR     EQU   OSKBD2                 ; &ED character under copy cursor
 
 * VDU DRIVER MAIN WORKSPACE
 ***************************
-FXLINES      EQU   BYTEVARBASE+217   ; Paged scrolling line counter
-FXVDUQLEN    EQU   BYTEVARBASE+218   ; Length of pending VDU queue
+FXLINES      EQU   BYTEVARBASE+217        ; Paged scrolling line counter
+FXVDUQLEN    EQU   BYTEVARBASE+218        ; Length of pending VDU queue
 VDUVARS      EQU   $290
 VDUVAREND    EQU   $2ED
 
-GFXWINLFT    EQU   VDUVARS+$00    ; # graphics window left
-GFXWINBOT    EQU   VDUVARS+$02    ; # graphics window bottom \ window
-GFXWINRGT    EQU   VDUVARS+$04    ; # graphics window right  /  size
-GFXWINTOP    EQU   VDUVARS+$06    ; # graphics window top
-TXTWINLFT    EQU   VDUVARS+$08    ; # text window left
-TXTWINBOT    EQU   VDUVARS+$09    ; # text window bottom \ window
-TXTWINRGT    EQU   VDUVARS+$0A    ; # text window right  /  size
-TXTWINTOP    EQU   VDUVARS+$0B    ; # text window top
-GFXORIGX     EQU   VDUVARS+$0C    ;   graphics X origin
-GFXORIGY     EQU   VDUVARS+$0E    ;   graphics Y origin
+GFXWINLFT    EQU   VDUVARS+$00            ; # graphics window left
+GFXWINBOT    EQU   VDUVARS+$02            ; # graphics window bottom \ window
+GFXWINRGT    EQU   VDUVARS+$04            ; # graphics window right  /  size
+GFXWINTOP    EQU   VDUVARS+$06            ; # graphics window top
+TXTWINLFT    EQU   VDUVARS+$08            ; # text window left
+TXTWINBOT    EQU   VDUVARS+$09            ; # text window bottom \ window
+TXTWINRGT    EQU   VDUVARS+$0A            ; # text window right  /  size
+TXTWINTOP    EQU   VDUVARS+$0B            ; # text window top
+GFXORIGX     EQU   VDUVARS+$0C            ;   graphics X origin
+GFXORIGY     EQU   VDUVARS+$0E            ;   graphics Y origin
 *
-GFXPOSNX     EQU   VDUVARS+$10    ;   current graphics X posn
-GFXPOSNY     EQU   VDUVARS+$12    ;   current graphics Y posn   
-GFXLASTX     EQU   VDUVARS+$14    ;   last graphics X posn
-GFXLASTY     EQU   VDUVARS+$16    ;   last graphics Y posn
-VDUTEXTX     EQU   VDUVARS+$18    ; # absolute text X posn = POS+WINLFT
-VDUTEXTY     EQU   VDUVARS+$19    ; # absolute text Y posn = VPOS+WINTOP
-VDUCOPYX     EQU   VDUVARS+$1A    ;   absolute COPY text X posn
-VDUCOPYY     EQU   VDUVARS+$1B    ;   absolute COPY text Y posn
+GFXPOSNX     EQU   VDUVARS+$10            ;   current graphics X posn
+GFXPOSNY     EQU   VDUVARS+$12            ;   current graphics Y posn   
+GFXLASTX     EQU   VDUVARS+$14            ;   last graphics X posn
+GFXLASTY     EQU   VDUVARS+$16            ;   last graphics Y posn
+VDUTEXTX     EQU   VDUVARS+$18            ; # absolute text X posn = POS+WINLFT
+VDUTEXTY     EQU   VDUVARS+$19            ; # absolute text Y posn = VPOS+WINTOP
+VDUCOPYX     EQU   VDUVARS+$1A            ;   absolute COPY text X posn
+VDUCOPYY     EQU   VDUVARS+$1B            ;   absolute COPY text Y posn
 *
-PIXELPLOTX   EQU   VDUVARS+$1C    ;   PLOT graphics X in pixels
-PIXELPLOTY   EQU   VDUVARS+$1E    ;   PLOT graphics Y in pixels
-PIXELPOSNX   EQU   VDUVARS+$20    ;   current graphics X in pixels
-PIXELPOSNY   EQU   VDUVARS+$22    ;   current graphics Y in pixels
-PIXELLASTX   EQU   VDUVARS+$24    ;   last graphics X in pixels
-PIXELLASTY   EQU   VDUVARS+$26    ;   last graphics Y in pixels
-VDUWINEND    EQU   VDUVARS+$27    ; VDU 26 clears up to here
+PIXELPLOTX   EQU   VDUVARS+$1C            ;   PLOT graphics X in pixels
+PIXELPLOTY   EQU   VDUVARS+$1E            ;   PLOT graphics Y in pixels
+PIXELPOSNX   EQU   VDUVARS+$20            ;   current graphics X in pixels
+PIXELPOSNY   EQU   VDUVARS+$22            ;   current graphics Y in pixels
+PIXELLASTX   EQU   VDUVARS+$24            ;   last graphics X in pixels
+PIXELLASTY   EQU   VDUVARS+$26            ;   last graphics Y in pixels
+VDUWINEND    EQU   VDUVARS+$27            ; VDU 26 clears up to here
 *
-CURSOR       EQU   VDUVARS+$28    ;   character used for cursor
-CURSORCP     EQU   VDUVARS+$29    ;   character used for copy cursor
-CURSORED     EQU   VDUVARS+$2A    ;   character used for edit cursor
+CURSOR       EQU   VDUVARS+$28            ;   character used for cursor
+CURSORCP     EQU   VDUVARS+$29            ;   character used for copy cursor
+CURSORED     EQU   VDUVARS+$2A            ;   character used for edit cursor
 *
-VDUQ         EQU   VDUVARS+$2B    ;   $2B..$33
-VDUQLAST     EQU   VDUQ+1         ;   Neatly becomes VDUVARS+$2C
-VDUQPLOT     EQU   VDUQ+5         ;   Neatly becomes VDUVARS+$30
+VDUQ         EQU   VDUVARS+$2B            ;   $2B..$33
+VDUQLAST     EQU   VDUQ+1                 ;   Neatly becomes VDUVARS+$2C
+VDUQPLOT     EQU   VDUQ+5                 ;   Neatly becomes VDUVARS+$30
 *
-VDUBORDER    EQU   VDUVARS+$34    ;   Border colour
-VDUMODE      EQU   VDUVARS+$35    ; # current MODE
-VDUSCREEN    EQU   VDUVARS+$36    ; # MODE type
-TXTFGD       EQU   VDUVARS+$37    ; # Text foreground
-TXTBGD       EQU   VDUVARS+$38    ; # Text background
-GFXFGD       EQU   VDUVARS+$39    ; # Graphics foreground
-GFXBGD       EQU   VDUVARS+$3A    ; # Graphics background
-GFXPLOTFGD   EQU   VDUVARS+$3B    ; # Foreground GCOL action
-GFXPLOTBGD   EQU   VDUVARS+$3C    ; # Background GCOL action
+VDUBORDER    EQU   VDUVARS+$34            ;   Border colour
+VDUMODE      EQU   VDUVARS+$35            ; # current MODE
+VDUSCREEN    EQU   VDUVARS+$36            ; # MODE type
+TXTFGD       EQU   VDUVARS+$37            ; # Text foreground
+TXTBGD       EQU   VDUVARS+$38            ; # Text background
+GFXFGD       EQU   VDUVARS+$39            ; # Graphics foreground
+GFXBGD       EQU   VDUVARS+$3A            ; # Graphics background
+GFXPLOTFGD   EQU   VDUVARS+$3B            ; # Foreground GCOL action
+GFXPLOTBGD   EQU   VDUVARS+$3C            ; # Background GCOL action
 VDUVAR3D     EQU   VDUVARS+$3D
 VDUVAR3E     EQU   VDUVARS+$3E
-VDUBYTES     EQU   VDUVARS+$3F    ;   bytes per char, 1=text only
-VDUCOLOURS   EQU   VDUVARS+$40    ; # colours-1
-VDUPIXELS    EQU   VDUVARS+$41    ; # pixels per byte
-VDUWORKSP    EQU   VDUVARS+$42    ;   28 bytes of general workspace
+VDUBYTES     EQU   VDUVARS+$3F            ;   bytes per char, 1=text only
+VDUCOLOURS   EQU   VDUVARS+$40            ; # colours-1
+VDUPIXELS    EQU   VDUVARS+$41            ; # pixels per byte
+VDUWORKSP    EQU   VDUVARS+$42            ;   28 bytes of general workspace
 VDUWORKSZ    EQU   VDUVAREND-VDUWORKSP+1
 *
 
 * Screen definitions
 *                     1     3        6  7
-SCNTXTMAXX   DB   79,39,19,79,39,19,39,39  ; Max text column
-SCNTXTMAXY   DB   23,23,23,23,23,23,23,23  ; Max text row
-SCNBYTES     DB    1, 8, 1, 1, 1, 1, 1, 1  ; Bytes per character
-SCNCOLOURS   DB   15,15,15,15,15,15,15,15  ; Colours-1
-SCNPIXELS    DB    0, 7, 0, 0, 0, 0, 0, 0  ; Pixels per byte
-SCNTYPE      DB    1,128,0, 1, 0, 0, 0,64  ; Screen type
+SCNTXTMAXX   DB    79,39,19,79,39,19,39,39  ; Max text column
+SCNTXTMAXY   DB    23,23,23,23,23,23,23,23  ; Max text row
+SCNBYTES     DB    1,8,1,1,1,1,1,1
+SCNCOLOURS   DB    15,15,15,15,15,15,15,15  ; Colours-1
+SCNPIXELS    DB    0,7,0,0,0,0,0,0
+SCNTYPE      DB    1,128,0,1,0,0,0,64
 * b7=FastDraw
 * b6=Teletext
 * b0=40COL/80COL
 
 * Colour table
-CLRTRANS     DB   00,01,04,09,02,03,07,10
-             DB   05,08,12,13,06,14,11,15
+CLRTRANS     DB    00,01,04,09,02,03,07,10
+             DB    05,08,12,13,06,14,11,15
 
 ********************************************************************
 * Note that we use PAGE2 80 column mode ($800-$BFF in main and aux)
@@ -336,35 +336,37 @@ PRCHRC       PHA                          ; Save character
 * Puts character to text screen buffer, then in graphics mode,
 * writes bitmap to graphics screen
 PUTCHRC      PHA
-             EOR   #$80              ; Convert character to screen code
+             EOR   #$80                   ; Convert character to screen code
              TAX
              AND   #$A0
              BNE   PRCHR4
              CPX   #$20
-             BCS   PRCHR3            ; Not $80-$9F
+             BCS   PRCHR3                 ; Not $80-$9F
              BIT   VDUSCREEN
-             BVC   PRCHR3            ; Not teletext
-             LDX   #$E0              ; Convert $80-$9F to space
+             BVC   PRCHR3                 ; Not teletext
+             LDX   #$E0                   ; Convert $80-$9F to space
 PRCHR3       TXA
              EOR   #$40
              TAX
-PRCHR4       JSR   CHARADDR          ; Find character address
-             TXA                     ; Get character back
+PRCHR4       JSR   CHARADDR               ; Find character address
+             TXA                          ; Get character back
              BIT   VDUBANK
-*             BPL   PRCHR5            ; Not AppleGS, use short write
-*             DB    $97,VDUADDR       ; STA [VDUADDR],Y
-*             BRA   PRCHR8 
-PRCHR5       PHP                     ; Disable IRQs while
-             SEI                     ;  toggling memory
-             BCC   PRCHR6            ; Aux memory
-             STA   $C004             ; Switch to main memory
-PRCHR6       STA   (VDUADDR),Y       ; Store it
-PRCHR7       STA   $C005             ; Back to aux memory
-             PLP                     ; Restore IRQs
+             BPL   PRCHR5            ; Not AppleGS, use short write
+             >>>   WRTMAIN
+             STA   [VDUADDR],Y
+             >>>   WRTAUX
+             BRA   PRCHR8 
+PRCHR5       PHP                          ; Disable IRQs while
+             SEI                          ;  toggling memory
+             BCC   PRCHR6                 ; Aux memory
+             STA   $C004                  ; Switch to main memory
+PRCHR6       STA   (VDUADDR),Y            ; Store it
+PRCHR7       STA   $C005                  ; Back to aux memory
+             PLP                          ; Restore IRQs
 PRCHR8       PLA
              BIT   VDUSCREEN
              BPL   GETCHROK
-             JMP   PRCHRSOFT         ; Write character to graphics
+             JMP   PRCHRSOFT              ; Write character to graphics
 
 * OSBYTE &87 - Read character at cursor
 ***************************************
@@ -372,6 +374,8 @@ PRCHR8       PLA
 * Always read from text screen (which we maintain even in graphics mode)
 BYTE87
 GETCHRC      JSR   CHARADDR               ; Find character address
+             BIT   VDUBANK
+             BMI   GETCHRGS
              PHP                          ; Disable IRQs while
              SEI                          ;  toggling memory
              BCC   GETCHR6                ; Aux memory
@@ -390,6 +394,24 @@ GETCHR7      TYA
              LDY   VDUMODE                ; Y=MODE
              TAX                          ; X=char
 GETCHROK     RTS
+GETCHRGS     PHP                          ; Disable IRQs while
+             SEI                          ;  toggling memory
+             BCC   GETCHR8                ; Aux memory
+             STA   $C002                  ; Switch to main memory
+GETCHR8      LDA   [VDUADDR],Y            ; Get character
+             STA   $C003                  ; Back to aux memory
+             PLP                          ; Restore IRQs
+             TAY                          ; Convert character
+             AND   #$A0
+             BNE   GETCHR9
+             TYA
+             EOR   #$40
+             TAY
+GETCHR9      TYA
+             EOR   #$80
+             LDY   VDUMODE                ; Y=MODE
+             TAX                          ; X=char
+             RTS
 
 
 * OSBYTE &86 - Get text cursor position
@@ -403,16 +425,16 @@ BYTE86       LDY   VDUTEXTY
 CHARADDR     LDA   VDUTEXTY
 CHARADDRY    ASL
              TAY
-             LDA   SCNTAB+0,Y        ; LSB of row address
+             LDA   SCNTAB+0,Y             ; LSB of row address
              STA   VDUADDR+0
-             LDA   SCNTAB+1,Y        ; MSB of row address
+             LDA   SCNTAB+1,Y             ; MSB of row address
              STA   VDUADDR+1
              LDA   VDUTEXTX
              BIT   $C01F
              SEC
-             BPL   CHARADDR40        ; 40-col
+             BPL   CHARADDR40             ; 40-col
              LSR   A
-CHARADDR40   TAY                     ; Y=offset into this row
+CHARADDR40   TAY                          ; Y=offset into this row
              LDA   VDUBANK
              AND   #$FE
              BCS   CHARADDROK
@@ -517,20 +539,20 @@ VDU31        LDY   VDUQ+8
 
 * VDU 26 - Reset to default windows
 VDU26        LDA   #$F7
-             JSR   CLRSTATUS         ; Clear 'soft window'
+             JSR   CLRSTATUS              ; Clear 'soft window'
 VDU26A       LDX   #VDUWINEND-VDUVARS
              LDA   #$00
-VDU26LP      STA   VDUVARS,X         ; Clear all windows
-             DEX                     ; and all coords
-             BPL   VDU26LP           ; and origin, etc.
+VDU26LP      STA   VDUVARS,X              ; Clear all windows
+             DEX                          ; and all coords
+             BPL   VDU26LP                ; and origin, etc.
              LDY   VDUMODE
              LDA   SCNTXTMAXY,Y
-             STA   TXTWINBOT         ; Text window height
-             STA   GFXWINTOP         ; Graphics height
+             STA   TXTWINBOT              ; Text window height
+             STA   GFXWINTOP              ; Graphics height
              LDX   #GFXWINTOP-VDUVARS
              LDA   SCNTXTMAXX,Y
-             STA   TXTWINRGT         ; Text window width
-             STA   GFXWINRGT         ; Graphics width
+             STA   TXTWINRGT              ; Text window width
+             STA   GFXWINRGT              ; Graphics width
              LDX   #GFXWINRGT-VDUVARS
 * TO DO *
              RTS
@@ -565,39 +587,39 @@ VDUINIT      STA   VDUQ+8
 * Wait for VSync?
 VDU22        LDA   VDUQ+8
              AND   #$07
-             TAX                     ; Set up MODE
-             STX   VDUMODE           ; Screen MODE
+             TAX                          ; Set up MODE
+             STX   VDUMODE                ; Screen MODE
              LDA   SCNCOLOURS,X
-             STA   VDUCOLOURS        ; Colours-1
+             STA   VDUCOLOURS             ; Colours-1
              LDA   SCNBYTES,X
-             STA   VDUBYTES          ; Bytes per char
+             STA   VDUBYTES               ; Bytes per char
              LDA   SCNPIXELS,X
-             STA   VDUPIXELS         ; Pixels per byte
+             STA   VDUPIXELS              ; Pixels per byte
              LDA   SCNTYPE,X
-             STA   VDUSCREEN         ; Screen type
-             JSR   NEGCALL           ; Find machine type
+             STA   VDUSCREEN              ; Screen type
+             JSR   NEGCALL                ; Find machine type
              AND   #$0F
-             BEQ   :MODEGS           ; MCHID=$x0 -> Not AppleGS, bank=0
-             LDA   #$E0              ;  Not $x0  -> AppleGS, point to screen bank
+             BEQ   :MODEGS                ; MCHID=$x0 -> Not AppleGS, bank=0
+             LDA   #$E0                   ;  Not $x0  -> AppleGS, point to screen bank
 :MODEGS      STA   VDUBANK
              LDA   #$01
-             JSR   CLRSTATUS         ; Clear everything except PrinterEcho
-             LDA   #'_'              ; Set up default cursors
-             STA   CURSOR            ; Normal cursor
-             STA   CURSORCP          ; Copy cursor when editing
+             JSR   CLRSTATUS              ; Clear everything except PrinterEcho
+             LDA   #'_'                   ; Set up default cursors
+             STA   CURSOR                 ; Normal cursor
+             STA   CURSORCP               ; Copy cursor when editing
              LDA   #$A0
-             STA   CURSORED          ; Edit cursor when editing
-             JSR   VDU20             ; Default colours
-             JSR   VDU26             ; Default windows
-             STA   $C052             ; Clear MIXED
+             STA   CURSORED               ; Edit cursor when editing
+             JSR   VDU20                  ; Default colours
+             JSR   VDU26                  ; Default windows
+             STA   $C052                  ; Clear MIXED
              LDA   VDUSCREEN
-             BMI   VDU22G            ; b7=1, graphics mode
-             AND   #$01              ; 40col/80col bit
+             BMI   VDU22G                 ; b7=1, graphics mode
+             AND   #$01                   ; 40col/80col bit
              TAX
-             STA   $C00C,X           ; Select 40col/80col
-             STA   $C051             ; Enable Text
-             STA   $C055             ; PAGE2
-             STA   $C00F             ; Enable alt charset
+             STA   $C00C,X                ; Select 40col/80col
+             STA   $C051                  ; Enable Text
+             STA   $C055                  ; PAGE2
+             STA   $C00F                  ; Enable alt charset
 * Fall through into CLS
 
 VDU12        STZ   FXLINES
@@ -606,30 +628,30 @@ VDU12        STZ   FXLINES
 
 * Clear the text screen buffer
 :L1          JSR   CLREOL
-:S2          LDA   VDUTEXTY          ; ROW
+:S2          LDA   VDUTEXTY               ; ROW
              CMP   #23
              BEQ   :S3
-             INC   VDUTEXTY          ; ROW
+             INC   VDUTEXTY               ; ROW
              BRA   :L1
-:S3          STZ   VDUTEXTY          ; ROW
-             STZ   VDUTEXTX          ; COL
+:S3          STZ   VDUTEXTY               ; ROW
+             STZ   VDUTEXTX               ; COL
              BIT   VDUSCREEN
-             BMI   VDU12SOFT         ; Graphics mode
+             BMI   VDU12SOFT              ; Graphics mode
              RTS
 * Clear the graphics screen buffer
-VDU12SOFT    JMP   VDU16 ; *TEMP*
+VDU12SOFT    JMP   VDU16                  ; *TEMP*
 
-VDU22G       STA   $C050             ; Enable Graphics
-             STA   $C057             ; Hi-Res
-             STA   $C054             ; PAGE1
-             STA   $C00C             ; Select 40col text
-             JMP   VDU12             ; Clear text and HGR screen
+VDU22G       STA   $C050                  ; Enable Graphics
+             STA   $C057                  ; Hi-Res
+             STA   $C054                  ; PAGE1
+             STA   $C00C                  ; Select 40col text
+             JMP   VDU12                  ; Clear text and HGR screen
 
 * Clear to EOL
 CLRLINE
-CLREOL       JSR   CHARADDR          ; Set VDUADDR=>start of line
-*             BIT   VDUBANK
-*             BMI   CLREOLGS          ; AppleGS
+CLREOL       JSR   CHARADDR               ; Set VDUADDR=>start of line
+             BIT   VDUBANK
+             BMI   CLREOLGS          ; AppleGS
              LDY   #39
              LDA   #$A0
 :L1          STA   (VDUADDR),Y
@@ -643,12 +665,14 @@ CLREOL       JSR   CHARADDR          ; Set VDUADDR=>start of line
              BPL   :L1
              BIT   VDUSCREEN
              BPL   CLREOLOK
-             JMP   HSCRCLREOL        ; Clear an HGR line
+             JMP   HSCRCLREOL             ; Clear an HGR line
 CLREOLOK     RTS
 CLREOLGS     LDX   #1
 :L2          LDY   #39
              LDA   #$A0
-:L3          DB    $97,VDUADDR       ; STA [VDUADDR],Y
+:L3          >>>   WRTMAIN
+             STA   [VDUADDR],Y
+             >>>   WRTAUX
              DEY
              BPL   :L3
              LDA   VDUBANK
@@ -656,6 +680,9 @@ CLREOLGS     LDX   #1
              STA   VDUBANK
              DEX
              BPL   :L2
+             BIT   VDUSCREEN
+             BPL   CLREOLOK
+             JMP   HSCRCLREOL             ; Clear an HGR line
              RTS
 
 * Scroll whole screen one line
@@ -667,7 +694,7 @@ SCROLLER     LDA   #$00
              CMP   #23
              BNE   :L1
              BIT   VDUSTATUS
-             BVC   :L2               ; Copy cursor not active
+             BVC   :L2                    ; Copy cursor not active
              JSR   COPYSWAP1
              LDA   #11
              JSR   OUTCHARGO
@@ -676,40 +703,44 @@ SCROLLER     LDA   #$00
 
 * Copy line A+1 to line A
 SCR1LINE     PHA
-             JSR   CHARADDRY         ; VDUADDR=>line A
+             JSR   CHARADDRY              ; VDUADDR=>line A
              LDX   #2
-:L1          LDA   VDUADDR,X         ; Copy to VDUADDR2
+:L1          LDA   VDUADDR,X              ; Copy to VDUADDR2
              STA   VDUADDR2,X
              DEX
              BPL   :L1
              PLA
              PHA
              INC   A
-             JSR   CHARADDRY         ; VDUADDR=>line A+1
-*             BIT   VDUBANK
-*             BMI   SCROLLGS
+             JSR   CHARADDRY              ; VDUADDR=>line A+1
+             BIT   VDUBANK
+             BMI   SCROLLGS
              LDY   #39
 :L2          LDA   (VDUADDR),Y
              STA   (VDUADDR2),Y
              PHP
              SEI
-             STA   $C002             ; Read main mem
-             STA   $C004             ; Write main mem
+             STA   $C002                  ; Read main mem
+             STA   $C004                  ; Write main mem
              LDA   (VDUADDR),Y
              STA   (VDUADDR2),Y
-             STA   $C003             ; Read aux mem
-             STA   $C005             ; Write aux mem
+             STA   $C003                  ; Read aux mem
+             STA   $C005                  ; Write aux mem
              PLP
              DEY
              BPL   :L2
              PLA
-             BIT   VDUSCREEN         ; Also screen graphics screen
+             BIT   VDUSCREEN              ; Also screen graphics screen
              BMI   SCR1SOFT
              RTS
 SCROLLGS     LDX   #1
 :L4          LDY   #39
-:L5          DB    $B7,VDUADDR       ; LDA [VDUADDR],Y
-             DB    $97,VDUADDR2      ; STA [VDUADDR2],Y
+:L5          >>>   WRTMAIN
+             STA   $C002                  ; Read main mem
+             LDA   [VDUADDR],Y
+             STA   [VDUADDR2],Y
+             STA   $C003                  ; Read aux mem
+             >>>   WRTAUX
              DEY
              BPL   :L5
              LDA   VDUBANK
@@ -719,7 +750,7 @@ SCROLLGS     LDX   #1
              DEX
              BPL   :L4
              PLA
-             BIT   VDUSCREEN         ; Also screen graphics screen
+             BIT   VDUSCREEN              ; Also screen graphics screen
              BMI   SCR1SOFT
              RTS
 
@@ -730,7 +761,7 @@ SCR1SOFT     JMP   HSCR1LINE
 VDU16        JMP   HSCRCLEAR
 
 * VDU 20 - Reset to default colours
-VDU20        LDA   #$00 ; *TEMP*
+VDU20        LDA   #$00                   ; *TEMP*
              STA   $C034
              LDA   #$F0
              STA   $C022
@@ -743,23 +774,23 @@ VDU20        LDA   #$00 ; *TEMP*
              RTS
 
 * VDU 17 - COLOUR n - select text or border colour
-VDU17        LDA   VDUQ+8  ; *TEMP*
+VDU17        LDA   VDUQ+8                 ; *TEMP*
              JSR   HSCRSETTCOL
 * TO DO: set local VDU variables
-             AND #15
+             AND   #15
              TAY
-             LDX CLRTRANS,Y
-             BIT VDUQ+8
-             BPL VDU17FGD
-             BVC VDU17BGD
-             STX $C034
+             LDX   CLRTRANS,Y
+             BIT   VDUQ+8
+             BPL   VDU17FGD
+             BVC   VDU17BGD
+             STX   $C034
              RTS
-VDU17BGD     LDA $C022
-             AND #$F0
-             STA $C022
+VDU17BGD     LDA   $C022
+             AND   #$F0
+             STA   $C022
              TXA
-             ORA $C022
-             STA $C022
+             ORA   $C022
+             STA   $C022
 VDU17FGD     RTS
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action

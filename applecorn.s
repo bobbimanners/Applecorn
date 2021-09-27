@@ -7,6 +7,7 @@
 * Assembled with the Merlin 8 v2.58 assembler on Apple II.
 
             XC                ; 65c02
+            XC                ; 65816
             ORG   $4000       ; Load addr of loader in main memory
                               ; Clear of first HGR frame buffer
 
@@ -57,6 +58,9 @@ COPYBUF     EQU   $9200       ; File copy needs separate buffer
 
 * Location of FDraw library in main memory
 FDRAWADDR   EQU   $9400
+
+* Location of FDraw library in main memory
+FONTADDR    EQU   $A900
 
 * Address in aux memory where ROM will be loaded
 AUXADDR     EQU   $8000
@@ -176,6 +180,7 @@ MAINZP      MAC
             PUT   MAINMEM.FSEQU
             PUT   MAINMEM.INIT
             PUT   MAINMEM.SVC
+            PUT   MAINMEM.GFX
             PUT   MAINMEM.PATH
             PUT   MAINMEM.WILD
             PUT   MAINMEM.LISTS
@@ -192,6 +197,18 @@ MAINZP      MAC
 
 * Automatically save the object file:
             SAV   APPLECORN
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
