@@ -680,6 +680,9 @@ CLREOLGS     LDX   #1
              STA   VDUBANK
              DEX
              BPL   :L2
+             BIT   VDUSCREEN
+             BPL   CLREOLOK
+             JMP   HSCRCLREOL             ; Clear an HGR line
              RTS
 
 * Scroll whole screen one line
