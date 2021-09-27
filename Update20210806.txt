@@ -1,5 +1,0 @@
-Updates to Applecorn MOS 06-Aug-2021
-------------------------------------
-
-Dropped rewritten OSBYTE and OSWORD handler into code.
-
