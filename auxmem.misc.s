@@ -398,10 +398,12 @@ IRQBRKHDLR  PHA
             AND   #$10
             BEQ   :IRQ           ; IRQ
             SEC
-            LDA   $0101,X
+            INX
+            LDA   $0100,X
             SBC   #$01
             STA   FAULT
-            LDA   $0102,X
+            INX
+            LDA   $0100,X
             SBC   #$00
             STA   FAULT+1
             PLA
