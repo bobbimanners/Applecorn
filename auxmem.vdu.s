@@ -108,20 +108,21 @@ VDUWORKSZ    EQU   VDUVAREND-VDUWORKSP+1
 *
 
 * Screen definitions
-*                     1     3        6  7
-SCNTXTMAXX   DB    79,39,19,79,39,19,39,39  ; Max text column
-SCNTXTMAXY   DB    23,23,23,23,23,23,23,23  ; Max text row
-SCNBYTES     DB    1,8,1,1,1,1,1,1
-SCNCOLOURS   DB    15,15,15,15,15,15,15,15  ; Colours-1
-SCNPIXELS    DB    0,7,0,0,0,0,0,0
-SCNTYPE      DB    1,128,0,1,0,0,0,64
+*                     1     3        6  7  ; MODEs sort-of completed
+SCNTXTMAXX   DB   79,39,19,79,39,19,39,39  ; Max text column
+SCNTXTMAXY   DB   23,23,23,23,23,23,23,23  ; Max text row
+SCNBYTES     DB   01,08,01,01,01,01,01,01  ; Bytes per character
+SCNCOLOURS   DB   15,15,15,15,15,15,15,15  ; Colours-1
+SCNPIXELS    DB   00,07,00,00,00,00,00,00  ; Pixels per byte
+SCNTYPE      DB   01,128,0,01,00,00,00,64  ; Screen type
 * b7=FastDraw
 * b6=Teletext
 * b0=40COL/80COL
 
 * Colour table
-CLRTRANS     DB    00,01,04,09,02,03,07,10
-             DB    05,08,12,13,06,14,11,15
+CLRTRANS16   DB   00,01,04,08,02,14,11,10
+             DB   05,09,12,13,06,03,07,15
+CLRTRANS8    DB   00,05,01,01,06,02,02,07
 
 ********************************************************************
 * Note that we use PAGE2 80 column mode ($800-$BFF in main and aux)
@@ -224,7 +225,7 @@ CTRLADDRS    DW    VDU00-1,VDU01-1,VDU02-1,VDU03-1
 * VDU 2 - Start print job
 VDU02
 *           JSR   select printer
-             LDA   #$01                   ; Set Printer Echo On
+             LDA   #$01                   ; Set PrinterEcho On
              BNE   SETSTATUS
 
 * VDU 5 - Text at graphics cursor
@@ -779,7 +780,7 @@ VDU17        LDA   VDUQ+8                 ; *TEMP*
 * TO DO: set local VDU variables
              AND   #15
              TAY
-             LDX   CLRTRANS,Y
+             LDX   CLRTRANS16,Y
              BIT   VDUQ+8
              BPL   VDU17FGD
              BVC   VDU17BGD
@@ -794,8 +795,17 @@ VDU17BGD     LDA   $C022
 VDU17FGD     RTS
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action
-VDU18        LDA   VDUQ+7                 ; GCOL action
-             LDX   VDUQ+8                 ; GCOL colour
+VDU18        LDA   VDUQ+8                 ; GCOL colour
+             CMP   #$80
+             AND   #$07
+             TAX
+             LDA   CLRTRANS8,X
+             PHP
+             ROL   A
+             PLP
+             ROR   A
+             TAX
+             LDA   VDUQ+7                 ; GCOL action
 * TO DO: set local VDU variables
              JSR   HSCRSETGCOL
              RTS
