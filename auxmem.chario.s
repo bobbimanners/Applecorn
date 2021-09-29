@@ -56,9 +56,6 @@ WRCHHND      PHA
              PHX
              PHY
 * TO DO Check any output redirections
-*            TSX
-*            LDA   $103,X
-*            PHA
 
              JSR   OUTCHAR
 * TO DO Check any printer output
