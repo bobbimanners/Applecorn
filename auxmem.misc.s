@@ -382,22 +382,26 @@ GSBRKAUX    >>>   IENTAUX        ; IENTAUX does not do CLI
 IRQBRKHDLR  PHA
 * Mustn't enable IRQs within the IRQ handler
 * Do not use WRTMAIN/WRTAUX macros
+            BIT   $C014
             STA   $C004          ; Write to main memory
             STA   $45            ; $45=A for ProDOS IRQ handlers
+            BPL   :NOTAUX
             STA   $C005          ; Write to aux memory
-
-            TXA
+:NOTAUX     TXA
             PHA
             CLD
             TSX
-            LDA   $103,X         ; Get PSW from stack
+            INX                  ; Safe way to do LDA $103,X
+            INX
+            INX
+            LDA   $0100,X        ; Get PSW from stack
             AND   #$10
             BEQ   :IRQ           ; IRQ
             SEC
-            LDA   $0104,X
+            LDA   $0101,X
             SBC   #$01
             STA   FAULT
-            LDA   $0105,X
+            LDA   $0102,X
             SBC   #$00
             STA   FAULT+1
             PLA
