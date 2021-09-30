@@ -16,6 +16,7 @@
 * 26-Sep-2021 Merged together JGH VDU updates and Bobbi GFX updates.
 *             Moved all graphics screen access code to gfx.s
 *             All 65816-specific code disabled.
+* 29-Sep-2021 Windows VDU 26, VDU 28, VDU 29, colours VDU 20.
 
 
 **********************************
@@ -79,7 +80,7 @@ PIXELPOSNX   EQU   VDUVARS+$20            ;   current graphics X in pixels
 PIXELPOSNY   EQU   VDUVARS+$22            ;   current graphics Y in pixels
 PIXELLASTX   EQU   VDUVARS+$24            ;   last graphics X in pixels
 PIXELLASTY   EQU   VDUVARS+$26            ;   last graphics Y in pixels
-VDUWINEND    EQU   VDUVARS+$27            ; VDU 26 clears up to here
+VDUWINEND    EQU   PIXELLASTY+1           ; VDU 26 clears up to here
 *
 CURSOR       EQU   VDUVARS+$28            ;   character used for cursor
 CURSORCP     EQU   VDUVARS+$29            ;   character used for copy cursor
@@ -88,8 +89,9 @@ CURSORED     EQU   VDUVARS+$2A            ;   character used for edit cursor
 VDUQ         EQU   VDUVARS+$2B            ;   $2B..$33
 VDUQLAST     EQU   VDUQ+1                 ;   Neatly becomes VDUVARS+$2C
 VDUQPLOT     EQU   VDUQ+5                 ;   Neatly becomes VDUVARS+$30
+VDUQCOORD    EQU   VDUQ+5
 *
-VDUBORDER    EQU   VDUVARS+$34            ;   Border colour
+VDUVAR34     EQU   VDUVARS+$34
 VDUMODE      EQU   VDUVARS+$35            ; # current MODE
 VDUSCREEN    EQU   VDUVARS+$36            ; # MODE type
 TXTFGD       EQU   VDUVARS+$37            ; # Text foreground
@@ -98,7 +100,9 @@ GFXFGD       EQU   VDUVARS+$39            ; # Graphics foreground
 GFXBGD       EQU   VDUVARS+$3A            ; # Graphics background
 GFXPLOTFGD   EQU   VDUVARS+$3B            ; # Foreground GCOL action
 GFXPLOTBGD   EQU   VDUVARS+$3C            ; # Background GCOL action
-VDUVAR3D     EQU   VDUVARS+$3D
+VDUBORDER    EQU   VDUVARS+$3D            ;   Border colour
+VDUCOLEND    EQU   VDUBORDER              ; VDU 20 clears up to here
+*
 VDUVAR3E     EQU   VDUVARS+$3E
 VDUBYTES     EQU   VDUVARS+$3F            ;   bytes per char, 1=text only
 VDUCOLOURS   EQU   VDUVARS+$40            ; # colours-1
@@ -109,20 +113,20 @@ VDUWORKSZ    EQU   VDUVAREND-VDUWORKSP+1
 
 * Screen definitions
 *                     1     3        6  7  ; MODEs sort-of completed
-SCNTXTMAXX   DB    79,39,19,79,39,19,39,39  ; Max text column
-SCNTXTMAXY   DB    23,23,23,23,23,23,23,23  ; Max text row
-SCNBYTES     DB    01,08,01,01,01,01,01,01  ; Bytes per character
-SCNCOLOURS   DB    15,15,15,15,15,15,15,15  ; Colours-1
-SCNPIXELS    DB    00,07,00,00,00,00,00,00  ; Pixels per byte
-SCNTYPE      DB    01,128,0,01,00,00,00,64  ; Screen type
+SCNTXTMAXX   DB   79,39,19,79,39,19,39,39  ; Max text column
+SCNTXTMAXY   DB   23,23,23,23,23,23,23,23  ; Max text row
+SCNBYTES     DB   01,08,01,01,01,01,01,01  ; Bytes per character
+SCNCOLOURS   DB   15,07,15,01,01,15,01,01  ; Colours-1
+SCNPIXELS    DB   00,07,00,00,00,00,00,00  ; Pixels per byte
+SCNTYPE      DB   01,128,0,01,00,00,00,64  ; Screen type
 * b7=FastDraw
 * b6=Teletext
 * b0=40COL/80COL
 
 * Colour table
-CLRTRANS16   DB    00,01,04,08,02,14,11,10
-             DB    05,09,12,13,06,03,07,15
-CLRTRANS8    DB    00,05,01,01,06,02,02,07
+CLRTRANS16   DB   00,01,04,08,02,14,11,10
+             DB   05,09,12,13,06,03,07,15
+CLRTRANS8    DB   00,05,01,01,06,02,02,07
 
 ********************************************************************
 * Note that we use PAGE2 80 column mode ($800-$BFF in main and aux)
@@ -356,7 +360,7 @@ PRCHR4       JSR   CHARADDR               ; Find character address
              >>>   WRTMAIN
              STA   [VDUADDR],Y
              >>>   WRTAUX
-             BRA   PRCHR8
+             BRA   PRCHR8 
 PRCHR5       PHP                          ; Disable IRQs while
              SEI                          ;  toggling memory
              BCC   PRCHR6                 ; Aux memory
@@ -411,7 +415,7 @@ GETCHR8      LDA   [VDUADDR],Y            ; Get character
 GETCHR9      TYA
              EOR   #$80
              LDY   VDUMODE                ; Y=MODE
-             TAX                          ; X=char
+             TAX                          ; X=char, set EQ/NE
              RTS
 
 
@@ -538,42 +542,12 @@ VDU31        LDY   VDUQ+8
 :DONE        RTS
 
 
-* VDU 26 - Reset to default windows
-VDU26        LDA   #$F7
-             JSR   CLRSTATUS              ; Clear 'soft window'
-VDU26A       LDX   #VDUWINEND-VDUVARS
-             LDA   #$00
-VDU26LP      STA   VDUVARS,X              ; Clear all windows
-             DEX                          ; and all coords
-             BPL   VDU26LP                ; and origin, etc.
-             LDY   VDUMODE
-             LDA   SCNTXTMAXY,Y
-             STA   TXTWINBOT              ; Text window height
-             STA   GFXWINTOP              ; Graphics height
-             LDX   #GFXWINTOP-VDUVARS
-             LDA   SCNTXTMAXX,Y
-             STA   TXTWINRGT              ; Text window width
-             STA   GFXWINRGT              ; Graphics width
-             LDX   #GFXWINRGT-VDUVARS
-* TO DO *
-             RTS
-
-* VDU 24,left;bottom;right;top; - define graphics window
-VDU24        RTS
-
-* VDU 28,left,bottom,right,top - define text window
-VDU28        RTS
-
-* VDU 29,x;y; - define graphics origin
-VDU29        RTS
-
-
 * Initialise VDU driver
 ***********************
 * On entry, A=MODE to start in
 *
 VDUINIT      STA   VDUQ+8
-*            JSR   FONTIMPLODE       ; Reset VDU 23 font
+*           JSR   FONTIMPLODE       ; Reset VDU 23 font
 
 * VDU 22 - MODE n
 *****************
@@ -761,18 +735,30 @@ SCR1SOFT     JMP   HSCR1LINE
 * VDU 16 - CLG, clear graphics window
 VDU16        JMP   HSCRCLEAR
 
+
 * VDU 20 - Reset to default colours
-VDU20        LDA   #$00                   ; *TEMP*
-             STA   $C034
-             LDA   #$F0
-             STA   $C022
+VDU20        LDA   #$F0
+             STA   $C022                  ; Set text palette
+             LDX   #VDUCOLEND-TXTFGD
              LDA   #$00
-             LDX   #$07
-             JSR   HSCRSETGCOL
-             LDA   #$00
-             LDX   #$80
-             JSR   HSCRSETGCOL
-             RTS
+VDU20LP      STA   TXTFGD,X               ; Clear all colours
+             DEX                          ; and gcol actions
+             BPL   VDU20LP
+             STA   $C034                  ; Set border
+             LDA   #$80
+             JSR   HSCRSETTCOL            ; Set txt background
+             LDX   #$00
+             LDA   #$80
+             JSR   HSCRSETGCOL            ; Set gfx background
+             LDA   VDUCOLOURS
+             AND   #$07
+             PHA
+             STA   TXTFGD                 ; Note txt foreground
+             JSR   HSCRSETTCOL            ; Set txt foreground
+             LDX   #$00
+             PLA
+             STA   GFXFGD                 ; Note gfx foreground
+             JMP   HSCRSETGCOL            ; Set gfx foreground
 
 * VDU 17 - COLOUR n - select text or border colour
 VDU17        LDA   VDUQ+8                 ; *TEMP*
@@ -803,8 +789,8 @@ VDU18        LDA   VDUQ+8                 ; GCOL colour
              PHP
              ROL   A
              PLP
-             ROR   A                      ; A=GCOL colour
-             LDX   VDUQ+7                 ; X=GCOL action
+             ROR   A                      ; GCOL colour
+             LDX   VDUQ+7                 ; GCOL action
 * TO DO: set local VDU variables
              JSR   HSCRSETGCOL
              RTS
@@ -812,14 +798,99 @@ VDU18        LDA   VDUQ+8                 ; GCOL colour
 * VDU 19 - Select palette colours
 VDU19        RTS
 
-* VDU 23 - Program video system and define characters
-VDU23        RTS
+
+* VDU 26 - Reset to default windows
+VDU26        LDA   #$F7
+             JSR   CLRSTATUS              ; Clear 'soft window'
+VDU26A       LDX   #VDUWINEND-VDUVARS
+             LDA   #$00
+VDU26LP      STA   VDUVARS,X              ; Clear all windows
+             DEX                          ; and all coords
+             BPL   VDU26LP                ; and origin, etc.
+             LDY   VDUMODE
+             LDA   SCNTXTMAXY,Y
+             STA   TXTWINBOT              ; Text window height
+             LDA   SCNTXTMAXX,Y
+             STA   TXTWINRGT              ; Text window width
+             LDY   VDUPIXELS
+             BEQ   VDU26QUIT              ; No graphics
+             LDX   #GFXWINRGT-VDUVARS
+             JSR   VDU26SCALE             ; GFXWID=TXTWID*PIXELS-1
+             LDA   TXTWINBOT
+             LDY   #8                     ; GFXHGT=TXTHGT*8-1
+             LDX   #GFXWINTOP-VDUVARS
+*
+* Convert text count to pixel count
+* VDUVARS,X=(A+1)*Y-1
+VDU26SCALE   PHA
+             CLC
+             ADC   VDUVARS+0,X
+             ORA   #$01
+             STA   VDUVARS+0,X
+             LDA   VDUVARS+1,X
+             ADC   #$00
+             STA   VDUVARS+1,X
+             PLA
+             DEY
+             BNE   VDU26SCALE
+VDU26QUIT    RTS
+
+* VDU 28,left,bottom,right,top - define text window
+VDU28        LDX   VDUMODE
+             LDA   VDUQCOORD+2            ; right
+             CMP   VDUQCOORD+0            ; left
+             BCC   VDUCOPYEXIT            ; right<left
+             CMP   SCNTXTMAXX,X
+             BEQ   VDU28B
+             BCS   VDUCOPYEXIT            ; right>width
+VDU28B       LDA   VDUQCOORD+1            ; bottom
+             CMP   VDUQCOORD+3            ; top
+             BCC   VDUCOPYEXIT            ; bottom<top
+             CMP   SCNTXTMAXY,X
+             BEQ   VDU28C
+             BCS   VDUCOPYEXIT            ; top>height
+VDU28C       LDY   #TXTWINLFT+3-VDUVARS   ; Copy to txt window params
+             BNE   VDUCOPY4
+
+* VDU 24,left;bottom;right;top; - define graphics window
+VDU24        RTS
+* If right<left, exit
+* If right>width, exit
+* If top<bottom, exit
+* If top>height, exit
+* Scale parameters
+             LDY   #GFXWINLFT+7-VDUVARS   ; Copy to gfx window params
+             LDA   #$08
+             BNE   COPYVDUQ
+
+* VDU 29,x;y; - define graphics origin
+VDU29        LDY   #GFXORIGX+3-VDUVARS    ; Copy to ORIGIN
+
+* Copy four bytes from VDU queue to VDU workspace
+VDUCOPY4     LDA   #$04                   ; 4 bytes to copy
+
+* Copy parameters in VDU Queue to VDU workspace
+COPYVDUQ     LDX   #VDUQ+$08-VDUVARS      ; End of VDU queue
+
+* Copy A bytes from VDUVARS,X to VDUVARS,Y
+VDUCOPY      STA   VDUTEMP
+VDUCOPYLP    LDA   VDUVARS,X
+             STA   VDUVARS,Y
+             DEX
+             DEY
+             DEC   VDUTEMP
+             BNE   VDUCOPYLP
+VDUCOPYEXIT  RTS
+
 
 * VDU 25,k,x;y; - PLOT k,x,y - PLOT point, line, etc.
 * k is in VDUQ+4
 * x is in VDUQ+5,VDUQ+6
 * y is in VDUQ+7,VDUQ+8
-VDU25        JMP   HGRPLOT
+VDU25        LDA   VDUPIXELS
+             BEQ   VDU25NULL
+             JMP   HGRPLOT
+VDU25NULL    RTS
 * TO DO:
 * coord=coord+origin
 * scale coord
@@ -827,6 +898,9 @@ VDU25        JMP   HGRPLOT
 * copy this->last, coord->this
 * check for Escape
 
+
+* VDU 23 - Program video system and define characters
+VDU23        RTS
 
 
 * OSBYTE &A0 - Read VDU variable
@@ -846,6 +920,4 @@ BYTEA02      LDY   VDUVARS+1,X
 ****************
 * VDU 1 - Send one character to printer
 VDU01        RTS
-
-
 
