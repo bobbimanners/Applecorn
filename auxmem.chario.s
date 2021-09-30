@@ -56,9 +56,6 @@ WRCHHND      PHA
              PHX
              PHY
 * TO DO Check any output redirections
-*            TSX
-*            LDA   $103,X
-*            PHA
 
              JSR   OUTCHAR
 * TO DO Check any printer output
@@ -447,6 +444,8 @@ BYTE7DOK     RTS
 
 BYTE76       LDX   #$00                      ; Update LEDs and return X=SHIFT
              RTS                             ; Not possible with Apple
+
+
 
 
 

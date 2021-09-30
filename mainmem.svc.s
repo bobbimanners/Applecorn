@@ -343,7 +343,8 @@ CFILE        >>>   ENTMAIN
              JSR   CLSFILE
              LDA   MOSFILE
              JSR   FINDBUF
-             BCS   :S1
+             CPX   #$FF               ; Not found
+             BEQ   :S1
              LDA   #$00
              STA   FILEREFS,X
 :S1          JMP   FINDEXIT
@@ -1056,6 +1057,8 @@ MAINRDMEM    STA   A1L
              LDA   $C081
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
+
+
 
 
 
