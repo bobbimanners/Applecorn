@@ -113,20 +113,20 @@ VDUWORKSZ    EQU   VDUVAREND-VDUWORKSP+1
 
 * Screen definitions
 *                     1     3        6  7  ; MODEs sort-of completed
-SCNTXTMAXX   DB   79,39,19,79,39,19,39,39  ; Max text column
-SCNTXTMAXY   DB   23,23,23,23,23,23,23,23  ; Max text row
-SCNBYTES     DB   01,08,01,01,01,01,01,01  ; Bytes per character
-SCNCOLOURS   DB   15,07,15,01,01,15,01,01  ; Colours-1
-SCNPIXELS    DB   00,07,00,00,00,00,00,00  ; Pixels per byte
-SCNTYPE      DB   01,128,0,01,00,00,00,64  ; Screen type
+SCNTXTMAXX   DB    79,39,19,79,39,19,39,39  ; Max text column
+SCNTXTMAXY   DB    23,23,23,23,23,23,23,23  ; Max text row
+SCNBYTES     DB    01,08,01,01,01,01,01,01  ; Bytes per character
+SCNCOLOURS   DB    15,07,15,01,01,15,01,01  ; Colours-1
+SCNPIXELS    DB    00,07,00,00,00,00,00,00  ; Pixels per byte
+SCNTYPE      DB    01,128,0,01,00,00,00,64  ; Screen type
 * b7=FastDraw
 * b6=Teletext
 * b0=40COL/80COL
 
 * Colour table
-CLRTRANS16   DB   00,01,04,08,02,14,11,10
-             DB   05,09,12,13,06,03,07,15
-CLRTRANS8    DB   00,05,01,01,06,02,02,07
+CLRTRANS16   DB    00,01,04,08,02,14,11,10
+             DB    05,09,12,13,06,03,07,15
+CLRTRANS8    DB    00,05,01,01,06,02,02,07
 
 ********************************************************************
 * Note that we use PAGE2 80 column mode ($800-$BFF in main and aux)
@@ -360,7 +360,7 @@ PRCHR4       JSR   CHARADDR               ; Find character address
              >>>   WRTMAIN
              STA   [VDUADDR],Y
              >>>   WRTAUX
-             BRA   PRCHR8 
+             BRA   PRCHR8
 PRCHR5       PHP                          ; Disable IRQs while
              SEI                          ;  toggling memory
              BCC   PRCHR6                 ; Aux memory
@@ -920,4 +920,6 @@ BYTEA02      LDY   VDUVARS+1,X
 ****************
 * VDU 1 - Send one character to printer
 VDU01        RTS
+
+
 
