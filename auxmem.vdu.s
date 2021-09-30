@@ -803,9 +803,8 @@ VDU18        LDA   VDUQ+8                 ; GCOL colour
              PHP
              ROL   A
              PLP
-             ROR   A
-             TAX
-             LDA   VDUQ+7                 ; GCOL action
+             ROR   A                      ; A=GCOL colour
+             LDX   VDUQ+7                 ; X=GCOL action
 * TO DO: set local VDU variables
              JSR   HSCRSETGCOL
              RTS
