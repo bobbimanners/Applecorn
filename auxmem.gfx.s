@@ -60,11 +60,11 @@ CLRLNRET     >>>   ENTAUX
              RTS
 
 
-* X=txt colour
+* A=txt colour
 HSCRSETTCOL  RTS
 
 
-* X=gfx colour, A=gcol action
+* A=gfx colour, X=gcol action
 * GCOL actions:
 *  0 = SET pixel
 *  1 = ORA with pixel
@@ -74,15 +74,14 @@ HSCRSETTCOL  RTS
 *  5 = NUL no change to pixel
 *  6 = CLR clear pixel to background
 *  7 = UND undefined
-HSCRSETGCOL  PHX
-             LDX   #$00              ; Normal drawing mode
-             CMP   #$04              ; k=4 means toggle
+HSCRSETGCOL  PHA
+             LDA   #$00              ; Normal drawing mode
+             CPX   #$04              ; k=4 means toggle
              BNE   :NORM
-             LDX   #$01              ; Change to toggle mode
+             LDA   #$01              ; Change to toggle mode
 :NORM        >>>   WRTMAIN
-             TXA
-             STX   LINETYPE
-             STX   FDRAWADDR+5
+             STA   LINETYPE
+             STA   FDRAWADDR+5
              >>>   WRTAUX
              >>>   XF2MAIN,SETLINE
 VDU18RET1    >>>   ENTAUX
