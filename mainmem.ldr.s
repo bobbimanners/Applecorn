@@ -2,6 +2,7 @@
 * (c) Bobbi 2021 GPLv3
 *
 * Applecorn loader code.  Runs in main memory.
+* 01-Oct-2021 Copies MOS code to whole $D000-$FFFF.
 
 * Loads Acorn ROM file (16KB) from disk and writes it
 * to aux memory starting at $08000. Copies Applecorn MOS
@@ -12,8 +13,8 @@ START       JSR   CROUT
             JSR   SETPRFX
             JSR   DISCONN
 
-            LDA   #$20             ; Turn off PAGE2 shadow on ROM3 GS
-            TSB   $C035
+            LDA   #$20             ; PAGE2 shadow on ROM3 GS
+            TRB   $C035
 
             JSR   ROMMENU
             LDA   #>AUXADDR        ; Address in aux
@@ -44,9 +45,9 @@ START       JSR   CROUT
             LDA   #>MOSSHIM
             STA   A1H
 
-            LDA   #<MOSSHIM+$2000  ; End address of MOS shim
+            LDA   #<MOSSHIM+$3000  ; End address of MOS shim
             STA   A2L
-            LDA   #>MOSSHIM+$2000
+            LDA   #>MOSSHIM+$3000
             STA   A2H
 
             LDA   #<AUXMOS1        ; To AUXMOS1 in aux memory
@@ -157,12 +158,6 @@ LOADCODE    PHP                    ; Save carry flag
 :LEN        DB    $00              ; Length of filename
 :CANTOPEN   ASC   "Unable to open "
             DB    $00
-
-
-
-
-
-
 
 
 
