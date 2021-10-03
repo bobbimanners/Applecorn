@@ -4,6 +4,7 @@
 * Graphics operations
 *
 * 26-Sep-2021 All graphics screen code moved to here.
+* 02-Oct-2021 Added temp'y wrapper to HGRPLOT.
 
 
 * Write character to HGR screen
@@ -97,10 +98,37 @@ VDU18RET1    >>>   ENTAUX
              >>>   WRTAUX
              RTS
 
+* TEMP *
+HGRPLOTTER   LDX   #3
+HGRPLOTTER1  LDA   VDUQ+5,X
+             PHA
+             DEX
+             BPL   HGRPLOTTER1
+             JSR   HGRPLOT
+             LDX   #0
+HGRPLOTTER2  LDA   VDUQ+5,X
+             STA   PIXELPLOTX,X
+             PLA
+             STA   VDUQ+5,X
+             INX
+             CPX   #4
+             BCC   HGRPLOTTER2
+             RTS
+* TEMP *
+
 * Plot actions, PLOT k,x,y
 * k is in VDUQ+4
 * x is in VDUQ+5,VDUQ+6
 * y is in VDUQ+7,VDUQ+8
+*
+* Plot actions capable with FastDraw:
+*  $00+x - move/draw lines
+*  $40+x - plot point
+*  $50+x - fill triangle
+*  $60+x - fill rectangle
+*  $90+x - draw circle
+*  $98+x - fill circle
+*
 HGRPLOT      JSR   CVTCOORD          ; Convert coordinate system
 HGRPLOT2     LDA   VDUQ+4
              AND   #$04              ; Bit 2 set -> absolute
@@ -201,6 +229,9 @@ CVTCOORD
              STA   ZP2+1
              LDA   VDUQ+7
              STA   ZP1+0
+             STA   ZP2+0
+             LDA   VDUQ+8
+             JMP   :YCOORD4
              ASL   A                 ; ZP2 *= 2
              ROL   ZP2+1
              CLC                     ; ZP2+ZP1->ZP2
@@ -244,8 +275,4 @@ RELCOORD     CLC
              ADC   VDUQ+7
              STA   VDUQ+7
              RTS
-
-
-
-
 

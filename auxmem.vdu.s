@@ -17,6 +17,7 @@
 *             Moved all graphics screen access code to gfx.s
 *             All 65816-specific code disabled.
 * 29-Sep-2021 Windows VDU 26, VDU 28, VDU 29, colours VDU 20.
+* 01-Oct-2021 VDU 18 (GCOL), start on updating VDU 25 (PLOT).
 
 
 **********************************
@@ -43,6 +44,7 @@ VDUADDR      EQU   VDUSTATUS+2            ; $D2 address of current char cell
 VDUBANK      EQU   VDUADDR+2              ; $D4 screen bank
 VDUADDR2     EQU   VDUADDR+3              ; $D5 address being scrolled
 VDUBANK2     EQU   VDUBANK+3              ; $D7 screen bank being scrolled
+PLOTACTION   EQU   VDUSTATUS+8            ; &D8
 *
 OLDCHAR      EQU   OSKBD1                 ; &EC character under cursor
 COPYCHAR     EQU   OSKBD2                 ; &ED character under copy cursor
@@ -87,7 +89,7 @@ CURSORCP     EQU   VDUVARS+$29            ;   character used for copy cursor
 CURSORED     EQU   VDUVARS+$2A            ;   character used for edit cursor
 *
 VDUQ         EQU   VDUVARS+$2B            ;   $2B..$33
-VDUQLAST     EQU   VDUQ+1                 ;   Neatly becomes VDUVARS+$2C
+VDUQGFXWIND  EQU   VDUQ+1                 ;   Neatly becomes VDUVARS+$2C
 VDUQPLOT     EQU   VDUQ+5                 ;   Neatly becomes VDUVARS+$30
 VDUQCOORD    EQU   VDUQ+5
 *
@@ -275,6 +277,8 @@ CLRSTATUS    AND   VDUSTATUS
              RTS
 
 
+* Editing cursor
+****************
 * Move editing cursor
 * A=cursor key, CS from caller
 COPYMOVE     PHA
@@ -310,6 +314,8 @@ COPYSWAP3    DEX
 COPYSWAP4    RTS
 
 
+* Write character to screen
+***************************
 * Perform backspace & delete operation
 VDU127       JSR   VDU08                  ; Move cursor back
              LDA   #' '                   ; Overwrite with a space
@@ -426,6 +432,7 @@ BYTE86       LDY   VDUTEXTY
              RTS
 
 * Calculate character address
+*****************************
 * NB: VDUBANK at VDUADDR+2 is set by VDU22
 CHARADDR     LDA   VDUTEXTY
 CHARADDRY    ASL
@@ -466,6 +473,9 @@ HCHARADDR    LDA   VDUTEXTY
              RTS
 * (VDUADDR)=>character address, X=preserved
 
+
+* Move text cursor position
+***************************
 * Move cursor left
 VDU08        LDA   VDUTEXTX               ; COL
              BEQ   :S1
@@ -547,7 +557,7 @@ VDU31        LDY   VDUQ+8
 * On entry, A=MODE to start in
 *
 VDUINIT      STA   VDUQ+8
-*           JSR   FONTIMPLODE       ; Reset VDU 23 font
+*            JSR   FONTIMPLODE       ; Reset VDU 23 font
 
 * VDU 22 - MODE n
 *****************
@@ -597,6 +607,9 @@ VDU22        LDA   VDUQ+8
              STA   $C00F                  ; Enable alt charset
 * Fall through into CLS
 
+
+* Clear areas of the screen
+***************************
 VDU12        STZ   FXLINES
              STZ   VDUTEXTX
              STZ   VDUTEXTY
@@ -660,6 +673,9 @@ CLREOLGS     LDX   #1
              JMP   HSCRCLREOL             ; Clear an HGR line
              RTS
 
+
+* Scroll areas of the screen
+****************************
 * Scroll whole screen one line
 SCROLLER     LDA   #$00
 :L1          PHA
@@ -736,6 +752,8 @@ SCR1SOFT     JMP   HSCR1LINE
 VDU16        JMP   HSCRCLEAR
 
 
+* Colour control
+****************
 * VDU 20 - Reset to default colours
 VDU20        LDA   #$F0
              STA   $C022                  ; Set text palette
@@ -761,44 +779,45 @@ VDU20LP      STA   TXTFGD,X               ; Clear all colours
              JMP   HSCRSETGCOL            ; Set gfx foreground
 
 * VDU 17 - COLOUR n - select text or border colour
-VDU17        LDA   VDUQ+8                 ; *TEMP*
-             JSR   HSCRSETTCOL
-* TO DO: set local VDU variables
-             AND   #15
-             TAY
-             LDX   CLRTRANS16,Y
-             BIT   VDUQ+8
-             BPL   VDU17FGD
-             BVC   VDU17BGD
-             STX   $C034
+VDU17        LDA   VDUQ+8
+             CMP   #$C0
+             BCS   VDU17BORDER
+* TO DO *
+             JMP   HSCRSETTCOL
+VDU17BORDER  AND   #$0F
+             STA   VDUBORDER
+             TAX
+             LDA   CLRTRANS16,X
+             STA   $C034
              RTS
-VDU17BGD     LDA   $C022
-             AND   #$F0
-             STA   $C022
-             TXA
-             ORA   $C022
-             STA   $C022
-VDU17FGD     RTS
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action
-VDU18        LDA   VDUQ+8                 ; GCOL colour
+VDU18        LDY   #$02                   ; Y=>gfd settings
+             LDA   VDUQ+8                 ; GCOL colour
+             PHA
              CMP   #$80
-             AND   #$07
-             TAX
-             LDA   CLRTRANS8,X
+             BCC   VDU18A
+             INY                          ; Y=>bgd settings
+VDU18A       LDA   VDUQ+7                 ; GCOL action
+             STA   GFXPLOTFGD-2,Y         ; Store GCOL action
+             TAX                          ; X=GCOL action
+             PLA
+             AND   VDUCOLOURS
+             STA   GFXFGD-2,Y             ; Store GCOL colour
+             TAY
+             LDA   CLRTRANS8,Y            ; Trans. to physical
              PHP
              ROL   A
              PLP
-             ROR   A                      ; GCOL colour
-             LDX   VDUQ+7                 ; GCOL action
-* TO DO: set local VDU variables
-             JSR   HSCRSETGCOL
-             RTS
+             ROR   A                      ; Get bit 7 back
+             JMP   HSCRSETGCOL
 
 * VDU 19 - Select palette colours
 VDU19        RTS
 
 
+* Window (viewport) control
+***************************
 * VDU 26 - Reset to default windows
 VDU26        LDA   #$F7
              JSR   CLRSTATUS              ; Clear 'soft window'
@@ -858,7 +877,7 @@ VDU24        RTS
 * If right>width, exit
 * If top<bottom, exit
 * If top>height, exit
-* Scale parameters
+* scale parameters
              LDY   #GFXWINLFT+7-VDUVARS   ; Copy to gfx window params
              LDA   #$08
              BNE   COPYVDUQ
@@ -883,28 +902,86 @@ VDUCOPYLP    LDA   VDUVARS,X
 VDUCOPYEXIT  RTS
 
 
+* PLOT master dispatch
+**********************
 * VDU 25,k,x;y; - PLOT k,x,y - PLOT point, line, etc.
+*
+* The PLOT canvass extends in four directions, with the visible
+* screen a portion in the positive quadrant.
+*             |
+*  (-ve,+ve)  |  (+ve,+ve)
+*             +---------+
+*             |         |
+*             | visible |
+*             | screen  |
+* ------------+---------+--
+*           (0,0)
+*             |
+*             |
+*  (-ve,-ve)  |  (+ve,-ve)
+*             |
+*             |
+* 
+* PLOT actions occur over the whole canvas, with the result of
+* the actions that cross the visible screen written to the graphics
+* buffer. For example, a trangle draw between (-100,-100), (-100,+100),
+* (+100,+150) will draw a partial triangle in the visible screen.
+* 
 * k is in VDUQ+4
 * x is in VDUQ+5,VDUQ+6
 * y is in VDUQ+7,VDUQ+8
+*
 VDU25        LDA   VDUPIXELS
              BEQ   VDU25NULL
-             JMP   HGRPLOT
-VDU25NULL    RTS
 * TO DO:
 * coord=coord+origin
 * scale coord
-* call HGRPLOT
-* copy this->last, coord->this
-* check for Escape
+* clip to viewport
+
+             JSR   HGRPLOTTER
+
+VDU25NULL    LDX   #7
+VDU25BACKUP1 LDA   PIXELPLOTX+0,X         ; Copy pixel coords
+             STA   PIXELPLOTX+4,X         ; POSN becomes LAST
+             DEX                          ; and PLOT becomes POSN
+             BPL   VDU25BACKUP1
+             LDX   #3                     ; Copy PLOT coords
+VDU25BACKUP2 LDA   GFXPOSNX,X             ; POSN becomes LAST
+             STA   GFXLASTX,X
+             LDA   VDUQPLOT,X             ; and PLOT becomes POSN
+             STA   GFXPOSNX,X
+             DEX
+             BPL   VDU25BACKUP2
+             LDA   $C000                  ; This and PRCHRC need to be
+             EOR   #$80                   ; made more generalised
+             BMI   VDU25EXIT              ; No key pressed
+             JSR   KBDCHKESC              ; Ask KBD to test if Escape
+VDU25EXIT    RTS
 
 
-* VDU 23 - Program video system and define characters
+* Program video system and define characters
+********************************************
 VDU23        RTS
 
 
+* Read from VDU system
+**********************
+* OSWORD &09 - Read POINT
+WORD09       RTS
+
+* OSWORD &0A - Read character bitmap
+WORD0A       RTS
+
+* OSWORD &0B - Read palette
+WORD0B       RTS
+
+* OSWORD &0C - Write palette
+WORD0C       RTS
+
+* OSWORD &0D - Read gfx coords
+WORD0D       RTS
+
 * OSBYTE &A0 - Read VDU variable
-********************************
 BYTEA0       CPX   #$40                   ; Index into VDU variables
              BCC   BYTEA02
              TXA
