@@ -252,6 +252,8 @@ CVTCOORD
              LDA   #191              ; 191 - ZP2 -> Y-coord
              SBC   ZP2+0
              STA   VDUQ+7
+             CMP   #192
+             BCS   :BIGY
              RTS
 :BIGY        STZ   VDUQ+7            ; Y too large, row zero
              STZ   VDUQ+8
