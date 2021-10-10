@@ -145,7 +145,10 @@ HGRPLOTACT   LDA   VDUQ+4
              BEQ   :LINE
              CMP   #$40
              BEQ   :POINT
-             CMP   #$90
+             CMP   #$60
+             BNE   :S1
+             JMP   :RECT
+:S1          CMP   #$90
              BNE   :UNDEF
              JMP   :CIRC
 :UNDEF       RTS
@@ -177,6 +180,23 @@ HGRPLOTACT   LDA   VDUQ+4
              STA   FDRAWADDR+11      ; Y1
              >>>   WRTAUX
              >>>   XF2MAIN,DRAWLINE
+:RECT        >>>   WRTMAIN
+             LDA   VDUQ+4
+             STA   PLOTMODE
+             LDA   XPIXEL+0
+             STA   FDRAWADDR+6
+             LDA   XPIXEL+1
+             STA   FDRAWADDR+7
+             LDA   YPIXEL
+             STA   FDRAWADDR+8
+             LDA   VDUQ+5
+             STA   FDRAWADDR+9       ; LSB of X1
+             LDA   VDUQ+6
+             STA   FDRAWADDR+10      ; MSB of X1
+             LDA   VDUQ+7
+             STA   FDRAWADDR+11      ; Y1
+             >>>   WRTAUX
+             >>>   XF2MAIN,FILLRECT
 :CIRC        >>>   WRTMAIN
              LDA   XPIXEL+0
              STA   FDRAWADDR+6

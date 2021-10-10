@@ -60,6 +60,12 @@ FILLCIRC    >>>   ENTMAIN
             JSR   FDRAWADDR+40      ; FDRAW: FillCircle
             >>>   XF2AUX,VDU25RET
 
+* Call FDraw FillRect routine
+FILLRECT    >>>   ENTMAIN
+            JSR   SETCOLOR
+            JSR   FDRAWADDR+34      ; FDRAW: FillRect
+            >>>   XF2AUX,VDU25RET
+
 * Reset colours and linetype
 GFXINIT     JSR   FDRAWADDR+0       ; Initialize FDRAW library
             LDA   #$20
