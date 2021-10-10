@@ -415,7 +415,7 @@ IRQBRKHDLR  PHA
 :IRQ        >>>   XF2MAIN,A2IRQ  ; Bounce to Apple IRQ handler
 IRQBRKRET
             >>>   IENTAUX        ; IENTAUX does not do CLI
-            PLA                  ; TODO: Pass on to IRQ1V
+            PLA                  ; TO DO: Pass on to IRQ1V
             TAX
             PLA
 NULLRTI     RTI
