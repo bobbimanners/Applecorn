@@ -140,10 +140,16 @@ HGRPLOTABS   LDA   VDUQ+4
              BNE   HGRPLOTACT
 HGRPLOTPOS   JMP   HGRPOS            ; Just update pos
 HGRPLOTACT   LDA   VDUQ+4
-             AND   #$C0
-             CMP   #$40              ; Bit 7 clr, bit 6 set -> point
-             BNE   :LINE
-             >>>   WRTMAIN
+             AND   #$F0
+             CMP   #$00
+             BEQ   :LINE
+             CMP   #$40
+             BEQ   :POINT
+             CMP   #$90
+             BNE   :UNDEF
+             JMP   :CIRC
+:UNDEF       RTS
+:POINT       >>>   WRTMAIN
              LDA   VDUQ+4
              STA   PLOTMODE
              LDA   VDUQ+5
@@ -171,6 +177,19 @@ HGRPLOTACT   LDA   VDUQ+4
              STA   FDRAWADDR+11      ; Y1
              >>>   WRTAUX
              >>>   XF2MAIN,DRAWLINE
+:CIRC        >>>   WRTMAIN
+             LDA   VDUQ+4
+             STA   PLOTMODE
+             LDA   XPIXEL+0
+             STA   FDRAWADDR+6
+             LDA   XPIXEL+1
+             STA   FDRAWADDR+7
+             LDA   YPIXEL
+             STA   FDRAWADDR+8
+             LDA   VDUQ+5
+             STA   FDRAWADDR+12      ; Radius
+             >>>   WRTAUX
+             >>>   XF2MAIN,DRAWCIRC
 VDU25RET     >>>   ENTAUX
 * Fall through into HGRPOS
 * Save pixel X,Y position
