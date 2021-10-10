@@ -93,7 +93,7 @@ WILDNEXT    LDX   MFTEMP        ; Length of MFTEMP
 
 * Different version of WILDNEXT which is used by the *INFO handler
 * Because it needs to intercept each block.
-* TODO: Once this works, refactor/cleanup
+* TO DO: Refactor/cleanup
 WILDNEXT2   LDX   MFTEMP        ; Length of MFTEMP
 :L1         CPX   #$00          ; Find final segment (previous match)
             BEQ   :AGAIN
