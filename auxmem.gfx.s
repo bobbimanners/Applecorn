@@ -178,8 +178,6 @@ HGRPLOTACT   LDA   VDUQ+4
              >>>   WRTAUX
              >>>   XF2MAIN,DRAWLINE
 :CIRC        >>>   WRTMAIN
-             LDA   VDUQ+4
-             STA   PLOTMODE
              LDA   XPIXEL+0
              STA   FDRAWADDR+6
              LDA   XPIXEL+1
@@ -188,8 +186,14 @@ HGRPLOTACT   LDA   VDUQ+4
              STA   FDRAWADDR+8
              LDA   VDUQ+5
              STA   FDRAWADDR+12      ; Radius
+             LDA   VDUQ+4
+             STA   PLOTMODE
              >>>   WRTAUX
+             AND   #$F8
+             CMP   #$98
+             BEQ   :FILLCIRC
              >>>   XF2MAIN,DRAWCIRC
+:FILLCIRC    >>>   XF2MAIN,FILLCIRC
 VDU25RET     >>>   ENTAUX
 * Fall through into HGRPOS
 * Save pixel X,Y position
