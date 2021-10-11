@@ -272,9 +272,9 @@ CVTCOORD
              STA   ZP2+1
              LDA   VDUQ+7
              STA   ZP1+0
-             STA   ZP2+0
-             LDA   VDUQ+8
-             JMP   :YCOORD4
+*             STA   ZP2+0
+*             LDA   VDUQ+8
+*             JMP   :YCOORD4
              ASL   A                 ; ZP2 *= 2
              ROL   ZP2+1
              CLC                     ; ZP2+ZP1->ZP2
