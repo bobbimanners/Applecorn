@@ -651,7 +651,7 @@ FREE        LDA   (OSLPTR),Y          ; First char
             BEQ   :HASPARM
 :ERR        BRK
             DB    $DC
-            ASC   'Syntax: FREE <dry>  (eg: DRIVE :61)'
+            ASC   'Syntax: FREE <dry>  (eg: FREE :61)'
             BRK
 :HASPARM    >>>   XF2MAIN,DRVINFO
 
