@@ -8,16 +8,31 @@
 * 30-Aug-2021 FSC commands moved to here
 *             Command line set by *RUN, and read by OSARGS
 * 20-Sep-2021 *FREE uses new PRDECIMAL routine
+* 12-Oct-2021 OSFIND checks return value from calling maincode.
 
 
+* $B0-$BF Temporary filing system workspace
 FSXREG      EQU   $B0
 FSYREG      EQU   $B1
 FSAREG      EQU   $B2
 FSCTRL      EQU   FSXREG
 FSPTR1      EQU   $B4
 FSPTR2      EQU   $B6
-FSNUM       EQU   $C8                 ; *TEMP*
+* $C0-$CF Persistant filing system workspace
+FSNUM       EQU   $C8 ; *TEMP*
 FSCMDLINE   EQU   $CE
+
+; B0-B3 addr
+; B4-B7 sect
+; B8-BB
+; BC-BF
+; C0-C3 num
+; C4-C5 cblk
+; C6-C7
+; C8-CB
+; CC-CD
+; CE-CF cmd
+
 
 
 * OSFIND - open/close a file for byte access
@@ -36,6 +51,7 @@ FINDHND     PHX
             >>>   XF2MAIN,CFILE
 OSFINDRET
             >>>   ENTAUX
+            JSR   CHKERROR            ; Check if error returned
             PLY                       ; Value of A on entry
             CPY   #$00                ; Was it close?
             BNE   :S1
@@ -98,7 +114,7 @@ OSBGETRET
 *           A=01 Read command line address
 *           X=>4 byte ZP control block
 *           Y=file handle
-* On exit,  A=0  - implemented (except ARGS 0,0)
+* On exit,  A=0 - implemented (except ARGS 0,0)
 *           A   - preserved=unimplemented
 *           X,Y - preserved
 *           control block updated for 'read' calls
@@ -627,7 +643,7 @@ DRIVE       LDA   (OSLPTR),Y          ; First char
             BEQ   :HASPARM
 :ERR        BRK
             DB    $DC
-            ASC   'Syntax: DRIVE <dry>  (eg: DRIVE :61)'
+            ASC   'Syntax: DRIVE <drv>  (eg: DRIVE :61)'
             BRK
 :HASPARM    >>>   XF2MAIN,SETPFX
 
@@ -651,7 +667,7 @@ FREE        LDA   (OSLPTR),Y          ; First char
             BEQ   :HASPARM
 :ERR        BRK
             DB    $DC
-            ASC   'Syntax: FREE <dry>  (eg: FREE :61)'
+            ASC   'Syntax: FREE <drv>  (eg: FREE :61)'
             BRK
 :HASPARM    >>>   XF2MAIN,DRVINFO
 
@@ -671,19 +687,19 @@ FREERET
             LDA   AUXBLK+3            ; MSB of total blks
             SBC   AUXBLK+1            ; MSB of blocks used
             TAY
-            LDA   #$00                ; *TO DO* b16-b23 of free
+            LDA   #$00       ; *TO DO* b16-b23 of free
 * NEW
-            JSR   :FREEDEC            ; Print 'AAYYXX blocks aaayyyxxx bytes '
+            JSR   :FREEDEC   ; Print 'AAYYXX blocks aaayyyxxx bytes '
             LDX   #<:FREE
             LDY   #>:FREE
-            JSR   OUTSTR              ; Print 'free'<nl>
-            LDX   AUXBLK+0            ; Blocks used
+            JSR   OUTSTR     ; Print 'free'<nl>
+            LDX   AUXBLK+0   ; Blocks used
             LDY   AUXBLK+1
-            LDA   #$00                ; *TO DO* b16-b23 of used
-            JSR   :FREEDEC            ; Print 'AAYYXX blocks aaayyyxxx bytes '
+            LDA   #$00       ; *TO DO* b16-b23 of used
+            JSR   :FREEDEC   ; Print 'AAYYXX blocks aaayyyxxx bytes '
             LDX   #<:USED
             LDY   #>:USED
-            JMP   OUTSTR              ; Print 'used'<nl>
+            JMP   OUTSTR     ; Print 'used'<nl>
 
 * OLD
 *            JSR   PRDECXY             ; Print in decimal
@@ -706,20 +722,20 @@ FREERET
             STA   FSNUM+3
 * What's the maximum number of blocks?
 *           JSR   PRHEX           ; Blocks b16-b23 in hex
-            JSR   PR2HEX              ; Blocks b0-b15 in hex
+            JSR   PR2HEX          ; Blocks b0-b15 in hex
             LDX   #<:BLOCKS
             LDY   #>:BLOCKS
-            JSR   OUTSTR              ; ' blocks '
-            STZ   FSNUM+0             ; FSNUM=blocks*512
+            JSR   OUTSTR          ; ' blocks '
+            STZ   FSNUM+0         ; FSNUM=blocks*512
             ASL   FSNUM+1
             ROL   FSNUM+2
             ROL   FSNUM+3
-            LDX   #FSNUM              ; X=>number to print
-            LDY   #8                  ; Y=pad up to 8 digits
-            JSR   PRINTDEC            ; Print it in decimal
+            LDX   #FSNUM          ; X=>number to print
+            LDY   #8              ; Y=pad up to 8 digits
+            JSR   PRINTDEC        ; Print it in decimal
             LDX   #<:BYTES
             LDY   #>:BYTES
-            JMP   OUTSTR              ; ' bytes '
+            JMP   OUTSTR          ; ' bytes '
 :BLOCKS     ASC   ' blocks '
             DB    0
 :BYTES      ASC   ' bytes '
@@ -915,85 +931,67 @@ MKERROR4
 
 *       AcornOS                     ProDOS
 ERROR40     DW    $CC00
-            ASC   'Bad filename'      ; $40 - Invalid pathname syntax
+            ASC   'Bad filename'        ; $40 - Invalid pathname syntax
 ERROR41     DW    $C400
-            ASC   'Directory exists'  ; $41 - Duplicate filename (split from $47)
+            ASC   'Directory exists'    ; $41 - Duplicate filename (split from $47)
 ERROR42     DW    $C000
-            ASC   'Too many open'     ; $42 - File Control Block table full
+            ASC   'Too many open'       ; $42 - File Control Block table full
 ERROR43     DW    $DE00
-            ASC   'Channel not open'  ; $43 - Invalid reference number
-ERROR44                               ; $44 - Path not found
+            ASC   'Channel not open'    ; $43 - Invalid reference number
+ERROR44                                 ; $44 - Path not found
 ERROR46     DW    $D600
-            ASC   'File not found'    ; $46 - File not found
+            ASC   'File not found'      ; $46 - File not found
 ERROR45     DW    $D600
-            ASC   'Disk not found'    ; $45 - Volume directory not found
+            ASC   'Disk not found'      ; $45 - Volume directory not found
 ERROR47     DW    $C400
-            ASC   'File exists'       ; $47 - Duplicate filename (see also $41)
+            ASC   'File exists'         ; $47 - Duplicate filename (see also $41)
 ERROR48     DW    $C600
-            ASC   'Disk full'         ; $48 - Overrun error
+            ASC   'Disk full'           ; $48 - Overrun error
 ERROR49     DW    $B300
-            ASC   'Directory full'    ; $49 - Volume directory full
-ERROR4A                               ; $4A - Incompatible file format
-ERROR4B                               ; $4B - Unsupported storage_type
+            ASC   'Directory full'      ; $49 - Volume directory full
+ERROR4A                                 ; $4A - Incompatible file format
+ERROR4B                                 ; $4B - Unsupported storage_type
 ERROR52     DW    $C800
-            ASC   'Disk not recognised'  ; $52 - Not a ProDOS disk
+            ASC   'Disk not recognised' ; $52 - Not a ProDOS disk
 ERROR4C     DW    $DF00
-            ASC   'End of file'       ; $4C - End of file has been encountered
+            ASC   'End of file'         ; $4C - End of file has been encountered
 ERROR4D     DW    $C100
-            ASC   'Not open for update'  ; $4D - Position out of range
+            ASC   'Not open for update' ; $4D - Position out of range
 ERROR4E     DW    $BD00
-            ASC   'Insufficient access'  ; $4E - Access error (see also $4F)
+            ASC   'Insufficient access' ; $4E - Access error (see also $4F)
 ERROR4F     DW    $C300
-            ASC   'Locked'            ; $4F - Access error (split from $4E)
+            ASC   'Locked'              ; $4F - Access error (split from $4E)
 ERROR50     DW    $C200
             ASC   'Can'
             DB    $27
-            ASC   't - file open'     ; $50 - File is open
+            ASC   't - file open'       ; $50 - File is open
 ERROR51     DW    $A800
-            ASC   'Broken directory'  ; $51 - Directory count error
+            ASC   'Broken directory'    ; $51 - Directory count error
 ERROR53     DW    $DC00
-            ASC   'Invalid parameter'  ; $53 - Invalid parameter
+            ASC   'Invalid parameter'   ; $53 - Invalid parameter
 ERROR54     DW    $D400
-            ASC   'Directory not empty'  ; $54 - Directory not empty
+            ASC   'Directory not empty' ; $54 - Directory not empty
 ERROR55     DW    $FF00
-            ASC   'ProDOS: VCB full'  ; $55 - Volume Control Block table full
+            ASC   'ProDOS: VCB full'    ; $55 - Volume Control Block table full
 ERROR56     DW    $FF00
-            ASC   'ProDOS: Bad addr'  ; $56 - Bad buffer address
+            ASC   'ProDOS: Bad addr'    ; $56 - Bad buffer address
 ERROR57     DW    $FF00
-            ASC   'ProDOS: Dup volm'  ; $57 - Duplicate volume
-ERROR5B                               ; spare
+            ASC   'ProDOS: Dup volm'    ; $57 - Duplicate volume
+ERROR5B                                 ; spare
 ERROR27     DW    $FF00
-            ASC   'I/O error'         ; $27 - I/O error
+            ASC   'I/O error'           ; $27 - I/O error
 ERROR28     DW    $D200
-            ASC   'Disk not present'  ; $28 - No device detected/connected
+            ASC   'Disk not present'    ; $28 - No device detected/connected
 ERROR5A     DW    $FF00
-            ASC   'Sector not found'  ; $5A - Bit map disk address is impossible
+            ASC   'Sector not found'    ; $5A - Bit map disk address is impossible
 ERROR2B     DW    $C900
-            ASC   'Disk write protected'  ; $2B - Disk write protected
+            ASC   'Disk write protected'; $2B - Disk write protected
 ERROR5D     DW    $CA00
-            ASC   'Data lost'         ; $5D - EOF during LOAD or SAVE
+            ASC   'Data lost'           ; $5D - EOF during LOAD or SAVE
 ERROR5E     DW    $C000
             ASC   'Can'
             DB    $27
-            ASC   't save'            ; $5E - Couldn't open for save
+            ASC   't save'              ; $5E - Couldn't open for save
 ERROR2E     DW    $C800
-            ASC   'Disk changed'      ; $2E - Disk switched
+            ASC   'Disk changed'        ; $2E - Disk switched
             DB    $00
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
