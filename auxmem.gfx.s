@@ -140,10 +140,19 @@ HGRPLOTABS   LDA   VDUQ+4
              BNE   HGRPLOTACT
 HGRPLOTPOS   JMP   HGRPOS            ; Just update pos
 HGRPLOTACT   LDA   VDUQ+4
-             AND   #$C0
-             CMP   #$40              ; Bit 7 clr, bit 6 set -> point
-             BNE   :LINE
-             >>>   WRTMAIN
+             AND   #$F0
+             CMP   #$00
+             BEQ   :LINE
+             CMP   #$40
+             BEQ   :POINT
+             CMP   #$60
+             BNE   :S1
+             JMP   :RECT
+:S1          CMP   #$90
+             BNE   :UNDEF
+             JMP   :CIRC
+:UNDEF       RTS
+:POINT       >>>   WRTMAIN
              LDA   VDUQ+4
              STA   PLOTMODE
              LDA   VDUQ+5
@@ -171,6 +180,40 @@ HGRPLOTACT   LDA   VDUQ+4
              STA   FDRAWADDR+11      ; Y1
              >>>   WRTAUX
              >>>   XF2MAIN,DRAWLINE
+:RECT        >>>   WRTMAIN
+             LDA   VDUQ+4
+             STA   PLOTMODE
+             LDA   XPIXEL+0
+             STA   FDRAWADDR+6
+             LDA   XPIXEL+1
+             STA   FDRAWADDR+7
+             LDA   YPIXEL
+             STA   FDRAWADDR+8
+             LDA   VDUQ+5
+             STA   FDRAWADDR+9       ; LSB of X1
+             LDA   VDUQ+6
+             STA   FDRAWADDR+10      ; MSB of X1
+             LDA   VDUQ+7
+             STA   FDRAWADDR+11      ; Y1
+             >>>   WRTAUX
+             >>>   XF2MAIN,FILLRECT
+:CIRC        >>>   WRTMAIN
+             LDA   XPIXEL+0
+             STA   FDRAWADDR+6
+             LDA   XPIXEL+1
+             STA   FDRAWADDR+7
+             LDA   YPIXEL
+             STA   FDRAWADDR+8
+             LDA   VDUQ+5
+             STA   FDRAWADDR+12      ; Radius
+             LDA   VDUQ+4
+             STA   PLOTMODE
+             >>>   WRTAUX
+             AND   #$F8
+             CMP   #$98
+             BEQ   :FILLCIRC
+             >>>   XF2MAIN,DRAWCIRC
+:FILLCIRC    >>>   XF2MAIN,FILLCIRC
 VDU25RET     >>>   ENTAUX
 * Fall through into HGRPOS
 * Save pixel X,Y position
@@ -229,9 +272,9 @@ CVTCOORD
              STA   ZP2+1
              LDA   VDUQ+7
              STA   ZP1+0
-             STA   ZP2+0
-             LDA   VDUQ+8
-             JMP   :YCOORD4
+*             STA   ZP2+0
+*             LDA   VDUQ+8
+*             JMP   :YCOORD4
              ASL   A                 ; ZP2 *= 2
              ROL   ZP2+1
              CLC                     ; ZP2+ZP1->ZP2

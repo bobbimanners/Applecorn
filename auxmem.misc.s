@@ -76,7 +76,6 @@ BEEP        PHA
             PLA
             RTS
 
-
 * Print string pointed to by X,Y to the screen
 OUTSTR      TXA
 
@@ -134,48 +133,92 @@ PRDECPAD    STX   OSNUM+0
             STY   OSNUM+1
             STZ   OSNUM+2
             STZ   OSNUM+3
-:PRDEC16    LDY   #$05       ; 5 digits
-            LDX   #OSNUM     ; number stored in OSNUM
+:PRDEC16    LDY   #$05           ; 5 digits
+            LDX   #OSNUM         ; number stored in OSNUM
 
 * Print up to 32-bit decimal number
 * See forum.6502.org/viewtopic.php?f=2&t=4894
-* and groups.google.com/g/comp.sys.apple2/c/_y27d_TxDHA
-*
 * X=>four byte zero page locations
-* Y= number of digits to pad to, 0 for no padding
+* Y= number of digits, 0 for no padding
 *
-PRINTDEC    sty   OSPAD      ; Number of padding+digits
-            ldy   #0         ; Digit counter
-PRDECDIGIT  lda   #32        ; 32-bit divide
+PRINTDEC    sty   OSPAD          ; Number of padding+digits
+            ldy   #0             ; Digit counter
+PRDECDIGIT  lda   #32            ; 32-bit divide
             sta   OSTEMP
-            lda   #0         ; Remainder=0
-            clv              ; V=0 means div result = 0
-PRDECDIV10  cmp   #10/2      ; Calculate OSNUM/10
+            lda   #0             ; Remainder=0
+            clv                  ; V=0 means div result = 0
+PRDECDIV10  cmp   #10/2          ; Calculate OSNUM/10
             bcc   PRDEC10
-            sbc   #10/2+$80  ; Remove digit & set V=1 to show div result > 0
-            sec              ; Shift 1 into div result
-PRDEC10     rol   0,x        ; Shift /10 result into OSNUM
+            sbc   #10/2+$80      ; Remove digit & set V=1 to show div result > 0
+            sec                  ; Shift 1 into div result
+PRDEC10     rol   0,x            ; Shift /10 result into OSNUM
             rol   1,x
             rol   2,x
             rol   3,x
-            rol   a          ; Shift bits of input into acc (input mod 10)
+            rol   a              ; Shift bits of input into acc (input mod 10)
             dec   OSTEMP
-            bne   PRDECDIV10 ; Continue 32-bit divide
+            bne   PRDECDIV10     ; Continue 32-bit divide
             ora   #48
-            pha              ; Push low digit 0-9 to print
+            pha                  ; Push low digit 0-9 to print
             iny
-            bvs   PRDECDIGIT ; If V=1, result of /10 was > 0 & do next digit
+            bvs   PRDECDIGIT     ; If V=1, result of /10 was > 0 & do next digit
             lda   #32
 PRDECLP1    cpy   OSPAD
-            bcs   PRDECLP2   ; Enough padding pushed
-            pha              ; Push leading space characters
+            bcs   PRDECLP2       ; Enough padding pushed
+            pha                  ; Push leading space characters
             iny
             bne   PRDECLP1
-PRDECLP2    pla              ; Pop character left to right
-            jsr   OSWRCH     ; Print it
+PRDECLP2    pla                  ; Pop character left to right
+            jsr   OSWRCH         ; Print it
             dey
             bne   PRDECLP2
             rts
+
+
+** Print 16-bit value in XY in decimal
+** beebwiki.mdfs.net/Number_output_in_6502_machine_code
+*OSNUM       EQU   OSTEXT+0
+*OSPAD       EQU   OSTEXT+4
+*
+*PRDECXY     LDA   #' '
+*PRDECPAD    STA   OSPAD
+*            STX   OSNUM+0
+*            STY   OSNUM+1
+*:PRDEC16    LDY   #$08           ; Five digits (5-1)*2
+*:LP1        LDX   #$FF
+*            SEC
+*:LP2        LDA   OSNUM+0
+*            SBC   :TENS+0,Y
+*            STA   OSNUM+0
+*            LDA   OSNUM+1
+*            SBC   :TENS+1,Y
+*            STA   OSNUM+1
+*            INX
+*            BCS   :LP2
+*            LDA   OSNUM+0
+*            ADC   :TENS+0,Y
+*            STA   OSNUM+0
+*            LDA   OSNUM+1
+*            ADC   :TENS+1,Y
+*            STA   OSNUM+1
+*            TXA
+*            BNE   :DIGIT
+*            LDA   OSPAD
+*            BNE   :PRINT
+*            BEQ   :NEXT
+*:DIGIT      LDX   #'0'
+*            STX   OSPAD
+*            ORA   #'0'
+*:PRINT      JSR   OSWRCH
+*:NEXT       DEY
+*            DEY
+*            BPL   :LP1
+*            RTS
+*:TENS       DW    1
+*            DW    10
+*            DW    100
+*            DW    1000
+*            DW    10000
 
 
 * GSINIT - Initialise for GSTRANS string parsing
@@ -339,22 +382,28 @@ GSBRKAUX    >>>   IENTAUX        ; IENTAUX does not do CLI
 IRQBRKHDLR  PHA
 * Mustn't enable IRQs within the IRQ handler
 * Do not use WRTMAIN/WRTAUX macros
+            BIT   $C014
             STA   $C004          ; Write to main memory
             STA   $45            ; $45=A for ProDOS IRQ handlers
+            BPL   :NOTAUX
             STA   $C005          ; Write to aux memory
-
-            TXA
+:NOTAUX     TXA
             PHA
             CLD
             TSX
-            LDA   $103,X         ; Get PSW from stack
+            INX                  ; Safe way to do LDA $103,X
+            INX
+            INX
+            LDA   $0100,X        ; Get PSW from stack
             AND   #$10
             BEQ   :IRQ           ; IRQ
             SEC
-            LDA   $0104,X
+            INX
+            LDA   $0100,X
             SBC   #$01
             STA   FAULT
-            LDA   $0105,X
+            INX
+            LDA   $0100,X
             SBC   #$00
             STA   FAULT+1
             PLA
@@ -366,7 +415,7 @@ IRQBRKHDLR  PHA
 :IRQ        >>>   XF2MAIN,A2IRQ  ; Bounce to Apple IRQ handler
 IRQBRKRET
             >>>   IENTAUX        ; IENTAUX does not do CLI
-            PLA                  ; TODO: Pass on to IRQ1V
+            PLA                  ; TO DO: Pass on to IRQ1V
             TAX
             PLA
 NULLRTI     RTI
@@ -389,7 +438,7 @@ MOSBRKHDLR  LDA   #<MSGBRK
 STOP        JMP   STOP           ; Cannot return from a BRK
 
 MSGBRK      DB    $0D
-            ASC   'ERROR: '
+            ASC   "ERROR: "
             DB    $00
 
 
@@ -488,4 +537,22 @@ MOSVEND
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      ASC   '**ENDOFCODE**'
             DS    $200-13
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

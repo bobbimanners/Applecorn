@@ -651,7 +651,7 @@ FREE        LDA   (OSLPTR),Y          ; First char
             BEQ   :HASPARM
 :ERR        BRK
             DB    $DC
-            ASC   'Syntax: FREE <dry>  (eg: DRIVE :61)'
+            ASC   'Syntax: FREE <dry>  (eg: FREE :61)'
             BRK
 :HASPARM    >>>   XF2MAIN,DRVINFO
 
@@ -979,6 +979,8 @@ ERROR5E     DW    $C000
 ERROR2E     DW    $C800
             ASC   'Disk changed'      ; $2E - Disk switched
             DB    $00
+
+
 
 
 
