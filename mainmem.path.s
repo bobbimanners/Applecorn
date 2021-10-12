@@ -75,7 +75,8 @@ PREPATH     LDX   MOSFILE      ; Length
 :EXIT       JSR   DIGCONV      ; Handle initial digits
             CLC
             RTS
-:ERR        SEC
+:ERR        LDA   #$40         ; $40=Bad filename
+            SEC
             RTS
 
 * Convert path in PREFIX by removing leaf dir to leave
@@ -290,24 +291,6 @@ PFXtoMF     LDA   #<PREFIX
 
 MFTEMP      DS    65           ; Temp copy of MOSFILE
 PREFIX      DS    65           ; Buffer for ProDOS prefix
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
