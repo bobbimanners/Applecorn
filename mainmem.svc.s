@@ -9,6 +9,12 @@
 *        All start with PREPATH, UPDFB, COPYFB then branch
 *        to relevent routine.
 
+* 12-Oct-2021 OSFIND exits with bad filename, allows OPENIN(dir),
+*             exits with MFI error, returns error if no more buffers,
+*             OPENOUT doesn't try to delete if nothing to delete.
+* 13-Oct-2021 OSFIND implementes CLOSE#0.
+
+
 INFOFILE     >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess path
              JSR   UPDFB              ; Update FILEBLK
@@ -280,23 +286,31 @@ COPY1FILE    LDA   #<MOSFILE
 * ProDOS file handling for MOS OSFIND OPEN call
 * Options in A: $40 'r', $80 'w', $C0 'rw'
 OFILE        >>>   ENTMAIN
+             AND   #$C0               ; Keep just action bits
              PHA                      ; Preserve arg for later
              JSR   PREPATH            ; Preprocess pathname
+             BCS   :JMPEXIT           ; Bad filename
              PLA
              PHA
              CMP   #$80               ; Is it "w"?
              BEQ   :NOWILD            ; If so, no wildcards
              JSR   WILDONE            ; Handle any wildcards
 :NOWILD      JSR   EXISTS             ; See if file exists ...
+             TAX
              CMP   #$02               ; ... and is a directory
              BNE   :NOTDIR
-             JMP   :NOTFND            ; Bail out if directory
+             PLA                      ; Get action back
+             BPL   :NOTDIR2           ; OPENIN(dir) allowed
+             LDA   #$41               ; $41=Directory exists
+:JMPEXIT     JMP   FINDEXIT
 :NOTDIR      PLA
-             PHA
-             CMP   #$80               ; Write mode
+:NOTDIR2     CMP   #$80               ; Write mode
              BNE   :S1
+             TXA
+             BEQ   :S0                ; No file, don't try to delete
              JSR   DODELETE
-             LDA   #$01               ; Storage type - file
+             BCS   FINDEXIT           ; Abort if error
+:S0          LDA   #$01               ; Storage type - file
              STA   CREATEPL+7
              LDA   #$06               ; Filetype BIN
              STA   CREATEPL+4
@@ -311,11 +325,13 @@ OFILE        >>>   ENTMAIN
              LDA   #$C3               ; Default permissions
              STA   CREATEPL+3
              JSR   CRTFILE            ; Create MOSFILE
+             BCS   FINDEXIT           ; Abort if error
+* Looking for a buffer should be done before creating a file
 :S1          LDA   #$00               ; Look for empty slot
              JSR   FINDBUF
              STX   BUFIDX
              JSR   BUFADDR
-             BCS   :NOTFND
+             BCS   NOBUFFS            ; No empty slot (BUFIDX=FF)
              STA   OPENPL2+3
              STY   OPENPL2+4
              LDA   #<MOSFILE
@@ -325,29 +341,44 @@ OFILE        >>>   ENTMAIN
              JSR   MLI
              DB    OPENCMD
              DW    OPENPL2
-             BCS   :NOTFND
+             BCS   FINDEXIT
              LDA   OPENPL2+5          ; File ref number
              LDX   BUFIDX
-             CPX   #$FF
-             BEQ   FINDEXIT
+*             CPX   #$FF              ; Checked for earlier
+*             BEQ   FINDEXIT
              STA   FILEREFS,X         ; Record the ref number
-             BRA   FINDEXIT
-:NOTFND      LDA   #$00
-FINDEXIT     >>>   XF2AUX,OSFINDRET
+FINDEXIT     JSR   CHKNOTFND          ; Convert NotFound to $00
+             >>>   XF2AUX,OSFINDRET
+NOBUFFS      LDA   #$42               ; $42=File buffers full
+             BNE   FINDEXIT
 BUFIDX       DB    $00
 
 * ProDOS file handling for MOS OSFIND CLOSE call
 CFILE        >>>   ENTMAIN
+             LDX   #$00               ; Prepare for one file
              LDA   MOSFILE            ; File ref number
+             BNE   :CFILE1            ; Close one file
+             LDX   #$03               ; Loop through all files
+:CFILE0      LDA   FILEREFS,X
+             BEQ   :CFILE3            ; Not open, try next
+:CFILE1      PHX
+             PHA
              STA   CLSPL+1
              JSR   CLSFILE
-             LDA   MOSFILE
+             BCS   :CFILEERR          ; Error occured during closing
+             PLA
              JSR   FINDBUF
-             CPX   #$FF               ; Not found
-             BEQ   :S1
+             BNE   :CFILE2
              LDA   #$00
-             STA   FILEREFS,X
-:S1          JMP   FINDEXIT
+             STA   FILEREFS,X         ; Release buffer
+:CFILE2      PLX
+:CFILE3      DEX
+             BPL   :CFILE0            ; Loop to close all files
+             LDA   #$00
+             BEQ   FINDEXIT
+:CFILEERR    PLX                      ; Balance stack
+             PLX
+             BCS   FINDEXIT
 
 * ProDOS file handling for MOS OSBGET call
 * Returns with char read in A and error num in Y (or 0)
@@ -1057,12 +1088,6 @@ MAINRDMEM    STA   A1L
              LDA   $C081
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
-
-
-
-
-
-
 
 
 
