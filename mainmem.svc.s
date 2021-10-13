@@ -13,6 +13,8 @@
 *             exits with MFI error, returns error if no more buffers,
 *             OPENOUT doesn't try to delete if nothing to delete.
 * 13-Oct-2021 OSFIND implementes CLOSE#0.
+* 13-Oct-2021 FIND, BGET, BPUT optimised passing registers to main.
+* 13-Oct-2021 ARGS, EOF returns errors, optimised.
 
 
 INFOFILE     >>>   ENTMAIN
@@ -283,6 +285,7 @@ COPY1FILE    LDA   #<MOSFILE
 :BUFIDX1     DB    $00
 :BUFIDX2     DB    $00
 
+
 * ProDOS file handling for MOS OSFIND OPEN call
 * Options in A: $40 'r', $80 'w', $C0 'rw'
 OFILE        >>>   ENTMAIN
@@ -356,7 +359,8 @@ BUFIDX       DB    $00
 * ProDOS file handling for MOS OSFIND CLOSE call
 CFILE        >>>   ENTMAIN
              LDX   #$00               ; Prepare for one file
-             LDA   MOSFILE            ; File ref number
+*             LDA   MOSFILE            ; File ref number
+             TYA                      ; File ref number
              BNE   :CFILE1            ; Close one file
              LDX   #$03               ; Loop through all files
 :CFILE0      LDA   FILEREFS,X
@@ -383,15 +387,15 @@ CFILE        >>>   ENTMAIN
 * ProDOS file handling for MOS OSBGET call
 * Returns with char read in A and error num in Y (or 0)
 FILEGET      >>>   ENTMAIN
-             LDA   MOSFILE            ; File ref number
-             STA   READPL2+1
+*             LDA   MOSFILE            ; File ref number
+*             STA   READPL2+1
+             STY   READPL2+1          ; File ref number
              JSR   MLI
              DB    READCMD
              DW    READPL2
-             BCC   :NOERR
              TAY                      ; Error number in Y
-             BRA   :EXIT
-:NOERR       LDY   #$00
+             BCS   :EXIT
+             LDY   #$00               ; 0=Ok
              LDA   BLKBUF
 :EXIT        >>>   XF2AUX,OSBGETRET
 
@@ -399,87 +403,101 @@ FILEGET      >>>   ENTMAIN
 * Enters with char to write in A
 FILEPUT      >>>   ENTMAIN
              STA   BLKBUF             ; Char to write
-
-             LDA   MOSFILE            ; File ref number
-             STA   WRITEPL+1
+*             LDA   MOSFILE            ; File ref number
+*             STA   WRITEPL+1
+             STY   WRITEPL+1          ; File ref number
              LDA   #$01               ; Bytes to write
              STA   WRITEPL+4
              LDA   #$00
              STA   WRITEPL+5
              JSR   WRTFILE
-             >>>   XF2AUX,OSBPUTRET
+             BCS   :FILEPUT2
+             LDA   #$00               ; 0=Ok
+:FILEPUT2    >>>   XF2AUX,OSBPUTRET
+
 
 * ProDOS file handling for OSBYTE $7F EOF
 * Returns EOF status in A ($FF for EOF, $00 otherwise)
+* A=channel to test
 FILEEOF      >>>   ENTMAIN
-
-             LDA   MOSFILE            ; File ref number
+*             LDA   MOSFILE           ; File ref number
              STA   GEOFPL+1
              STA   GMARKPL+1
              JSR   MLI
              DB    GEOFCMD
              DW    GEOFPL
-             BCS   :ISEOF             ; If error, just say EOF
+             TAY
+             BCS   :EXIT              ; Abort with any error
 
              JSR   MLI
              DB    GMARKCMD
              DW    GMARKPL
-             BCS   :ISEOF             ; If error, just say EOF
+             TAY
+             BCS   :EXIT              ; Abort with any error
 
-             LDA   GEOFPL+2           ; Subtract Mark from EOF
              SEC
+             LDA   GEOFPL+2           ; Subtract Mark from EOF
              SBC   GMARKPL+2
-             STA   :REMAIN
+             STA   GEOFPL+2
              LDA   GEOFPL+3
              SBC   GMARKPL+3
-             STA   :REMAIN+1
+             STA   GEOFPL+3
              LDA   GEOFPL+4
              SBC   GMARKPL+4
-             STA   :REMAIN+2
+             STA   GEOFPL+4
 
-             LDA   :REMAIN            ; Check bytes remaining
-             BNE   :NOTEOF
-             LDA   :REMAIN+1
-             BNE   :NOTEOF
-             LDA   :REMAIN+2
-             BNE   :NOTEOF
-:ISEOF       LDA   #$FF
-             BRA   :EXIT
-:NOTEOF      LDA   #$00
+             LDA   GEOFPL+2           ; Check bytes remaining
+             ORA   GEOFPL+3
+             ORA   GEOFPL+4
+             BEQ   :ISEOF             ; EOF     -> $00
+             LDA   #$FF               ; Not EOF -> $FF
+:ISEOF       EOR   #$FF               ; EOF -> $FF, Not EOF ->$00
+             LDY   #$00               ; 0=No error
 :EXIT        >>>   XF2AUX,CHKEOFRET
-:REMAIN      DS    3                  ; Remaining bytes
+
 
 * ProDOS file handling for OSARGS flush commands
 FLUSH        >>>   ENTMAIN
-             LDA   MOSFILE            ; File ref number
-             STA   FLSHPL+1
+*             LDA   MOSFILE            ; File ref number
+*             STA   FLSHPL+1
+             STY   FLSHPL+1           ; File ref number
              JSR   MLI
              DB    FLSHCMD
              DW    FLSHPL
              >>>   XF2AUX,OSARGSRET
 
 * ProDOS file handling for OSARGS set ptr command
+* GMARKPL+1=channel, GMARKPL+2,+3,+4=offset already set
 SEEK         >>>   ENTMAIN
-             LDA   MOSFILE            ; File ref number
-             STA   GMARKPL+1          ; GET_MARK has same params
-             LDA   MOSFILE+2          ; Desired offset in MOSFILE[2..4]
-             STA   GMARKPL+2
-             LDA   MOSFILE+3
-             STA   GMARKPL+3
-             LDA   MOSFILE+4
-             STA   GMARKPL+4
+*             LDA   MOSFILE            ; File ref number
+*             STA   GMARKPL+1          ; GET_MARK has same params
+*             LDA   MOSFILE+2          ; Desired offset in MOSFILE[2..4]
+*             STA   GMARKPL+2
+*             LDA   MOSFILE+3
+*             STA   GMARKPL+3
+*             LDA   MOSFILE+4
+*             STA   GMARKPL+4
              JSR   MLI
              DB    SMARKCMD
              DW    GMARKPL
-             >>>   XF2AUX,OSARGSRET
+             JMP   TELLEXIT
+*             >>>   XF2AUX,OSARGSRET
 
 * ProDOS file handling for OSARGS get ptr command
 * and for OSARGs get length command
-TELL         >>>   ENTMAIN
-             LDA   MOSFILE            ; File ref number
-             STA   GMARKPL+1
-             LDA   MOSFILE+2          ; Mode (0=pos, otherwise len)
-             CMP   #$00
+* A=ZP, Y=channel
+SIZE         LDX   #$02               ; $02=SIZE, Read EXT
+             BNE   TELL2
+TELL         LDX   #$00               ; $00=TELL, Read PTR
+TELL2
+*             >>>   ENTMAIN
+*             LDA   MOSFILE            ; File ref number
+*             STA   GMARKPL+1
+*             LDA   MOSFILE+2          ; Mode (0=pos, otherwise len)
+*             CMP   #$00
+             STY   GMARKPL+1          ; File ref number
+             PHA                      ; Pointer to zero page
+             CPX   #$00               ; OSARGS parameter
              BEQ   :POS
              JSR   MLI
              DB    GEOFCMD
@@ -488,8 +506,9 @@ TELL         >>>   ENTMAIN
 :POS         JSR   MLI
              DB    GMARKCMD
              DW    GMARKPL
-:S1          LDX   MOSFILE+1          ; Pointer to ZP control block
-             BCS   :ERR
+:S1          PLX                      ; Pointer to ZP control block
+             BCS   TELLEXIT           ; Exit with error
+*             LDX   MOSFILE+1          ; Pointer to ZP control block
              >>>   ALTZP              ; Alt ZP & Alt LC on
              LDA   GMARKPL+2
              STA   $00,X
@@ -497,17 +516,18 @@ TELL         >>>   ENTMAIN
              STA   $01,X
              LDA   GMARKPL+4
              STA   $02,X
-             STZ   $03,X
+             STZ   $03,X              ; Sizes are $00xxxxxx
              >>>   MAINZP             ; Alt ZP off, ROM back in
-:EXIT        >>>   XF2AUX,OSARGSRET
-:ERR         LDX   MOSFILE+1          ; Address of ZP control block
-             >>>   ALTZP              ; Alt ZP & Alt LC on
-             STZ   $00,X
-             STZ   $01,X
-             STZ   $02,X
-             STZ   $03,X
-             >>>   MAINZP             ; Alt ZP off, ROM back in
-             BRA   :EXIT
+             LDA   #$00               ; 0=Ok
+TELLEXIT     >>>   XF2AUX,OSARGSRET
+*:ERR         LDX   MOSFILE+1          ; Address of ZP control block
+*             >>>   ALTZP              ; Alt ZP & Alt LC on
+*             STZ   $00,X
+*             STZ   $01,X
+*             STZ   $02,X
+*             STZ   $03,X
+*             >>>   MAINZP             ; Alt ZP off, ROM back in
+*             BRA   :EXIT
 
 
 * ProDOS file handling for MOS OSFILE LOAD call

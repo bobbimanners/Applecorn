@@ -9,30 +9,23 @@
 *             Command line set by *RUN, and read by OSARGS
 * 20-Sep-2021 *FREE uses new PRDECIMAL routine
 * 12-Oct-2021 OSFIND checks return value from calling maincode.
+* 12-Oct-2021 BGET and BPUT check for returned error.
+* 13-Oct-2021 FIND, BGET, BPUT optimised passing registers to main.
+* 13-Oct-2021 ARGS, EOF returns errors, optimised passing registers.
 
 
 * $B0-$BF Temporary filing system workspace
-FSXREG      EQU   $B0
-FSYREG      EQU   $B1
-FSAREG      EQU   $B2
-FSCTRL      EQU   FSXREG
-FSPTR1      EQU   $B4
-FSPTR2      EQU   $B6
 * $C0-$CF Persistant filing system workspace
-FSNUM       EQU   $C8 ; *TEMP*
+FSXREG      EQU   $C0
+FSYREG      EQU   $C1
+FSAREG      EQU   $C2
+FSZPC3      EQU   $C3
+FSCTRL      EQU   FSXREG
+FSPTR1      EQU   $C4
+FSPTR2      EQU   $C6
+FSNUM       EQU   $C8
+FSZPCC      EQU   $CC
 FSCMDLINE   EQU   $CE
-
-; B0-B3 addr
-; B4-B7 sect
-; B8-BB
-; BC-BF
-; C0-C3 num
-; C4-C5 cblk
-; C6-C7
-; C8-CB
-; CC-CD
-; CE-CF cmd
-
 
 
 * OSFIND - open/close a file for byte access
@@ -45,16 +38,16 @@ FINDHND     PHX
             JSR   PARSNAME            ; Copy filename->MOSFILE
             PLA                       ; Recover options
             >>>   XF2MAIN,OFILE
-:CLOSE      >>>   WRTMAIN
-            STY   MOSFILE             ; Write file number
-            >>>   WRTAUX
-            >>>   XF2MAIN,CFILE
-OSFINDRET
-            >>>   ENTAUX
+:CLOSE
+*            >>>   WRTMAIN
+*            STY   MOSFILE             ; Write file number
+*            >>>   WRTAUX
+            >>>   XF2MAIN,CFILE       ; Pass A,Y to main code
+
+OSFINDRET   >>>   ENTAUX
             JSR   CHKERROR            ; Check if error returned
             PLY                       ; Value of A on entry
-            CPY   #$00                ; Was it close?
-            BNE   :S1
+            BNE   :S1                 ; It wasn't close
             TYA                       ; Preserve A for close
 :S1         PLY
             PLX
@@ -71,12 +64,12 @@ OSGBPBM     ASC   'OSGBPB.'
 BPUTHND     PHX
             PHY
             PHA                       ; Stash char to write
-            >>>   WRTMAIN
-            STY   MOSFILE             ; File reference number
-            >>>   WRTAUX
-            >>>   XF2MAIN,FILEPUT
-OSBPUTRET
-            >>>   ENTAUX
+*            >>>   WRTMAIN
+*            STY   MOSFILE             ; File reference number
+*            >>>   WRTAUX
+            >>>   XF2MAIN,FILEPUT     ; Pass A,Y to main code
+OSBPUTRET   >>>   ENTAUX
+            JSR   CHKERROR
             CLC                       ; Means no error
             PLA
             PLY
@@ -86,18 +79,18 @@ OSBPUTRET
 * OSBGET - read one byte from an open file
 BGETHND     PHX
             PHY
-            >>>   WRTMAIN
-            STY   MOSFILE             ; File ref number
-            >>>   WRTAUX
-            >>>   XF2MAIN,FILEGET
-OSBGETRET
-            >>>   ENTAUX
-            CLC                       ; Means no error
-            CPY   #$00                ; Check error status
-            BEQ   :NOERR
-            SEC                       ; Set carry for error
-            BRA   :EXIT
-:NOERR      CLC
+*            >>>   WRTMAIN
+*            STY   MOSFILE             ; File ref number
+*            >>>   WRTAUX
+            >>>   XF2MAIN,FILEGET     ; Pass A,Y to main code
+OSBGETRET   >>>   ENTAUX
+            CPY   #$01
+            BCC   :EXIT               ; If no error, return CC
+            LDA   #$FE
+            CPY   #$4C
+            BEQ   :EXIT               ; If at EOF, return CS
+            TYA
+            JSR   CHKERROR
 :EXIT       PLY
             PLX
             RTS
@@ -146,41 +139,45 @@ ARGSHND     PHX
 
 :S2         CMP   #$FF                ; Y=0,A=FF => flush all files
             BNE   :IEXIT
-            >>>   WRTMAIN
-            STZ   MOSFILE             ; Zero means flush all
-            >>>   WRTAUX
+*            >>>   WRTMAIN
+*            STZ   MOSFILE             ; Zero means flush all
+*            >>>   WRTAUX
             JMP   :FLUSH
 :IEXIT      JMP   :EXIT               ; Exit preserved
 
-:HASFILE    >>>   WRTMAIN
-            STY   MOSFILE             ; File ref num
-            STX   MOSFILE+1           ; Pointer to ZP control block
-            >>>   WRTAUX
+:HASFILE
+*            >>>   WRTMAIN
+*            STY   MOSFILE             ; File ref num
+*            STX   MOSFILE+1           ; Pointer to ZP control block
+*            >>>   WRTAUX
             CMP   #$00                ; Y!=0,A=0 => read seq ptr
             BNE   :S3
-            >>>   WRTMAIN
-            STZ   MOSFILE+2           ; 0 means get pos
-            >>>   WRTAUX
-            >>>   XF2MAIN,TELL
+*            >>>   WRTMAIN
+*            STZ   MOSFILE+2           ; 0 means get pos
+*            >>>   WRTAUX
+            TXA
+            >>>   XF2MAIN,TELL        ; A=ZP, Y=channel
 
 :S3         CMP   #$01                ; Y!=0,A=1 => write seq ptr
             BNE   :S4
             >>>   WRTMAIN
+            STY   GMARKPL+1           ; Write to MLI control block
             LDA   $00,X
-            STA   MOSFILE+2
+            STA   GMARKPL+2
             LDA   $01,X
-            STA   MOSFILE+3
+            STA   GMARKPL+3
             LDA   $02,X
-            STA   MOSFILE+4
+            STA   GMARKPL+4
             >>>   WRTAUX
-            >>>   XF2MAIN,SEEK
+            >>>   XF2MAIN,SEEK        ; A=???, Y=channel
 
 :S4         CMP   #$02                ; Y!=0,A=2 => read file len
             BNE   :S5
-            >>>   WRTMAIN
-            STA   MOSFILE+2           ; Non-zero means get len
-            >>>   WRTAUX
-            >>>   XF2MAIN,TELL
+*            >>>   WRTMAIN
+*            STA   MOSFILE+2           ; Non-zero means get len
+*            >>>   WRTAUX
+            TXA
+            >>>   XF2MAIN,SIZE        ; A=ZP, Y=channel
 
 :S5         CMP   #$FF                ; Y!=0,A=FF => flush file
             BNE   :EXIT
@@ -192,6 +189,7 @@ ARGSHND     PHX
             RTS
 
 OSARGSRET   >>>   ENTAUX
+            JSR   CHKERROR
 OSARGSDONE  PLA
             LDA   #0                  ; Implemented
             PLY
@@ -425,14 +423,17 @@ FSCCHDIR    JMP   CHDIR
 
 * Performs OSFSC Read EOF function
 * File ref number is in X
-CHKEOF      >>>   WRTMAIN
-            STX   MOSFILE             ; File reference number
-            >>>   WRTAUX
+CHKEOF
+*            >>>   WRTMAIN
+*            STX   MOSFILE             ; File reference number
+*            >>>   WRTAUX
+            TXA                       ; A=channel
             >>>   XF2MAIN,FILEEOF
-CHKEOFRET
-            >>>   ENTAUX
+CHKEOFRET   >>>   ENTAUX
             TAX                       ; Return code -> X
-            RTS
+            TYA                       ; Y=any ProDOS error
+            JMP   CHKERROR
+
 
 * Perform CAT
 * A=5 *CAT, A=9 *EX, A=10 *INFO
@@ -867,7 +868,7 @@ ERRHEX1
 ERRMSG
             BRK
             DB    $FF
-            ASC   'TEST: $00'
+            ASC   'ERR: $00'
             BRK
 MKERROR1
             CMP   #$40
