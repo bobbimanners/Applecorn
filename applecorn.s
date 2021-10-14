@@ -6,8 +6,10 @@
 *
 * Assembled with the Merlin 8 v2.58 assembler on Apple II.
 
+* 14-Oct-2021 XF2MAIN, ENTAUX no longer save/restore STRTL/STRTH.
+
+
             XC                ; 65c02
-            XC                ; 65816
             ORG   $4000       ; Load addr of loader in main memory
                               ; Clear of first HGR frame buffer
 
@@ -88,10 +90,10 @@ XF2AUX      MAC
 * Called by code running in aux mem to invoke a
 * routine in main memory
 XF2MAIN     MAC
-            LDX   STRTL
-            STX   STRTBCKL
-            LDX   STRTH
-            STX   STRTBCKH
+*            LDX   STRTL      ; No longer needed
+*            STX   STRTBCKL   ; $03E0-$03FF reserved for memory
+*            LDX   STRTH      ; switching
+*            STX   STRTBCKH
             LDX   #<]1
             STX   STRTL
             LDX   #>]1
@@ -111,10 +113,10 @@ ENTAUX      MAC
             LDX   $0101       ; Recover alt SP
             TXS
             CLI               ; Re-enable IRQ after XFER
-            LDX   STRTBCKL
-            STX   STRTL
-            LDX   STRTBCKH
-            STX   STRTH
+*            LDX   STRTBCKL   ; No longer needed
+*            STX   STRTL      ; $03e0-$03FF reserved for memory
+*            LDX   STRTBCKH   ; switching
+*            STX   STRTH
             EOM
 
 * Macro called on re-entry to main memory
@@ -197,14 +199,6 @@ MAINZP      MAC
 
 * Automatically save the object file:
             SAV   APPLECORN
-
-
-
-
-
-
-
-
 
 
 
