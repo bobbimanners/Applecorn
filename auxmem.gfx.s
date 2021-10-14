@@ -167,34 +167,34 @@ HGRPLOTACT   LDA   VDUQ+4
              LDA   VDUQ+4
              STA   PLOTMODE
              LDA   XPIXEL+0
-             STA   FDRAWADDR+6
+             STA   FDRAWADDR+6       ; LSB of X1
              LDA   XPIXEL+1
-             STA   FDRAWADDR+7
+             STA   FDRAWADDR+7       ; MSB of X1
              LDA   YPIXEL
-             STA   FDRAWADDR+8
+             STA   FDRAWADDR+8       ; Y1
              LDA   VDUQ+5
-             STA   FDRAWADDR+9       ; LSB of X1
+             STA   FDRAWADDR+9       ; LSB of X2
              LDA   VDUQ+6
-             STA   FDRAWADDR+10      ; MSB of X1
+             STA   FDRAWADDR+10      ; MSB of X2
              LDA   VDUQ+7
-             STA   FDRAWADDR+11      ; Y1
+             STA   FDRAWADDR+11      ; Y2
              >>>   WRTAUX
              >>>   XF2MAIN,DRAWLINE
 :RECT        >>>   WRTMAIN
              LDA   VDUQ+4
              STA   PLOTMODE
              LDA   XPIXEL+0
-             STA   FDRAWADDR+6
+             STA   FDRAWADDR+6       ; LSB of X1
              LDA   XPIXEL+1
-             STA   FDRAWADDR+7
+             STA   FDRAWADDR+7       ; MSB of X1
              LDA   YPIXEL
-             STA   FDRAWADDR+8
+             STA   FDRAWADDR+8       ; Y1
              LDA   VDUQ+5
-             STA   FDRAWADDR+9       ; LSB of X1
+             STA   FDRAWADDR+9       ; LSB of X2
              LDA   VDUQ+6
-             STA   FDRAWADDR+10      ; MSB of X1
+             STA   FDRAWADDR+10      ; MSB of X2
              LDA   VDUQ+7
-             STA   FDRAWADDR+11      ; Y1
+             STA   FDRAWADDR+11      ; Y2
              >>>   WRTAUX
              >>>   XF2MAIN,FILLRECT
 :CIRC        >>>   WRTMAIN
