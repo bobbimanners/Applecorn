@@ -63,8 +63,34 @@ FILLCIRC    >>>   ENTMAIN
 * Call FDraw FillRect routine
 FILLRECT    >>>   ENTMAIN
             JSR   SETCOLOR
-            JSR   FDRAWADDR+34      ; FDRAW: FillRect
+            LDA   FDRAWADDR+8       ; Y1
+            CMP   FDRAWADDR+11      ; Y2
+            BEQ   :S1
+            BCS   :SWAPY            ; Y1>Y2 then swap
+:S1         LDA   FDRAWADDR+7       ; MSB of X1
+            CMP   FDRAWADDR+10      ; MSB of X2
+            BEQ   :S2
+            BCS   :SWAPX            ; MSB X1 > MSB X2
+:S2         LDA   FDRAWADDR+6       ; LSB of X1
+            CMP   FDRAWADDR+9       ; MSB of X2
+            BEQ   :S3
+            BCS   :SWAPX            ; LSB X1 > LSB X2
+:S3         JSR   FDRAWADDR+34      ; FDRAW: FillRect
             >>>   XF2AUX,VDU25RET
+:SWAPY      LDA   FDRAWADDR+8
+            LDY   FDRAWADDR+11
+            STY   FDRAWADDR+8
+            STA   FDRAWADDR+11
+            BRA   :S1
+:SWAPX      LDA   FDRAWADDR+7
+            LDY   FDRAWADDR+10
+            STY   FDRAWADDR+7
+            STA   FDRAWADDR+10
+            LDA   FDRAWADDR+6
+            LDY   FDRAWADDR+9
+            STY   FDRAWADDR+6
+            STA   FDRAWADDR+9
+            BRA   :S3
 
 * Reset colours and linetype
 GFXINIT     JSR   FDRAWADDR+0       ; Initialize FDRAW library
