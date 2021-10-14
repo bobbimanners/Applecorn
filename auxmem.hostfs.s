@@ -12,6 +12,7 @@
 * 12-Oct-2021 BGET and BPUT check for returned error.
 * 13-Oct-2021 FIND, BGET, BPUT optimised passing registers to main.
 * 13-Oct-2021 ARGS, EOF returns errors, optimised passing registers.
+* 14-Oct-2021 Tidied FILE handler.
 
 
 * $B0-$BF Temporary filing system workspace
@@ -210,45 +211,62 @@ FILEHND     PHX
             PHY
             PHA
 
-            STX   CBPTR               ; LSB of parameter block
-            STX   ZP1
-            STY   CBPTR+1             ; MSB of parameter block
-            STY   ZP1+1
+*            STX   CBPTR               ; LSB of parameter block
+*            STX   ZP1
+*            STY   CBPTR+1             ; MSB of parameter block
+*            STY   ZP1+1
 
-            LDA   (ZP1)               ; Filename ptr->XY
+            STX   FSCTRL+0            ; FSCTRL=>control block
+            STY   FSCTRL+1
+            LDA   (FSCTRL)            ; XY=>filename
             TAX
             LDY   #$01
-            LDA   (ZP1),Y
+            LDA   (FSCTRL),Y
             TAY
-
             JSR   PARSNAME            ; Copy filename->MOSFILE
 
-            LDA   #<FILEBLK
-            STA   ZP2
-            LDA   #>FILEBLK
-            STA   ZP2+1
-            LDY   #$00                ; Copy to FILEBLK in main mem
-:L1         LDA   (ZP1),Y
+*            LDA   (ZP1)               ; Filename ptr->XY
+*            TAX
+*            LDY   #$01
+*            LDA   (ZP1),Y
+*            TAY
+*            JSR   PARSNAME            ; Copy filename->MOSFILE
+
+*            LDA   #<FILEBLK
+*            STA   ZP2
+*            LDA   #>FILEBLK
+*            STA   ZP2+1
+*            LDY   #$00                ; Copy to FILEBLK in main mem
+*:L1         LDA   (ZP1),Y
+*            >>>   WRTMAIN
+*            STA   (ZP2),Y
+*            >>>   WRTAUX
+*            INY
+*            CPY   #$12
+*            BNE   :L1
+
+            LDY   #$11
             >>>   WRTMAIN
-            STA   (ZP2),Y
+:L1         LDA   (FSCTRL),Y          ; Copy control block to auxmem
+            STA   FILEBLK,Y
+            DEY
+            BPL   :L1
             >>>   WRTAUX
-            INY
-            CPY   #$12
-            BNE   :L1
 
             PLA                       ; Get action back
-            PHA
+*            PHA
             BEQ   :SAVE               ; A=00 -> SAVE
             CMP   #$FF
             BEQ   :LOAD               ; A=FF -> LOAD
             CMP   #$06
             BEQ   :DELETE             ; A=06 -> DELETE
+*            BCC   :INFO               ; A=01-05 -> INFO
             BCC   :JMPINFO            ; A=01-05 -> INFO
             CMP   #$08
             BEQ   :MKDIR              ; A=08 -> MKDIR
 
-            PLA                       ; Not implemented, return unchanged
-            PLY
+*            PLA
+            PLY                       ; Not implemented, return unchanged
             PLX
             RTS
 
@@ -256,45 +274,52 @@ FILEHND     PHX
 :SAVE       >>>   XF2MAIN,SAVEFILE
 :LOAD       >>>   XF2MAIN,LOADFILE
 :DELETE     >>>   XF2MAIN,DELFILE
-:MKDIR      >>>   XF2MAIN,MAKEDIR
 :INFO       >>>   XF2MAIN,INFOFILE
+:MKDIR      >>>   XF2MAIN,MAKEDIR
 
 * On return here, A<$20 return to caller, A>$1F ProDOS error
-OSFILERET
-            >>>   ENTAUX
-            PHA
-            LDA   CBPTR               ; Copy OSFILE CB to :CBPTR addr
-            STA   ZP1
-            LDA   CBPTR+1
-            STA   ZP1+1
-            LDY   #$02
-:L3         LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
-            STA   (ZP1),Y
-            INY
-            CPY   #18                 ; 18 bytes in control block
-            BNE   :L3
-            PLA
-            PLY                       ; Original action
+OSFILERET   >>>   ENTAUX
             JSR   CHKERROR            ; Check if error returned
+            PHA
+            LDY   #$11                ; Copy updated control block back
+:L3         LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
+            STA   (FSCTRL),Y
+            DEY
+            BPL   :L3
+
+*            LDA   CBPTR               ; Copy OSFILE CB to :CBPTR addr
+*            STA   ZP1
+*            LDA   CBPTR+1
+*            STA   ZP1+1
+*            LDY   #$02
+*:L3         LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
+*            STA   (ZP1),Y
+*            INY
+*            CPY   #18                 ; 18 bytes in control block
+*            BNE   :L3
+
+            PLA                       ; Returned object type
+*            PLY                       ; Original action
+*            JSR   CHKERROR            ; Check if error returned
             PLY                       ; No error, return to caller
             PLX
             RTS
 
-ERRNOTFND   BRK
-            DB    $D6                 ; $D6 = Object not found
-            ASC   'File not found'
-            BRK
+*ERRNOTFND   BRK
+*            DB    $D6                 ; $D6 = Object not found
+*            ASC   'File not found'
+*            BRK
 
-ERREXISTS   BRK
-            DB    $C4                 ; Can't create a dir if a file is
-            ASC   'File exists'       ; already there
-            BRK
+*ERREXISTS   BRK
+*            DB    $C4                 ; Can't create a dir if a file is
+*            ASC   'File exists'       ; already there
+*            BRK
 
-CBPTR       DW    $0000
-OSFILEM     ASC   'OSFILE($'
-            DB    $00
-OSFILEM2    ASC   ')'
-            DB    $00
+*CBPTR       DW    $0000
+*OSFILEM     ASC   'OSFILE($'
+*            DB    $00
+*OSFILEM2    ASC   ')'
+*            DB    $00
 OSFSCM      ASC   'OSFSC.'
             DB    $00
 
@@ -833,7 +858,7 @@ CHKERROR    CMP   #$20
             RTS
 
 *ERREXISTS   LDA   #$47 ; File exists
-*ERRNOTFND   LDA   #$46 ; File not found
+ERRNOTFND   LDA   #$46                ; File not found
 
 MKERROR
             BIT   $E0
@@ -873,13 +898,13 @@ ERRMSG
 MKERROR1
             CMP   #$40
             BCS   MKERROR2
-            ADC   #$31
+            ORA   #$30 ; <$40 -> $30-$3F
 MKERROR2
             SEC
-            SBC   #$40
-            CMP   #$20
+            SBC   #$37
+            CMP   #$28
             BCC   MKERROR3
-            LDA   #$18                ; I/O error
+            LDA   #$00 ; I/O error
 MKERROR3
             ASL   A
             TAX
@@ -889,46 +914,57 @@ MKERROR3
             PHA
             PHP
             RTI
-MKERROR4
+MKERROR4    DW    ERROR27
+            DW    ERROR28,ERROR27,ERROR27,ERROR2B,ERROR27,ERROR27,ERROR2E,ERROR27
             DW    ERROR40,ERROR41,ERROR42,ERROR43,ERROR44,ERROR45,ERROR46,ERROR47
             DW    ERROR48,ERROR49,ERROR4A,ERROR4B,ERROR4C,ERROR4D,ERROR4E,ERROR4F
             DW    ERROR50,ERROR51,ERROR52,ERROR53,ERROR54,ERROR55,ERROR56,ERROR57
-            DW    ERROR27,ERROR28,ERROR5A,ERROR5B,ERROR2B,ERROR5D,ERROR5E,ERROR2E
+            DW    ERROR27,ERROR27,ERROR5A,ERROR5B,ERROR27,ERROR5D,ERROR5E,ERROR27
 
-* $40 - Invalid pathname syntax.            Bad filename
-* $41 - Duplicate filename. (additional)    Directory exists
-* $42 - File Control Block table full.      Too many open
-* $43 - Invalid reference number.           Channel not open
-* $44 - Path not found.                     File not found
-* $45 - Volume directory not found.         Disk not found
-* $46 - File not found.                     File not found
-* $47 - Duplicate filename. (see also $41)  File exists
-* $48 - Overrun error.                      Disk full
-* $49 - Volume directory full.              Directory full
-* $4A - Incompatible file format.           Disk not recognised
-* $4B - Unsupported storage_type.           Disk not recognised
-* $4C - End of file has been encountered.   End of file
-* $4D - Position out of range.              Past end of file
-* $4E - Access error. (see also $4F)        RD/WR: Insufficient access
-* $4F - Access error. (additional)          REN/DEL: Locked
-* $50 - File is open.                       Can't - file open
-* $51 - Directory count error.              Broken directory
-* $52 - Not a ProDOS disk.                  Disk not recognised
-* $53 - Invalid parameter.                  Invalid parameter
-* $54 - (Dir not empty when deleting)       Dir not empty
+* $27 - I/O error (disk not formatted)
+* $28 - No device con'd (drive not present)  Disk not present
+* $29 - (GEOS Driver is busy)
+* $2A - 
+* $2B - Disk write protected.                Disk write protected
+* $2C - (GEOS bad byte count)
+* $2D - (GEOS bad block number)
+* $2E - Disk switched                        Disk changed
+* $2F - Device is offline (drive empty)
+
+* $40 - Invalid pathname syntax.             Bad filename
+* $41 - Duplicate filename. (split from $47) Directory exists
+* $42 - File Control Block table full.       Too many open
+* $43 - Invalid reference number.            Channel not open
+* $44 - Path not found. (Dir not found)      File not found
+* $45 - Volume directory not found.          Disk not found
+* $46 - File not found.                      File not found
+* $47 - Duplicate filename. (see also $41)   File exists
+* $48 - Overrun error.                       Disk full
+* $49 - Volume directory full.               Directory full
+* $4A - Incompatible file format.            Disk not recognised
+* $4B - Unsupported storage_type.            Disk not recognised
+* $4C - End of file has been encountered.    End of file
+* $4D - Position out of range.               Past end of file
+* $4E - Access error. (see also $4F)         RD/WR: Insufficient access
+* $4F - Access error. (split from $4E)       REN/DEL: Locked
+* $50 - File already open.                   Can't - file open
+* $51 - Directory count error.               Broken directory
+* $52 - Not a ProDOS disk.                   Disk not recognised
+* $53 - Invalid parameter.                   Invalid parameter
+* $54 - (Dir not empty when deleting)        Dir not empty
 * $55 - Volume Control Block table full.
 * $56 - Bad buffer address.
 * $57 - Duplicate volume.
-* ($58) $27  - I/O error (disk not formatted)
-* ($59) $28  - No device connected (drive not present)  Disk not present
-*  $5A ($29) - Bit map disk address is impossible. Sector not found
-*  $5B  $2A  -
-* ($5C) $2B  - Disk write protected.               Disk write protected
-*  $5D ($2C) - (EOF during load or save)           Data lost
-*  $5E ($2D) - (Couldn't open to save)             Can't save
-* ($5F) $2E  - Disk switched                       Disk changed
-*       $2F  - Device is offline (drive empty)
-*
+* $58 - Bad volume bitmap.
+* $59 - (GEOS File level out of range)
+* $5A - Bit map disk address is impossible.  Sector not found
+* $5B - (GEOS Bad ChangePath pathname)
+* $5C - (GEOS Not executable file)
+* $5D - (EOF during load or save)            Data lost
+* $5E - (Couldn't open to save)              Can't save
+* $5F - (GEOS Too many applications)
+* $60+ - (GEOS)
+
 
 *       AcornOS                     ProDOS
 ERROR40     DW    $CC00
