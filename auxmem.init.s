@@ -12,10 +12,6 @@ ZP1         EQU   $90                        ; $90-$9f are spare Econet space
 ZP2         EQU   $92
 ZP3         EQU   $94
 
-** COL,ROW needs to be in X,Y order
-** TO DO: will be moved to VDU space
-*COL         EQU   $96            ; Cursor column
-*ROW         EQU   $97            ; Cursor row
 STRTBCKL    EQU   $9D                        ; *TO DO* don't need to preserve
 STRTBCKH    EQU   $9E
 
@@ -172,27 +168,12 @@ PRHELLO     LDA   #<HELLO
             JSR   PRSTR
             JMP   OSNEWL
 
-BYTE00XX    BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
-            LDX   #$0A                       ; $00 = identify Host
+BYTE00XX
+BYTE00      BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
+            LDX   #$0A                       ; Identify Host
             RTS                              ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
 HELLO       ASC   'Applecorn MOS 2021-10-13'
             DB    $00                        ; Unify MOS messages
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
