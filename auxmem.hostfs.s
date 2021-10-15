@@ -877,10 +877,10 @@ MKERRLP
             LSR   A
             LSR   A
             JSR   ERRHEX
-            STA   $109
+            STA   $108
             PLA
             JSR   ERRHEX
-            STA   $10A
+            STA   $109
             JMP   $100
 ERRHEX
             AND   #15
@@ -923,16 +923,16 @@ MKERROR4    DW    ERROR27
 
 * $27 - I/O error (disk not formatted)
 * $28 - No device con'd (drive not present)  Disk not present
-* $29 - (GEOS Driver is busy)
+* $29 -(GSOS Driver is busy)
 * $2A - 
 * $2B - Disk write protected.                Disk write protected
-* $2C - (GEOS bad byte count)
-* $2D - (GEOS bad block number)
+* $2C -(GSOS bad byte count)
+* $2D -(GSOS bad block number)
 * $2E - Disk switched                        Disk changed
 * $2F - Device is offline (drive empty)
 
 * $40 - Invalid pathname syntax.             Bad filename
-* $41 - Duplicate filename. (split from $47) Directory exists
+* $41 -(Duplicate filename. (split from $47) Is a directory)
 * $42 - File Control Block table full.       Too many open
 * $43 - Invalid reference number.            Channel not open
 * $44 - Path not found. (Dir not found)      File not found
@@ -945,32 +945,32 @@ MKERROR4    DW    ERROR27
 * $4B - Unsupported storage_type.            Disk not recognised
 * $4C - End of file has been encountered.    End of file
 * $4D - Position out of range.               Past end of file
-* $4E - Access error. (see also $4F)         RD/WR: Insufficient access
-* $4F - Access error. (split from $4E)       REN/DEL: Locked
+* $4E - Access error. (see also $4F)         RD/WR: Insufficient access, also Dir not empty
+* $4F - (GSOS Buffer too small) (Access error. (split from $4E)       REN/DEL: Locked)
 * $50 - File already open.                   Can't - file open
 * $51 - Directory count error.               Broken directory
 * $52 - Not a ProDOS disk.                   Disk not recognised
 * $53 - Invalid parameter.                   Invalid parameter
-* $54 - (Dir not empty when deleting)        Dir not empty
+* $54 - (GSOS Out of memory) (Dir not empty when deleting)         Dir not empty
 * $55 - Volume Control Block table full.
 * $56 - Bad buffer address.
 * $57 - Duplicate volume.
 * $58 - Bad volume bitmap.
-* $59 - (GEOS File level out of range)
+* $59 -(GSOS File level out of range)
 * $5A - Bit map disk address is impossible.  Sector not found
-* $5B - (GEOS Bad ChangePath pathname)
-* $5C - (GEOS Not executable file)
-* $5D - (EOF during load or save)            Data lost
-* $5E - (Couldn't open to save)              Can't save
-* $5F - (GEOS Too many applications)
-* $60+ - (GEOS)
+* $5B -(GSOS Bad ChangePath pathname)
+* $5C -(GSOS Not executable file)
+* $5D -(GSOS OS/FS not found) (EOF during load or save)             Data lost
+* $5E -(Couldn't open to save)               Can't save
+* $5F -(GSOS Too many applications)
+* $60+ - (GSOS)
 
 
 *       AcornOS                     ProDOS
 ERROR40     DW    $CC00
             ASC   'Bad filename'        ; $40 - Invalid pathname syntax
 ERROR41     DW    $C400
-            ASC   'Directory exists'    ; $41 - Duplicate filename (split from $47)
+            ASC   'Is a directory'      ; $41 - Duplicate filename (split from $47)
 ERROR42     DW    $C000
             ASC   'Too many open'       ; $42 - File Control Block table full
 ERROR43     DW    $DE00
