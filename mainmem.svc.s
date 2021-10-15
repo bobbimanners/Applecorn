@@ -15,6 +15,7 @@
 * 13-Oct-2021 OSFIND implementes CLOSE#0.
 * 13-Oct-2021 FIND, BGET, BPUT optimised passing registers to main.
 * 13-Oct-2021 ARGS, EOF returns errors, optimised.
+* 15-Oct-2021 LOADFILE updated.
 
 
 INFOFILE     >>>   ENTMAIN
@@ -49,6 +50,9 @@ DODELETE     LDA   #<MOSFILE          ; Attempt to destroy file
              DB    DESTCMD
              DW    DESTPL
              RTS
+* Returns $4E for 'Dir is not empty'
+* Need to separate from 'Dir is locked'
+
 
 * ProDOS file handling to create a directory
 * Invoked by AppleMOS OSFILE
@@ -538,81 +542,151 @@ LOADFILE     >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
              JSR   WILDONE            ; Handle any wildcards
              JSR   EXISTS             ; See if it exists ...
+*             BCS :EXIT2
              CMP   #$01               ; ... and is a file
              BEQ   :ISFILE
-             JMP   :NOTFND
-:ISFILE      STZ   :BLOCKS
+             ROL   A                  ; 0->0, 2->5
+             EOR   #$05               ; 0->5, 2->0
+             ADC   #$41               ; 0->$46, 2->$41
+             JMP   :EXIT2             ; Return error
+
+* EXISTS has done GETINFO, so file info already loaded
+:ISFILE      LDA   FBEXEC             ; If FBEXEC is zero, use addr
+             BEQ   :CBADDR            ; in the control block
+             LDA   GINFOPL+5          ; Otherwise, use file's address
+             STA   FBLOAD+0           ; Aux type LSB
+             LDA   GINFOPL+6          ; Aux type MSB
+             STA   FBLOAD+1
+
+:CBADDR      LDA   #$60               ; *TO DO* Error=file too long
+             LDX   GINFOPL+9
+             BNE   :EXIT2             ; size>128K, too big to load
+             LDX   GINFOPL+8
+             BMI   :EXIT2             ; size>64K, too big to load
+             BEQ   :EXITOK            ; size=0, nothing to load
+             STX   :BLOCKS
              LDA   #<MOSFILE
              STA   OPENPL+1
              LDA   #>MOSFILE
              STA   OPENPL+2
              JSR   OPENFILE
-             BCS   :NOTFND            ; File not found
+             BCS   :EXIT2             ; File not opened
+
+*             LDA   FBLOAD+0           ; A4=>start address to load to
+*             STA   A4L
+*             LDA   FBLOAD+1
+*             STA   A4H
 :L1          LDA   OPENPL+5           ; File ref number
              STA   READPL+1
              JSR   RDFILE
-             BCC   :S1
-             CMP   #$4C               ; EOF
-             BEQ   :EOF
-             BRA   :READERR
-:S1          LDA   #<BLKBUF
-             STA   A1L
+*             BCC   :S1
+*             CMP   #$4C               ; EOF
+*             BEQ   :EXITOK
+*             BEQ   :EOF
+*             BRA   :READERR
+             BCS   :READERR           ; Close file and return error
+
+:S1
+*             CLC
+             LDA   #<BLKBUF           ; LSB of start of data buffer
+             STA   A1L                ; A1=>start of data buffer
+             ADC   READPL+6           ; LSB of trans count
+             STA   A2L                ; A2=>end of data buffer
              LDA   #>BLKBUF
              STA   A1H
-             CLC
-             LDA   #<BLKBUF
-             ADC   READPL+6           ; LSB of trans count
-             STA   A2L
-             LDA   #>BLKBUF
              ADC   READPL+7           ; MSB of trans count
              STA   A2H
-             LDA   FBEXEC             ; If FBEXEC is zero, use addr
-             CMP   #$00               ; in the control block
-             BEQ   :CBADDR
-             LDA   #<MOSFILE          ; Otherwise use file addr
-             STA   GINFOPL+1
-             LDA   #>MOSFILE
-             STA   GINFOPL+2
-             JSR   GETINFO            ; GET_FILE_INFO
-             BCS   :READERR
-             LDA   GINFOPL+5          ; Aux type LSB
-             STA   FBLOAD+0
-             LDA   GINFOPL+6          ; Aux type MSB
-             STA   FBLOAD+1
-:CBADDR      LDA   FBLOAD
+             LDA   FBLOAD+0           ; A4=>address to load to
              STA   A4L
-             STA   FBEXEC             ; EXEC = LOAD
              LDA   FBLOAD+1
              STA   A4H
-             STA   FBEXEC+1
-             LDX   :BLOCKS
-:L2          CPX   #$00
-             BEQ   :S2
-             INC
-             INC
-             DEX
-             BRA   :L2
-:S2          STA   A4H
+             INC   FBLOAD+1           ; Step to next block
+             INC   FBLOAD+1
+
+
+*             CLC
+*             LDA   A1L                ; A2=>end of data buffer
+*             ADC   READPL+6           ; LSB of trans count
+*             STA   A2L
+*             LDA   A1H
+*             ADC   READPL+7           ; MSB of trans count
+*             STA   A2H
+
+*             LDA   FBEXEC             ; If FBEXEC is zero, use addr
+*             CMP   #$00               ; in the control block
+*             BEQ   :CBADDR
+*             LDA   #<MOSFILE          ; Otherwise use file addr
+*             STA   GINFOPL+1
+*             LDA   #>MOSFILE
+*             STA   GINFOPL+2
+*             JSR   GETINFO            ; GET_FILE_INFO
+*             BCS   :READERR
+*             LDA   GINFOPL+5          ; Aux type LSB
+*             STA   FBLOAD+0
+*             LDA   GINFOPL+6          ; Aux type MSB
+*             STA   FBLOAD+1
+*:CBADDR      LDA   FBLOAD
+*             STA   A4L
+*             STA   FBEXEC             ; EXEC = LOAD
+*             LDA   FBLOAD+1
+*             STA   A4H
+*             STA   FBEXEC+1
+*             LDX   :BLOCKS
+*:L2          CPX   #$00
+*             BEQ   :S2
+*             INC
+*             INC
+*             DEX
+*             BRA   :L2
+*:S2          STA   A4H
+
              SEC                      ; Main -> AUX
-             JSR   AUXMOVE
-             INC   :BLOCKS
-             BRA   :L1
-:NOTFND      LDA   #$46               ; Nothing found
-             PHA
-             BRA   :EXIT
-:READERR     LDA   #$5D               ; Read error
-             PHA
-             BRA   :EOF2
-:EOF         LDA   #$01               ; Success ('File')
-             PHA
-:EOF2        LDA   OPENPL+5           ; File ref num
+             JSR   AUXMOVE            ; A4 updated to next address
+             DEC   :BLOCKS
+             BNE   :L1
+             BEQ   :EXITOK
+
+*             INC   :BLOCKS
+*             BRA   :L1
+
+:READERR     CMP   #$4C
+             BNE   :EXITERR
+:EXITOK      LDA   #$01               ; Success ('File')
+:EXITERR     PHA
+             LDA   OPENPL+5           ; File ref num
              STA   CLSPL+1
              JSR   CLSFILE
-:EXIT        JSR   UPDFB              ; Update FILEBLK
+             PLA
+             CMP   #$01
+             BNE   :EXIT2
+             PHA
+             JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy FILEBLK to auxmem
              PLA                      ; Get return code back
-             >>>   XF2AUX,OSFILERET
+:EXIT2       >>>   XF2AUX,OSFILERET
 :BLOCKS      DB    $00
+
+
+*:NOTFILE     ROL   A                  ; 0->0, 2->5
+*             EOR   #$05               ; 0->5, 2->0
+*             ADC   #$41               ; 0->$46, 2->$41
+*:NOTFND      PHA
+*             BRA   :EXIT
+*:READERR     LDA   #$5D               ; Read error
+*             PHA
+*             BRA   :EOF2
+*:EXITOK
+*:EOF         LDA   #$01               ; Success ('File')
+*             PHA
+*:EOF2        LDA   OPENPL+5           ; File ref num
+*             STA   CLSPL+1
+*             JSR   CLSFILE
+*:EXIT        JSR   UPDFB              ; Update FILEBLK
+*             JSR   COPYFB             ; Copy FILEBLK to auxmem
+*             PLA                      ; Get return code back
+*:EXIT2       >>>   XF2AUX,OSFILERET
+*:BLOCKS      DB    $00
+
 
 * ProDOS file handling for MOS OSFILE SAVE call
 * Invoked by AppleMOS OSFILE
@@ -1108,10 +1182,6 @@ MAINRDMEM    STA   A1L
              LDA   $C081
              LDA   (A1L)
 MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
-
-
-
-
 
 
 

@@ -713,19 +713,19 @@ FREERET
             LDA   AUXBLK+3            ; MSB of total blks
             SBC   AUXBLK+1            ; MSB of blocks used
             TAY
-            LDA   #$00                ; *TO DO* b16-b23 of free
+            LDA   #$00       ; *TO DO* b16-b23 of free
 * NEW
-            JSR   :FREEDEC            ; Print 'AAYYXX blocks aaayyyxxx bytes '
+            JSR   :FREEDEC   ; Print 'AAYYXX blocks aaayyyxxx bytes '
             LDX   #<:FREE
             LDY   #>:FREE
-            JSR   OUTSTR              ; Print 'free'<nl>
-            LDX   AUXBLK+0            ; Blocks used
+            JSR   OUTSTR     ; Print 'free'<nl>
+            LDX   AUXBLK+0   ; Blocks used
             LDY   AUXBLK+1
-            LDA   #$00                ; *TO DO* b16-b23 of used
-            JSR   :FREEDEC            ; Print 'AAYYXX blocks aaayyyxxx bytes '
+            LDA   #$00       ; *TO DO* b16-b23 of used
+            JSR   :FREEDEC   ; Print 'AAYYXX blocks aaayyyxxx bytes '
             LDX   #<:USED
             LDY   #>:USED
-            JMP   OUTSTR              ; Print 'used'<nl>
+            JMP   OUTSTR     ; Print 'used'<nl>
 
 * OLD
 *            JSR   PRDECXY             ; Print in decimal
@@ -748,20 +748,20 @@ FREERET
             STA   FSNUM+3
 * What's the maximum number of blocks?
 *           JSR   PRHEX           ; Blocks b16-b23 in hex
-            JSR   PR2HEX              ; Blocks b0-b15 in hex
+            JSR   PR2HEX          ; Blocks b0-b15 in hex
             LDX   #<:BLOCKS
             LDY   #>:BLOCKS
-            JSR   OUTSTR              ; ' blocks '
-            STZ   FSNUM+0             ; FSNUM=blocks*512
+            JSR   OUTSTR          ; ' blocks '
+            STZ   FSNUM+0         ; FSNUM=blocks*512
             ASL   FSNUM+1
             ROL   FSNUM+2
             ROL   FSNUM+3
-            LDX   #FSNUM              ; X=>number to print
-            LDY   #8                  ; Y=pad up to 8 digits
-            JSR   PRINTDEC            ; Print it in decimal
+            LDX   #FSNUM          ; X=>number to print
+            LDY   #8              ; Y=pad up to 8 digits
+            JSR   PRINTDEC        ; Print it in decimal
             LDX   #<:BYTES
             LDY   #>:BYTES
-            JMP   OUTSTR              ; ' bytes '
+            JMP   OUTSTR          ; ' bytes '
 :BLOCKS     ASC   ' blocks '
             DB    0
 :BYTES      ASC   ' bytes '
@@ -877,10 +877,10 @@ MKERRLP
             LSR   A
             LSR   A
             JSR   ERRHEX
-            STA   $109
+            STA   $108
             PLA
             JSR   ERRHEX
-            STA   $10A
+            STA   $109
             JMP   $100
 ERRHEX
             AND   #15
@@ -898,13 +898,13 @@ ERRMSG
 MKERROR1
             CMP   #$40
             BCS   MKERROR2
-            ORA   #$30                ; <$40 -> $30-$3F
+            ORA   #$30 ; <$40 -> $30-$3F
 MKERROR2
             SEC
             SBC   #$37
             CMP   #$28
             BCC   MKERROR3
-            LDA   #$00                ; I/O error
+            LDA   #$00 ; I/O error
 MKERROR3
             ASL   A
             TAX
@@ -923,16 +923,16 @@ MKERROR4    DW    ERROR27
 
 * $27 - I/O error (disk not formatted)
 * $28 - No device con'd (drive not present)  Disk not present
-* $29 - (GEOS Driver is busy)
+* $29 -(GSOS Driver is busy)
 * $2A - 
 * $2B - Disk write protected.                Disk write protected
-* $2C - (GEOS bad byte count)
-* $2D - (GEOS bad block number)
+* $2C -(GSOS bad byte count)
+* $2D -(GSOS bad block number)
 * $2E - Disk switched                        Disk changed
 * $2F - Device is offline (drive empty)
 
 * $40 - Invalid pathname syntax.             Bad filename
-* $41 - Duplicate filename. (split from $47) Directory exists
+* $41 -(Duplicate filename. (split from $47) Is a directory)
 * $42 - File Control Block table full.       Too many open
 * $43 - Invalid reference number.            Channel not open
 * $44 - Path not found. (Dir not found)      File not found
@@ -945,91 +945,90 @@ MKERROR4    DW    ERROR27
 * $4B - Unsupported storage_type.            Disk not recognised
 * $4C - End of file has been encountered.    End of file
 * $4D - Position out of range.               Past end of file
-* $4E - Access error. (see also $4F)         RD/WR: Insufficient access
-* $4F - Access error. (split from $4E)       REN/DEL: Locked
+* $4E - Access error. (see also $4F)         RD/WR: Insufficient access, also Dir not empty
+* $4F - (GSOS Buffer too small) (Access error. (split from $4E)       REN/DEL: Locked)
 * $50 - File already open.                   Can't - file open
 * $51 - Directory count error.               Broken directory
 * $52 - Not a ProDOS disk.                   Disk not recognised
 * $53 - Invalid parameter.                   Invalid parameter
-* $54 - (Dir not empty when deleting)        Dir not empty
+* $54 - (GSOS Out of memory) (Dir not empty when deleting)         Dir not empty
 * $55 - Volume Control Block table full.
 * $56 - Bad buffer address.
 * $57 - Duplicate volume.
 * $58 - Bad volume bitmap.
-* $59 - (GEOS File level out of range)
+* $59 -(GSOS File level out of range)
 * $5A - Bit map disk address is impossible.  Sector not found
-* $5B - (GEOS Bad ChangePath pathname)
-* $5C - (GEOS Not executable file)
-* $5D - (EOF during load or save)            Data lost
-* $5E - (Couldn't open to save)              Can't save
-* $5F - (GEOS Too many applications)
-* $60+ - (GEOS)
+* $5B -(GSOS Bad ChangePath pathname)
+* $5C -(GSOS Not executable file)
+* $5D -(GSOS OS/FS not found) (EOF during load or save)             Data lost
+* $5E -(Couldn't open to save)               Can't save
+* $5F -(GSOS Too many applications)
+* $60+ - (GSOS)
 
 
 *       AcornOS                     ProDOS
 ERROR40     DW    $CC00
-            ASC   'Bad filename'      ; $40 - Invalid pathname syntax
+            ASC   'Bad filename'        ; $40 - Invalid pathname syntax
 ERROR41     DW    $C400
-            ASC   'Directory exists'  ; $41 - Duplicate filename (split from $47)
+            ASC   'Is a directory'      ; $41 - Duplicate filename (split from $47)
 ERROR42     DW    $C000
-            ASC   'Too many open'     ; $42 - File Control Block table full
+            ASC   'Too many open'       ; $42 - File Control Block table full
 ERROR43     DW    $DE00
-            ASC   'Channel not open'  ; $43 - Invalid reference number
-ERROR44                               ; $44 - Path not found
+            ASC   'Channel not open'    ; $43 - Invalid reference number
+ERROR44                                 ; $44 - Path not found
 ERROR46     DW    $D600
-            ASC   'File not found'    ; $46 - File not found
+            ASC   'File not found'      ; $46 - File not found
 ERROR45     DW    $D600
-            ASC   'Disk not found'    ; $45 - Volume directory not found
+            ASC   'Disk not found'      ; $45 - Volume directory not found
 ERROR47     DW    $C400
-            ASC   'File exists'       ; $47 - Duplicate filename (see also $41)
+            ASC   'File exists'         ; $47 - Duplicate filename (see also $41)
 ERROR48     DW    $C600
-            ASC   'Disk full'         ; $48 - Overrun error
+            ASC   'Disk full'           ; $48 - Overrun error
 ERROR49     DW    $B300
-            ASC   'Directory full'    ; $49 - Volume directory full
-ERROR4A                               ; $4A - Incompatible file format
-ERROR4B                               ; $4B - Unsupported storage_type
+            ASC   'Directory full'      ; $49 - Volume directory full
+ERROR4A                                 ; $4A - Incompatible file format
+ERROR4B                                 ; $4B - Unsupported storage_type
 ERROR52     DW    $C800
-            ASC   'Disk not recognised'  ; $52 - Not a ProDOS disk
+            ASC   'Disk not recognised' ; $52 - Not a ProDOS disk
 ERROR4C     DW    $DF00
-            ASC   'End of file'       ; $4C - End of file has been encountered
+            ASC   'End of file'         ; $4C - End of file has been encountered
 ERROR4D     DW    $C100
-            ASC   'Not open for update'  ; $4D - Position out of range
+            ASC   'Not open for update' ; $4D - Position out of range
 ERROR4E     DW    $BD00
-            ASC   'Insufficient access'  ; $4E - Access error (see also $4F)
+            ASC   'Insufficient access' ; $4E - Access error (see also $4F)
 ERROR4F     DW    $C300
-            ASC   'Locked'            ; $4F - Access error (split from $4E)
+            ASC   'Locked'              ; $4F - Access error (split from $4E)
 ERROR50     DW    $C200
             ASC   'Can'
             DB    $27
-            ASC   't - file open'     ; $50 - File is open
+            ASC   't - file open'       ; $50 - File is open
 ERROR51     DW    $A800
-            ASC   'Broken directory'  ; $51 - Directory count error
+            ASC   'Broken directory'    ; $51 - Directory count error
 ERROR53     DW    $DC00
-            ASC   'Invalid parameter'  ; $53 - Invalid parameter
+            ASC   'Invalid parameter'   ; $53 - Invalid parameter
 ERROR54     DW    $D400
-            ASC   'Directory not empty'  ; $54 - Directory not empty
+            ASC   'Directory not empty' ; $54 - Directory not empty
 ERROR55     DW    $FF00
-            ASC   'ProDOS: VCB full'  ; $55 - Volume Control Block table full
+            ASC   'ProDOS: VCB full'    ; $55 - Volume Control Block table full
 ERROR56     DW    $FF00
-            ASC   'ProDOS: Bad addr'  ; $56 - Bad buffer address
+            ASC   'ProDOS: Bad addr'    ; $56 - Bad buffer address
 ERROR57     DW    $FF00
-            ASC   'ProDOS: Dup volm'  ; $57 - Duplicate volume
-ERROR5B                               ; spare
+            ASC   'ProDOS: Dup volm'    ; $57 - Duplicate volume
+ERROR5B                                 ; spare
 ERROR27     DW    $FF00
-            ASC   'I/O error'         ; $27 - I/O error
+            ASC   'I/O error'           ; $27 - I/O error
 ERROR28     DW    $D200
-            ASC   'Disk not present'  ; $28 - No device detected/connected
+            ASC   'Disk not present'    ; $28 - No device detected/connected
 ERROR5A     DW    $FF00
-            ASC   'Sector not found'  ; $5A - Bit map disk address is impossible
+            ASC   'Sector not found'    ; $5A - Bit map disk address is impossible
 ERROR2B     DW    $C900
-            ASC   'Disk write protected'  ; $2B - Disk write protected
+            ASC   'Disk write protected' ; $2B - Disk write protected
 ERROR5D     DW    $CA00
-            ASC   'Data lost'         ; $5D - EOF during LOAD or SAVE
+            ASC   'Data lost'           ; $5D - EOF during LOAD or SAVE
 ERROR5E     DW    $C000
             ASC   'Can'
             DB    $27
-            ASC   't save'            ; $5E - Couldn't open for save
+            ASC   't save'              ; $5E - Couldn't open for save
 ERROR2E     DW    $C800
-            ASC   'Disk changed'      ; $2E - Disk switched
+            ASC   'Disk changed'        ; $2E - Disk switched
             DB    $00
-
