@@ -929,7 +929,7 @@ MKERROR4    DW    ERROR27
 * $2C -(GSOS bad byte count)
 * $2D -(GSOS bad block number)
 * $2E - Disk switched                        Disk changed
-* $2F - Device is offline (drive empty)
+* $2F - Device is offline (drive empty/absent)
 
 * $40 - Invalid pathname syntax.             Bad filename
 * $41 -(Duplicate filename. (split from $47) Is a directory)
@@ -946,7 +946,7 @@ MKERROR4    DW    ERROR27
 * $4C - End of file has been encountered.    End of file
 * $4D - Position out of range.               Past end of file
 * $4E - Access error. (see also $4F)         RD/WR: Insufficient access, also Dir not empty
-* $4F - (GSOS Buffer too small) (Access error. (split from $4E)       REN/DEL: Locked)
+* $4F -(GSOS Buffer too small) (Access error. (split from $4E)       REN/DEL: Locked)
 * $50 - File already open.                   Can't - file open
 * $51 - Directory count error.               Broken directory
 * $52 - Not a ProDOS disk.                   Disk not recognised
@@ -997,7 +997,7 @@ ERROR4D     DW    $C100
 ERROR4E     DW    $BD00
             ASC   'Insufficient access' ; $4E - Access error (see also $4F)
 ERROR4F     DW    $C300
-            ASC   'Locked'              ; $4F - Access error (split from $4E)
+            ASC   'Entry locked'        ; $4F - Access error (split from $4E)
 ERROR50     DW    $C200
             ASC   'Can'
             DB    $27
