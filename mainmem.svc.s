@@ -5,10 +5,6 @@
 * aux memory.  Each entry point performs some ProDOS service,
 * then returns to aux memory.
 
-* TO DO: All OSFILE calls combined and dispatch in here
-*        All start with PREPATH, UPDFB, COPYFB then branch
-*        to relevent routine.
-
 * 12-Oct-2021 OSFIND exits with bad filename, allows OPENIN(dir),
 *             exits with MFI error, returns error if no more buffers,
 *             OPENOUT doesn't try to delete if nothing to delete.
@@ -16,6 +12,8 @@
 * 13-Oct-2021 FIND, BGET, BPUT optimised passing registers to main.
 * 13-Oct-2021 ARGS, EOF returns errors, optimised.
 * 15-Oct-2021 LOADFILE updated.
+* 16-Oct-2021 LOADFILE only reads object info once.
+* 17-Oct-2021 SAVEFILE updated.
 
 
 INFOFILE     >>>   ENTMAIN
@@ -361,6 +359,7 @@ NOBUFFS      LDA   #$42               ; $42=File buffers full
 BUFIDX       DB    $00
 
 * ProDOS file handling for MOS OSFIND CLOSE call
+* ProDOS can do CLOSE#0 but we need to manually update FILEREFS
 CFILE        >>>   ENTMAIN
              LDX   #$00               ; Prepare for one file
 *             LDA   MOSFILE            ; File ref number
@@ -534,37 +533,59 @@ TELLEXIT     >>>   XF2AUX,OSARGSRET
 *             BRA   :EXIT
 
 
+ZPMOS        EQU   $30
+
 * ProDOS file handling for MOS OSFILE LOAD call
 * Invoked by AppleMOS OSFILE
 * Return A=01 if successful (meaning 'file')
 *        A>$1F ProDOS error, translated by FILERET
 LOADFILE     >>>   ENTMAIN
+             LDX   #4
+:LP          LDA   FBLOAD,X           ; Get address to load to
+             STA   ZPMOS,X
+             DEX
+             BPL   :LP
              JSR   PREPATH            ; Preprocess pathname
              JSR   WILDONE            ; Handle any wildcards
-             JSR   EXISTS             ; See if it exists ...
+             JSR   UPDFB              ; Get object info
+
+*             JSR   EXISTS             ; See if it exists ...
 *             BCS :EXIT2
-             CMP   #$01               ; ... and is a file
+             CMP   #$20
+             BCS   :JMPEXIT           ; Error occured
+             CMP   #$01               ; Is it a file
              BEQ   :ISFILE
              ROL   A                  ; 0->0, 2->5
              EOR   #$05               ; 0->5, 2->0
              ADC   #$41               ; 0->$46, 2->$41
-             JMP   :EXIT2             ; Return error
+:JMPEXIT     JMP   :EXIT2             ; Return error
 
 * EXISTS has done GETINFO, so file info already loaded
-:ISFILE      LDA   FBEXEC             ; If FBEXEC is zero, use addr
-             BEQ   :CBADDR            ; in the control block
-             LDA   GINFOPL+5          ; Otherwise, use file's address
-             STA   FBLOAD+0           ; Aux type LSB
-             LDA   GINFOPL+6          ; Aux type MSB
-             STA   FBLOAD+1
+:ISFILE
+*             LDA   FBEXEC             ; If FBEXEC is zero, use addr
+*             BEQ   :CBADDR            ; in the control block
+*             LDA   GINFOPL+5          ; Otherwise, use file's address
+*             STA   FBLOAD+0           ; Aux type LSB
+*             LDA   GINFOPL+6          ; Aux type MSB
+*             STA   FBLOAD+1
 
-:CBADDR      LDA   #$60               ; *TO DO* Error=file too long
-             LDX   GINFOPL+9
-             BNE   :EXIT2             ; size>128K, too big to load
-             LDX   GINFOPL+8
-             BMI   :EXIT2             ; size>64K, too big to load
-             BEQ   :EXITOK            ; size=0, nothing to load
-             STX   :BLOCKS
+             LDA   ZPMOS+4            ; If FBEXEC is zero, use addr
+             BEQ   :CBADDR            ; in the control block
+             LDA   FBLOAD+0           ; Otherwise, use file's address
+             STA   ZPMOS+0
+             LDA   FBLOAD+1
+             STA   ZPMOS+1
+
+:CBADDR
+* NB: This is the file allocation, not the file size, so it can validly be >64K
+* as the actual data may be <64K
+*             LDA   #$60               ; *TO DO* Error=file too long
+*             LDX   GINFOPL+9
+*             BNE   :EXIT2             ; size>128K, too big to load
+*             LDX   GINFOPL+8
+*             BMI   :EXIT2             ; size>64K, too big to load
+*             BEQ   :EXITOK            ; size=0, nothing to load
+*             STX   :BLOCKS
              LDA   #<MOSFILE
              STA   OPENPL+1
              LDA   #>MOSFILE
@@ -572,6 +593,7 @@ LOADFILE     >>>   ENTMAIN
              JSR   OPENFILE
              BCS   :EXIT2             ; File not opened
 
+* TO DO: make subroutine callable by GBPB
 *             LDA   FBLOAD+0           ; A4=>start address to load to
 *             STA   A4L
 *             LDA   FBLOAD+1
@@ -584,7 +606,7 @@ LOADFILE     >>>   ENTMAIN
 *             BEQ   :EXITOK
 *             BEQ   :EOF
 *             BRA   :READERR
-             BCS   :READERR           ; Close file and return error
+             BCS   :READERR           ; Close file and return any error
 
 :S1
 *             CLC
@@ -596,12 +618,19 @@ LOADFILE     >>>   ENTMAIN
              STA   A1H
              ADC   READPL+7           ; MSB of trans count
              STA   A2H
-             LDA   FBLOAD+0           ; A4=>address to load to
+*             LDA   FBLOAD+0           ; A4=>address to load to
+*             STA   A4L
+*             LDA   FBLOAD+1
+*             STA   A4H
+*             INC   FBLOAD+1           ; Step to next block
+*             INC   FBLOAD+1
+
+             LDA   ZPMOS+0          ; A4=>address to load to
              STA   A4L
-             LDA   FBLOAD+1
+             LDA   ZPMOS+1
              STA   A4H
-             INC   FBLOAD+1           ; Step to next block
-             INC   FBLOAD+1
+             INC   ZPMOS+1          ; Step to next block
+             INC   ZPMOS+1
 
 
 *             CLC
@@ -642,29 +671,31 @@ LOADFILE     >>>   ENTMAIN
 
              SEC                      ; Main -> AUX
              JSR   AUXMOVE            ; A4 updated to next address
-             DEC   :BLOCKS
-             BNE   :L1
-             BEQ   :EXITOK
+             JMP   :L1
+             
+*             DEC   :BLOCKS
+*             BNE   :L1
+*             BEQ   :EXITOK
 
 *             INC   :BLOCKS
 *             BRA   :L1
 
 :READERR     CMP   #$4C
              BNE   :EXITERR
-:EXITOK      LDA   #$01               ; Success ('File')
+:EXITOK      LDA   #$00               ; $00=Success
 :EXITERR     PHA
              LDA   OPENPL+5           ; File ref num
              STA   CLSPL+1
              JSR   CLSFILE
              PLA
-             CMP   #$01
              BNE   :EXIT2
-             PHA
-             JSR   UPDFB              ; Update FILEBLK
+*             PHA
+*             JSR   UPDFB              ; Update FILEBLK
              JSR   COPYFB             ; Copy FILEBLK to auxmem
-             PLA                      ; Get return code back
+             LDA   #$01               ; $01=File
+*             PLA                      ; Get return code back
 :EXIT2       >>>   XF2AUX,OSFILERET
-:BLOCKS      DB    $00
+*:BLOCKS      DB    $00
 
 
 *:NOTFILE     ROL   A                  ; 0->0, 2->5
@@ -693,13 +724,32 @@ LOADFILE     >>>   ENTMAIN
 * Return A=01 if successful (ie: 'file')
 *        A>$1F ProDOS error translated by FILERET
 SAVEFILE     >>>   ENTMAIN
+             SEC                      ; Compute file length
+             LDA   FBEND+0
+             SBC   FBSTRT+0
+             STA   :LENREM+0
+             LDA   FBEND+1
+             SBC   FBSTRT+1
+             STA   :LENREM+1
+             LDA   FBEND+2
+             SBC   FBSTRT+2
+             BNE   :TOOBIG            ; >64K
+             LDA   FBEND+3
+             SBC   FBSTRT+3
+             BEQ   :L0                ; >16M
+:TOOBIG      JMP   :CANTSAVE
+
+:L0
              JSR   PREPATH            ; Preprocess pathname
              JSR   EXISTS             ; See if file exists ...
-             CMP   #$02               ; ... and is a directory
-             BNE   :NOTDIR
-             LDA   $41                ; Dir exists, return $41
-             PHA
-             JMP   :EXIT
+             CMP   #$01
+             BEQ   :NOTDIR            ; Overwrite file
+             BCC   :NOFILE            ; Create new file
+             CMP   #$02
+             BNE   :JMPEXIT2
+             LDA   #$41               ; Dir exists, return $41
+:JMPEXIT2    JMP   :EXIT2
+
 :NOTDIR      LDA   #<MOSFILE          ; Attempt to destroy file
              STA   DESTPL+1
              LDA   #>MOSFILE
@@ -707,7 +757,179 @@ SAVEFILE     >>>   ENTMAIN
              JSR   MLI
              DB    DESTCMD
              DW    DESTPL
-             STZ   :BLOCKS
+             BCS   :JMPEXIT2          ; Error trying to delete
+
+:NOFILE
+*             STZ   :BLOCKS
+*             LDA   #$01               ; Storage type - file
+*             STA   CREATEPL+7
+*             LDA   #$06               ; Filetype BIN
+*             STA   CREATEPL+4
+*             LDA   #<MOSFILE
+*             STA   OPENPL+1
+*             LDA   #>MOSFILE
+*             STA   OPENPL+2
+*             LDA   FBLOAD             ; Auxtype = load address
+*             STA   CREATEPL+5
+*             LDA   FBLOAD+1
+*             STA   CREATEPL+6
+*             LDA   #$C3               ; Default permissions
+*             STA   CREATEPL+3
+*             JSR   CRTFILE
+
+             JSR   CREATE
+             BCS   :JMPEXIT2          ; Error trying to create
+             JSR   OPENFILE
+             BCS   :JMPEXIT2          ; Error trying to open
+
+:L1
+*             LDA   FBSTRT+0           ; Set up for current block
+*             STA   A1L                ; A1=>source start
+*             STA   A2L
+*             LDA   FBSTRT+1
+*             STA   A1H
+*             STA   A2H
+*             INC   A2H                ; A2=>source start+$200 = 512 bytes
+*             INC   A2H
+             LDA   #$00               ; 512 bytes request count
+             STA   WRITEPL+4
+             LDA   #$02
+             STA   WRITEPL+5
+
+             LDA   :LENREM+1
+             CMP   #$02
+             BCS   :L15               ; More than 511 bytes remaining
+             STA   WRITEPL+5
+             LDA   :LENREM+0
+             STA   WRITEPL+4
+             ORA   WRITEPL+5
+             BEQ   :SAVEOK            ; Zero bytes remaining
+             
+:L15
+             SEC
+             LDA   :LENREM+0          ; LENREM=LENREM-count
+             SBC   WRITEPL+4
+             STA   :LENREM+0
+             LDA   :LENREM+1
+             SBC   WRITEPL+5
+             STA   :LENREM+1
+             
+             CLC
+             LDA   FBSTRT+0
+             STA   A1L                ; A1=>start of this block
+             ADC   WRITEPL+4
+             STA   A2L                ; A2=>end of this block
+             STA   FBSTRT+0           ; Update FBSTRT=>start of next block
+             LDA   FBSTRT+1
+             STA   A1H
+             ADC   WRITEPL+5
+             STA   A2H
+             STA   FBSTRT+1
+
+*             LDA   OPENPL+5           ; File ref number
+*             STA   WRITEPL+1
+*             LDA   #$00               ; 512 byte request count
+*             STA   WRITEPL+4
+*             LDA   #$02
+*             STA   WRITEPL+5
+*             LDX   :BLOCKS
+*:L2          CPX   #$00               ; Adjust for subsequent blks
+*             BEQ   :S1
+*             INC   A1H
+*             INC   A1H
+*             INC   A2H
+*             INC   A2H
+*             DEX
+*             BRA   :L2
+*
+*:FWD1        BRA   :CANTOPEN          ; Forwarding call from above
+*
+*:S1          LDA   :LENREM+1          ; MSB of length remaining
+*             CMP   #$02
+*             BCS   :S2                ; MSB of len >= 2 (not last)
+*             CMP   #$00               ; If no bytes left ...
+*             BNE   :S3
+*             LDA   :LENREM
+*             BNE   :S3
+*             BRA   :NORMALEND
+*
+*:S3          LDA   FBEND              ; Adjust for last block
+*             STA   A2L
+*             LDA   FBEND+1
+*             STA   A2H
+*             LDA   :LENREM
+*             STA   WRITEPL+4          ; Remaining bytes to write
+*             LDA   :LENREM+1
+*             STA   WRITEPL+5
+*
+:S2          LDA   #<BLKBUF
+             STA   A4L
+             LDA   #>BLKBUF
+             STA   A4H
+             CLC                      ; Aux -> Main
+             JSR   AUXMOVE            ; Copy data from aux to local buffer
+
+             LDA   OPENPL+5           ; File ref number
+             STA   WRITEPL+1
+             JSR   WRTFILE            ; Write the data
+             BCS   :WRITEERR
+             JMP   :L1                ; Loop back for next block
+
+*             BRA   :UPDLEN
+*
+*:ENDLOOP     INC   :BLOCKS
+*             BRA   :L1
+*
+*:UPDLEN      SEC                      ; Update length remaining
+*             LDA   :LENREM
+*             SBC   WRITEPL+4
+*             STA   :LENREM
+*             LDA   :LENREM+1
+*             SBC   WRITEPL+5
+*             STA   :LENREM+1
+*             BRA   :ENDLOOP
+
+:CANTSAVE    LDA   #$5E               ; Can't open/create
+             BRA   :EXIT3             ; TO DO: Error=File too long
+
+:SAVEOK                               ; Arrive here with A=$00
+:WRITEERR    PHA
+             LDA   OPENPL+5           ; File ref num
+             STA   CLSPL+1
+             JSR   CLSFILE
+             PLA
+             BNE   :EXIT2             ; Error returned
+             JSR   UPDFB              ; Update FILEBLK
+             JSR   COPYFB             ; Copy FILEBLK to aux mem
+             LDA   #$01               ; Return A='File'
+:EXIT2       CMP   #$4E
+             BNE   :EXIT3             ; Change 'Insuff. access'
+             LDA   #$4F               ; to 'Locked'
+:EXIT3       >>>   XF2AUX,OSFILERET
+:LENREM      DW    $0000              ; Remaining length
+
+*             LDA   #$5D               ; Write error
+*             PLA
+*             BRA   :EXIT2
+*
+*:NORMALEND   LDA   OPENPL+5           ; File ref num
+*             STA   CLSPL+1
+*             JSR   CLSFILE
+*             BCC   :OK                ; If close OK
+*             LDA   #$5D               ; Write error
+*             BRA   :EXIT2
+*:OK          LDA   #$01               ; Success ('File')
+*:EXIT        JSR   UPDFB              ; Update FILEBLK
+*             JSR   COPYFB             ; Copy FILEBLK to aux mem
+*:EXIT2       CMP   #$4E
+*             BNE   :EXIT3             ; Change 'Insuff. access'
+*             LDA   #$4F               ; to 'Locked'
+*:EXIT3       >>>   XF2AUX,OSFILERET
+*:BLOCKS      DB    $00
+*:LENREM      DW    $0000              ; Remaining length
+
+
+CREATE
              LDA   #$01               ; Storage type - file
              STA   CREATEPL+7
              LDA   #$06               ; Filetype BIN
@@ -722,114 +944,8 @@ SAVEFILE     >>>   ENTMAIN
              STA   CREATEPL+6
              LDA   #$C3               ; Default permissions
              STA   CREATEPL+3
-             JSR   CRTFILE
-             BCS   :FWD1              ; :CANTOPEN error
-             JSR   OPENFILE
-             BCS   :FWD1              ; :CANTOPEN error
-             SEC                      ; Compute file length
-             LDA   FBEND
-             SBC   FBSTRT
-             STA   :LENREM
-             LDA   FBEND+1
-             SBC   FBSTRT+1
-             STA   :LENREM+1
-:L1          LDA   FBSTRT             ; Set up for first block
-             STA   A1L
-             STA   A2L
-             LDA   FBSTRT+1
-             STA   A1H
-             STA   A2H
-             INC   A2H                ; $200 = 512 bytes
-             INC   A2H
-             LDA   OPENPL+5           ; File ref number
-             STA   WRITEPL+1
-             LDA   #$00               ; 512 byte request count
-             STA   WRITEPL+4
-             LDA   #$02
-             STA   WRITEPL+5
-             LDX   :BLOCKS
-:L2          CPX   #$00               ; Adjust for subsequent blks
-             BEQ   :S1
-             INC   A1H
-             INC   A1H
-             INC   A2H
-             INC   A2H
-             DEX
-             BRA   :L2
+             JMP   CRTFILE
 
-:FWD1        BRA   :CANTOPEN          ; Forwarding call from above
-
-:S1          LDA   :LENREM+1          ; MSB of length remaining
-             CMP   #$02
-             BCS   :S2                ; MSB of len >= 2 (not last)
-             CMP   #$00               ; If no bytes left ...
-             BNE   :S3
-             LDA   :LENREM
-             BNE   :S3
-             BRA   :NORMALEND
-
-:S3          LDA   FBEND              ; Adjust for last block
-             STA   A2L
-             LDA   FBEND+1
-             STA   A2H
-             LDA   :LENREM
-             STA   WRITEPL+4          ; Remaining bytes to write
-             LDA   :LENREM+1
-             STA   WRITEPL+5
-
-:S2          LDA   #<BLKBUF
-             STA   A4L
-             LDA   #>BLKBUF
-             STA   A4H
-
-             CLC                      ; Aux -> Main
-             JSR   AUXMOVE
-
-             LDA   OPENPL+5           ; File ref number
-             STA   WRITEPL+1
-             JSR   WRTFILE
-             BCS   :WRITEERR
-
-             BRA   :UPDLEN
-
-:ENDLOOP     INC   :BLOCKS
-             BRA   :L1
-
-:UPDLEN      SEC                      ; Update length remaining
-             LDA   :LENREM
-             SBC   WRITEPL+4
-             STA   :LENREM
-             LDA   :LENREM+1
-             SBC   WRITEPL+5
-             STA   :LENREM+1
-             BRA   :ENDLOOP
-
-:CANTOPEN    LDA   #$5E               ; Can't open/create
-             PHA
-             BRA   :EXIT
-
-:WRITEERR    LDA   OPENPL+5           ; File ref num
-             STA   CLSPL+1
-             JSR   CLSFILE
-             LDA   #$5D               ; Write error
-             PHA
-             BRA   :EXIT
-
-:NORMALEND   LDA   OPENPL+5           ; File ref num
-             STA   CLSPL+1
-             JSR   CLSFILE
-             BCC   :OK                ; If close OK
-             LDA   #$5D               ; Write error
-             PHA
-             BRA   :EXIT
-:OK          LDA   #$01               ; Success ('File')
-             PHA
-:EXIT        JSR   UPDFB              ; Update FILEBLK
-             JSR   COPYFB             ; Copy FILEBLK to aux mem
-             PLA
-             >>>   XF2AUX,OSFILERET
-:BLOCKS      DB    $00
-:LENREM      DW    $0000              ; Remaining length
 
 * Update FILEBLK before returning to aux memory
 * Returns A=object type or ProDOS error
