@@ -929,10 +929,10 @@ MKERROR4    DW    ERROR27
 * $2C -(GSOS bad byte count)
 * $2D -(GSOS bad block number)
 * $2E - Disk switched                        Disk changed
-* $2F - Device is offline (drive empty)
+* $2F - Device is offline (drive empty/absent)
 
 * $40 - Invalid pathname syntax.             Bad filename
-* $41 -(Duplicate filename. (split from $47) Is a directory)
+* $41 -(Duplicate filename. split from $47)  Is a directory)
 * $42 - File Control Block table full.       Too many open
 * $43 - Invalid reference number.            Channel not open
 * $44 - Path not found. (Dir not found)      File not found
@@ -946,7 +946,7 @@ MKERROR4    DW    ERROR27
 * $4C - End of file has been encountered.    End of file
 * $4D - Position out of range.               Past end of file
 * $4E - Access error. (see also $4F)         RD/WR: Insufficient access, also Dir not empty
-* $4F - (GSOS Buffer too small) (Access error. (split from $4E)       REN/DEL: Locked)
+* $4F -(Access error. split from $4E)        REN/DEL/SAV: Locked
 * $50 - File already open.                   Can't - file open
 * $51 - Directory count error.               Broken directory
 * $52 - Not a ProDOS disk.                   Disk not recognised
@@ -960,7 +960,7 @@ MKERROR4    DW    ERROR27
 * $5A - Bit map disk address is impossible.  Sector not found
 * $5B -(GSOS Bad ChangePath pathname)
 * $5C -(GSOS Not executable file)
-* $5D -(GSOS OS/FS not found) (EOF during load or save)             Data lost
+* $5D -(GSOS OS/FS not found) (EOF during load or save)            Data lost
 * $5E -(Couldn't open to save)               Can't save
 * $5F -(GSOS Too many applications)
 * $60+ - (GSOS)
@@ -997,7 +997,7 @@ ERROR4D     DW    $C100
 ERROR4E     DW    $BD00
             ASC   'Insufficient access' ; $4E - Access error (see also $4F)
 ERROR4F     DW    $C300
-            ASC   'Locked'              ; $4F - Access error (split from $4E)
+            ASC   'Entry locked'        ; $4F - Access error (split from $4E)
 ERROR50     DW    $C200
             ASC   'Can'
             DB    $27
