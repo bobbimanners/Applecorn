@@ -51,14 +51,14 @@ RDPLCP      HEX   04          ; Number of parameters
 WRITEPL     HEX   04          ; Number of parameters
             DB    $01         ; Reference number
             DW    BLKBUF      ; Pointer to data buffer
-            DW    $00         ; Request count
+            DW    $0000       ; Request count
             DW    $0000       ; Trans count
 
 * Used for file copy only because we can't trash BLKBUF
 WRTPLCP     HEX   04          ; Number of parameters
             DB    $01         ; Reference number
             DW    COPYBUF     ; Pointer to data buffer
-            DW    $00         ; Request count
+            DW    $0000       ; Request count
             DW    $0000       ; Trans count
 
 CLSPL       HEX   01          ; Number of parameters
@@ -109,24 +109,6 @@ QUITPL      HEX   04          ; Number of parameters
             DW    $0000
             DB    $00
             DW    $0000
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

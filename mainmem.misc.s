@@ -161,6 +161,10 @@ CRTFILE     JSR   MLI            ; GET_TIME
             RTS
 
 * Open disk file
+OPENMOSFILE LDA   #<MOSFILE      ; Open filename in MOSFILE
+            STA   OPENPL+1
+            LDA   #>MOSFILE
+            STA   OPENPL+2
 OPENFILE    JSR   MLI
             DB    OPENCMD
             DW    OPENPL
@@ -192,43 +196,4 @@ GETPREF     JSR   MLI
 
 * Map of file reference numbers to IOBUF1..4
 FILEREFS    DB    $00,$00,$00,$00
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
