@@ -612,7 +612,6 @@ READDATA     STA   READPL+1
 :EXITOK      LDA   #$00               ; $00=Success
 :EXITERR     RTS
 
-
 * ProDOS file handling for MOS OSFILE SAVE call
 * Invoked by AppleMOS OSFILE
 * Return A=01 if successful (ie: 'file')
@@ -621,10 +620,10 @@ SAVEFILE     >>>   ENTMAIN
              SEC                      ; Compute file length
              LDA   FBEND+0
              SBC   FBSTRT+0
-             STA   :LENREM+0
+             STA   LENREM+0
              LDA   FBEND+1
              SBC   FBSTRT+1
-             STA   :LENREM+1
+             STA   LENREM+1
              LDA   FBEND+2
              SBC   FBSTRT+2
              BNE   :TOOBIG            ; >64K
@@ -683,29 +682,29 @@ SAVEFILE     >>>   ENTMAIN
 
 
 * A=channel, FBSTRT+0/1=address to save from
-* :LENREM+0/1=length to write
+* LENREM+0/1=length to write
 WRITEDATA    STA   WRITEPL+1
 :L1          LDA   #$00               ; 512 bytes request count
              STA   WRITEPL+4
              LDA   #$02
              STA   WRITEPL+5
 
-             LDA   :LENREM+1
+             LDA   LENREM+1
              CMP   #$02
              BCS   :L15               ; More than 511 bytes remaining
              STA   WRITEPL+5
-             LDA   :LENREM+0
+             LDA   LENREM+0
              STA   WRITEPL+4
              ORA   WRITEPL+5
              BEQ   :SAVEOK            ; Zero bytes remaining
 
 :L15         SEC
-             LDA   :LENREM+0          ; LENREM=LENREM-count
+             LDA   LENREM+0           ; LENREM=LENREM-count
              SBC   WRITEPL+4
-             STA   :LENREM+0
-             LDA   :LENREM+1
+             STA   LENREM+0
+             LDA   LENREM+1
              SBC   WRITEPL+5
-             STA   :LENREM+1
+             STA   LENREM+1
 
              CLC
              LDA   FBSTRT+0
@@ -739,8 +738,7 @@ WRITEDATA    STA   WRITEPL+1
              JMP   :L1                ; Loop back for next block
 :SAVEOK                               ; Enter here with A=$00
 :WRITEERR    RTS
-:LENREM      DW    $0000              ; Remaining length
-
+LENREM       DW    $0000              ; Remaining length
 
 CREATEFILE   LDA   #$01               ; Storage type - file
              STA   CREATEPL+7
