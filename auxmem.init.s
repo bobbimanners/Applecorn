@@ -156,9 +156,12 @@ BYTE8E      PHP                              ; Save CLC=RESET, SEC=Not RESET
 * OSBYTE $8F - Issue service call
 * X=service call, Y=parameter
 *
+SERVICE     TAX                   ; Enter here with A=Service Num
 BYTE8F
-SERVICEX    TXA
-SERVICE     LDX   #MAXROM         ; Start at highest ROM
+SERVICEX    LDA   $F4
+            PHA                   ; Save current ROM
+            TXA
+            LDX   #MAXROM         ; Start at highest ROM
 :SERVLP     JSR   ROMSELECT       ; Bring it into memory
             BIT   $8006
             BPL   :SERVSKIP       ; No service entry
@@ -168,7 +171,13 @@ SERVICE     LDX   #MAXROM         ; Start at highest ROM
 :SERVSKIP   LDX   $F4             ; Restore X=current ROM
             DEX                   ; Step down to next
             BPL   :SERVLP         ; Loop until ROM 0 done
-:SERVDONE   RTS
+:SERVDONE   PLA                   ; Get caller's ROM back
+            PHX                   ; Save return from service call
+            TAX
+            JSR   ROMSELECT       ; Restore caller's ROM
+            PLX                   ; Get return value back
+            TXA                   ; Return in A and X and set EQ/NE
+            RTS
 
 
 PRHELLO     LDA   #<HELLO
