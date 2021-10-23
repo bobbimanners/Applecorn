@@ -105,19 +105,20 @@ EXISTS      LDA   #<MOSFILE
 :NOEXIST    LDA   #$00
             RTS
 
-* Copy FILEBLK to AUXBLK in aux memory
+
+* Copy FILEBLK to OSFILECB in aux memory
 * Preserves A
 COPYFB      PHA
-            LDX   #$00
+            LDX   #$11           ; 18 bytes in FILEBLK
+*            >>>   WRTAUX          ; Alt ZP and LC
+            >>>   WRTAUX         ; Write to Aux mem
 :L1         LDA   FILEBLK,X
-            TAY
-            >>>   ALTZP          ; Alt ZP and LC
-            TYA
-            STA   AUXBLK,X
-            >>>   MAINZP         ; Back to normal
-            INX
-            CPX   #18            ; 18 bytes in FILEBLK
-            BNE   :L1
+*            STA   AUXBLK,X
+            STA   OSFILECB,X
+            DEX
+            BPL   :L1
+*            >>>   MAINZP         ; Back to normal
+            >>>   WRTMAIN         ; Back to Main mem
             PLA
             RTS
 

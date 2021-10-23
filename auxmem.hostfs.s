@@ -13,6 +13,7 @@
 * 13-Oct-2021 FIND, BGET, BPUT optimised passing registers to main.
 * 13-Oct-2021 ARGS, EOF returns errors, optimised passing registers.
 * 14-Oct-2021 Tidied FILE handler.
+* 23-Oct-2021 Uses single dispatch to mainmem FILE handler.
 
 
 * $B0-$BF Temporary filing system workspace
@@ -207,14 +208,16 @@ OSARGSDONE  PLA
 *           A=2 directory found
 *           XY  preserved
 *               control block updated
+OSFILEMIN   EQU   $FF         ; $FF=LOAD
+OSFILEMAX   EQU   $08         ; $08=MKDIR
+
 FILEHND     PHX
             PHY
             PHA
-
-*            STX   CBPTR               ; LSB of parameter block
-*            STX   ZP1
-*            STY   CBPTR+1             ; MSB of parameter block
-*            STY   ZP1+1
+            CLC
+            ADC   #256-OSFILEMIN
+            CMP   #OSFILEMAX+257-OSFILEMIN  ; NB: LTR evaluation
+            BCS   FILEIGNORE
 
             STX   FSCTRL+0            ; FSCTRL=>control block
             STY   FSCTRL+1
@@ -225,26 +228,6 @@ FILEHND     PHX
             TAY
             JSR   PARSNAME            ; Copy filename->MOSFILE
 
-*            LDA   (ZP1)               ; Filename ptr->XY
-*            TAX
-*            LDY   #$01
-*            LDA   (ZP1),Y
-*            TAY
-*            JSR   PARSNAME            ; Copy filename->MOSFILE
-
-*            LDA   #<FILEBLK
-*            STA   ZP2
-*            LDA   #>FILEBLK
-*            STA   ZP2+1
-*            LDY   #$00                ; Copy to FILEBLK in main mem
-*:L1         LDA   (ZP1),Y
-*            >>>   WRTMAIN
-*            STA   (ZP2),Y
-*            >>>   WRTAUX
-*            INY
-*            CPY   #$12
-*            BNE   :L1
-
             LDY   #$11
             >>>   WRTMAIN
 :L1         LDA   (FSCTRL),Y          ; Copy control block to auxmem
@@ -252,77 +235,49 @@ FILEHND     PHX
             DEY
             BPL   :L1
             >>>   WRTAUX
-
             PLA                       ; Get action back
-*            PHA
-            BEQ   :SAVE               ; A=00 -> SAVE
-            CMP   #$FF
-            BEQ   :LOAD               ; A=FF -> LOAD
-            CMP   #$06
-            BEQ   :DELETE             ; A=06 -> DELETE
-*            BCC   :INFO               ; A=01-05 -> INFO
-            BCC   :JMPINFO            ; A=01-05 -> INFO
-            CMP   #$08
-            BEQ   :MKDIR              ; A=08 -> MKDIR
+            >>>   XF2MAIN,CALLFILE
 
-*            PLA
-            PLY                       ; Not implemented, return unchanged
-            PLX
-            RTS
-
-:JMPINFO    JMP   :INFO
-:SAVE       >>>   XF2MAIN,SAVEFILE
-:LOAD       >>>   XF2MAIN,LOADFILE
-:DELETE     >>>   XF2MAIN,DELFILE
-:INFO       >>>   XF2MAIN,INFOFILE
-:MKDIR      >>>   XF2MAIN,MAKEDIR
+*            BEQ   :SAVE               ; A=00 -> SAVE
+*            CMP   #$FF
+*            BEQ   :LOAD               ; A=FF -> LOAD
+*            CMP   #$06
+*            BEQ   :DELETE             ; A=06 -> DELETE
+*            BCC   :JMPINFO            ; A=01-05 -> INFO
+*            CMP   #$08
+*            BEQ   :MKDIR              ; A=08 -> MKDIR
+*
+*            PLY                       ; Not implemented, return unchanged
+*            PLX
+*            RTS
+*
+*:JMPINFO    JMP   :INFO
+*:SAVE       >>>   XF2MAIN,SAVEFILE
+*:LOAD       >>>   XF2MAIN,LOADFILE
+*:DELETE     >>>   XF2MAIN,DELFILE
+*:INFO       >>>   XF2MAIN,INFOFILE
+*:MKDIR      >>>   XF2MAIN,MAKEDIR
 
 * On return here, A<$20 return to caller, A>$1F ProDOS error
 OSFILERET   >>>   ENTAUX
             JSR   CHKERROR            ; Check if error returned
             PHA
             LDY   #$11                ; Copy updated control block back
-:L3         LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
+:L3
+*           LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
+            LDA   OSFILECB,Y          ; Mainmem left it in OSFILECB
             STA   (FSCTRL),Y
             DEY
             BPL   :L3
 
-*            LDA   CBPTR               ; Copy OSFILE CB to :CBPTR addr
-*            STA   ZP1
-*            LDA   CBPTR+1
-*            STA   ZP1+1
-*            LDY   #$02
-*:L3         LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
-*            STA   (ZP1),Y
-*            INY
-*            CPY   #18                 ; 18 bytes in control block
-*            BNE   :L3
-
-            PLA                       ; Returned object type
-*            PLY                       ; Original action
-*            JSR   CHKERROR            ; Check if error returned
+FILEIGNORE  PLA                       ; Returned object type
             PLY                       ; No error, return to caller
             PLX
             RTS
 
-*ERRNOTFND   BRK
-*            DB    $D6                 ; $D6 = Object not found
-*            ASC   'File not found'
-*            BRK
 
-*ERREXISTS   BRK
-*            DB    $C4                 ; Can't create a dir if a file is
-*            ASC   'File exists'       ; already there
-*            BRK
-
-*CBPTR       DW    $0000
-*OSFILEM     ASC   'OSFILE($'
-*            DB    $00
-*OSFILEM2    ASC   ')'
-*            DB    $00
 OSFSCM      ASC   'OSFSC.'
             DB    $00
-
 
 * FSC Command Table
 *******************
@@ -460,24 +415,23 @@ CHKEOFRET   >>>   ENTAUX
             JMP   CHKERROR
 
 
-* Perform CAT
+* Display catalog entries and info
 * A=5 *CAT, A=9 *EX, A=10 *INFO
-FSCCAT      PHA
+FSCCAT      EOR   #$06
+            CLC
+            ROR   A                   ; 01100000=*CAT
+            ROR   A                   ; 11100000=*EX
+            ROR   A                   ; 10000000=*INFO
+            ROR   A                   ; b7=long info
+            STA   FSAREG              ; b6=multiple items
             JSR   PARSNAME            ; Copy filename->MOSFILE
-            PLA
-            ASL   A
-            ASL   A
-            ASL   A                   ; 0101xxxx=*CAT
-            ASL   A                   ; 1001xxxx=*EX
-            STA   FSAREG              ; 1010xxxx=*INFO
+            LDA   FSAREG              ; Get ARG back
             >>>   XF2MAIN,CATALOG
-STARCATRET
-            >>>   ENTAUX
-            PHA
-            JSR   FORCENL
-            PLA
+STARCATRET  >>>   ENTAUX
             JSR   CHKERROR            ; See if error occurred
-CATDONE     LDA   #0                  ; 0=OK
+            JSR   FORCENL
+* CATDONE
+            LDA   #0                  ; 0=OK
             RTS
 
 * Print one block of a catalog. Called by CATALOG
@@ -945,13 +899,13 @@ MKERROR4    DW    ERROR27
 * $4B - Unsupported storage_type.            Disk not recognised
 * $4C - End of file has been encountered.    End of file
 * $4D - Position out of range.               Past end of file
-* $4E - Access error. (see also $4F)         RD/WR: Insufficient access, also Dir not empty
+* $4E - Access error. (see also $4F)         RD/WR: Insufficient access
 * $4F -(Access error. split from $4E)        REN/DEL/SAV: Locked
 * $50 - File already open.                   Can't - file open
 * $51 - Directory count error.               Broken directory
 * $52 - Not a ProDOS disk.                   Disk not recognised
 * $53 - Invalid parameter.                   Invalid parameter
-* $54 - (GSOS Out of memory) (Dir not empty when deleting)         Dir not empty
+* $54 -(Dir not empty when deleting, cf $4E) DEL: Dir not empty
 * $55 - Volume Control Block table full.
 * $56 - Bad buffer address.
 * $57 - Duplicate volume.
