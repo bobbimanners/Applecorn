@@ -7,6 +7,8 @@
 * BBC Micro 'virtual machine' in Apple //e aux memory
 ***********************************************************
 
+MAXROM      EQU   $00                        ; Only one sideways ROM
+
 ZP1         EQU   $90                        ; $90-$9f are spare Econet space
                                              ; so safe to use
 ZP2         EQU   $92
@@ -129,12 +131,15 @@ MOSHIGH     SEI
             LDA   #7
             JSR   OSWRCH
             JSR   OSNEWL
+            LDX   #MAXROM         ; TEMP X=language to enter
             CLC
-*            JMP   BYTE8E
 
 * OSBYTE $8E - Enter language ROM
+* X=ROM number to select
 *
 BYTE8E      PHP                              ; Save CLC=RESET, SEC=Not RESET
+            JSR   ROMSELECT       ; Bring ROM X into memory 
+            STX   BYTEVARBASE+$FC ; Set current language ROM
             LDA   #$00
             STA   FAULT+0
             LDA   #$80
@@ -153,13 +158,16 @@ BYTE8E      PHP                              ; Save CLC=RESET, SEC=Not RESET
 *
 BYTE8F
 SERVICEX    TXA
-SERVICE     LDX   #$0F
+SERVICE     LDX   #MAXROM         ; Start at highest ROM
+:SERVLP     JSR   ROMSELECT       ; Bring it into memory
             BIT   $8006
-            BPL   :SERVSKIP                  ; No service entry
-            JSR   $8003                      ; Call service entry
+            BPL   :SERVSKIP       ; No service entry
+            JSR   $8003           ; Call service entry
             TAX
             BEQ   :SERVDONE
-:SERVSKIP   LDX   #$FF
+:SERVSKIP   LDX   $F4             ; Restore X=current ROM
+            DEX                   ; Step down to next
+            BPL   :SERVLP         ; Loop until ROM 0 done
 :SERVDONE   RTS
 
 
@@ -176,4 +184,5 @@ BYTE00A     BRK
             DB    $F7
 HELLO       ASC   'Applecorn MOS 2021-10-13'
             DB    $00                        ; Unify MOS messages
+
 
