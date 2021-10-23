@@ -7,6 +7,8 @@
 * BBC Micro 'virtual machine' in Apple //e aux memory
 ***********************************************************
 
+MAXROM      EQU   $00                        ; Only one sideways ROM
+
 ZP1         EQU   $90                        ; $90-$9f are spare Econet space
                                              ; so safe to use
 ZP2         EQU   $92
@@ -129,12 +131,15 @@ MOSHIGH     SEI
             LDA   #7
             JSR   OSWRCH
             JSR   OSNEWL
+            LDX   #MAXROM         ; TEMP X=language to enter
             CLC
-*            JMP   BYTE8E
 
 * OSBYTE $8E - Enter language ROM
+* X=ROM number to select
 *
 BYTE8E      PHP                              ; Save CLC=RESET, SEC=Not RESET
+            JSR   ROMSELECT       ; Bring ROM X into memory 
+            STX   BYTEVARBASE+$FC ; Set current language ROM
             LDA   #$00
             STA   FAULT+0
             LDA   #$80
@@ -151,16 +156,28 @@ BYTE8E      PHP                              ; Save CLC=RESET, SEC=Not RESET
 * OSBYTE $8F - Issue service call
 * X=service call, Y=parameter
 *
+SERVICE     TAX                   ; Enter here with A=Service Num
 BYTE8F
-SERVICEX    TXA
-SERVICE     LDX   #$0F
+SERVICEX    LDA   $F4
+            PHA                   ; Save current ROM
+            TXA
+            LDX   #MAXROM         ; Start at highest ROM
+:SERVLP     JSR   ROMSELECT       ; Bring it into memory
             BIT   $8006
-            BPL   :SERVSKIP                  ; No service entry
-            JSR   $8003                      ; Call service entry
+            BPL   :SERVSKIP       ; No service entry
+            JSR   $8003           ; Call service entry
             TAX
             BEQ   :SERVDONE
-:SERVSKIP   LDX   #$FF
-:SERVDONE   RTS
+:SERVSKIP   LDX   $F4             ; Restore X=current ROM
+            DEX                   ; Step down to next
+            BPL   :SERVLP         ; Loop until ROM 0 done
+:SERVDONE   PLA                   ; Get caller's ROM back
+            PHX                   ; Save return from service call
+            TAX
+            JSR   ROMSELECT       ; Restore caller's ROM
+            PLX                   ; Get return value back
+            TXA                   ; Return in A and X and set EQ/NE
+            RTS
 
 
 PRHELLO     LDA   #<HELLO
@@ -174,10 +191,7 @@ BYTE00      BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
             RTS                              ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2021-10-18'
+HELLO       ASC   'Applecorn MOS 2021-10-23'
             DB    $00                        ; Unify MOS messages
-
-
-
 
 
