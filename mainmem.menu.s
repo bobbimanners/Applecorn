@@ -91,10 +91,10 @@ MSG5        ASC   " 5. Acornsoft MicroProlog"
 MSG6        ASC   " 6. Acornsoft BCPL"
             DB    $00
 
-MSG7        ASC   " 7. USERROM1.ROM"
+MSG7        ASC   " 7. Acornsoft ISO Pascal (2 ROMs)"
             DB    $00
 
-MSG8        ASC   " 8. USERROM2.ROM"
+MSG8        ASC   " 8. -"
             DB    $00
 
 USERSEL     DB    $00
