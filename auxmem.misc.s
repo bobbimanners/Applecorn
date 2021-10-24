@@ -379,8 +379,11 @@ PASCROM1    ASC   'USERROM2.ROM'
 PASCROM2    ASC   'USERROM1.ROM'
             DB    $0D,$00
 
+MAXROM      DB    $00             ; Index of highest sideways ROM
+
 * Initialize ROMTAB according to user selection in menu
-INITROMS    STA   $C002           ; Read main mem
+INITROMS    STZ   MAXROM          ; One sideways ROM only
+            STA   $C002           ; Read main mem
             LDA   USERSEL
             STA   $C003           ; Read aux mem
             ASL                   ; x2
@@ -396,7 +399,17 @@ INITROMS    STA   $C002           ; Read main mem
             INY
             LDA   (OSLPTR),Y
             STA   ROMTAB+1
-            LDA   #$FF
+            STA   $C002           ; Read main mem
+            LDA   USERSEL
+            STA   $C003           ; Read aux mem
+            CMP   #6              ; Menu entry 7 has two ROMs
+            BNE   :DONE
+            LDA   #<PASCROM2
+            STA   ROMTAB+2
+            LDA   #>PASCROM2
+            STA   ROMTAB+3
+            INC   MAXROM          ; Two ROMs
+:DONE       LDA   #$FF
             STA   $F4             ; Force ROM to load
             RTS
 

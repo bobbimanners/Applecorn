@@ -7,8 +7,6 @@
 * BBC Micro 'virtual machine' in Apple //e aux memory
 ***********************************************************
 
-MAXROM      EQU   $00                        ; Just one ROM
-
 ZP1         EQU   $90                        ; $90-$9f are spare Econet space
                                              ; so safe to use
 ZP2         EQU   $92
@@ -133,7 +131,7 @@ MOSHIGH     SEI
             LDA   #7
             JSR   OSWRCH
             JSR   OSNEWL
-            LDX   #MAXROM         ; TEMP X=language to enter
+            LDX   MAXROM                     ; TEMP X=language to enter
             CLC
 
 * OSBYTE $8E - Enter language ROM
@@ -163,7 +161,7 @@ BYTE8F
 SERVICEX    LDA   $F4
             PHA                   ; Save current ROM
             TXA
-            LDX   #MAXROM         ; Start at highest ROM
+            LDX   MAXROM          ; Start at highest ROM
 :SERVLP     JSR   ROMSELECT       ; Bring it into memory
             BIT   $8006
             BPL   :SERVSKIP       ; No service entry
