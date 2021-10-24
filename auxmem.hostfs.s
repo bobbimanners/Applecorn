@@ -13,6 +13,7 @@
 * 13-Oct-2021 FIND, BGET, BPUT optimised passing registers to main.
 * 13-Oct-2021 ARGS, EOF returns errors, optimised passing registers.
 * 14-Oct-2021 Tidied FILE handler.
+* 23-Oct-2021 Uses single dispatch to mainmem FILE handler.
 
 
 * $B0-$BF Temporary filing system workspace
@@ -207,14 +208,16 @@ OSARGSDONE  PLA
 *           A=2 directory found
 *           XY  preserved
 *               control block updated
+OSFILEMIN   EQU   $FF         ; $FF=LOAD
+OSFILEMAX   EQU   $08         ; $08=MKDIR
+
 FILEHND     PHX
             PHY
             PHA
-
-*            STX   CBPTR               ; LSB of parameter block
-*            STX   ZP1
-*            STY   CBPTR+1             ; MSB of parameter block
-*            STY   ZP1+1
+            CLC
+            ADC   #256-OSFILEMIN
+            CMP   #OSFILEMAX+257-OSFILEMIN  ; NB: LTR evaluation
+            BCS   FILEIGNORE
 
             STX   FSCTRL+0            ; FSCTRL=>control block
             STY   FSCTRL+1
@@ -225,26 +228,6 @@ FILEHND     PHX
             TAY
             JSR   PARSNAME            ; Copy filename->MOSFILE
 
-*            LDA   (ZP1)               ; Filename ptr->XY
-*            TAX
-*            LDY   #$01
-*            LDA   (ZP1),Y
-*            TAY
-*            JSR   PARSNAME            ; Copy filename->MOSFILE
-
-*            LDA   #<FILEBLK
-*            STA   ZP2
-*            LDA   #>FILEBLK
-*            STA   ZP2+1
-*            LDY   #$00                ; Copy to FILEBLK in main mem
-*:L1         LDA   (ZP1),Y
-*            >>>   WRTMAIN
-*            STA   (ZP2),Y
-*            >>>   WRTAUX
-*            INY
-*            CPY   #$12
-*            BNE   :L1
-
             LDY   #$11
             >>>   WRTMAIN
 :L1         LDA   (FSCTRL),Y          ; Copy control block to auxmem
@@ -252,77 +235,49 @@ FILEHND     PHX
             DEY
             BPL   :L1
             >>>   WRTAUX
-
             PLA                       ; Get action back
-*            PHA
-            BEQ   :SAVE               ; A=00 -> SAVE
-            CMP   #$FF
-            BEQ   :LOAD               ; A=FF -> LOAD
-            CMP   #$06
-            BEQ   :DELETE             ; A=06 -> DELETE
-*            BCC   :INFO               ; A=01-05 -> INFO
-            BCC   :JMPINFO            ; A=01-05 -> INFO
-            CMP   #$08
-            BEQ   :MKDIR              ; A=08 -> MKDIR
+            >>>   XF2MAIN,CALLFILE
 
-*            PLA
-            PLY                       ; Not implemented, return unchanged
-            PLX
-            RTS
-
-:JMPINFO    JMP   :INFO
-:SAVE       >>>   XF2MAIN,SAVEFILE
-:LOAD       >>>   XF2MAIN,LOADFILE
-:DELETE     >>>   XF2MAIN,DELFILE
-:INFO       >>>   XF2MAIN,INFOFILE
-:MKDIR      >>>   XF2MAIN,MAKEDIR
+*            BEQ   :SAVE               ; A=00 -> SAVE
+*            CMP   #$FF
+*            BEQ   :LOAD               ; A=FF -> LOAD
+*            CMP   #$06
+*            BEQ   :DELETE             ; A=06 -> DELETE
+*            BCC   :JMPINFO            ; A=01-05 -> INFO
+*            CMP   #$08
+*            BEQ   :MKDIR              ; A=08 -> MKDIR
+*
+*            PLY                       ; Not implemented, return unchanged
+*            PLX
+*            RTS
+*
+*:JMPINFO    JMP   :INFO
+*:SAVE       >>>   XF2MAIN,SAVEFILE
+*:LOAD       >>>   XF2MAIN,LOADFILE
+*:DELETE     >>>   XF2MAIN,DELFILE
+*:INFO       >>>   XF2MAIN,INFOFILE
+*:MKDIR      >>>   XF2MAIN,MAKEDIR
 
 * On return here, A<$20 return to caller, A>$1F ProDOS error
 OSFILERET   >>>   ENTAUX
             JSR   CHKERROR            ; Check if error returned
             PHA
             LDY   #$11                ; Copy updated control block back
-:L3         LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
+:L3
+*           LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
+            LDA   OSFILECB,Y          ; Mainmem left it in OSFILECB
             STA   (FSCTRL),Y
             DEY
             BPL   :L3
 
-*            LDA   CBPTR               ; Copy OSFILE CB to :CBPTR addr
-*            STA   ZP1
-*            LDA   CBPTR+1
-*            STA   ZP1+1
-*            LDY   #$02
-*:L3         LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
-*            STA   (ZP1),Y
-*            INY
-*            CPY   #18                 ; 18 bytes in control block
-*            BNE   :L3
-
-            PLA                       ; Returned object type
-*            PLY                       ; Original action
-*            JSR   CHKERROR            ; Check if error returned
+FILEIGNORE  PLA                       ; Returned object type
             PLY                       ; No error, return to caller
             PLX
             RTS
 
-*ERRNOTFND   BRK
-*            DB    $D6                 ; $D6 = Object not found
-*            ASC   'File not found'
-*            BRK
 
-*ERREXISTS   BRK
-*            DB    $C4                 ; Can't create a dir if a file is
-*            ASC   'File exists'       ; already there
-*            BRK
-
-*CBPTR       DW    $0000
-*OSFILEM     ASC   'OSFILE($'
-*            DB    $00
-*OSFILEM2    ASC   ')'
-*            DB    $00
 OSFSCM      ASC   'OSFSC.'
             DB    $00
-
 
 * FSC Command Table
 *******************
@@ -460,24 +415,23 @@ CHKEOFRET   >>>   ENTAUX
             JMP   CHKERROR
 
 
-* Perform CAT
+* Display catalog entries and info
 * A=5 *CAT, A=9 *EX, A=10 *INFO
-FSCCAT      PHA
+FSCCAT      EOR   #$06
+            CLC
+            ROR   A                   ; 01100000=*CAT
+            ROR   A                   ; 11100000=*EX
+            ROR   A                   ; 10000000=*INFO
+            ROR   A                   ; b7=long info
+            STA   FSAREG              ; b6=multiple items
             JSR   PARSNAME            ; Copy filename->MOSFILE
-            PLA
-            ASL   A
-            ASL   A
-            ASL   A                   ; 0101xxxx=*CAT
-            ASL   A                   ; 1001xxxx=*EX
-            STA   FSAREG              ; 1010xxxx=*INFO
+            LDA   FSAREG              ; Get ARG back
             >>>   XF2MAIN,CATALOG
-STARCATRET
-            >>>   ENTAUX
-            PHA
-            JSR   FORCENL
-            PLA
+STARCATRET  >>>   ENTAUX
             JSR   CHKERROR            ; See if error occurred
-CATDONE     LDA   #0                  ; 0=OK
+            JSR   FORCENL
+* CATDONE
+            LDA   #0                  ; 0=OK
             RTS
 
 * Print one block of a catalog. Called by CATALOG
@@ -713,19 +667,19 @@ FREERET
             LDA   AUXBLK+3            ; MSB of total blks
             SBC   AUXBLK+1            ; MSB of blocks used
             TAY
-            LDA   #$00                ; *TO DO* b16-b23 of free
+            LDA   #$00       ; *TO DO* b16-b23 of free
 * NEW
-            JSR   :FREEDEC            ; Print 'AAYYXX blocks aaayyyxxx bytes '
+            JSR   :FREEDEC   ; Print 'AAYYXX blocks aaayyyxxx bytes '
             LDX   #<:FREE
             LDY   #>:FREE
-            JSR   OUTSTR              ; Print 'free'<nl>
-            LDX   AUXBLK+0            ; Blocks used
+            JSR   OUTSTR     ; Print 'free'<nl>
+            LDX   AUXBLK+0   ; Blocks used
             LDY   AUXBLK+1
-            LDA   #$00                ; *TO DO* b16-b23 of used
-            JSR   :FREEDEC            ; Print 'AAYYXX blocks aaayyyxxx bytes '
+            LDA   #$00       ; *TO DO* b16-b23 of used
+            JSR   :FREEDEC   ; Print 'AAYYXX blocks aaayyyxxx bytes '
             LDX   #<:USED
             LDY   #>:USED
-            JMP   OUTSTR              ; Print 'used'<nl>
+            JMP   OUTSTR     ; Print 'used'<nl>
 
 * OLD
 *            JSR   PRDECXY             ; Print in decimal
@@ -748,20 +702,20 @@ FREERET
             STA   FSNUM+3
 * What's the maximum number of blocks?
 *           JSR   PRHEX           ; Blocks b16-b23 in hex
-            JSR   PR2HEX              ; Blocks b0-b15 in hex
+            JSR   PR2HEX          ; Blocks b0-b15 in hex
             LDX   #<:BLOCKS
             LDY   #>:BLOCKS
-            JSR   OUTSTR              ; ' blocks '
-            STZ   FSNUM+0             ; FSNUM=blocks*512
+            JSR   OUTSTR          ; ' blocks '
+            STZ   FSNUM+0         ; FSNUM=blocks*512
             ASL   FSNUM+1
             ROL   FSNUM+2
             ROL   FSNUM+3
-            LDX   #FSNUM              ; X=>number to print
-            LDY   #8                  ; Y=pad up to 8 digits
-            JSR   PRINTDEC            ; Print it in decimal
+            LDX   #FSNUM          ; X=>number to print
+            LDY   #8              ; Y=pad up to 8 digits
+            JSR   PRINTDEC        ; Print it in decimal
             LDX   #<:BYTES
             LDY   #>:BYTES
-            JMP   OUTSTR              ; ' bytes '
+            JMP   OUTSTR          ; ' bytes '
 :BLOCKS     ASC   ' blocks '
             DB    0
 :BYTES      ASC   ' bytes '
@@ -898,13 +852,13 @@ ERRMSG
 MKERROR1
             CMP   #$40
             BCS   MKERROR2
-            ORA   #$30                ; <$40 -> $30-$3F
+            ORA   #$30 ; <$40 -> $30-$3F
 MKERROR2
             SEC
             SBC   #$37
             CMP   #$28
             BCC   MKERROR3
-            LDA   #$00                ; I/O error
+            LDA   #$00 ; I/O error
 MKERROR3
             ASL   A
             TAX
@@ -945,14 +899,13 @@ MKERROR4    DW    ERROR27
 * $4B - Unsupported storage_type.            Disk not recognised
 * $4C - End of file has been encountered.    End of file
 * $4D - Position out of range.               Past end of file
-* $4E - Access error. (see also $4F)         RD/WR: Insuff access ..
-*                                            .. also, dir not empty
+* $4E - Access error. (see also $4F)         RD/WR: Insufficient access
 * $4F -(Access error. split from $4E)        REN/DEL/SAV: Locked
 * $50 - File already open.                   Can't - file open
 * $51 - Directory count error.               Broken directory
 * $52 - Not a ProDOS disk.                   Disk not recognised
 * $53 - Invalid parameter.                   Invalid parameter
-* $54 - (GSOS Out of memory) (Dir not empty when deleting)
+* $54 -(Dir not empty when deleting, cf $4E) DEL: Dir not empty
 * $55 - Volume Control Block table full.
 * $56 - Bad buffer address.
 * $57 - Duplicate volume.
@@ -961,7 +914,7 @@ MKERROR4    DW    ERROR27
 * $5A - Bit map disk address is impossible.  Sector not found
 * $5B -(GSOS Bad ChangePath pathname)
 * $5C -(GSOS Not executable file)
-* $5D -(GSOS OS/FS not found) (EOF during load or save) Data lost
+* $5D -(GSOS OS/FS not found) (EOF during load or save)            Data lost
 * $5E -(Couldn't open to save)               Can't save
 * $5F -(GSOS Too many applications)
 * $60+ - (GSOS)
@@ -969,68 +922,67 @@ MKERROR4    DW    ERROR27
 
 *       AcornOS                     ProDOS
 ERROR40     DW    $CC00
-            ASC   'Bad filename'      ; $40 - Invalid pathname syntax
+            ASC   'Bad filename'        ; $40 - Invalid pathname syntax
 ERROR41     DW    $C400
-            ASC   'Is a directory'    ; $41 - Duplicate filename (split from $47)
+            ASC   'Is a directory'      ; $41 - Duplicate filename (split from $47)
 ERROR42     DW    $C000
-            ASC   'Too many open'     ; $42 - File Control Block table full
+            ASC   'Too many open'       ; $42 - File Control Block table full
 ERROR43     DW    $DE00
-            ASC   'Channel not open'  ; $43 - Invalid reference number
-ERROR44                               ; $44 - Path not found
+            ASC   'Channel not open'    ; $43 - Invalid reference number
+ERROR44                                 ; $44 - Path not found
 ERROR46     DW    $D600
-            ASC   'File not found'    ; $46 - File not found
+            ASC   'File not found'      ; $46 - File not found
 ERROR45     DW    $D600
-            ASC   'Disk not found'    ; $45 - Volume directory not found
+            ASC   'Disk not found'      ; $45 - Volume directory not found
 ERROR47     DW    $C400
-            ASC   'File exists'       ; $47 - Duplicate filename (see also $41)
+            ASC   'File exists'         ; $47 - Duplicate filename (see also $41)
 ERROR48     DW    $C600
-            ASC   'Disk full'         ; $48 - Overrun error
+            ASC   'Disk full'           ; $48 - Overrun error
 ERROR49     DW    $B300
-            ASC   'Directory full'    ; $49 - Volume directory full
-ERROR4A                               ; $4A - Incompatible file format
-ERROR4B                               ; $4B - Unsupported storage_type
+            ASC   'Directory full'      ; $49 - Volume directory full
+ERROR4A                                 ; $4A - Incompatible file format
+ERROR4B                                 ; $4B - Unsupported storage_type
 ERROR52     DW    $C800
-            ASC   'Disk not recognised'  ; $52 - Not a ProDOS disk
+            ASC   'Disk not recognised' ; $52 - Not a ProDOS disk
 ERROR4C     DW    $DF00
-            ASC   'End of file'       ; $4C - End of file has been encountered
+            ASC   'End of file'         ; $4C - End of file has been encountered
 ERROR4D     DW    $C100
-            ASC   'Not open for update'  ; $4D - Position out of range
+            ASC   'Not open for update' ; $4D - Position out of range
 ERROR4E     DW    $BD00
-            ASC   'Insufficient access'  ; $4E - Access error (see also $4F)
+            ASC   'Insufficient access' ; $4E - Access error (see also $4F)
 ERROR4F     DW    $C300
-            ASC   'Entry locked'      ; $4F - Access error (split from $4E)
+            ASC   'Entry locked'        ; $4F - Access error (split from $4E)
 ERROR50     DW    $C200
             ASC   'Can'
             DB    $27
-            ASC   't - file open'     ; $50 - File is open
+            ASC   't - file open'       ; $50 - File is open
 ERROR51     DW    $A800
-            ASC   'Broken directory'  ; $51 - Directory count error
+            ASC   'Broken directory'    ; $51 - Directory count error
 ERROR53     DW    $DC00
-            ASC   'Invalid parameter'  ; $53 - Invalid parameter
+            ASC   'Invalid parameter'   ; $53 - Invalid parameter
 ERROR54     DW    $D400
-            ASC   'Directory not empty'  ; $54 - Directory not empty
+            ASC   'Directory not empty' ; $54 - Directory not empty
 ERROR55     DW    $FF00
-            ASC   'ProDOS: VCB full'  ; $55 - Volume Control Block table full
+            ASC   'ProDOS: VCB full'    ; $55 - Volume Control Block table full
 ERROR56     DW    $FF00
-            ASC   'ProDOS: Bad addr'  ; $56 - Bad buffer address
+            ASC   'ProDOS: Bad addr'    ; $56 - Bad buffer address
 ERROR57     DW    $FF00
-            ASC   'ProDOS: Dup volm'  ; $57 - Duplicate volume
-ERROR5B                               ; spare
+            ASC   'ProDOS: Dup volm'    ; $57 - Duplicate volume
+ERROR5B                                 ; spare
 ERROR27     DW    $FF00
-            ASC   'I/O error'         ; $27 - I/O error
+            ASC   'I/O error'           ; $27 - I/O error
 ERROR28     DW    $D200
-            ASC   'Disk not present'  ; $28 - No device detected/connected
+            ASC   'Disk not present'    ; $28 - No device detected/connected
 ERROR5A     DW    $FF00
-            ASC   'Sector not found'  ; $5A - Bit map disk address is impossible
+            ASC   'Sector not found'    ; $5A - Bit map disk address is impossible
 ERROR2B     DW    $C900
-            ASC   'Disk write protected'  ; $2B - Disk write protected
+            ASC   'Disk write protected'; $2B - Disk write protected
 ERROR5D     DW    $CA00
-            ASC   'Data lost'         ; $5D - EOF during LOAD or SAVE
+            ASC   'Data lost'           ; $5D - EOF during LOAD or SAVE
 ERROR5E     DW    $C000
             ASC   'Can'
             DB    $27
-            ASC   't save'            ; $5E - Couldn't open for save
+            ASC   't save'              ; $5E - Couldn't open for save
 ERROR2E     DW    $C800
-            ASC   'Disk changed'      ; $2E - Disk switched
+            ASC   'Disk changed'        ; $2E - Disk switched
             DB    $00
-
