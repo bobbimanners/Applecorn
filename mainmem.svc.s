@@ -15,64 +15,9 @@
 * 16-Oct-2021 LOADFILE only reads object info once.
 * 17-Oct-2021 SAVEFILE updated.
 * 18-Oct-2021 Optimised CREATE, removed dead code, RDDATA and WRDATA.
-
-
-INFOFILE     >>>   ENTMAIN
-             JSR   PREPATH            ; Preprocess path
-             JSR   UPDFB              ; Update FILEBLK
-             JSR   COPYFB             ; Copy back to aux mem
-             >>>   XF2AUX,OSFILERET
-
-
-* ProDOS file handling to delete a file
-* Called by AppleMOS OSFILE
-* Return A=0 no object, A=1 file deleted, A=2 dir deleted
-*        A>$1F ProDOS error
-DELFILE      >>>   ENTMAIN
-             JSR   PREPATH            ; Preprocess pathname
-             JSR   UPDFB              ; Update FILEBLK
-             JSR   COPYFB             ; Copy back to aux mem
-             PHA                      ; Save object type
-             JSR   DODELETE
-             BCC   :DELETED
-             PLX                      ; Drop object
-             JSR   CHKNOTFND
-             PHA
-:DELETED     PLA                      ; Get object back
-:EXIT        >>>   XF2AUX,OSFILERET
-
-DODELETE     LDA   #<MOSFILE          ; Attempt to destroy file
-             STA   DESTPL+1
-             LDA   #>MOSFILE
-             STA   DESTPL+2
-             JSR   MLI
-             DB    DESTCMD
-             DW    DESTPL
-             RTS
-* Returns $4E for 'Dir is not empty'
-* Need to separate from 'Dir is locked'
-
-
-* ProDOS file handling to create a directory
-* Invoked by AppleMOS OSFILE
-* Return A=$02 on success (ie: 'directory')
-*        A>$1F ProDOS error, translated by OSFILE handler
-MAKEDIR      >>>   ENTMAIN
-             JSR   PREPATH            ; Preprocess pathname
-             JSR   UPDFB              ; Update FILEBLK
-             CMP   #$02
-             BEQ   :EXIT1             ; Dir already exists
-
-             LDA   #$0D               ; OBJT='Directory'
-             STA   CREATEPL+7         ; ->Storage type
-             LDA   #$0F               ; TYPE='Directory'
-             LDX   #$00               ; LOAD=$0000
-             LDY   #$00
-             JSR   CREATEOBJ
-             BCS   :EXIT              ; Failed, exit with ProDOS result
-             JSR   UPDFB              ; Update FILEBLK, returns A=$02
-:EXIT1       JSR   COPYFB             ; Copy FILEBLK to aux mem
-:EXIT        >>>   XF2AUX,OSFILERET
+* 23-Oct-2021 Moved all the OSFILE routines together.
+*             Optimised entry and return from OSFILE routines.
+*             DELETE returns 'Dir not empty' when appropriate.
 
 
 * ProDOS file handling to rename a file
@@ -492,11 +437,107 @@ TELLEXIT     >>>   XF2AUX,OSARGSRET
 
 ZPMOS        EQU   $30
 
+* ProDOS file MOS OSFILE calls
+CALLFILE     >>>   ENTMAIN
+             JSR   FILEDISPATCH
+             >>>   XF2AUX,OSFILERET
+FILEDISPATCH CMP   #$00
+             BEQ   SVCSAVE             ; A=00 -> SAVE
+             CMP   #$FF
+             BEQ   SVCLOAD             ; A=FF -> LOAD
+             CMP   #$06
+             BEQ   DELFILE             ; A=06 -> DELETE
+             BCC   INFOFILE            ; A=01-05 -> INFO
+             CMP   #$08
+             BEQ   MAKEDIR             ; A=08 -> MKDIR
+             RTS
+SVCSAVE      JMP   SAVEFILE
+SVCLOAD      JMP   LOADFILE
+
+INFOFILE
+*            >>>   ENTMAIN
+*             JSR   PREPATH            ; Preprocess path
+*             JSR   UPDFB              ; Update FILEBLK
+             JSR   UPDPATH            ; Process path and get info
+             JMP   COPYFB             ; Copy back to aux mem
+*            >>>   XF2AUX,OSFILERET
+
+
+* ProDOS file handling to delete a file
+* Called by AppleMOS OSFILE
+* Return A=0 no object, A=1 file deleted, A=2 dir deleted
+*        A>$1F ProDOS error
+DELFILE
+*            >>>   ENTMAIN
+*             JSR   PREPATH            ; Preprocess path
+*             JSR   UPDFB              ; Update FILEBLK
+             JSR   UPDPATH            ; Process path and get info
+             JSR   COPYFB             ; Copy back to aux mem
+             PHA                      ; Save object type
+             JSR   DODELETE
+             BCC   :DELETED           ; Success
+
+             TAX                      ; X=error code
+             PLA                      ; Get object back
+             CPX   #$4E
+             BNE   :DELERROR          ; Not 'Insuff. access', return it
+             LDX   #$4F               ; Change to 'Locked'
+
+             CMP   #$02
+             BNE   :DELERROR          ; Wasn't a directory, return 'Locked'
+             LDA   FBATTR+0
+             AND   #$08
+             BNE   :DELERROR          ; Dir locked, return 'Locked'
+             LDX   #$54               ; Change to 'Dir not empty'
+
+:DELERROR    TXA
+             JSR   CHKNOTFND
+             PHA
+:DELETED     PLA                      ; Get object back
+:EXIT        RTS
+*            >>>   XF2AUX,OSFILERET
+
+DODELETE     LDA   #<MOSFILE          ; Attempt to destroy file
+             STA   DESTPL+1
+             LDA   #>MOSFILE
+             STA   DESTPL+2
+             JSR   MLI
+             DB    DESTCMD
+             DW    DESTPL
+             RTS
+
+
+* ProDOS file handling to create a directory
+* Invoked by AppleMOS OSFILE
+* Return A=$02 on success (ie: 'directory')
+*        A>$1F ProDOS error, translated by OSFILE handler
+MAKEDIR
+*            >>>   ENTMAIN
+*             JSR   PREPATH            ; Preprocess path
+*             JSR   UPDFB              ; Update FILEBLK
+             JSR   UPDPATH            ; Process path and get info
+             CMP   #$02
+             BEQ   :EXIT1             ; Dir already exists
+
+             LDA   #$0D               ; OBJT='Directory'
+             STA   CREATEPL+7         ; ->Storage type
+             LDA   #$0F               ; TYPE='Directory'
+             LDX   #$00               ; LOAD=$0000
+             LDY   #$00
+             JSR   CREATEOBJ
+             BCS   :EXIT              ; Failed, exit with ProDOS result
+             JSR   UPDFB              ; Update FILEBLK, returns A=$02
+:EXIT1       JSR   COPYFB             ; Copy FILEBLK to aux mem
+:EXIT        RTS
+*            >>>   XF2AUX,OSFILERET
+
+
 * ProDOS file handling for MOS OSFILE LOAD call
 * Invoked by AppleMOS OSFILE
 * Return A=01 if successful (meaning 'file')
 *        A>$1F ProDOS error, translated by FILERET
-LOADFILE     >>>   ENTMAIN
+LOADFILE
+*            >>>   ENTMAIN
              LDX   #4
 :LP          LDA   FBLOAD,X           ; Get address to load to
              STA   ZPMOS,X
@@ -514,7 +555,6 @@ LOADFILE     >>>   ENTMAIN
              ADC   #$41               ; 0->$46, 2->$41
 :JMPEXIT     JMP   :EXIT2             ; Return error
 
-* EXISTS has done GETINFO, so file info already loaded
 :ISFILE      LDA   ZPMOS+4            ; If FBEXEC is zero, use addr
              BEQ   :CBADDR            ; in the control block
              LDA   FBLOAD+0           ; Otherwise, use file's address
@@ -522,46 +562,11 @@ LOADFILE     >>>   ENTMAIN
              LDA   FBLOAD+1
              STA   ZPMOS+1
 
-:CBADDR
-*             LDA   #<MOSFILE
-*             STA   OPENPL+1
-*             LDA   #>MOSFILE
-*             STA   OPENPL+2
-             JSR   OPENMOSFILE
+:CBADDR      JSR   OPENMOSFILE
              BCS   :EXIT2             ; File not opened
 
 :L1          LDA   OPENPL+5           ; File ref number
              JSR   READDATA           ; Read data from open file
-
-*             STA   READPL+1
-*             JSR   RDFILE
-*             BCS   :READERR           ; Close file and return any error
-*
-*:S1
-**             CLC
-*             LDA   #<BLKBUF           ; LSB of start of data buffer
-*             STA   A1L                ; A1=>start of data buffer
-*             ADC   READPL+6           ; LSB of trans count
-*             STA   A2L                ; A2=>end of data buffer
-*             LDA   #>BLKBUF
-*             STA   A1H
-*             ADC   READPL+7           ; MSB of trans count
-*             STA   A2H
-*             LDA   ZPMOS+0            ; A4=>address to load to
-*             STA   A4L
-*             LDA   ZPMOS+1
-*             STA   A4H
-*             INC   ZPMOS+1            ; Step to next block
-*             INC   ZPMOS+1
-*
-*             SEC                      ; Main -> AUX
-*             JSR   AUXMOVE            ; A4 updated to next address
-*             JMP   :L1
-*             
-*:READERR     CMP   #$4C
-*             BNE   :EXITERR
-*:EXITOK      LDA   #$00               ; $00=Success
-*:EXITERR
 
              PHA                      ; Save result
              LDA   OPENPL+5           ; File ref num
@@ -571,7 +576,8 @@ LOADFILE     >>>   ENTMAIN
              BNE   :EXIT2
              JSR   COPYFB             ; Copy FILEBLK to auxmem
              LDA   #$01               ; $01=File
-:EXIT2       >>>   XF2AUX,OSFILERET
+:EXIT2       RTS
+*            >>>   XF2AUX,OSFILERET
 
 
 * A=channel, MOSZP+0/1=address to load to, TO DO: MOS+4/5=length to read
@@ -612,18 +618,20 @@ READDATA     STA   READPL+1
 :EXITOK      LDA   #$00               ; $00=Success
 :EXITERR     RTS
 
+
 * ProDOS file handling for MOS OSFILE SAVE call
 * Invoked by AppleMOS OSFILE
 * Return A=01 if successful (ie: 'file')
 *        A>$1F ProDOS error translated by FILERET
-SAVEFILE     >>>   ENTMAIN
+SAVEFILE
+*            >>>   ENTMAIN
              SEC                      ; Compute file length
              LDA   FBEND+0
              SBC   FBSTRT+0
-             STA   LENREM+0
+             STA   :LENREM+0
              LDA   FBEND+1
              SBC   FBSTRT+1
-             STA   LENREM+1
+             STA   :LENREM+1
              LDA   FBEND+2
              SBC   FBSTRT+2
              BNE   :TOOBIG            ; >64K
@@ -655,10 +663,6 @@ SAVEFILE     >>>   ENTMAIN
              LDY   FBLOAD+1
              JSR   CREATEFILE
              BCS   :JMPEXIT2          ; Error trying to create
-*             LDA   #<MOSFILE
-*             STA   OPENPL+1
-*             LDA   #>MOSFILE
-*             STA   OPENPL+2
              JSR   OPENMOSFILE
              BCS   :JMPEXIT2          ; Error trying to open
              LDA   OPENPL+5           ; File ref number
@@ -676,35 +680,36 @@ SAVEFILE     >>>   ENTMAIN
 :EXIT2       CMP   #$4E
              BNE   :EXIT3             ; Change 'Insuff. access'
              LDA   #$4F               ; to 'Locked'
-:EXIT3       >>>   XF2AUX,OSFILERET
+:EXIT3       RTS
+*            >>>   XF2AUX,OSFILERET
 :CANTSAVE    LDA   #$5E               ; Can't open/create
              BRA   :EXIT3             ; TO DO: Error=File too long
 
 
 * A=channel, FBSTRT+0/1=address to save from
-* LENREM+0/1=length to write
+* :LENREM+0/1=length to write
 WRITEDATA    STA   WRITEPL+1
 :L1          LDA   #$00               ; 512 bytes request count
              STA   WRITEPL+4
              LDA   #$02
              STA   WRITEPL+5
 
-             LDA   LENREM+1
+             LDA   :LENREM+1
              CMP   #$02
              BCS   :L15               ; More than 511 bytes remaining
              STA   WRITEPL+5
-             LDA   LENREM+0
+             LDA   :LENREM+0
              STA   WRITEPL+4
              ORA   WRITEPL+5
              BEQ   :SAVEOK            ; Zero bytes remaining
 
 :L15         SEC
-             LDA   LENREM+0           ; LENREM=LENREM-count
+             LDA   :LENREM+0          ; LENREM=LENREM-count
              SBC   WRITEPL+4
-             STA   LENREM+0
-             LDA   LENREM+1
+             STA   :LENREM+0
+             LDA   :LENREM+1
              SBC   WRITEPL+5
-             STA   LENREM+1
+             STA   :LENREM+1
 
              CLC
              LDA   FBSTRT+0
@@ -738,7 +743,8 @@ WRITEDATA    STA   WRITEPL+1
              JMP   :L1                ; Loop back for next block
 :SAVEOK                               ; Enter here with A=$00
 :WRITEERR    RTS
-LENREM       DW    $0000              ; Remaining length
+:LENREM      DW    $0000              ; Remaining length
+
 
 CREATEFILE   LDA   #$01               ; Storage type - file
              STA   CREATEPL+7
@@ -750,13 +756,16 @@ CREATEOBJ    STA   CREATEPL+4         ; Type = BIN or DIR
              JMP   CRTFILE
 
 
+* Process pathname and read object info
+UPDPATH      JSR   PREPATH            ; Process pathname
+             BCC   UPDFB              ; If no error, update control block
+             RTS
+
 * Update FILEBLK before returning to aux memory
 * Returns A=object type or ProDOS error
 UPDFB        LDA   #<MOSFILE
-*             STA   OPENPL+1
              STA   GINFOPL+1
              LDA   #>MOSFILE
-*             STA   OPENPL+2
              STA   GINFOPL+2
              JSR   GETINFO            ; Call GET_FILE_INFO
              BCC   :UPDFB1
@@ -864,11 +873,14 @@ QUIT         INC   $3F4               ; Invalidate powerup byte
              RTS
 
 * Used for *CAT, *EX and *INFO
-* On entry: A=$5x *CAT, A=$9x *EX, A=$Ax *INFO
+* On entry: b7=0 - short info (*CAT)
+*           b7=1 - long info (*INFO, *EX)
+*           b6=0 - single entry, parameter is object (*INFO)
+*           b6=1 - multiple items, parameter is dir (*CAT, *EX)
+*
 CATALOG      >>>   ENTMAIN
-             AND   #$F0
              STA   CATARG             ; Stash argument
-             CMP   #$A0               ; Is it *INFO?
+             CMP   #$80               ; Is it *INFO?
              BNE   :NOTINFO
              JMP   INFO               ; Handle entry for *INFO
 :NOTINFO     LDA   MOSFILE            ; Length of pathname
@@ -913,7 +925,7 @@ CATEXIT      >>>   XF2AUX,STARCATRET
 CATALOGRET
              >>>   ENTMAIN
              LDA   CATARG
-             CMP   #$A0               ; Is this an *INFO call?
+             CMP   #$80               ; Is this an *INFO call?
              BEQ   INFOREENTRY
              BRA   CATREENTRY
 
