@@ -44,12 +44,7 @@ ROMMENU     JSR   HOME        ; Clear screen
             BCC   :KEYOK
             JSR   BELL        ; Invalid - beep
             BRA   :KEYIN      ; Go again
-:KEYOK      ASL               ; x2
-            TAX
-            LDA   ROMTBL,X    ; Fetch ROM filename ...
-            STA   OPENPL+1    ; ... and put in MLI OPEN PL
-            LDA   ROMTBL+1,X
-            STA   OPENPL+2
+:KEYOK      STA   USERSEL     ; Record selection
             RTS
 
 * Print a string pointed to by A1L/A1H
@@ -78,94 +73,29 @@ MSGTBL      DW    MSG1
             DW    MSG7
             DW    MSG8
 
-ROMTBL      DW    ROM1
-            DW    ROM2
-            DW    ROM3
-            DW    ROM4
-            DW    ROM5
-            DW    ROM6
-            DW    ROM7
-            DW    ROM8
-
 MSG1        ASC   " 1. BBC BASIC"
             DB    $00
-ROM1        STR   "BASIC2.ROM"
 
 MSG2        ASC   " 2. Acornsoft COMAL"
             DB    $00
-ROM2        STR   "COMAL.ROM"
 
 MSG3        ASC   " 3. Acornsoft Lisp"
             DB    $00
-ROM3        STR   "LISP501.ROM"
 
 MSG4        ASC   " 4. Acornsoft Forth"
             DB    $00
-ROM4        STR   "FORTH103.ROM"
 
 MSG5        ASC   " 5. Acornsoft MicroProlog"
             DB    $00
-ROM5        STR   "MPROLOG310.ROM"
 
 MSG6        ASC   " 6. Acornsoft BCPL"
             DB    $00
-ROM6        STR   "BCPL7.0.ROM"
 
 MSG7        ASC   " 7. USERROM1.ROM"
             DB    $00
-ROM7        STR   "USERROM1.ROM"
 
 MSG8        ASC   " 8. USERROM2.ROM"
             DB    $00
-ROM8        STR   "USERROM2.ROM"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+USERSEL     DB    $00
 
