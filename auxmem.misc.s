@@ -373,10 +373,10 @@ PROLOGROM   ASC   'MPROLOG310.ROM'
 BCPLROM     ASC   'BCPL7.0.ROM'
             DB    $0D,$00
 
-PASCROM1    ASC   'USERROM2.ROM'
+PASCROM1    ASC   'PASC.1.10.1.ROM'
             DB    $0D,$00
 
-PASCROM2    ASC   'USERROM1.ROM'
+PASCROM2    ASC   'PASC.1.10.2.ROM'
             DB    $0D,$00
 
 MAXROM      DB    $00             ; Index of highest sideways ROM
