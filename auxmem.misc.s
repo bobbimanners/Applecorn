@@ -327,14 +327,107 @@ RDROM       LDA   $F4
 * X=ROM to select
 * All registers must be preserved
 ROMSELECT   CPX   $F4
-            BNE   :ROMSELOK       ; Already selected
+            BEQ   :ROMSELOK       ; Already selected
 
 * Insert code here for faking sideways ROMs by loading or otherwise
 * fetching code to $8000. All registers must be preserved.
-
+            PHA
+            PHX
+            PHY
+            TXA
+            ASL   A
+            TAX
+            LDA   ROMTAB,X        ; LSB of pointer to name
+            STA   OSFILECB+0
+            LDA   ROMTAB+1,X      ; MSB of pointer to name
+            STA   OSFILECB+1
+            STZ   OSFILECB+2      ; Dest address $8000
+            LDA   #$80
+            STA   OSFILECB+3
+            LDX   #<OSFILECB
+            LDY   #>OSFILECB
+            LDA   #$FF            ; Means 'LOAD'
+            JSR   OSFILE
+            PLY
+            PLX
+            PLA
             STX   $F4             ; Set Current ROM number
 :ROMSELOK
 EVENT       RTS
+
+BASICROM    ASC   'BASIC2.ROM'
+            DB    $0D,$00
+
+COMALROM    ASC   'COMAL.ROM'
+            DB    $0D,$00
+
+LISPROM     ASC   'LISP501.ROM'
+            DB    $0D,$00
+
+FORTHROM    ASC   'FORTH103.ROM'
+            DB    $0D,$00
+
+PROLOGROM   ASC   'MPROLOG310.ROM'
+            DB    $0D,$00
+
+BCPLROM     ASC   'BCPL7.0.ROM'
+            DB    $0D,$00
+
+PASCROM1    ASC   'USERROM2.ROM'
+            DB    $0D,$00
+
+PASCROM2    ASC   'USERROM1.ROM'
+            DB    $0D,$00
+
+* Initialize ROMTAB according to user selection in menu
+INITROMS    STA   $C002           ; Read main mem
+            LDA   USERSEL
+            STA   $C003           ; Read aux mem
+            ASL                   ; x2
+            CLC
+            ADC   #<ROMS
+            STA   OSLPTR+0
+            LDA   #>ROMS
+            ADC   #$00
+            STA   OSLPTR+1
+            LDY   #$00
+            LDA   (OSLPTR),Y
+            STA   ROMTAB+0
+            INY
+            LDA   (OSLPTR),Y
+            STA   ROMTAB+1
+            LDA   #$FF
+            STA   $F4             ; Force ROM to load
+            RTS
+
+* Active sideways ROMs
+ROMTAB      DW    $0000           ; ROM0
+            DW    $0000           ; ROM1
+            DW    $0000           ; ROM2
+            DW    $0000           ; ROM3
+            DW    $0000           ; ROM4
+            DW    $0000           ; ROM5
+            DW    $0000           ; ROM6
+            DW    $0000           ; ROM7
+            DW    $0000           ; ROM8
+            DW    $0000           ; ROM9
+            DW    $0000           ; ROMA
+            DW    $0000           ; ROMB
+            DW    $0000           ; ROMC
+            DW    $0000           ; ROMD
+            DW    $0000           ; ROME
+            DW    $0000           ; ROMF
+
+* ROM filenames in same order as in the menu
+* ROMMENU copies these to ROMTAB upon user selection
+ROMS        DW    BASICROM
+            DW    COMALROM
+            DW    LISPROM
+            DW    FORTHROM
+            DW    PROLOGROM
+            DW    BCPLROM
+            DW    PASCROM1
+            DW    PASCROM2
 
 *EVENT       LDA   #<OSEVENM
 *            LDY   #>OSEVENM

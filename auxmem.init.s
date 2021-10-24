@@ -7,7 +7,7 @@
 * BBC Micro 'virtual machine' in Apple //e aux memory
 ***********************************************************
 
-MAXROM      EQU   $00                        ; Only one sideways ROM
+MAXROM      EQU   $00                        ; Just one ROM
 
 ZP1         EQU   $90                        ; $90-$9f are spare Econet space
                                              ; so safe to use
@@ -124,6 +124,8 @@ MOSHIGH     SEI
             STA   $200,X
             DEX
             BPL   :INITPG2
+
+            JSR   INITROMS                   ; Initialize sideways ROM table
 
             JSR   KBDINIT                    ; Returns A=startup MODE
             JSR   VDUINIT                    ; Initialise VDU driver
