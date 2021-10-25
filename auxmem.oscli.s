@@ -8,6 +8,7 @@
 * 24-Aug-2021 Combined *LOAD and *SAVE, full address parsing.
 * 02-Sep-2021 *LOAD/*SAVE now uses GSTRANS.
 * 12-Sep-2021 *HELP uses subject lookup, *HELP MOS, *HELP HOSTFS.
+* 25-Oct-2021 Implemented *BASIC.
 
 
 * COMMAND TABLE
@@ -485,9 +486,20 @@ STARFILE    EOR   #$80
             BNE   STARDONE
             JMP   ERRNOTFND
 
-STARBASIC
 STARKEY
 STARDONE    RTS
+
+
+* *BASIC
+********
+STARBASIC   LDX   MAXROM
+:BASICLP    JSR   ROMSELECT
+            BIT   $8006
+            BPL   :BASICGO           ; No service, must be BASIC
+            DEX
+            BPL   :BASICLP
+            JMP   ERRBADCMD          ; No BASIC, give an error
+:BASICGO    JMP   BYTE8E
 
 
 * *ECHO <GSTRANS string>
@@ -498,22 +510,4 @@ ECHOLP1     JSR   GSREAD
             BCS   STARDONE
             JSR   OSWRCH
             JMP   ECHOLP1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
