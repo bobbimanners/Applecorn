@@ -403,12 +403,49 @@ INITROMS    STZ   MAXROM          ; One sideways ROM only
             LDA   USERSEL
             STA   $C003           ; Read aux mem
             CMP   #6              ; Menu entry 7 has two ROMs
-            BNE   :DONE
+            BNE   :S1
             LDA   #<PASCROM2
             STA   ROMTAB+2
             LDA   #>PASCROM2
             STA   ROMTAB+3
             INC   MAXROM          ; Two ROMs
+            BRA   :DONE
+:S1         CMP   #7              ; Menu entry 8
+            BNE   :DONE
+            LDA   #<PASCROM1
+            STA   ROMTAB+0
+            LDA   #>PASCROM1
+            STA   ROMTAB+1
+            LDA   #<PASCROM2
+            STA   ROMTAB+2
+            LDA   #>PASCROM2
+            STA   ROMTAB+3
+            LDA   #<LISPROM
+            STA   ROMTAB+4
+            LDA   #>LISPROM
+            STA   ROMTAB+5
+            LDA   #<FORTHROM
+            STA   ROMTAB+6
+            LDA   #>FORTHROM
+            STA   ROMTAB+7
+            LDA   #<PROLOGROM
+            STA   ROMTAB+8
+            LDA   #>PROLOGROM
+            STA   ROMTAB+9
+            LDA   #<BCPLROM
+            STA   ROMTAB+10
+            LDA   #>BCPLROM
+            STA   ROMTAB+11
+            LDA   #<COMALROM
+            STA   ROMTAB+12
+            LDA   #>COMALROM
+            STA   ROMTAB+13
+            LDA   #<BASICROM
+            STA   ROMTAB+14
+            LDA   #>BASICROM
+            STA   ROMTAB+15
+            LDA   #7              ; 8 sideways ROMs
+            STA   MAXROM
 :DONE       LDA   #$FF
             STA   $F4             ; Force ROM to load
             RTS
