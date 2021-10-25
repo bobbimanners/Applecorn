@@ -94,7 +94,7 @@ MSG6        ASC   " 6. Acornsoft BCPL"
 MSG7        ASC   " 7. Acornsoft ISO Pascal (2 ROMs)"
             DB    $00
 
-MSG8        ASC   " 8. -"
+MSG8        ASC   " 8. Everything! (8 ROMs)"
             DB    $00
 
 USERSEL     DB    $00
