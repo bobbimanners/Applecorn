@@ -34,23 +34,23 @@ FSCMDLINE   EQU   $CE
 FINDHND     PHX
             PHY
             PHA
-            CMP   #$00                ; A=$00 = close
+            CMP   #$00                      ; A=$00 = close
             BEQ   :CLOSE
             PHA
-            JSR   PARSNAME            ; Copy filename->MOSFILE
-            PLA                       ; Recover options
+            JSR   PARSNAME                  ; Copy filename->MOSFILE
+            PLA                             ; Recover options
             >>>   XF2MAIN,OFILE
 :CLOSE
 *            >>>   WRTMAIN
 *            STY   MOSFILE             ; Write file number
 *            >>>   WRTAUX
-            >>>   XF2MAIN,CFILE       ; Pass A,Y to main code
+            >>>   XF2MAIN,CFILE             ; Pass A,Y to main code
 
 OSFINDRET   >>>   ENTAUX
-            JSR   CHKERROR            ; Check if error returned
-            PLY                       ; Value of A on entry
-            BNE   :S1                 ; It wasn't close
-            TYA                       ; Preserve A for close
+            JSR   CHKERROR                  ; Check if error returned
+            PLY                             ; Value of A on entry
+            BNE   :S1                       ; It wasn't close
+            TYA                             ; Preserve A for close
 :S1         PLY
             PLX
             RTS
@@ -65,14 +65,14 @@ OSGBPBM     ASC   'OSGBPB.'
 * OSBPUT - write one byte to an open file
 BPUTHND     PHX
             PHY
-            PHA                       ; Stash char to write
+            PHA                             ; Stash char to write
 *            >>>   WRTMAIN
 *            STY   MOSFILE             ; File reference number
 *            >>>   WRTAUX
-            >>>   XF2MAIN,FILEPUT     ; Pass A,Y to main code
+            >>>   XF2MAIN,FILEPUT           ; Pass A,Y to main code
 OSBPUTRET   >>>   ENTAUX
             JSR   CHKERROR
-            CLC                       ; Means no error
+            CLC                             ; Means no error
             PLA
             PLY
             PLX
@@ -84,13 +84,13 @@ BGETHND     PHX
 *            >>>   WRTMAIN
 *            STY   MOSFILE             ; File ref number
 *            >>>   WRTAUX
-            >>>   XF2MAIN,FILEGET     ; Pass A,Y to main code
+            >>>   XF2MAIN,FILEGET           ; Pass A,Y to main code
 OSBGETRET   >>>   ENTAUX
             CPY   #$01
-            BCC   :EXIT               ; If no error, return CC
+            BCC   :EXIT                     ; If no error, return CC
             LDA   #$FE
             CPY   #$4C
-            BEQ   :EXIT               ; If at EOF, return CS
+            BEQ   :EXIT                     ; If at EOF, return CS
             TYA
             JSR   CHKERROR
 :EXIT       PLY
@@ -120,15 +120,15 @@ ARGSHND     PHX
             PHA
             CPY   #$00
             BNE   :HASFILE
-            CMP   #$00                ; Y=0,A=0 => current file sys
+            CMP   #$00                      ; Y=0,A=0 => current file sys
             BNE   :S1
             PLA
-            LDA   #105                ; 105=AppleFS filing system
+            LDA   #105                      ; 105=AppleFS filing system
             PLY
             PLX
             RTS
 
-:S1         CMP   #$01                ; Y=0,A=1 => addr of CLI
+:S1         CMP   #$01                      ; Y=0,A=1 => addr of CLI
             BNE   :S2
             LDA   FSCMDLINE+0
             STA   $00,X
@@ -137,33 +137,33 @@ ARGSHND     PHX
             LDA   #$FF
             STA   $02,X
             STA   $03,X
-            JMP   OSARGSDONE          ; Implemented
+            JMP   OSARGSDONE                ; Implemented
 
-:S2         CMP   #$FF                ; Y=0,A=FF => flush all files
+:S2         CMP   #$FF                      ; Y=0,A=FF => flush all files
             BNE   :IEXIT
 *            >>>   WRTMAIN
 *            STZ   MOSFILE             ; Zero means flush all
 *            >>>   WRTAUX
             JMP   :FLUSH
-:IEXIT      JMP   :EXIT               ; Exit preserved
+:IEXIT      JMP   :EXIT                     ; Exit preserved
 
 :HASFILE
 *            >>>   WRTMAIN
 *            STY   MOSFILE             ; File ref num
 *            STX   MOSFILE+1           ; Pointer to ZP control block
 *            >>>   WRTAUX
-            CMP   #$00                ; Y!=0,A=0 => read seq ptr
+            CMP   #$00                      ; Y!=0,A=0 => read seq ptr
             BNE   :S3
 *            >>>   WRTMAIN
 *            STZ   MOSFILE+2           ; 0 means get pos
 *            >>>   WRTAUX
             TXA
-            >>>   XF2MAIN,TELL        ; A=ZP, Y=channel
+            >>>   XF2MAIN,TELL              ; A=ZP, Y=channel
 
-:S3         CMP   #$01                ; Y!=0,A=1 => write seq ptr
+:S3         CMP   #$01                      ; Y!=0,A=1 => write seq ptr
             BNE   :S4
             >>>   WRTMAIN
-            STY   GMARKPL+1           ; Write to MLI control block
+            STY   GMARKPL+1                 ; Write to MLI control block
             LDA   $00,X
             STA   GMARKPL+2
             LDA   $01,X
@@ -171,21 +171,21 @@ ARGSHND     PHX
             LDA   $02,X
             STA   GMARKPL+4
             >>>   WRTAUX
-            >>>   XF2MAIN,SEEK        ; A=???, Y=channel
+            >>>   XF2MAIN,SEEK              ; A=???, Y=channel
 
-:S4         CMP   #$02                ; Y!=0,A=2 => read file len
+:S4         CMP   #$02                      ; Y!=0,A=2 => read file len
             BNE   :S5
 *            >>>   WRTMAIN
 *            STA   MOSFILE+2           ; Non-zero means get len
 *            >>>   WRTAUX
             TXA
-            >>>   XF2MAIN,SIZE        ; A=ZP, Y=channel
+            >>>   XF2MAIN,SIZE              ; A=ZP, Y=channel
 
-:S5         CMP   #$FF                ; Y!=0,A=FF => flush file
+:S5         CMP   #$FF                      ; Y!=0,A=FF => flush file
             BNE   :EXIT
 :FLUSH      >>>   XF2MAIN,FLUSH
 
-:EXIT       PLA                       ; Unimplemented
+:EXIT       PLA                             ; Unimplemented
             PLY
             PLX
             RTS
@@ -193,7 +193,7 @@ ARGSHND     PHX
 OSARGSRET   >>>   ENTAUX
             JSR   CHKERROR
 OSARGSDONE  PLA
-            LDA   #0                  ; Implemented
+            LDA   #0                        ; Implemented
             PLY
             PLX
             RTS
@@ -208,8 +208,8 @@ OSARGSDONE  PLA
 *           A=2 directory found
 *           XY  preserved
 *               control block updated
-OSFILEMIN   EQU   $FF         ; $FF=LOAD
-OSFILEMAX   EQU   $08         ; $08=MKDIR
+OSFILEMIN   EQU   $FF                       ; $FF=LOAD
+OSFILEMAX   EQU   $08                       ; $08=MKDIR
 
 FILEHND     PHX
             PHY
@@ -219,23 +219,23 @@ FILEHND     PHX
             CMP   #OSFILEMAX+257-OSFILEMIN  ; NB: LTR evaluation
             BCS   FILEIGNORE
 
-            STX   FSCTRL+0            ; FSCTRL=>control block
+            STX   FSCTRL+0                  ; FSCTRL=>control block
             STY   FSCTRL+1
-            LDA   (FSCTRL)            ; XY=>filename
+            LDA   (FSCTRL)                  ; XY=>filename
             TAX
             LDY   #$01
             LDA   (FSCTRL),Y
             TAY
-            JSR   PARSNAME            ; Copy filename->MOSFILE
+            JSR   PARSNAME                  ; Copy filename->MOSFILE
 
             LDY   #$11
             >>>   WRTMAIN
-:L1         LDA   (FSCTRL),Y          ; Copy control block to auxmem
+:L1         LDA   (FSCTRL),Y                ; Copy control block to auxmem
             STA   FILEBLK,Y
             DEY
             BPL   :L1
             >>>   WRTAUX
-            PLA                       ; Get action back
+            PLA                             ; Get action back
             >>>   XF2MAIN,CALLFILE
 
 *            BEQ   :SAVE               ; A=00 -> SAVE
@@ -260,18 +260,18 @@ FILEHND     PHX
 
 * On return here, A<$20 return to caller, A>$1F ProDOS error
 OSFILERET   >>>   ENTAUX
-            JSR   CHKERROR            ; Check if error returned
+            JSR   CHKERROR                  ; Check if error returned
             PHA
-            LDY   #$11                ; Copy updated control block back
+            LDY   #$11                      ; Copy updated control block back
 :L3
 *           LDA   AUXBLK,Y            ; Mainmem left it in AUXBLK
-            LDA   OSFILECB,Y          ; Mainmem left it in OSFILECB
+            LDA   OSFILECB,Y                ; Mainmem left it in OSFILECB
             STA   (FSCTRL),Y
             DEY
             BPL   :L3
 
-FILEIGNORE  PLA                       ; Returned object type
-            PLY                       ; No error, return to caller
+FILEIGNORE  PLA                             ; Returned object type
+            PLY                             ; No error, return to caller
             PLX
             RTS
 
@@ -286,34 +286,34 @@ OSFSCM      ASC   'OSFSC.'
 *
 FSCCOMMAND  ASC   'CHDIR'
             DB    $C0
-            DW    FSCCHDIR-1          ; Change directory, XY=>params
+            DW    FSCCHDIR-1                ; Change directory, XY=>params
             ASC   'CD'
             DB    $C0
-            DW    FSCCHDIR-1          ; Change directory, XY=>params
+            DW    FSCCHDIR-1                ; Change directory, XY=>params
             ASC   'DIR'
             DB    $C0
-            DW    FSCCHDIR-1          ; Change directory, XY=>params
+            DW    FSCCHDIR-1                ; Change directory, XY=>params
 * TO DO, CHDIR should be $80 for LPTR=>params
             ASC   'DRIVE'
             DB    $80
-            DW    FSCDRIVE-1          ; Select drive, LPTR=>params
+            DW    FSCDRIVE-1                ; Select drive, LPTR=>params
             ASC   'FREE'
             DB    $80
-            DW    FSCFREE-1           ; FREE <drive>, LPTR=>params
+            DW    FSCFREE-1                 ; FREE <drive>, LPTR=>params
             ASC   'ACCESS'
             DB    $80
-            DW    FSCACCESS-1         ; ACCESS <objlist> <access>, LPTR=>params
+            DW    FSCACCESS-1               ; ACCESS <objlist> <access>, LPTR=>params
             ASC   'TITLE'
             DB    $80
-            DW    FSCTITLE-1          ; TITLE (<drive>) <title>, LPTR=>params
+            DW    FSCTITLE-1                ; TITLE (<drive>) <title>, LPTR=>params
             ASC   'DESTROY'
             DB    $80
-            DW    FSCDESTROY-1        ; DESTROY <objlist>, LPTR=>params
+            DW    FSCDESTROY-1              ; DESTROY <objlist>, LPTR=>params
             ASC   'COPY'
             DB    $C0
-            DW    COPY-1              ; COPY <source> <dest>, XY=>params
+            DW    COPY-1                    ; COPY <source> <dest>, XY=>params
 *
-            DB    $FF                 ; Terminator
+            DB    $FF                       ; Terminator
 
 
 * OSFSC - miscellanous file system calls
@@ -326,26 +326,26 @@ FSCCOMMAND  ASC   'CHDIR'
 * 
 FSCHND
             CMP   #$00
-            BEQ   FSOPT               ; A=0  - *OPT
+            BEQ   FSOPT                     ; A=0  - *OPT
             CMP   #$01
-            BEQ   CHKEOF              ; A=1  - Read EOF
+            BEQ   CHKEOF                    ; A=1  - Read EOF
             CMP   #$02
-            BEQ   FSCRUN              ; A=2  - */filename
+            BEQ   FSCRUN                    ; A=2  - */filename
             CMP   #$03
-            BEQ   FSC03               ; A=3  - *command
+            BEQ   FSC03                     ; A=3  - *command
             CMP   #$04
-            BEQ   FSCRUN              ; A=4  - *RUN
+            BEQ   FSCRUN                    ; A=4  - *RUN
             CMP   #$05
-            BEQ   JMPCAT              ; A=5  - *CAT
+            BEQ   JMPCAT                    ; A=5  - *CAT
             CMP   #$09
-            BEQ   JMPCAT              ; A=9  - *EX
+            BEQ   JMPCAT                    ; A=9  - *EX
             CMP   #$0A
-            BEQ   JMPCAT              ; A=10 - *INFO
+            BEQ   JMPCAT                    ; A=10 - *INFO
             CMP   #$0C
-            BEQ   FSCREN              ; A=12 - *RENAME
+            BEQ   FSCREN                    ; A=12 - *RENAME
 
 * Performs OSFSC *OPT function
-FSOPT       RTS                       ; No FS options for now
+FSOPT       RTS                             ; No FS options for now
 
 FSCDRIVE    JMP   DRIVE
 
@@ -373,29 +373,29 @@ FSC03       JSR   XYtoLPTR
             BEQ   FSCNULL
             JSR   LPTRtoXY
 *
-FSCRUN      STX   OSFILECB            ; Pointer to filename
+FSCRUN      STX   OSFILECB                  ; Pointer to filename
             STY   OSFILECB+1
             JSR   XYtoLPTR
-FSCRUNLP    LDA   (OSLPTR),Y          ; Look for command line
+FSCRUNLP    LDA   (OSLPTR),Y                ; Look for command line
             INY
             CMP   #'!'
             BCS   FSCRUNLP
             DEY
             JSR   SKIPSPC
             JSR   LPTRtoXY
-            STX   FSCMDLINE+0         ; Set CMDLINE=>command line
-            STY   FSCMDLINE+1         ; Collected by OSARGS 1,0
-            LDA   #$FF                ; OSFILE load flag
-            STA   OSFILECB+6          ; Use file's address
-            LDX   #<OSFILECB          ; Pointer to control block
+            STX   FSCMDLINE+0               ; Set CMDLINE=>command line
+            STY   FSCMDLINE+1               ; Collected by OSARGS 1,0
+            LDA   #$FF                      ; OSFILE load flag
+            STA   OSFILECB+6                ; Use file's address
+            LDX   #<OSFILECB                ; Pointer to control block
             LDY   #>OSFILECB
             JSR   OSFILE
             JSR   :CALL
-            LDA   #$00                ; A=0 on return
+            LDA   #$00                      ; A=0 on return
             RTS
-:CALL       LDA   #$01                ; A=1 - entering code
-            SEC                       ; Not from RESET
-            JMP   (OSFILECB+6)        ; Jump to EXEC addr
+:CALL       LDA   #$01                      ; A=1 - entering code
+            SEC                             ; Not from RESET
+            JMP   (OSFILECB+6)              ; Jump to EXEC addr
 
 FSCREN      JMP   RENAME
 
@@ -407,11 +407,11 @@ CHKEOF
 *            >>>   WRTMAIN
 *            STX   MOSFILE             ; File reference number
 *            >>>   WRTAUX
-            TXA                       ; A=channel
+            TXA                             ; A=channel
             >>>   XF2MAIN,FILEEOF
 CHKEOFRET   >>>   ENTAUX
-            TAX                       ; Return code -> X
-            TYA                       ; Y=any ProDOS error
+            TAX                             ; Return code -> X
+            TYA                             ; Y=any ProDOS error
             JMP   CHKERROR
 
 
@@ -419,28 +419,28 @@ CHKEOFRET   >>>   ENTAUX
 * A=5 *CAT, A=9 *EX, A=10 *INFO
 FSCCAT      EOR   #$06
             CLC
-            ROR   A                   ; 01100000=*CAT
-            ROR   A                   ; 11100000=*EX
-            ROR   A                   ; 10000000=*INFO
-            ROR   A                   ; b7=long info
-            STA   FSAREG              ; b6=multiple items
-            JSR   PARSNAME            ; Copy filename->MOSFILE
-            LDA   FSAREG              ; Get ARG back
+            ROR   A                         ; 01100000=*CAT
+            ROR   A                         ; 11100000=*EX
+            ROR   A                         ; 10000000=*INFO
+            ROR   A                         ; b7=long info
+            STA   FSAREG                    ; b6=multiple items
+            JSR   PARSNAME                  ; Copy filename->MOSFILE
+            LDA   FSAREG                    ; Get ARG back
             >>>   XF2MAIN,CATALOG
 STARCATRET  >>>   ENTAUX
-            JSR   CHKERROR            ; See if error occurred
+            JSR   CHKERROR                  ; See if error occurred
             JSR   FORCENL
 * CATDONE
-            LDA   #0                  ; 0=OK
+            LDA   #0                        ; 0=OK
             RTS
 
 * Print one block of a catalog. Called by CATALOG
 * Block is in AUXBLK
 PRONEBLK    >>>   ENTAUX
-            LDA   AUXBLK+4            ; Get storage type
-            AND   #$E0                ; Mask 3 MSBs
+            LDA   AUXBLK+4                  ; Get storage type
+            AND   #$E0                      ; Mask 3 MSBs
             CMP   #$E0
-            BNE   :NOTKEY             ; Not a key block
+            BNE   :NOTKEY                   ; Not a key block
             LDA   #<:DIRM
             LDY   #>:DIRM
             JSR   PRSTR
@@ -454,7 +454,7 @@ PRONEBLK    >>>   ENTAUX
             JSR   OSNEWL
 :L1X        PLA
             INC
-            CMP   #13                 ; Number of dirents in block
+            CMP   #13                       ; Number of dirents in block
             CLC
             BNE   :L1
             >>>   XF2MAIN,CATALOGRET
@@ -465,14 +465,14 @@ PRONEBLK    >>>   ENTAUX
 * On entry: A = dirent index in AUXBLK
 PRONEENT    PHP
             TAX
-            LDA   #<AUXBLK+4          ; Skip pointers
+            LDA   #<AUXBLK+4                ; Skip pointers
             STA   ZP3
             LDA   #>AUXBLK+4
             STA   ZP3+1
 :L1         CPX   #$00
             BEQ   :S1
             CLC
-            LDA   #$27                ; Size of dirent
+            LDA   #$27                      ; Size of dirent
             ADC   ZP3
             STA   ZP3
             LDA   #$00
@@ -482,8 +482,8 @@ PRONEENT    PHP
             BRA   :L1
 :S1         LDY   #$00
             LDA   (ZP3),Y
-            BEQ   :EXIT1              ; Inactive entry
-            AND   #$0F                ; Len of filename
+            BEQ   :EXIT1                    ; Inactive entry
+            AND   #$0F                      ; Len of filename
             TAX
             LDY   #$01
 :L2         CPX   #$00
@@ -566,11 +566,11 @@ PRSPACE     LDA   #' '
 
 * Perform FSCV $0C RENAME function
 * Parameter string in XY
-RENAME      JSR   PARSNAME            ; Copy Arg1->MOSFILE
-            CMP   #$00                ; Length of arg1
+RENAME      JSR   PARSNAME                  ; Copy Arg1->MOSFILE
+            CMP   #$00                      ; Length of arg1
             BEQ   :SYNTAX
-            JSR   PARSLPTR2           ; Copy Arg2->MOSFILE2
-            CMP   #$00                ; Length of arg2
+            JSR   PARSLPTR2                 ; Copy Arg2->MOSFILE2
+            CMP   #$00                      ; Length of arg2
             BEQ   :SYNTAX
             >>>   XF2MAIN,RENFILE
 :SYNTAX     BRK
@@ -585,11 +585,11 @@ RENRET
 
 * Perform *COPY function
 * Parameter string in XY
-COPY        JSR   PARSNAME            ; Copy Arg1->MOSFILE
-            CMP   #$00                ; Length of arg1
+COPY        JSR   PARSNAME                  ; Copy Arg1->MOSFILE
+            CMP   #$00                      ; Length of arg1
             BEQ   :SYNTAX
-            JSR   PARSLPTR2           ; Copy Arg2->MOSFILE2
-            CMP   #$00                ; Length of arg2
+            JSR   PARSLPTR2                 ; Copy Arg2->MOSFILE2
+            CMP   #$00                      ; Length of arg2
             BEQ   :SYNTAX
             >>>   XF2MAIN,COPYFILE
 :SYNTAX     BRK
@@ -604,8 +604,8 @@ COPYRET
 
 * Handle *DIR (directory change) command
 * On entry, XY points to command line
-CHDIR       JSR   PARSNAME            ; Copy filename->MOSFILE
-            CMP   #$00                ; Filename length
+CHDIR       JSR   PARSNAME                  ; Copy filename->MOSFILE
+            CMP   #$00                      ; Filename length
             BNE   :HASPARM
             BRK
             DB    $DC
@@ -615,11 +615,11 @@ CHDIR       JSR   PARSNAME            ; Copy filename->MOSFILE
 
 * Handle *DRIVE command, which is similar
 * On entry, (OSLPTR),Y points to command line
-DRIVE       LDA   (OSLPTR),Y          ; First char
-            CMP   #$3A                ; Colon
+DRIVE       LDA   (OSLPTR),Y                ; First char
+            CMP   #$3A                      ; Colon
             BNE   :ERR
-            JSR   PARSLPTR            ; Copy arg->MOSFILE
-            CMP   #$03                ; Check 3 char arg
+            JSR   PARSLPTR                  ; Copy arg->MOSFILE
+            CMP   #$03                      ; Check 3 char arg
             BEQ   :HASPARM
 :ERR        BRK
             DB    $DC
@@ -633,17 +633,17 @@ CHDIRRET
             CMP   #$00
             BEQ   :EXIT
             BRK
-            DB    $CE                 ; Bad directory
+            DB    $CE                       ; Bad directory
             ASC   'Bad dir'
             BRK
 :EXIT       RTS
 
 * Handle *FREE command
-FREE        LDA   (OSLPTR),Y          ; First char
-            CMP   #$3A                ; Colon
+FREE        LDA   (OSLPTR),Y                ; First char
+            CMP   #$3A                      ; Colon
             BNE   :ERR
-            JSR   PARSLPTR            ; Copy arg->MOSFILE
-            CMP   #$03                ; Check 3 char arg
+            JSR   PARSLPTR                  ; Copy arg->MOSFILE
+            CMP   #$03                      ; Check 3 char arg
             BEQ   :HASPARM
 :ERR        BRK
             DB    $DC
@@ -657,29 +657,29 @@ FREERET
             CMP   #$00
             BEQ   :NOERR
             BRK
-            DB    $CE                 ; Bad directory
+            DB    $CE                       ; Bad directory
             ASC   'Bad dir'
             BRK
 :NOERR      SEC
-            LDA   AUXBLK+2            ; LSB of total blks
-            SBC   AUXBLK+0            ; LSB of blocks used
+            LDA   AUXBLK+2                  ; LSB of total blks
+            SBC   AUXBLK+0                  ; LSB of blocks used
             TAX
-            LDA   AUXBLK+3            ; MSB of total blks
-            SBC   AUXBLK+1            ; MSB of blocks used
+            LDA   AUXBLK+3                  ; MSB of total blks
+            SBC   AUXBLK+1                  ; MSB of blocks used
             TAY
-            LDA   #$00       ; *TO DO* b16-b23 of free
+            LDA   #$00                      ; *TO DO* b16-b23 of free
 * NEW
-            JSR   :FREEDEC   ; Print 'AAYYXX blocks aaayyyxxx bytes '
+            JSR   :FREEDEC                  ; Print 'AAYYXX blocks aaayyyxxx bytes '
             LDX   #<:FREE
             LDY   #>:FREE
-            JSR   OUTSTR     ; Print 'free'<nl>
-            LDX   AUXBLK+0   ; Blocks used
+            JSR   OUTSTR                    ; Print 'free'<nl>
+            LDX   AUXBLK+0                  ; Blocks used
             LDY   AUXBLK+1
-            LDA   #$00       ; *TO DO* b16-b23 of used
-            JSR   :FREEDEC   ; Print 'AAYYXX blocks aaayyyxxx bytes '
+            LDA   #$00                      ; *TO DO* b16-b23 of used
+            JSR   :FREEDEC                  ; Print 'AAYYXX blocks aaayyyxxx bytes '
             LDX   #<:USED
             LDY   #>:USED
-            JMP   OUTSTR     ; Print 'used'<nl>
+            JMP   OUTSTR                    ; Print 'used'<nl>
 
 * OLD
 *            JSR   PRDECXY             ; Print in decimal
@@ -702,20 +702,20 @@ FREERET
             STA   FSNUM+3
 * What's the maximum number of blocks?
 *           JSR   PRHEX           ; Blocks b16-b23 in hex
-            JSR   PR2HEX          ; Blocks b0-b15 in hex
+            JSR   PR2HEX                    ; Blocks b0-b15 in hex
             LDX   #<:BLOCKS
             LDY   #>:BLOCKS
-            JSR   OUTSTR          ; ' blocks '
-            STZ   FSNUM+0         ; FSNUM=blocks*512
+            JSR   OUTSTR                    ; ' blocks '
+            STZ   FSNUM+0                   ; FSNUM=blocks*512
             ASL   FSNUM+1
             ROL   FSNUM+2
             ROL   FSNUM+3
-            LDX   #FSNUM          ; X=>number to print
-            LDY   #8              ; Y=pad up to 8 digits
-            JSR   PRINTDEC        ; Print it in decimal
+            LDX   #FSNUM                    ; X=>number to print
+            LDY   #8                        ; Y=pad up to 8 digits
+            JSR   PRINTDEC                  ; Print it in decimal
             LDX   #<:BYTES
             LDY   #>:BYTES
-            JMP   OUTSTR          ; ' bytes '
+            JMP   OUTSTR                    ; ' bytes '
 :BLOCKS     ASC   ' blocks '
             DB    0
 :BYTES      ASC   ' bytes '
@@ -731,10 +731,10 @@ FREERET
 *:USEDM      ASC   ' 512-byte Blocks Used'
 *            DB    $00
 
-ACCESS      JSR   PARSLPTR            ; Copy filename->MOSFILE
-            CMP   #$00                ; Filename length
+ACCESS      JSR   PARSLPTR                  ; Copy filename->MOSFILE
+            CMP   #$00                      ; Filename length
             BEQ   :SYNTAX
-            JSR   PARSLPTR2           ; Copy Arg2->MOSFILE2
+            JSR   PARSLPTR2                 ; Copy Arg2->MOSFILE2
             >>>   XF2MAIN,SETPERM
 :SYNTAX     BRK
             DB    $DC
@@ -746,8 +746,8 @@ ACCRET      >>>   ENTAUX
             LDA   #$00
             RTS
 
-DESTROY     JSR   PARSLPTR            ; Copy filename->MOSFILE
-            CMP   #$00                ; Filename length
+DESTROY     JSR   PARSLPTR                  ; Copy filename->MOSFILE
+            CMP   #$00                      ; Filename length
             BEQ   :SYNTAX
             >>>   XF2MAIN,MULTIDEL
 :SYNTAX     BRK
@@ -764,46 +764,46 @@ DESTRET     >>>   ENTAUX
 * Write filename to MOSFILE in main memory
 * Returns length in A
 PARSNAME    JSR   XYtoLPTR
-PARSLPTR    CLC                       ; Means parsing a filename
-            JSR   GSINIT              ; Init gen string handling
+PARSLPTR    CLC                             ; Means parsing a filename
+            JSR   GSINIT                    ; Init gen string handling
             PHP
-            SEI                       ; Disable IRQs
-            LDX   #$00                ; Length
-:L1         JSR   GSREAD              ; Handle next char
+            SEI                             ; Disable IRQs
+            LDX   #$00                      ; Length
+:L1         JSR   GSREAD                    ; Handle next char
             BCS   :DONE
-            STA   $C004               ; Write to main mem
+            STA   $C004                     ; Write to main mem
             STA   MOSFILE+1,X
-            STA   $C005               ; Write to aux mem
+            STA   $C005                     ; Write to aux mem
             INX
             BNE   :L1
-:DONE       STA   $C004               ; Write to main mem
-            STX   MOSFILE             ; Length byte (Pascal)
-            STA   $C005               ; Back to aux
-            PLP                       ; IRQs back as they were
-            TXA                       ; Return len in A
+:DONE       STA   $C004                     ; Write to main mem
+            STX   MOSFILE                   ; Length byte (Pascal)
+            STA   $C005                     ; Back to aux
+            PLP                             ; IRQs back as they were
+            TXA                             ; Return len in A
             RTS
 
 * Parse filename pointed to by (OSLPTR),Y
 * Write filename to MOSFILE2 in main memory
 * Returns length in A
 PARSNAME2   JSR   XYtoLPTR
-PARSLPTR2   CLC                       ; Means parsing a filename
-            JSR   GSINIT              ; Init gen string handling
+PARSLPTR2   CLC                             ; Means parsing a filename
+            JSR   GSINIT                    ; Init gen string handling
             PHP
-            SEI                       ; Disable IRQs
-            LDX   #$00                ; Length
-:L1         JSR   GSREAD              ; Handle next char
+            SEI                             ; Disable IRQs
+            LDX   #$00                      ; Length
+:L1         JSR   GSREAD                    ; Handle next char
             BCS   :DONE
-            STA   $C004               ; Write to main mem
+            STA   $C004                     ; Write to main mem
             STA   MOSFILE2+1,X
-            STA   $C005               ; Write to aux mem
+            STA   $C005                     ; Write to aux mem
             INX
             BNE   :L1
-:DONE       STA   $C004               ; Write to main mem
-            STX   MOSFILE2            ; Length byte (Pascal)
-            STA   $C005               ; Back to aux
-            PLP                       ; IRQs back as they were
-            TXA                       ; Return len in A
+:DONE       STA   $C004                     ; Write to main mem
+            STX   MOSFILE2                  ; Length byte (Pascal)
+            STA   $C005                     ; Back to aux
+            PLP                             ; IRQs back as they were
+            TXA                             ; Return len in A
             RTS
 
 * Move this somewhere
@@ -812,11 +812,11 @@ CHKERROR    CMP   #$20
             RTS
 
 *ERREXISTS   LDA   #$47 ; File exists
-ERRNOTFND   LDA   #$46                ; File not found
+ERRNOTFND   LDA   #$46                      ; File not found
 
 MKERROR
             BIT   $E0
-            BPL   MKERROR1            ; *TEST*
+            BPL   MKERROR1                  ; *TEST*
             PHA
             LDX   #15
 MKERRLP
@@ -852,13 +852,13 @@ ERRMSG
 MKERROR1
             CMP   #$40
             BCS   MKERROR2
-            ORA   #$30 ; <$40 -> $30-$3F
+            ORA   #$30                      ; <$40 -> $30-$3F
 MKERROR2
             SEC
             SBC   #$37
             CMP   #$28
             BCC   MKERROR3
-            LDA   #$00 ; I/O error
+            LDA   #$00                      ; I/O error
 MKERROR3
             ASL   A
             TAX
@@ -922,67 +922,68 @@ MKERROR4    DW    ERROR27
 
 *       AcornOS                     ProDOS
 ERROR40     DW    $CC00
-            ASC   'Bad filename'        ; $40 - Invalid pathname syntax
+            ASC   'Bad filename'            ; $40 - Invalid pathname syntax
 ERROR41     DW    $C400
-            ASC   'Is a directory'      ; $41 - Duplicate filename (split from $47)
+            ASC   'Is a directory'          ; $41 - Duplicate filename (split from $47)
 ERROR42     DW    $C000
-            ASC   'Too many open'       ; $42 - File Control Block table full
+            ASC   'Too many open'           ; $42 - File Control Block table full
 ERROR43     DW    $DE00
-            ASC   'Channel not open'    ; $43 - Invalid reference number
-ERROR44                                 ; $44 - Path not found
+            ASC   'Channel not open'        ; $43 - Invalid reference number
+ERROR44                                     ; $44 - Path not found
 ERROR46     DW    $D600
-            ASC   'File not found'      ; $46 - File not found
+            ASC   'File not found'          ; $46 - File not found
 ERROR45     DW    $D600
-            ASC   'Disk not found'      ; $45 - Volume directory not found
+            ASC   'Disk not found'          ; $45 - Volume directory not found
 ERROR47     DW    $C400
-            ASC   'File exists'         ; $47 - Duplicate filename (see also $41)
+            ASC   'File exists'             ; $47 - Duplicate filename (see also $41)
 ERROR48     DW    $C600
-            ASC   'Disk full'           ; $48 - Overrun error
+            ASC   'Disk full'               ; $48 - Overrun error
 ERROR49     DW    $B300
-            ASC   'Directory full'      ; $49 - Volume directory full
-ERROR4A                                 ; $4A - Incompatible file format
-ERROR4B                                 ; $4B - Unsupported storage_type
+            ASC   'Directory full'          ; $49 - Volume directory full
+ERROR4A                                     ; $4A - Incompatible file format
+ERROR4B                                     ; $4B - Unsupported storage_type
 ERROR52     DW    $C800
-            ASC   'Disk not recognised' ; $52 - Not a ProDOS disk
+            ASC   'Disk not recognised'     ; $52 - Not a ProDOS disk
 ERROR4C     DW    $DF00
-            ASC   'End of file'         ; $4C - End of file has been encountered
+            ASC   'End of file'             ; $4C - End of file has been encountered
 ERROR4D     DW    $C100
-            ASC   'Not open for update' ; $4D - Position out of range
+            ASC   'Not open for update'     ; $4D - Position out of range
 ERROR4E     DW    $BD00
-            ASC   'Insufficient access' ; $4E - Access error (see also $4F)
+            ASC   'Insufficient access'     ; $4E - Access error (see also $4F)
 ERROR4F     DW    $C300
-            ASC   'Entry locked'        ; $4F - Access error (split from $4E)
+            ASC   'Entry locked'            ; $4F - Access error (split from $4E)
 ERROR50     DW    $C200
             ASC   'Can'
             DB    $27
-            ASC   't - file open'       ; $50 - File is open
+            ASC   't - file open'           ; $50 - File is open
 ERROR51     DW    $A800
-            ASC   'Broken directory'    ; $51 - Directory count error
+            ASC   'Broken directory'        ; $51 - Directory count error
 ERROR53     DW    $DC00
-            ASC   'Invalid parameter'   ; $53 - Invalid parameter
+            ASC   'Invalid parameter'       ; $53 - Invalid parameter
 ERROR54     DW    $D400
-            ASC   'Directory not empty' ; $54 - Directory not empty
+            ASC   'Directory not empty'     ; $54 - Directory not empty
 ERROR55     DW    $FF00
-            ASC   'ProDOS: VCB full'    ; $55 - Volume Control Block table full
+            ASC   'ProDOS: VCB full'        ; $55 - Volume Control Block table full
 ERROR56     DW    $FF00
-            ASC   'ProDOS: Bad addr'    ; $56 - Bad buffer address
+            ASC   'ProDOS: Bad addr'        ; $56 - Bad buffer address
 ERROR57     DW    $FF00
-            ASC   'ProDOS: Dup volm'    ; $57 - Duplicate volume
-ERROR5B                                 ; spare
+            ASC   'ProDOS: Dup volm'        ; $57 - Duplicate volume
+ERROR5B                                     ; spare
 ERROR27     DW    $FF00
-            ASC   'I/O error'           ; $27 - I/O error
+            ASC   'I/O error'               ; $27 - I/O error
 ERROR28     DW    $D200
-            ASC   'Disk not present'    ; $28 - No device detected/connected
+            ASC   'Disk not present'        ; $28 - No device detected/connected
 ERROR5A     DW    $FF00
-            ASC   'Sector not found'    ; $5A - Bit map disk address is impossible
+            ASC   'Sector not found'        ; $5A - Bit map disk address is impossible
 ERROR2B     DW    $C900
-            ASC   'Disk write protected'; $2B - Disk write protected
+            ASC   'Disk write protected'    ; $2B - Disk write protected
 ERROR5D     DW    $CA00
-            ASC   'Data lost'           ; $5D - EOF during LOAD or SAVE
+            ASC   'Data lost'               ; $5D - EOF during LOAD or SAVE
 ERROR5E     DW    $C000
             ASC   'Can'
             DB    $27
-            ASC   't save'              ; $5E - Couldn't open for save
+            ASC   't save'                  ; $5E - Couldn't open for save
 ERROR2E     DW    $C800
-            ASC   'Disk changed'        ; $2E - Disk switched
+            ASC   'Disk changed'            ; $2E - Disk switched
             DB    $00
+
