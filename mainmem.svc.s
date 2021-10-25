@@ -849,8 +849,9 @@ UPDFB        LDA   #<MOSFILE
              LDA   #$01               ; Prepare A=file
              LDX   GINFOPL+7
              CPX   #$0D               ; Is it a directory?
-             BNE   :UPDFB5
-             LDA   #$02               ; Return A=directory
+             ADC   #$00               ; Becomes A=2 for directory
+*             BCC   :UPDFB5
+*             LDA   #$02               ; Return A=directory
 :UPDFB5      RTS
 
 :ERR

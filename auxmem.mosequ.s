@@ -16,8 +16,10 @@
 * $E0-$EE Internal MOS workspace
 * $EF-$FF MOS API workspace
 
-FSFLAG1     EQU   $E2
-FSFLAG2     EQU   $E3
+DEBUG       EQU   $E0         ; $E0 *TEST* Debug flag
+*                             ; $E1
+FSFLAG1     EQU   $E2         ; $E2
+FSFLAG2     EQU   $E3         ; $E3 HOSTFS *OPT settings
 GSFLAG      EQU   $E4         ; $E4 GSREAD processing flags
 GSCHAR      EQU   $E5         ; $E5 GSREAD accumulator
 OSTEXT      EQU   $E6         ; $E6 => text string  $E6 OSNUM+0

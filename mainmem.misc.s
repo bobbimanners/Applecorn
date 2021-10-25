@@ -15,7 +15,7 @@ MEMCPY      LDA   (A1L)
             LDA   A1L
             CMP   A2L
             BNE   :S1
-            BRA   :DONE
+:DONE       RTS
 :S1         INC   A1L
             BNE   :S2
             INC   A1H
@@ -23,28 +23,33 @@ MEMCPY      LDA   (A1L)
             BNE   :S3
             INC   A4H
 :S3         BRA   MEMCPY
-:DONE       RTS
 
 * Copy 512 bytes from BLKBUF to AUXBLK in aux LC
 COPYAUXBLK  >>>   ALTZP          ; Alt ZP & Alt LC on
             LDY   #$00
-:L1         LDA   BLKBUF,Y
             STA   $C005          ; Write aux mem
-            STA   AUXBLK,Y
-            STA   $C004          ; Write main mem
-            CPY   #$FF
-            BEQ   :S1
-            INY
-            BRA   :L1
-:S1         LDY   #$00
-:L2         LDA   BLKBUF+$100,Y
-            STA   $C005          ; Write aux mem
+:L1         LDA   BLKBUF+$000,Y
+*            STA   $C005          ; Write aux mem
+            STA   AUXBLK+$000,Y
+            LDA   BLKBUF+$100,Y
             STA   AUXBLK+$100,Y
-            STA   $C004          ; Write main mem
-            CPY   #$FF
-            BEQ   :S2
+*            STA   $C004          ; Write main mem
             INY
-            BRA   :L2
+            BNE   :L1
+            STA   $C004          ; Write main mem
+*            CPY   #$FF
+*            BEQ   :S1
+*            INY
+*            BRA   :L1
+*:S1         LDY   #$00
+*:L2         LDA   BLKBUF+$100,Y
+*            STA   $C005          ; Write aux mem
+*            STA   AUXBLK+$100,Y
+*            STA   $C004          ; Write main mem
+*            CPY   #$FF
+*            BEQ   :S2
+*            INY
+*            BRA   :L2
 :S2         >>>   MAINZP         ; Alt ZP off, ROM back in
             RTS
 
