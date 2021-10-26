@@ -346,8 +346,16 @@ ROMSELECT   CPX   $F4
             STA   OSFILECB+3
             LDX   #<OSFILECB
             LDY   #>OSFILECB
+            LDA   OSLPTR+0         ; Preserve OSLPTR
+            PHA
+            LDA   OSLPTR+1
+            PHA
             LDA   #$FF             ; Means 'LOAD'
             JSR   OSFILE
+            PLA
+            STA   OSLPTR+1
+            PLA
+            STA   OSLPTR+0
             PLY
             PLX
             PLA
