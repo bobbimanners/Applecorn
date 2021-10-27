@@ -123,7 +123,7 @@ MOSHIGH     SEI
             DEX
             BPL   :INITPG2
 
-            JSR   INITROMS                   ; Initialize sideways ROM table
+            JSR   ROMINIT                    ; Initialize sideways ROM table
 
             JSR   KBDINIT                    ; Returns A=startup MODE
             JSR   VDUINIT                    ; Initialise VDU driver
@@ -194,6 +194,7 @@ BYTE00A     BRK
 HELLO       ASC   'Applecorn MOS 2021-10-27'
             DB    $00                        ; Unify MOS messages
 
+MAXROM      DB    $00              ; Index of highest sideways ROM
 
 
 
