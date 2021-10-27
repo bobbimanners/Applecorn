@@ -30,15 +30,6 @@ A2H         EQU   $3F
 A4L         EQU   $42
 A4H         EQU   $43
 
-* ProDOS ZP locations
-* $38-$4F
-
-* Used by MOS support code
-ZP30        EQU   $30
-ZP32        EQU   $32
-ZP34        EQU   $34
-ZP36        EQU   $36
-
 * Used by XFER
 STRTL       EQU   $3ED
 STRTH       EQU   $3EE
@@ -208,6 +199,14 @@ MAINZP      MAC
 
 * Automatically save the object file:
             SAV   APPLECORN
+
+
+
+
+
+
+
+
 
 
 

@@ -21,100 +21,100 @@
 
 
 * ProDOS file handling to rename a file
-RENFILE      >>>   ENTMAIN
-             JSR   PREPATH            ; Preprocess arg1
-             JSR   MFtoTMP            ; Stash arg1
-             JSR   COPYMF21           ; Copy arg2
-             JSR   PREPATH            ; Preprocess arg2
-             JSR   COPYMF12           ; Put it back in MOSFILE2
-             JSR   TMPtoMF            ; Recover arg1->MOSFILE
-             LDA   #<MOSFILE
-             STA   RENPL+1
-             LDA   #>MOSFILE
-             STA   RENPL+2
-             LDA   #<MOSFILE2
-             STA   RENPL+3
-             LDA   #>MOSFILE2
-             STA   RENPL+4
-             JSR   MLI
-             DB    RENCMD
-             DW    RENPL
-             >>>   XF2AUX,RENRET
+RENFILE       >>>   ENTMAIN
+              JSR   PREPATH            ; Preprocess arg1
+              JSR   MFtoTMP            ; Stash arg1
+              JSR   COPYMF21           ; Copy arg2
+              JSR   PREPATH            ; Preprocess arg2
+              JSR   COPYMF12           ; Put it back in MOSFILE2
+              JSR   TMPtoMF            ; Recover arg1->MOSFILE
+              LDA   #<MOSFILE
+              STA   RENPL+1
+              LDA   #>MOSFILE
+              STA   RENPL+2
+              LDA   #<MOSFILE2
+              STA   RENPL+3
+              LDA   #>MOSFILE2
+              STA   RENPL+4
+              JSR   MLI
+              DB    RENCMD
+              DW    RENPL
+              >>>   XF2AUX,RENRET
 
 * ProDOS file handling for file copying
 * Returns with ProDOS error code in A
-COPYFILE     >>>   ENTMAIN
-             JSR   MFtoTMP            ; Swap MOSFILE & MOSFILE2
-             JSR   COPYMF21
-             JSR   TMPtoMF2
-             JSR   PREPATH            ; Preprocess arg2 (in MOSFILE)
-             JSR   WILDONE            ; Handle any wildcards
-             JSR   EXISTS             ; See if destination exists
-             STA   :DESTTYPE          ; Stash for later
-             JSR   MFtoTMP            ; Swap MOSFILE & MOSFILE2 again
-             JSR   COPYMF21
-             JSR   TMPtoMF2
-             JSR   PREPATH            ; Preprocess arg1
-             SEC                      ; Force wildcard lookup
-             JSR   WILDCARD           ; Handle any wildcards in arg1
-             BCS   :NONE
-             JSR   HASWILD
-             BCC   :MAINLOOP          ; No wildcards in final segment
-             LDA   :DESTTYPE          ; Wildcards, check dest type
-             CMP   #$02               ; Existing directory?
-             BNE   :BADDEST           ; If not, error
-             BRA   :MAINLOOP          ; Source: wildcard, dest: dir
+COPYFILE      >>>   ENTMAIN
+              JSR   MFtoTMP            ; Swap MOSFILE & MOSFILE2
+              JSR   COPYMF21
+              JSR   TMPtoMF2
+              JSR   PREPATH            ; Preprocess arg2 (in MOSFILE)
+              JSR   WILDONE            ; Handle any wildcards
+              JSR   EXISTS             ; See if destination exists
+              STA   :DESTTYPE          ; Stash for later
+              JSR   MFtoTMP            ; Swap MOSFILE & MOSFILE2 again
+              JSR   COPYMF21
+              JSR   TMPtoMF2
+              JSR   PREPATH            ; Preprocess arg1
+              SEC                      ; Force wildcard lookup
+              JSR   WILDCARD           ; Handle any wildcards in arg1
+              BCS   :NONE
+              JSR   HASWILD
+              BCC   :MAINLOOP          ; No wildcards in final segment
+              LDA   :DESTTYPE          ; Wildcards, check dest type
+              CMP   #$02               ; Existing directory?
+              BNE   :BADDEST           ; If not, error
+              BRA   :MAINLOOP          ; Source: wildcard, dest: dir
 :NOWILD
 :MAINLOOP
-             LDA   MOSFILE2           ; Length
-             STA   :OLDLEN
-             JSR   EXISTS             ; See if source is file or dir
-             CMP   #$02               ; Directory
-             BEQ   :SKIP              ; Skip directories
-             LDA   :DESTTYPE          ; Check dest type
-             CMP   #$02               ; Existing directory?
-             BNE   :NOTDIR
-             LDY   MOSFILE2           ; Dest idx = length
-             LDA   MOSFILE2,Y         ; Get last char
-             CMP   #'/'               ; Is it slash?
-             BEQ   :HASSLSH
-             LDA   #'/'               ; Add a '/' separator
-             STA   MOSFILE2+1,Y
-             INY
-:HASSLSH     LDX   #$00               ; Source id
-:APPLOOP     CPX   MATCHBUF           ; At end?
-             BEQ   :DONEAPP
-             LDA   MATCHBUF+1,X       ; Appending MATCHBUF to MOSFILE2
-             STA   MOSFILE2+1,Y
-             INX
-             INY
-             BRA   :APPLOOP
-:DONEAPP     STY   MOSFILE2           ; Update length
-:NOTDIR      LDA   :DESTTYPE          ; Recover destination type
-             JSR   COPY1FILE          ; Copy an individual file
-             BCS   :COPYERR
-:SKIP        JSR   WILDNEXT
-             BCS   :NOMORE
-             LDA   :OLDLEN            ; Restore MOSFILE2
-             STA   MOSFILE2
-             BRA   :MAINLOOP
-             JSR   CLSDIR
-:EXIT        >>>   XF2AUX,COPYRET
-:NONE        JSR   CLSDIR
-             LDA   #$46               ; 'File not found'
-             BRA   :EXIT
-:BADDEST     JSR   CLSDIR
-             LDA   #$FD               ; 'Wildcards' error
-             BRA   :EXIT
-:NOMORE      JSR   CLSDIR
-             LDA   #$00
-             BRA   :EXIT
-:COPYERR     PHA
-             JSR   CLSDIR
-             PLA
-             BRA   :EXIT
-:DESTTYPE    DB    $00
-:OLDLEN      DB    $00
+              LDA   MOSFILE2           ; Length
+              STA   :OLDLEN
+              JSR   EXISTS             ; See if source is file or dir
+              CMP   #$02               ; Directory
+              BEQ   :SKIP              ; Skip directories
+              LDA   :DESTTYPE          ; Check dest type
+              CMP   #$02               ; Existing directory?
+              BNE   :NOTDIR
+              LDY   MOSFILE2           ; Dest idx = length
+              LDA   MOSFILE2,Y         ; Get last char
+              CMP   #'/'               ; Is it slash?
+              BEQ   :HASSLSH
+              LDA   #'/'               ; Add a '/' separator
+              STA   MOSFILE2+1,Y
+              INY
+:HASSLSH      LDX   #$00               ; Source id
+:APPLOOP      CPX   MATCHBUF           ; At end?
+              BEQ   :DONEAPP
+              LDA   MATCHBUF+1,X       ; Appending MATCHBUF to MOSFILE2
+              STA   MOSFILE2+1,Y
+              INX
+              INY
+              BRA   :APPLOOP
+:DONEAPP      STY   MOSFILE2           ; Update length
+:NOTDIR       LDA   :DESTTYPE          ; Recover destination type
+              JSR   COPY1FILE          ; Copy an individual file
+              BCS   :COPYERR
+:SKIP         JSR   WILDNEXT
+              BCS   :NOMORE
+              LDA   :OLDLEN            ; Restore MOSFILE2
+              STA   MOSFILE2
+              BRA   :MAINLOOP
+              JSR   CLSDIR
+:EXIT         >>>   XF2AUX,COPYRET
+:NONE         JSR   CLSDIR
+              LDA   #$46               ; 'File not found'
+              BRA   :EXIT
+:BADDEST      JSR   CLSDIR
+              LDA   #$FD               ; 'Wildcards' error
+              BRA   :EXIT
+:NOMORE       JSR   CLSDIR
+              LDA   #$00
+              BRA   :EXIT
+:COPYERR      PHA
+              JSR   CLSDIR
+              PLA
+              BRA   :EXIT
+:DESTTYPE     DB    $00
+:OLDLEN       DB    $00
 
 * Copy a single file
 * Source is in MOSFILE, DEST in MOSFILE2
@@ -122,344 +122,344 @@ COPYFILE     >>>   ENTMAIN
 * Returns with ProDOS error code in A
 * Buffer COPYBUF is used for the file copy, to avoid trashing
 * directory block in RDBUF (when doing wilcard search)
-COPY1FILE    LDA   #<MOSFILE
-             STA   GINFOPL+1
-             STA   OPENPL2+1
-             LDA   #>MOSFILE
-             STA   GINFOPL+2
-             STA   OPENPL2+2
-             JSR   GETINFO            ; GET_FILE_INFO
-             BCS   :ERR
-             LDA   #<MOSFILE2
-             STA   GINFOPL+1
-             STA   DESTPL+1
-             LDA   #>MOSFILE2
-             STA   GINFOPL+2
-             STA   DESTPL+2
-             JSR   MLI                ; DESTROY
-             DB    DESTCMD
-             DW    DESTPL
-             LDA   #$07               ; Fix num parms in PL
-             STA   GINFOPL
-             LDA   #$C3               ; Default permissions
-             STA   GINFOPL+3
-             JSR   MLI                ; Call CREATE with ..
-             DB    CREATCMD           ; .. PL from GET_FILE_INFO
-             DW    GINFOPL
-             LDX   #$0A               ; Num parms back as we found it
-             STX   GINFOPL
-             BCS   :ERR               ; Error creating dest file
-             LDA   #$00               ; Look for empty slot
-             JSR   FINDBUF
-             STX   :BUFIDX1
-             JSR   BUFADDR
-             BCS   :ERR               ; No I/O bufs available
-             STA   OPENPL2+3
-             STY   OPENPL2+4
-             JSR   MLI
-             DB    OPENCMD
-             DW    OPENPL2
-             BCS   :ERR               ; Open error
-             BRA   :S1
-:ERR         SEC                      ; Report error
-             RTS
-:S1          LDA   OPENPL2+5          ; File ref num
-             STA   RDPLCP+1
-             LDX   :BUFIDX1
-             STA   FILEREFS,X         ; Record the ref number
-             LDA   #<MOSFILE2
-             STA   OPENPL2+1
-             LDA   #>MOSFILE2
-             STA   OPENPL2+2
-             LDA   #$00               ; Look for empty slot
-             JSR   FINDBUF
-             STX   :BUFIDX2
-             JSR   BUFADDR
-             BCS   :ERRCLS1           ; No I/O bufs available
-             STA   OPENPL2+3
-             STY   OPENPL2+4
-             JSR   MLI
-             DB    OPENCMD
-             DW    OPENPL2
-             BCS   :ERRCLS1
-             LDA   OPENPL2+5          ; File ref num
-             STA   WRTPLCP+1
-             LDX   :BUFIDX2
-             STA   FILEREFS,X         ; Record the ref number
-:MAINLOOP    JSR   MLI                ; Read a block
-             DB    READCMD
-             DW    RDPLCP
-             BCC   :RDOKAY
-             CMP   #$4C               ; Is it EOF?
-             BEQ   :EOFEXIT
-             BRA   :ERRCLS2           ; Any other error
-:RDOKAY      LDA   RDPLCP+6           ; Trans count MSB
-             STA   WRTPLCP+4          ; Request count MSB
-             LDA   RDPLCP+7           ; Trans count MSB
-             STA   WRTPLCP+5          ; Request count MSB
-             JSR   MLI                ; Write a block
-             DB    WRITECMD
-             DW    WRTPLCP
-             BCS   :ERRCLS2           ; Write error
-             BRA   :MAINLOOP
-:EOFEXIT     CLC                      ; No error
-             PHP
-             LDA   #$00
-             PHA
-:CLOSE2      LDA   WRTPLCP+1          ; Close output file
-             STA   CLSPL+1
-             JSR   CLSFILE
-             LDX   :BUFIDX2
-             STZ   FILEREFS,X
-:CLOSE1      LDA   RDPLCP+1           ; Close input file
-             STA   CLSPL+1
-             JSR   CLSFILE
-             LDX   :BUFIDX1
-             STZ   FILEREFS,X
-             PLA
-             PLP
-             RTS
-:ERRCLS1     SEC
-             PHP
-             PHA
-             BRA   :CLOSE1
-:ERRCLS2     SEC
-             PHP
-             PHA
-             BRA   :CLOSE2
-:BUFIDX1     DB    $00
-:BUFIDX2     DB    $00
+COPY1FILE     LDA   #<MOSFILE
+              STA   GINFOPL+1
+              STA   OPENPL2+1
+              LDA   #>MOSFILE
+              STA   GINFOPL+2
+              STA   OPENPL2+2
+              JSR   GETINFO            ; GET_FILE_INFO
+              BCS   :ERR
+              LDA   #<MOSFILE2
+              STA   GINFOPL+1
+              STA   DESTPL+1
+              LDA   #>MOSFILE2
+              STA   GINFOPL+2
+              STA   DESTPL+2
+              JSR   MLI                ; DESTROY
+              DB    DESTCMD
+              DW    DESTPL
+              LDA   #$07               ; Fix num parms in PL
+              STA   GINFOPL
+              LDA   #$C3               ; Default permissions
+              STA   GINFOPL+3
+              JSR   MLI                ; Call CREATE with ..
+              DB    CREATCMD           ; .. PL from GET_FILE_INFO
+              DW    GINFOPL
+              LDX   #$0A               ; Num parms back as we found it
+              STX   GINFOPL
+              BCS   :ERR               ; Error creating dest file
+              LDA   #$00               ; Look for empty slot
+              JSR   FINDBUF
+              STX   :BUFIDX1
+              JSR   BUFADDR
+              BCS   :ERR               ; No I/O bufs available
+              STA   OPENPL2+3
+              STY   OPENPL2+4
+              JSR   MLI
+              DB    OPENCMD
+              DW    OPENPL2
+              BCS   :ERR               ; Open error
+              BRA   :S1
+:ERR          SEC                      ; Report error
+              RTS
+:S1           LDA   OPENPL2+5          ; File ref num
+              STA   RDPLCP+1
+              LDX   :BUFIDX1
+              STA   FILEREFS,X         ; Record the ref number
+              LDA   #<MOSFILE2
+              STA   OPENPL2+1
+              LDA   #>MOSFILE2
+              STA   OPENPL2+2
+              LDA   #$00               ; Look for empty slot
+              JSR   FINDBUF
+              STX   :BUFIDX2
+              JSR   BUFADDR
+              BCS   :ERRCLS1           ; No I/O bufs available
+              STA   OPENPL2+3
+              STY   OPENPL2+4
+              JSR   MLI
+              DB    OPENCMD
+              DW    OPENPL2
+              BCS   :ERRCLS1
+              LDA   OPENPL2+5          ; File ref num
+              STA   WRTPLCP+1
+              LDX   :BUFIDX2
+              STA   FILEREFS,X         ; Record the ref number
+:MAINLOOP     JSR   MLI                ; Read a block
+              DB    READCMD
+              DW    RDPLCP
+              BCC   :RDOKAY
+              CMP   #$4C               ; Is it EOF?
+              BEQ   :EOFEXIT
+              BRA   :ERRCLS2           ; Any other error
+:RDOKAY       LDA   RDPLCP+6           ; Trans count MSB
+              STA   WRTPLCP+4          ; Request count MSB
+              LDA   RDPLCP+7           ; Trans count MSB
+              STA   WRTPLCP+5          ; Request count MSB
+              JSR   MLI                ; Write a block
+              DB    WRITECMD
+              DW    WRTPLCP
+              BCS   :ERRCLS2           ; Write error
+              BRA   :MAINLOOP
+:EOFEXIT      CLC                      ; No error
+              PHP
+              LDA   #$00
+              PHA
+:CLOSE2       LDA   WRTPLCP+1          ; Close output file
+              STA   CLSPL+1
+              JSR   CLSFILE
+              LDX   :BUFIDX2
+              STZ   FILEREFS,X
+:CLOSE1       LDA   RDPLCP+1           ; Close input file
+              STA   CLSPL+1
+              JSR   CLSFILE
+              LDX   :BUFIDX1
+              STZ   FILEREFS,X
+              PLA
+              PLP
+              RTS
+:ERRCLS1      SEC
+              PHP
+              PHA
+              BRA   :CLOSE1
+:ERRCLS2      SEC
+              PHP
+              PHA
+              BRA   :CLOSE2
+:BUFIDX1      DB    $00
+:BUFIDX2      DB    $00
 
 
 * ProDOS file handling for MOS OSFIND OPEN call
 * Options in A: $40 'r', $80 'w', $C0 'rw'
-OFILE        >>>   ENTMAIN
-             AND   #$C0               ; Keep just action bits
-             PHA                      ; Preserve arg for later
-             JSR   PREPATH            ; Preprocess pathname
-             BCS   :JMPEXIT1          ; Bad filename
-             PLA
-             PHA
-             CMP   #$80               ; Is it "w"?
-             BEQ   :NOWILD            ; If so, no wildcards
-             JSR   WILDONE            ; Handle any wildcards
-:NOWILD      JSR   EXISTS             ; See if file exists ...
-             TAX
-             CMP   #$02               ; ... and is a directory
-             BNE   :NOTDIR
-             PLA                      ; Get action back
-             BPL   :NOTDIR2           ; OPENIN(dir) allowed
-             LDA   #$41               ; $41=Directory exists
-             PHA                      ; Balance PLA
-:JMPEXIT1    PLA
-:JMPEXIT     JMP   FINDEXIT
-:NOTDIR      PLA
-:NOTDIR2     CMP   #$80               ; Write mode
-             BNE   :S1
-             TXA
-             BEQ   :S0                ; No file, don't try to delete
-             JSR   DODELETE
-             BCS   FINDEXIT           ; Abort if error
-:S0          LDX   #$00               ; LOAD=$0000
-             LDY   #$00
-             JSR   CREATEFILE
-             BCS   FINDEXIT           ; Abort if error
+OFILE         >>>   ENTMAIN
+              AND   #$C0               ; Keep just action bits
+              PHA                      ; Preserve arg for later
+              JSR   PREPATH            ; Preprocess pathname
+              BCS   :JMPEXIT1          ; Bad filename
+              PLA
+              PHA
+              CMP   #$80               ; Is it "w"?
+              BEQ   :NOWILD            ; If so, no wildcards
+              JSR   WILDONE            ; Handle any wildcards
+:NOWILD       JSR   EXISTS             ; See if file exists ...
+              TAX
+              CMP   #$02               ; ... and is a directory
+              BNE   :NOTDIR
+              PLA                      ; Get action back
+              BPL   :NOTDIR2           ; OPENIN(dir) allowed
+              LDA   #$41               ; $41=Directory exists
+              PHA                      ; Balance PLA
+:JMPEXIT1     PLA
+:JMPEXIT      JMP   FINDEXIT
+:NOTDIR       PLA
+:NOTDIR2      CMP   #$80               ; Write mode
+              BNE   :S1
+              TXA
+              BEQ   :S0                ; No file, don't try to delete
+              JSR   DODELETE
+              BCS   FINDEXIT           ; Abort if error
+:S0           LDX   #$00               ; LOAD=$0000
+              LDY   #$00
+              JSR   CREATEFILE
+              BCS   FINDEXIT           ; Abort if error
 * Looking for a buffer should be done before creating a file
-:S1          LDA   #$00               ; Look for empty slot
-             JSR   FINDBUF
-             STX   BUFIDX
-             JSR   BUFADDR
-             BCS   NOBUFFS            ; No empty slot (BUFIDX=FF)
-             STA   OPENPL2+3
-             STY   OPENPL2+4
-             LDA   #<MOSFILE
-             STA   OPENPL2+1
-             LDA   #>MOSFILE
-             STA   OPENPL2+2
-             JSR   MLI
-             DB    OPENCMD
-             DW    OPENPL2
-             BCS   FINDEXIT
-             LDA   OPENPL2+5          ; File ref number
-             LDX   BUFIDX
-             STA   FILEREFS,X         ; Record the ref number
-FINDEXIT     JSR   CHKNOTFND          ; Convert NotFound to $00
-             >>>   XF2AUX,OSFINDRET
-NOBUFFS      LDA   #$42               ; $42=File buffers full
-             BNE   FINDEXIT
-BUFIDX       DB    $00
+:S1           LDA   #$00               ; Look for empty slot
+              JSR   FINDBUF
+              STX   BUFIDX
+              JSR   BUFADDR
+              BCS   NOBUFFS            ; No empty slot (BUFIDX=FF)
+              STA   OPENPL2+3
+              STY   OPENPL2+4
+              LDA   #<MOSFILE
+              STA   OPENPL2+1
+              LDA   #>MOSFILE
+              STA   OPENPL2+2
+              JSR   MLI
+              DB    OPENCMD
+              DW    OPENPL2
+              BCS   FINDEXIT
+              LDA   OPENPL2+5          ; File ref number
+              LDX   BUFIDX
+              STA   FILEREFS,X         ; Record the ref number
+FINDEXIT      JSR   CHKNOTFND          ; Convert NotFound to $00
+              >>>   XF2AUX,OSFINDRET
+NOBUFFS       LDA   #$42               ; $42=File buffers full
+              BNE   FINDEXIT
+BUFIDX        DB    $00
 
 * ProDOS file handling for MOS OSFIND CLOSE call
 * ProDOS can do CLOSE#0 but we need to manually update FILEREFS
-CFILE        >>>   ENTMAIN
-             LDX   #$00               ; Prepare for one file
-             TYA                      ; File ref number
-             BNE   :CFILE1            ; Close one file
-             LDX   #$03               ; Loop through all files
-:CFILE0      LDA   FILEREFS,X
-             BEQ   :CFILE3            ; Not open, try next
-:CFILE1      PHX
-             PHA
-             STA   CLSPL+1
-             JSR   CLSFILE
-             BCS   :CFILEERR          ; Error occured during closing
-             PLA
-             JSR   FINDBUF
-             BNE   :CFILE2
-             LDA   #$00
-             STA   FILEREFS,X         ; Release buffer
-:CFILE2      PLX
-:CFILE3      DEX
-             BPL   :CFILE0            ; Loop to close all files
-             LDA   #$00
-             BEQ   FINDEXIT
-:CFILEERR    PLX                      ; Balance stack
-             PLX
-             BCS   FINDEXIT
+CFILE         >>>   ENTMAIN
+              LDX   #$00               ; Prepare for one file
+              TYA                      ; File ref number
+              BNE   :CFILE1            ; Close one file
+              LDX   #$03               ; Loop through all files
+:CFILE0       LDA   FILEREFS,X
+              BEQ   :CFILE3            ; Not open, try next
+:CFILE1       PHX
+              PHA
+              STA   CLSPL+1
+              JSR   CLSFILE
+              BCS   :CFILEERR          ; Error occured during closing
+              PLA
+              JSR   FINDBUF
+              BNE   :CFILE2
+              LDA   #$00
+              STA   FILEREFS,X         ; Release buffer
+:CFILE2       PLX
+:CFILE3       DEX
+              BPL   :CFILE0            ; Loop to close all files
+              LDA   #$00
+              BEQ   FINDEXIT
+:CFILEERR     PLX                      ; Balance stack
+              PLX
+              BCS   FINDEXIT
 
 
 * ProDOS file handling for MOS OSBGET call
 * Returns with char read in A and error num in Y (or 0)
-FILEGET      >>>   ENTMAIN
-             STY   READPL2+1          ; File ref number
-             JSR   MLI
-             DB    READCMD
-             DW    READPL2
-             TAY                      ; Error number in Y
-             BCS   :EXIT
-             LDY   #$00               ; 0=Ok
-             LDA   BLKBUF
-:EXIT        >>>   XF2AUX,OSBGETRET
+FILEGET       >>>   ENTMAIN
+              STY   READPL2+1          ; File ref number
+              JSR   MLI
+              DB    READCMD
+              DW    READPL2
+              TAY                      ; Error number in Y
+              BCS   :EXIT
+              LDY   #$00               ; 0=Ok
+              LDA   BLKBUF
+:EXIT         >>>   XF2AUX,OSBGETRET
 
 
 * ProDOS file handling for MOS OSBPUT call
 * Enters with char to write in A
-FILEPUT      >>>   ENTMAIN
-             STA   BLKBUF             ; Byte to write
-             STY   WRITEPL+1          ; File ref number
-             LDA   #$01               ; Bytes to write
-             STA   WRITEPL+4
-             LDA   #$00
-             STA   WRITEPL+5
-             JSR   WRTFILE
-             BCS   :FILEPUT2
-             LDA   #$00               ; 0=Ok
-:FILEPUT2    >>>   XF2AUX,OSBPUTRET
+FILEPUT       >>>   ENTMAIN
+              STA   BLKBUF             ; Byte to write
+              STY   WRITEPL+1          ; File ref number
+              LDA   #$01               ; Bytes to write
+              STA   WRITEPL+4
+              LDA   #$00
+              STA   WRITEPL+5
+              JSR   WRTFILE
+              BCS   :FILEPUT2
+              LDA   #$00               ; 0=Ok
+:FILEPUT2     >>>   XF2AUX,OSBPUTRET
 
 
 * ProDOS file handling for FSC $01 called by OSBYTE $7F EOF
 * Returns EOF status in A ($FF for EOF, $00 otherwise)
 * A=channel to test
-FILEEOF      >>>   ENTMAIN
-             STA   GEOFPL+1
-             STA   GMARKPL+1
-             JSR   MLI
-             DB    GEOFCMD
-             DW    GEOFPL
-             TAY
-             BCS   :EXIT              ; Abort with any error
-             JSR   MLI
-             DB    GMARKCMD
-             DW    GMARKPL
-             TAY
-             BCS   :EXIT              ; Abort with any error
+FILEEOF       >>>   ENTMAIN
+              STA   GEOFPL+1
+              STA   GMARKPL+1
+              JSR   MLI
+              DB    GEOFCMD
+              DW    GEOFPL
+              TAY
+              BCS   :EXIT              ; Abort with any error
+              JSR   MLI
+              DB    GMARKCMD
+              DW    GMARKPL
+              TAY
+              BCS   :EXIT              ; Abort with any error
 
-             SEC
-             LDA   GEOFPL+2           ; Subtract Mark from EOF
-             SBC   GMARKPL+2
-             STA   GEOFPL+2
-             LDA   GEOFPL+3
-             SBC   GMARKPL+3
-             STA   GEOFPL+3
-             LDA   GEOFPL+4
-             SBC   GMARKPL+4
-             STA   GEOFPL+4
+              SEC
+              LDA   GEOFPL+2           ; Subtract Mark from EOF
+              SBC   GMARKPL+2
+              STA   GEOFPL+2
+              LDA   GEOFPL+3
+              SBC   GMARKPL+3
+              STA   GEOFPL+3
+              LDA   GEOFPL+4
+              SBC   GMARKPL+4
+              STA   GEOFPL+4
 
-             LDA   GEOFPL+2           ; Check bytes remaining
-             ORA   GEOFPL+3
-             ORA   GEOFPL+4
-             BEQ   :ISEOF             ; EOF     -> $00
-             LDA   #$FF               ; Not EOF -> $FF
-:ISEOF       EOR   #$FF               ; EOF -> $FF, Not EOF ->$00
-             LDY   #$00               ; 0=No error
-:EXIT        >>>   XF2AUX,CHKEOFRET
+              LDA   GEOFPL+2           ; Check bytes remaining
+              ORA   GEOFPL+3
+              ORA   GEOFPL+4
+              BEQ   :ISEOF             ; EOF     -> $00
+              LDA   #$FF               ; Not EOF -> $FF
+:ISEOF        EOR   #$FF               ; EOF -> $FF, Not EOF ->$00
+              LDY   #$00               ; 0=No error
+:EXIT         >>>   XF2AUX,CHKEOFRET
 
 
 * ProDOS file handling for OSARGS flush commands
-FLUSH        >>>   ENTMAIN
-             STY   FLSHPL+1           ; File ref number
-             JSR   MLI
-             DB    FLSHCMD
-             DW    FLSHPL
-             JMP   TELLEXIT
+FLUSH         >>>   ENTMAIN
+              STY   FLSHPL+1           ; File ref number
+              JSR   MLI
+              DB    FLSHCMD
+              DW    FLSHPL
+              JMP   TELLEXIT
 
 
 * ProDOS file handling for OSARGS set ptr command
 * GMARKPL+1=channel, GMARKPL+2,+3,+4=offset already set
-SEEK         >>>   ENTMAIN
-             JSR   MLI
-             DB    SMARKCMD
-             DW    GMARKPL
-             JMP   TELLEXIT
+SEEK          >>>   ENTMAIN
+              JSR   MLI
+              DB    SMARKCMD
+              DW    GMARKPL
+              JMP   TELLEXIT
 
 
 * ProDOS file handling for OSARGS get ptr command
 * and for OSARGs get length command
 * A=ZP, Y=channel
-SIZE         LDX   #$02               ; $02=SIZE, Read EXT
-             BNE   TELL2
-TELL         LDX   #$00               ; $00=TELL, Read PTR
-TELL2        STY   GMARKPL+1          ; File ref number
-             PHA                      ; Pointer to zero page
-             CPX   #$00               ; OSARGS parameter
-             BEQ   :POS
-             JSR   MLI
-             DB    GEOFCMD
-             DW    GMARKPL            ; MARK parms same as EOF parms
-             BRA   :S1
-:POS         JSR   MLI
-             DB    GMARKCMD
-             DW    GMARKPL
-:S1          PLX                      ; Pointer to ZP control block
-             BCS   TELLEXIT           ; Exit with error
-             >>>   ALTZP              ; Alt ZP & Alt LC on
-             LDA   GMARKPL+2
-             STA   $00,X
-             LDA   GMARKPL+3
-             STA   $01,X
-             LDA   GMARKPL+4
-             STA   $02,X
-             STZ   $03,X              ; Sizes are $00xxxxxx
-             >>>   MAINZP             ; Alt ZP off, ROM back in
-             LDA   #$00               ; 0=Ok
-TELLEXIT     >>>   XF2AUX,OSARGSRET
+SIZE          LDX   #$02               ; $02=SIZE, Read EXT
+              BNE   TELL2
+TELL          LDX   #$00               ; $00=TELL, Read PTR
+TELL2         STY   GMARKPL+1          ; File ref number
+              PHA                      ; Pointer to zero page
+              CPX   #$00               ; OSARGS parameter
+              BEQ   :POS
+              JSR   MLI
+              DB    GEOFCMD
+              DW    GMARKPL            ; MARK parms same as EOF parms
+              BRA   :S1
+:POS          JSR   MLI
+              DB    GMARKCMD
+              DW    GMARKPL
+:S1           PLX                      ; Pointer to ZP control block
+              BCS   TELLEXIT           ; Exit with error
+              >>>   ALTZP              ; Alt ZP & Alt LC on
+              LDA   GMARKPL+2
+              STA   $00,X
+              LDA   GMARKPL+3
+              STA   $01,X
+              LDA   GMARKPL+4
+              STA   $02,X
+              STZ   $03,X              ; Sizes are $00xxxxxx
+              >>>   MAINZP             ; Alt ZP off, ROM back in
+              LDA   #$00               ; 0=Ok
+TELLEXIT      >>>   XF2AUX,OSARGSRET
 
 
-ZPMOS        EQU   $30
+ZPMOS         EQU   $30
 
 * ProDOS file MOS OSFILE calls
-CALLFILE     >>>   ENTMAIN
-             JSR   FILEDISPATCH
-             >>>   XF2AUX,OSFILERET
-FILEDISPATCH CMP   #$00
-             BEQ   SVCSAVE             ; A=00 -> SAVE
-             CMP   #$FF
-             BEQ   SVCLOAD             ; A=FF -> LOAD
-             CMP   #$06
-             BEQ   DELFILE             ; A=06 -> DELETE
-             BCC   INFOFILE            ; A=01-05 -> INFO
-             CMP   #$08
-             BEQ   MAKEDIR             ; A=08 -> MKDIR
-             RTS
-SVCSAVE      JMP   SAVEFILE
-SVCLOAD      JMP   LOADFILE
+CALLFILE      >>>   ENTMAIN
+              JSR   FILEDISPATCH
+              >>>   XF2AUX,OSFILERET
+FILEDISPATCH  CMP   #$00
+              BEQ   SVCSAVE            ; A=00 -> SAVE
+              CMP   #$FF
+              BEQ   SVCLOAD            ; A=FF -> LOAD
+              CMP   #$06
+              BEQ   DELFILE            ; A=06 -> DELETE
+              BCC   INFOFILE           ; A=01-05 -> INFO
+              CMP   #$08
+              BEQ   MAKEDIR            ; A=08 -> MKDIR
+              RTS
+SVCSAVE       JMP   SAVEFILE
+SVCLOAD       JMP   LOADFILE
 
 INFOFILE
 *            >>>   ENTMAIN
 *             JSR   PREPATH            ; Preprocess path
 *             JSR   UPDFB              ; Update FILEBLK
-             JSR   UPDPATH            ; Process path and get info
-             JMP   COPYFB             ; Copy back to aux mem
+              JSR   UPDPATH            ; Process path and get info
+              JMP   COPYFB             ; Copy back to aux mem
 *            >>>   XF2AUX,OSFILERET
 
 
@@ -471,40 +471,40 @@ DELFILE
 *            >>>   ENTMAIN
 *             JSR   PREPATH            ; Preprocess path
 *             JSR   UPDFB              ; Update FILEBLK
-             JSR   UPDPATH            ; Process path and get info
-             JSR   COPYFB             ; Copy back to aux mem
-             PHA                      ; Save object type
-             JSR   DODELETE
-             BCC   :DELETED           ; Success
+              JSR   UPDPATH            ; Process path and get info
+              JSR   COPYFB             ; Copy back to aux mem
+              PHA                      ; Save object type
+              JSR   DODELETE
+              BCC   :DELETED           ; Success
 
-             TAX                      ; X=error code
-             PLA                      ; Get object back
-             CPX   #$4E
-             BNE   :DELERROR          ; Not 'Insuff. access', return it
-             LDX   #$4F               ; Change to 'Locked'
+              TAX                      ; X=error code
+              PLA                      ; Get object back
+              CPX   #$4E
+              BNE   :DELERROR          ; Not 'Insuff. access', return it
+              LDX   #$4F               ; Change to 'Locked'
 
-             CMP   #$02
-             BNE   :DELERROR          ; Wasn't a directory, return 'Locked'
-             LDA   FBATTR+0
-             AND   #$08
-             BNE   :DELERROR          ; Dir locked, return 'Locked'
-             LDX   #$54               ; Change to 'Dir not empty'
+              CMP   #$02
+              BNE   :DELERROR          ; Wasn't a directory, return 'Locked'
+              LDA   FBATTR+0
+              AND   #$08
+              BNE   :DELERROR          ; Dir locked, return 'Locked'
+              LDX   #$54               ; Change to 'Dir not empty'
 
-:DELERROR    TXA
-             JSR   CHKNOTFND
-             PHA
-:DELETED     PLA                      ; Get object back
-:EXIT        RTS
+:DELERROR     TXA
+              JSR   CHKNOTFND
+              PHA
+:DELETED      PLA                      ; Get object back
+:EXIT         RTS
 *            >>>   XF2AUX,OSFILERET
 
-DODELETE     LDA   #<MOSFILE          ; Attempt to destroy file
-             STA   DESTPL+1
-             LDA   #>MOSFILE
-             STA   DESTPL+2
-             JSR   MLI
-             DB    DESTCMD
-             DW    DESTPL
-             RTS
+DODELETE      LDA   #<MOSFILE          ; Attempt to destroy file
+              STA   DESTPL+1
+              LDA   #>MOSFILE
+              STA   DESTPL+2
+              JSR   MLI
+              DB    DESTCMD
+              DW    DESTPL
+              RTS
 
 
 * ProDOS file handling to create a directory
@@ -515,20 +515,20 @@ MAKEDIR
 *            >>>   ENTMAIN
 *             JSR   PREPATH            ; Preprocess path
 *             JSR   UPDFB              ; Update FILEBLK
-             JSR   UPDPATH            ; Process path and get info
-             CMP   #$02
-             BEQ   :EXIT1             ; Dir already exists
+              JSR   UPDPATH            ; Process path and get info
+              CMP   #$02
+              BEQ   :EXIT1             ; Dir already exists
 
-             LDA   #$0D               ; OBJT='Directory'
-             STA   CREATEPL+7         ; ->Storage type
-             LDA   #$0F               ; TYPE='Directory'
-             LDX   #$00               ; LOAD=$0000
-             LDY   #$00
-             JSR   CREATEOBJ
-             BCS   :EXIT              ; Failed, exit with ProDOS result
-             JSR   UPDFB              ; Update FILEBLK, returns A=$02
-:EXIT1       JSR   COPYFB             ; Copy FILEBLK to aux mem
-:EXIT        RTS
+              LDA   #$0D               ; OBJT='Directory'
+              STA   CREATEPL+7         ; ->Storage type
+              LDA   #$0F               ; TYPE='Directory'
+              LDX   #$00               ; LOAD=$0000
+              LDY   #$00
+              JSR   CREATEOBJ
+              BCS   :EXIT              ; Failed, exit with ProDOS result
+              JSR   UPDFB              ; Update FILEBLK, returns A=$02
+:EXIT1        JSR   COPYFB             ; Copy FILEBLK to aux mem
+:EXIT         RTS
 *            >>>   XF2AUX,OSFILERET
 
 
@@ -538,85 +538,85 @@ MAKEDIR
 *        A>$1F ProDOS error, translated by FILERET
 LOADFILE
 *            >>>   ENTMAIN
-             LDX   #4
-:LP          LDA   FBLOAD,X           ; Get address to load to
-             STA   ZPMOS,X
-             DEX
-             BPL   :LP
-             JSR   PREPATH            ; Preprocess pathname
-             JSR   WILDONE            ; Handle any wildcards
-             JSR   UPDFB              ; Get object info
-             CMP   #$20
-             BCS   :JMPEXIT           ; Error occured
-             CMP   #$01               ; Is it a file
-             BEQ   :ISFILE
-             ROL   A                  ; 0->0, 2->5
-             EOR   #$05               ; 0->5, 2->0
-             ADC   #$41               ; 0->$46, 2->$41
-:JMPEXIT     JMP   :EXIT2             ; Return error
+              LDX   #4
+:LP           LDA   FBLOAD,X           ; Get address to load to
+              STA   ZPMOS,X
+              DEX
+              BPL   :LP
+              JSR   PREPATH            ; Preprocess pathname
+              JSR   WILDONE            ; Handle any wildcards
+              JSR   UPDFB              ; Get object info
+              CMP   #$20
+              BCS   :JMPEXIT           ; Error occured
+              CMP   #$01               ; Is it a file
+              BEQ   :ISFILE
+              ROL   A                  ; 0->0, 2->5
+              EOR   #$05               ; 0->5, 2->0
+              ADC   #$41               ; 0->$46, 2->$41
+:JMPEXIT      JMP   :EXIT2             ; Return error
 
-:ISFILE      LDA   ZPMOS+4            ; If FBEXEC is zero, use addr
-             BEQ   :CBADDR            ; in the control block
-             LDA   FBLOAD+0           ; Otherwise, use file's address
-             STA   ZPMOS+0
-             LDA   FBLOAD+1
-             STA   ZPMOS+1
+:ISFILE       LDA   ZPMOS+4            ; If FBEXEC is zero, use addr
+              BEQ   :CBADDR            ; in the control block
+              LDA   FBLOAD+0           ; Otherwise, use file's address
+              STA   ZPMOS+0
+              LDA   FBLOAD+1
+              STA   ZPMOS+1
 
-:CBADDR      JSR   OPENMOSFILE
-             BCS   :EXIT2             ; File not opened
+:CBADDR       JSR   OPENMOSFILE
+              BCS   :EXIT2             ; File not opened
 
-:L1          LDA   OPENPL+5           ; File ref number
-             JSR   READDATA           ; Read data from open file
+:L1           LDA   OPENPL+5           ; File ref number
+              JSR   READDATA           ; Read data from open file
 
-             PHA                      ; Save result
-             LDA   OPENPL+5           ; File ref num
-             STA   CLSPL+1
-             JSR   CLSFILE
-             PLA
-             BNE   :EXIT2
-             JSR   COPYFB             ; Copy FILEBLK to auxmem
-             LDA   #$01               ; $01=File
-:EXIT2       RTS
+              PHA                      ; Save result
+              LDA   OPENPL+5           ; File ref num
+              STA   CLSPL+1
+              JSR   CLSFILE
+              PLA
+              BNE   :EXIT2
+              JSR   COPYFB             ; Copy FILEBLK to auxmem
+              LDA   #$01               ; $01=File
+:EXIT2        RTS
 *            >>>   XF2AUX,OSFILERET
 
 
 * A=channel, MOSZP+0/1=address to load to, TO DO: MOS+4/5=length to read
-READDATA     STA   READPL+1
-:RDLP        JSR   RDFILE
-             BCS   :READERR           ; Close file and return any error
+READDATA      STA   READPL+1
+:RDLP         JSR   RDFILE
+              BCS   :READERR           ; Close file and return any error
 
-             LDA   #<BLKBUF           ; LSB of start of data buffer
-             STA   A1L                ; A1=>start of data buffer
-             ADC   READPL+6           ; LSB of trans count
-             TAX                      ; X=>LSB end of data buffer
+              LDA   #<BLKBUF           ; LSB of start of data buffer
+              STA   A1L                ; A1=>start of data buffer
+              ADC   READPL+6           ; LSB of trans count
+              TAX                      ; X=>LSB end of data buffer
 
-             LDA   #>BLKBUF           ; MSB of start of data buffer
-             STA   A1H                ; A1=>start of data buffer
-             ADC   READPL+7           ; MSB of trans count
-             TAY                      ; Y=>MSB end of data buffer
+              LDA   #>BLKBUF           ; MSB of start of data buffer
+              STA   A1H                ; A1=>start of data buffer
+              ADC   READPL+7           ; MSB of trans count
+              TAY                      ; Y=>MSB end of data buffer
 
-             TXA
-             BNE   :L2
-             DEY
-:L2          DEX                      ; XY=XY-1, end address is start+len-1
-             STX   A2L                ; A2=>end of data buffer
-             STY   A2H
+              TXA
+              BNE   :L2
+              DEY
+:L2           DEX                      ; XY=XY-1, end address is start+len-1
+              STX   A2L                ; A2=>end of data buffer
+              STY   A2H
 
-             LDA   ZPMOS+0            ; A4=>address to load to
-             STA   A4L
-             LDA   ZPMOS+1
-             STA   A4H
-             INC   ZPMOS+1            ; Step to next block
-             INC   ZPMOS+1
+              LDA   ZPMOS+0            ; A4=>address to load to
+              STA   A4L
+              LDA   ZPMOS+1
+              STA   A4H
+              INC   ZPMOS+1            ; Step to next block
+              INC   ZPMOS+1
 
-             SEC                      ; Main -> AUX
-             JSR   AUXMOVE            ; A4 updated to next address
-             JMP   :RDLP
+              SEC                      ; Main -> AUX
+              JSR   AUXMOVE            ; A4 updated to next address
+              JMP   :RDLP
 
-:READERR     CMP   #$4C
-             BNE   :EXITERR
-:EXITOK      LDA   #$00               ; $00=Success
-:EXITERR     RTS
+:READERR      CMP   #$4C
+              BNE   :EXITERR
+:EXITOK       LDA   #$00               ; $00=Success
+:EXITERR      RTS
 
 
 * ProDOS file handling for MOS OSFILE SAVE call
@@ -625,253 +625,253 @@ READDATA     STA   READPL+1
 *        A>$1F ProDOS error translated by FILERET
 SAVEFILE
 *            >>>   ENTMAIN
-             SEC                      ; Compute file length
-             LDA   FBEND+0
-             SBC   FBSTRT+0
-             STA   :LENREM+0
-             LDA   FBEND+1
-             SBC   FBSTRT+1
-             STA   :LENREM+1
-             LDA   FBEND+2
-             SBC   FBSTRT+2
-             BNE   :TOOBIG            ; >64K
-             LDA   FBEND+3
-             SBC   FBSTRT+3
-             BEQ   :L0                ; >16M
-:TOOBIG      JMP   :CANTSAVE
+              SEC                      ; Compute file length
+              LDA   FBEND+0
+              SBC   FBSTRT+0
+              STA   LENREM+0
+              LDA   FBEND+1
+              SBC   FBSTRT+1
+              STA   LENREM+1
+              LDA   FBEND+2
+              SBC   FBSTRT+2
+              BNE   :TOOBIG            ; >64K
+              LDA   FBEND+3
+              SBC   FBSTRT+3
+              BEQ   :L0                ; >16M
+:TOOBIG       JMP   :CANTSAVE
 
-:L0          JSR   PREPATH            ; Preprocess pathname
-             JSR   EXISTS             ; See if file exists ...
-             CMP   #$01
-             BEQ   :NOTDIR            ; Overwrite file
-             BCC   :NOFILE            ; Create new file
-             CMP   #$02
-             BNE   :JMPEXIT2
-             LDA   #$41               ; Dir exists, return $41
-:JMPEXIT2    JMP   :EXIT2
+:L0           JSR   PREPATH            ; Preprocess pathname
+              JSR   EXISTS             ; See if file exists ...
+              CMP   #$01
+              BEQ   :NOTDIR            ; Overwrite file
+              BCC   :NOFILE            ; Create new file
+              CMP   #$02
+              BNE   :JMPEXIT2
+              LDA   #$41               ; Dir exists, return $41
+:JMPEXIT2     JMP   :EXIT2
 
-:NOTDIR      LDA   #<MOSFILE          ; Attempt to destroy file
-             STA   DESTPL+1
-             LDA   #>MOSFILE
-             STA   DESTPL+2
-             JSR   MLI
-             DB    DESTCMD
-             DW    DESTPL
-             BCS   :EXIT2             ; Error trying to delete
+:NOTDIR       LDA   #<MOSFILE          ; Attempt to destroy file
+              STA   DESTPL+1
+              LDA   #>MOSFILE
+              STA   DESTPL+2
+              JSR   MLI
+              DB    DESTCMD
+              DW    DESTPL
+              BCS   :EXIT2             ; Error trying to delete
 
-:NOFILE      LDX   FBLOAD+0           ; Auxtype = load address
-             LDY   FBLOAD+1
-             JSR   CREATEFILE
-             BCS   :JMPEXIT2          ; Error trying to create
-             JSR   OPENMOSFILE
-             BCS   :JMPEXIT2          ; Error trying to open
-             LDA   OPENPL+5           ; File ref number
-             JSR   WRITEDATA
+:NOFILE       LDX   FBLOAD+0           ; Auxtype = load address
+              LDY   FBLOAD+1
+              JSR   CREATEFILE
+              BCS   :JMPEXIT2          ; Error trying to create
+              JSR   OPENMOSFILE
+              BCS   :JMPEXIT2          ; Error trying to open
+              LDA   OPENPL+5           ; File ref number
+              JSR   WRITEDATA
 
-:EXIT1       PHA                      ; Save result
-             LDA   OPENPL+5           ; File ref num
-             STA   CLSPL+1
-             JSR   CLSFILE
-             PLA
-             BNE   :EXIT2             ; Error returned
-             JSR   UPDFB              ; Update FILEBLK
-             JSR   COPYFB             ; Copy FILEBLK to aux mem
-             LDA   #$01               ; Return A='File'
-:EXIT2       CMP   #$4E
-             BNE   :EXIT3             ; Change 'Insuff. access'
-             LDA   #$4F               ; to 'Locked'
-:EXIT3       RTS
+:EXIT1        PHA                      ; Save result
+              LDA   OPENPL+5           ; File ref num
+              STA   CLSPL+1
+              JSR   CLSFILE
+              PLA
+              BNE   :EXIT2             ; Error returned
+              JSR   UPDFB              ; Update FILEBLK
+              JSR   COPYFB             ; Copy FILEBLK to aux mem
+              LDA   #$01               ; Return A='File'
+:EXIT2        CMP   #$4E
+              BNE   :EXIT3             ; Change 'Insuff. access'
+              LDA   #$4F               ; to 'Locked'
+:EXIT3        RTS
 *            >>>   XF2AUX,OSFILERET
-:CANTSAVE    LDA   #$5E               ; Can't open/create
-             BRA   :EXIT3             ; TO DO: Error=File too long
+:CANTSAVE     LDA   #$5E               ; Can't open/create
+              BRA   :EXIT3             ; TO DO: Error=File too long
 
 
 * A=channel, FBSTRT+0/1=address to save from
-* :LENREM+0/1=length to write
-WRITEDATA    STA   WRITEPL+1
-:L1          LDA   #$00               ; 512 bytes request count
-             STA   WRITEPL+4
-             LDA   #$02
-             STA   WRITEPL+5
+* LENREM+0/1=length to write
+WRITEDATA     STA   WRITEPL+1
+:L1           LDA   #$00               ; 512 bytes request count
+              STA   WRITEPL+4
+              LDA   #$02
+              STA   WRITEPL+5
 
-             LDA   :LENREM+1
-             CMP   #$02
-             BCS   :L15               ; More than 511 bytes remaining
-             STA   WRITEPL+5
-             LDA   :LENREM+0
-             STA   WRITEPL+4
-             ORA   WRITEPL+5
-             BEQ   :SAVEOK            ; Zero bytes remaining
+              LDA   LENREM+1
+              CMP   #$02
+              BCS   :L15               ; More than 511 bytes remaining
+              STA   WRITEPL+5
+              LDA   LENREM+0
+              STA   WRITEPL+4
+              ORA   WRITEPL+5
+              BEQ   :SAVEOK            ; Zero bytes remaining
 
-:L15         SEC
-             LDA   :LENREM+0          ; LENREM=LENREM-count
-             SBC   WRITEPL+4
-             STA   :LENREM+0
-             LDA   :LENREM+1
-             SBC   WRITEPL+5
-             STA   :LENREM+1
+:L15          SEC
+              LDA   LENREM+0           ; LENREM=LENREM-count
+              SBC   WRITEPL+4
+              STA   LENREM+0
+              LDA   LENREM+1
+              SBC   WRITEPL+5
+              STA   LENREM+1
 
-             CLC
-             LDA   FBSTRT+0
-             STA   A1L                ; A1=>start of this block
-             ADC   WRITEPL+4
-             STA   FBSTRT+0           ; Update FBSTRT=>start of next block
-             TAX                      ; X=>end of this block
+              CLC
+              LDA   FBSTRT+0
+              STA   A1L                ; A1=>start of this block
+              ADC   WRITEPL+4
+              STA   FBSTRT+0           ; Update FBSTRT=>start of next block
+              TAX                      ; X=>end of this block
 
-             LDA   FBSTRT+1
-             STA   A1H
-             ADC   WRITEPL+5
-             STA   FBSTRT+1
-             TAY
+              LDA   FBSTRT+1
+              STA   A1H
+              ADC   WRITEPL+5
+              STA   FBSTRT+1
+              TAY
 
-             TXA
-             BNE   :L2
-             DEY
-:L2          DEX                      ; XY=XY-1, end address is start+len-1
-             STX   A2L                ; A2=>end of data buffer
-             STY   A2H
+              TXA
+              BNE   :L2
+              DEY
+:L2           DEX                      ; XY=XY-1, end address is start+len-1
+              STX   A2L                ; A2=>end of data buffer
+              STY   A2H
 
-:S2          LDA   #<BLKBUF
-             STA   A4L
-             LDA   #>BLKBUF
-             STA   A4H
-             CLC                      ; Aux -> Main
-             JSR   AUXMOVE            ; Copy data from aux to local buffer
+:S2           LDA   #<BLKBUF
+              STA   A4L
+              LDA   #>BLKBUF
+              STA   A4H
+              CLC                      ; Aux -> Main
+              JSR   AUXMOVE            ; Copy data from aux to local buffer
 
-             JSR   WRTFILE            ; Write the data
-             BCS   :WRITEERR
-             JMP   :L1                ; Loop back for next block
-:SAVEOK                               ; Enter here with A=$00
-:WRITEERR    RTS
-:LENREM      DW    $0000              ; Remaining length
+              JSR   WRTFILE            ; Write the data
+              BCS   :WRITEERR
+              JMP   :L1                ; Loop back for next block
+:SAVEOK                                ; Enter here with A=$00
+:WRITEERR     RTS
+LENREM        DW    $0000              ; Remaining length
 
 
-CREATEFILE   LDA   #$01               ; Storage type - file
-             STA   CREATEPL+7
-             LDA   #$06               ; Filetype BIN
+CREATEFILE    LDA   #$01               ; Storage type - file
+              STA   CREATEPL+7
+              LDA   #$06               ; Filetype BIN
 
-CREATEOBJ    STA   CREATEPL+4         ; Type = BIN or DIR
-             STX   CREATEPL+5         ; Auxtype = load address
-             STY   CREATEPL+6
-             JMP   CRTFILE
+CREATEOBJ     STA   CREATEPL+4         ; Type = BIN or DIR
+              STX   CREATEPL+5         ; Auxtype = load address
+              STY   CREATEPL+6
+              JMP   CRTFILE
 
 
 * Process pathname and read object info
-UPDPATH      JSR   PREPATH            ; Process pathname
-             BCC   UPDFB              ; If no error, update control block
-             RTS
+UPDPATH       JSR   PREPATH            ; Process pathname
+              BCC   UPDFB              ; If no error, update control block
+              RTS
 
 * Update FILEBLK before returning to aux memory
 * Returns A=object type or ProDOS error
-UPDFB        LDA   #<MOSFILE
-             STA   GINFOPL+1
-             LDA   #>MOSFILE
-             STA   GINFOPL+2
-             JSR   GETINFO            ; Call GET_FILE_INFO
-             BCC   :UPDFB1
-             JMP   CHKNOTFND
+UPDFB         LDA   #<MOSFILE
+              STA   GINFOPL+1
+              LDA   #>MOSFILE
+              STA   GINFOPL+2
+              JSR   GETINFO            ; Call GET_FILE_INFO
+              BCC   :UPDFB1
+              JMP   CHKNOTFND
 
-:UPDFB1      LDA   GINFOPL+5          ; Aux type LSB
-             STA   FBLOAD
-             STA   FBEXEC
-             LDA   GINFOPL+6          ; Aux type MSB
-             STA   FBLOAD+1
-             STA   FBEXEC+1
-             STZ   FBLOAD+2
-             STZ   FBEXEC+2
-             STZ   FBLOAD+3
-             STZ   FBEXEC+3
+:UPDFB1       LDA   GINFOPL+5          ; Aux type LSB
+              STA   FBLOAD
+              STA   FBEXEC
+              LDA   GINFOPL+6          ; Aux type MSB
+              STA   FBLOAD+1
+              STA   FBEXEC+1
+              STZ   FBLOAD+2
+              STZ   FBEXEC+2
+              STZ   FBLOAD+3
+              STZ   FBEXEC+3
 *
-             LDA   GINFOPL+3          ; Access byte
-             CMP   #$40               ; Locked?
-             AND   #$03               ; ------wr
-             PHP
-             STA   FBATTR+0
-             ASL   A                  ; -----wr-
-             ASL   A                  ; ----wr--
-             ASL   A                  ; ---wr---
-             ASL   A                  ; --wr----
-             PLP
-             BCS   :UPDFB2
-             ORA   #$08               ; --wrl---
-:UPDFB2      ORA   FBATTR+0           ; --wrl-wr
-             STA   FBATTR+0
+              LDA   GINFOPL+3          ; Access byte
+              CMP   #$40               ; Locked?
+              AND   #$03               ; ------wr
+              PHP
+              STA   FBATTR+0
+              ASL   A                  ; -----wr-
+              ASL   A                  ; ----wr--
+              ASL   A                  ; ---wr---
+              ASL   A                  ; --wr----
+              PLP
+              BCS   :UPDFB2
+              ORA   #$08               ; --wrl---
+:UPDFB2       ORA   FBATTR+0           ; --wrl-wr
+              STA   FBATTR+0
 *
-             LDA   GINFOPL+11         ; yyyyyyym
-             PHA
-             ROR   A                  ; ?yyyyyyy m
-             LDA   GINFOPL+10         ; mmmddddd m
-             PHA
-             ROR   A                  ; mmmmdddd
-             LSR   A                  ; -mmmmddd
-             LSR   A                  ; --mmmmdd
-             LSR   A                  ; ---mmmmd
-             LSR   A                  ; ----mmmm
-             STA   FBATTR+2
-             PLA                      ; mmmddddd
-             AND   #31                ; ---ddddd
-             STA   FBATTR+1
-             PLA                      ; yyyyyyym
-             SEC
-             SBC   #81*2              ; Offset from 1981
-             BCS   :UPDFB3            ; 1981-1999 -> 00-18
-             ADC   #100*2             ; 2000-2080 -> 19-99
-:UPDFB3      PHA                      ; yyyyyyym
-             AND   #$E0               ; yyy-----
-             ORA   FBATTR+1           ; yyyddddd
-             STA   FBATTR+1
-             PLA                      ; yyyyyyym
-             AND   #$FE               ; yyyyyyy0
-             ASL   A                  ; yyyyyy00
-             ASL   A                  ; yyyyy000
-             ASL   A                  ; yyyy0000
-             ORA   FBATTR+2           ; yyyymmmm
-             STA   FBATTR+2
-             STZ   FBATTR+3
+              LDA   GINFOPL+11         ; yyyyyyym
+              PHA
+              ROR   A                  ; ?yyyyyyy m
+              LDA   GINFOPL+10         ; mmmddddd m
+              PHA
+              ROR   A                  ; mmmmdddd
+              LSR   A                  ; -mmmmddd
+              LSR   A                  ; --mmmmdd
+              LSR   A                  ; ---mmmmd
+              LSR   A                  ; ----mmmm
+              STA   FBATTR+2
+              PLA                      ; mmmddddd
+              AND   #31                ; ---ddddd
+              STA   FBATTR+1
+              PLA                      ; yyyyyyym
+              SEC
+              SBC   #81*2              ; Offset from 1981
+              BCS   :UPDFB3            ; 1981-1999 -> 00-18
+              ADC   #100*2             ; 2000-2080 -> 19-99
+:UPDFB3       PHA                      ; yyyyyyym
+              AND   #$E0               ; yyy-----
+              ORA   FBATTR+1           ; yyyddddd
+              STA   FBATTR+1
+              PLA                      ; yyyyyyym
+              AND   #$FE               ; yyyyyyy0
+              ASL   A                  ; yyyyyy00
+              ASL   A                  ; yyyyy000
+              ASL   A                  ; yyyy0000
+              ORA   FBATTR+2           ; yyyymmmm
+              STA   FBATTR+2
+              STZ   FBATTR+3
 
-             JSR   OPENMOSFILE        ; Open file
-             BCS   :ERR
-             LDA   OPENPL+5           ; File ref number
-             STA   GMARKPL+1
-             JSR   MLI                ; Call GET_EOF MLI
-             DB    GEOFCMD
-             DW    GMARKPL            ; MARK parms same as EOF
-             LDA   GMARKPL+2
-             STA   FBSIZE+0
-             LDA   GMARKPL+3
-             STA   FBSIZE+1
-             LDA   GMARKPL+4
-             STA   FBSIZE+2
-             STZ   FBSIZE+3
-             LDA   OPENPL+5           ; File ref number
-             STA   CLSPL+1
-             JSR   CLSFILE
-             LDA   #$01               ; Prepare A=file
-             LDX   GINFOPL+7
-             CPX   #$0D               ; Is it a directory?
-             ADC   #$00               ; Becomes A=2 for directory
-*             BCC   :UPDFB5
-*             LDA   #$02               ; Return A=directory
-:UPDFB5      RTS
+              JSR   OPENMOSFILE        ; Open file
+              BCS   :ERR
+              LDA   OPENPL+5           ; File ref number
+              STA   GMARKPL+1
+              JSR   MLI                ; Call GET_EOF MLI
+              DB    GEOFCMD
+              DW    GMARKPL            ; MARK parms same as EOF
+              LDA   GMARKPL+2
+              STA   FBSIZE+0
+              LDA   GMARKPL+3
+              STA   FBSIZE+1
+              LDA   GMARKPL+4
+              STA   FBSIZE+2
+              STZ   FBSIZE+3
+              LDA   OPENPL+5           ; File ref number
+              STA   CLSPL+1
+              JSR   CLSFILE
+              LDA   #$01               ; Prepare A=file
+              LDX   GINFOPL+7
+              CPX   #$0D               ; Is it a directory?
+              BNE   :UPDFB5
+              LDA   #$02               ; Return A=directory
+:UPDFB5       RTS
 
 :ERR
-CHKNOTFND    CMP   #$44               ; Convert ProDOS 'not found'
-             BEQ   :NOTFND            ; into result=$00
-             CMP   #$45
-             BEQ   :NOTFND
-             CMP   #$46
-             BNE   :CHKNOTFND2
-:NOTFND      LDA   #$00
-:CHKNOTFND2  RTS
+CHKNOTFND     CMP   #$44               ; Convert ProDOS 'not found'
+              BEQ   :NOTFND            ; into result=$00
+              CMP   #$45
+              BEQ   :NOTFND
+              CMP   #$46
+              BNE   :CHKNOTFND2
+:NOTFND       LDA   #$00
+:CHKNOTFND2   RTS
 
 
 * Quit to ProDOS
-QUIT         INC   $3F4               ; Invalidate powerup byte
-             STA   $C054              ; PAGE2 off
-             JSR   MLI
-             DB    QUITCMD
-             DW    QUITPL
-             RTS
+QUIT          INC   $3F4               ; Invalidate powerup byte
+              STA   $C054              ; PAGE2 off
+              STA   $C00E              ; Turn off alt charset
+              JSR   MLI
+              DB    QUITCMD
+              DW    QUITPL
+              RTS
 
 * Used for *CAT, *EX and *INFO
 * On entry: b7=0 - short info (*CAT)
@@ -879,239 +879,241 @@ QUIT         INC   $3F4               ; Invalidate powerup byte
 *           b6=0 - single entry, parameter is object (*INFO)
 *           b6=1 - multiple items, parameter is dir (*CAT, *EX)
 *
-CATALOG      >>>   ENTMAIN
-             STA   CATARG             ; Stash argument
-             CMP   #$80               ; Is it *INFO?
-             BNE   :NOTINFO
-             JMP   INFO               ; Handle entry for *INFO
-:NOTINFO     LDA   MOSFILE            ; Length of pathname
-             BEQ   :NOPATH            ; If zero use prefix
-             JSR   PREPATH            ; Preprocess pathname
-             JSR   WILDONE            ; Handle any wildcards
-             JSR   EXISTS             ; See if path exists ...
-             CMP   #$01               ; ... and is a file
-             BNE   :NOTFILE
-             LDA   #$46               ; Not found (TO DO: err code?)
-             BRA   CATEXIT
-:NOTFILE     LDA   #<MOSFILE
-             STA   OPENPL+1
-             LDA   #>MOSFILE
-             STA   OPENPL+2
-             BRA   :OPEN
-:NOPATH      JSR   GETPREF            ; Fetch prefix into PREFIX
-             LDA   #<PREFIX
-             STA   OPENPL+1
-             LDA   #>PREFIX
-             STA   OPENPL+2
-:OPEN        JSR   OPENFILE
-             BCS   CATEXIT            ; Can't open dir
+CATALOG       >>>   ENTMAIN
+              STA   CATARG             ; Stash argument
+              CMP   #$80               ; Is it *INFO?
+              BNE   :NOTINFO
+              JMP   INFO               ; Handle entry for *INFO
+:NOTINFO      LDA   MOSFILE            ; Length of pathname
+              BEQ   :NOPATH            ; If zero use prefix
+              JSR   PREPATH            ; Preprocess pathname
+              JSR   WILDONE            ; Handle any wildcards
+              JSR   EXISTS             ; See if path exists ...
+              CMP   #$01               ; ... and is a file
+              BNE   :NOTFILE
+              LDA   #$46               ; Not found (TO DO: err code?)
+              BRA   CATEXIT
+:NOTFILE      LDA   #<MOSFILE
+              STA   OPENPL+1
+              LDA   #>MOSFILE
+              STA   OPENPL+2
+              BRA   :OPEN
+:NOPATH       JSR   GETPREF            ; Fetch prefix into PREFIX
+              LDA   #<PREFIX
+              STA   OPENPL+1
+              LDA   #>PREFIX
+              STA   OPENPL+2
+:OPEN         JSR   OPENFILE
+              BCS   CATEXIT            ; Can't open dir
 
 CATREENTRY
-             LDA   OPENPL+5           ; File ref num
-             STA   READPL+1
-             JSR   RDFILE
-             BCC   :S1
-             CMP   #$4C               ; EOF
-             BEQ   :EOF
-             BRA   :READERR
-:S1          JSR   COPYAUXBLK
-             >>>   XF2AUX,PRONEBLK
+              LDA   OPENPL+5           ; File ref num
+              STA   READPL+1
+              JSR   RDFILE
+              BCC   :S1
+              CMP   #$4C               ; EOF
+              BEQ   :EOF
+              BRA   :READERR
+:S1           JSR   COPYAUXBLK
+              >>>   XF2AUX,PRONEBLK
 :READERR
-:EOF         LDA   OPENPL+5           ; File ref num
-             STA   CLSPL+1
-             JSR   CLSFILE
-CATEXIT      >>>   XF2AUX,STARCATRET
+:EOF          LDA   OPENPL+5           ; File ref num
+              STA   CLSPL+1
+              JSR   CLSFILE
+CATEXIT       >>>   XF2AUX,STARCATRET
 
 * PRONEBLK call returns here ...
 CATALOGRET
-             >>>   ENTMAIN
-             LDA   CATARG
-             CMP   #$80               ; Is this an *INFO call?
-             BEQ   INFOREENTRY
-             BRA   CATREENTRY
+              >>>   ENTMAIN
+              LDA   CATARG
+              CMP   #$80               ; Is this an *INFO call?
+              BEQ   INFOREENTRY
+              BRA   CATREENTRY
 
-CATARG       DB    $00
+CATARG        DB    $00
 
 * Handle *INFO
-INFO         JSR   PREPATH            ; Preprocess pathname
-             SEC
-             JSR   WILDCARD           ; Handle any wildcards
-             JSR   EXISTS             ; Check matches something
-             CMP   #$00
-             BNE   INFOFIRST
-             JSR   CLSDIR
-             LDA   #$46               ; Not found (TO DO: err code?)
-             BRA   CATEXIT
+INFO          JSR   PREPATH            ; Preprocess pathname
+              SEC
+              JSR   WILDCARD           ; Handle any wildcards
+              JSR   EXISTS             ; Check matches something
+              CMP   #$00
+              BNE   INFOFIRST
+              JSR   CLSDIR
+              LDA   #$46               ; Not found (TO DO: err code?)
+              BRA   CATEXIT
 
 INFOREENTRY
-             JSR   WILDNEXT2          ; Start of new block
-             BCS   INFOEXIT           ; No more matches
-INFOFIRST    LDA   WILDIDX
-             CMP   #$FF               ; Is WILDNEXT about to read new blk?
-             BEQ   :DONEBLK           ; If so, print this blk first
-             JSR   WILDNEXT2
-             BCS   :DONEBLK           ; If no more matches
-             BRA   INFOFIRST
-:DONEBLK     JSR   COPYAUXBLK
-             >>>   XF2AUX,PRONEBLK
+              JSR   WILDNEXT2          ; Start of new block
+              BCS   INFOEXIT           ; No more matches
+INFOFIRST     LDA   WILDIDX
+              CMP   #$FF               ; Is WILDNEXT about to read new blk?
+              BEQ   :DONEBLK           ; If so, print this blk first
+              JSR   WILDNEXT2
+              BCS   :DONEBLK           ; If no more matches
+              BRA   INFOFIRST
+:DONEBLK      JSR   COPYAUXBLK
+              >>>   XF2AUX,PRONEBLK
 
-INFOEXIT     CMP   #$4C               ; EOF
-             BNE   INFOCLS
-             LDA   #$00               ; EOF is not an error
-INFOCLS      JSR   CLSDIR             ; Be sure to close it!
-             BRA   CATEXIT
+INFOEXIT      CMP   #$4C               ; EOF
+              BNE   INFOCLS
+              LDA   #$00               ; EOF is not an error
+INFOCLS       JSR   CLSDIR             ; Be sure to close it!
+              BRA   CATEXIT
 
 
 * Set prefix. Used by *CHDIR to change directory
-SETPFX       >>>   ENTMAIN
-             JSR   PREPATH            ; Preprocess pathname
-             JSR   WILDONE            ; Handle any wildcards
-             BCS   :ERR
-             LDA   #<MOSFILE
-             STA   SPFXPL+1
-             LDA   #>MOSFILE
-             STA   SPFXPL+2
-             JSR   MLI                ; SET_PREFIX
-             DB    SPFXCMD
-             DW    SPFXPL
-:EXIT        >>>   XF2AUX,CHDIRRET
-:ERR         LDA   #$40               ; Invalid pathname syn
-             BRA   :EXIT
+SETPFX        >>>   ENTMAIN
+              JSR   PREPATH            ; Preprocess pathname
+              JSR   WILDONE            ; Handle any wildcards
+              BCS   :ERR
+              LDA   #<MOSFILE
+              STA   SPFXPL+1
+              LDA   #>MOSFILE
+              STA   SPFXPL+2
+              JSR   MLI                ; SET_PREFIX
+              DB    SPFXCMD
+              DW    SPFXPL
+:EXIT         >>>   XF2AUX,CHDIRRET
+:ERR          LDA   #$40               ; Invalid pathname syn
+              BRA   :EXIT
 
 * Obtain info on blocks used/total blocks
-DRVINFO      >>>   ENTMAIN
-             JSR   PREPATH
-             BCS   :ERR
-             LDA   #<MOSFILE
-             STA   GINFOPL+1
-             LDA   #>MOSFILE
-             STA   GINFOPL+2
-             JSR   GETINFO            ; GET_FILE_INFO
-             BCS   :EXIT
-             PHA
-             >>>   ALTZP              ; Alt ZP & Alt LC on
-             LDA   GINFOPL+8          ; Blcks used LSB
-             STA   AUXBLK
-             LDA   GINFOPL+9          ; Blks used MSB
-             STA   AUXBLK+1
-             LDA   GINFOPL+5          ; Tot blks LSB
-             STA   AUXBLK+2
-             LDA   GINFOPL+6          ; Tot blks MSB
-             STA   AUXBLK+3
-             >>>   MAINZP             ; ALt ZP off, ROM back in
-             PLA
-:EXIT        >>>   XF2AUX,FREERET
-:ERR         LDA   #$40               ; Invalid pathname syn
-             BRA   :EXIT
+DRVINFO       >>>   ENTMAIN
+              JSR   PREPATH
+              BCS   :ERR
+              LDA   #<MOSFILE
+              STA   GINFOPL+1
+              LDA   #>MOSFILE
+              STA   GINFOPL+2
+              JSR   GETINFO            ; GET_FILE_INFO
+              BCS   :EXIT
+              PHA
+              >>>   ALTZP              ; Alt ZP & Alt LC on
+              LDA   GINFOPL+8          ; Blcks used LSB
+              STA   AUXBLK
+              LDA   GINFOPL+9          ; Blks used MSB
+              STA   AUXBLK+1
+              LDA   GINFOPL+5          ; Tot blks LSB
+              STA   AUXBLK+2
+              LDA   GINFOPL+6          ; Tot blks MSB
+              STA   AUXBLK+3
+              >>>   MAINZP             ; ALt ZP off, ROM back in
+              PLA
+:EXIT         >>>   XF2AUX,FREERET
+:ERR          LDA   #$40               ; Invalid pathname syn
+              BRA   :EXIT
 
 * Change file permissions, for *ACCESS
 * Filename in MOSFILE, flags in MOSFILE2
-SETPERM      >>>   ENTMAIN
-             JSR   PREPATH            ; Preprocess pathname
-             BCS   :SYNERR
-             CLC
-             JSR   WILDCARD           ; Handle any wildcards
-             BCS   :NONE
-             STZ   :LFLAG
-             STZ   :WFLAG
-             STZ   :RFLAG
-             LDX   MOSFILE2           ; Length of arg2
-             INX
-:L1          DEX
-             CPX   #$00
-             BEQ   :MAINLOOP
-             LDA   MOSFILE2,X         ; Read arg2 char
-             CMP   #'L'               ; L=Locked
-             BNE   :S1
-             STA   :LFLAG
-             BRA   :L1
-:S1          CMP   #'R'               ; R=Readable
-             BNE   :S2
-             STA   :RFLAG
-             BRA   :L1
-:S2          CMP   #'W'               ; W=Writable
-             BNE   :ERR2              ; Bad attribute
-             STA   :WFLAG
-             BRA   :L1
-:SYNERR      LDA   #$40               ; Invalid pathname syn
-             BRA   :EXIT
-:NONE        JSR   CLSDIR
-             LDA   #$46               ; 'File not found'
-             BRA   :EXIT
-:MAINLOOP    LDA   #<MOSFILE
-             STA   GINFOPL+1
-             LDA   #>MOSFILE
-             STA   GINFOPL+2
-             JSR   GETINFO            ; GET_FILE_INFO
-             BCS   :EXIT
-             LDA   GINFOPL+3          ; Access byte
-             AND   #$03               ; Start with R, W off
-             ORA   #$C0               ; Start with dest/ren on
-             LDX   :RFLAG
-             BEQ   :S3
-             ORA   #$01               ; Turn on read enable
-:S3          LDX   :WFLAG
-             BEQ   :S4
-             ORA   #$02               ; Turn on write enable
-:S4          LDX   :LFLAG
-             BEQ   :S5
-             AND   #$3D               ; Turn off destroy/ren/write
-:S5          STA   GINFOPL+3          ; Access byte
-             JSR   SETINFO            ; SET_FILE_INFO
-             JSR   WILDNEXT
-             BCS   :NOMORE
-             BRA   :MAINLOOP
-:EXIT        >>>   XF2AUX,ACCRET
-:NOMORE      JSR   CLSDIR
-             LDA   #$00
-             BRA   :EXIT
-:ERR2        LDA   #$53               ; Invalid parameter
-             BRA   :EXIT
-:LFLAG       DB    $00                ; 'L' attribute
-:WFLAG       DB    $00                ; 'W' attribute
-:RFLAG       DB    $00                ; 'R' attribute
+SETPERM       >>>   ENTMAIN
+              JSR   PREPATH            ; Preprocess pathname
+              BCS   :SYNERR
+              CLC
+              JSR   WILDCARD           ; Handle any wildcards
+              BCS   :NONE
+              STZ   :LFLAG
+              STZ   :WFLAG
+              STZ   :RFLAG
+              LDX   MOSFILE2           ; Length of arg2
+              INX
+:L1           DEX
+              CPX   #$00
+              BEQ   :MAINLOOP
+              LDA   MOSFILE2,X         ; Read arg2 char
+              CMP   #'L'               ; L=Locked
+              BNE   :S1
+              STA   :LFLAG
+              BRA   :L1
+:S1           CMP   #'R'               ; R=Readable
+              BNE   :S2
+              STA   :RFLAG
+              BRA   :L1
+:S2           CMP   #'W'               ; W=Writable
+              BNE   :ERR2              ; Bad attribute
+              STA   :WFLAG
+              BRA   :L1
+:SYNERR       LDA   #$40               ; Invalid pathname syn
+              BRA   :EXIT
+:NONE         JSR   CLSDIR
+              LDA   #$46               ; 'File not found'
+              BRA   :EXIT
+:MAINLOOP     LDA   #<MOSFILE
+              STA   GINFOPL+1
+              LDA   #>MOSFILE
+              STA   GINFOPL+2
+              JSR   GETINFO            ; GET_FILE_INFO
+              BCS   :EXIT
+              LDA   GINFOPL+3          ; Access byte
+              AND   #$03               ; Start with R, W off
+              ORA   #$C0               ; Start with dest/ren on
+              LDX   :RFLAG
+              BEQ   :S3
+              ORA   #$01               ; Turn on read enable
+:S3           LDX   :WFLAG
+              BEQ   :S4
+              ORA   #$02               ; Turn on write enable
+:S4           LDX   :LFLAG
+              BEQ   :S5
+              AND   #$3D               ; Turn off destroy/ren/write
+:S5           STA   GINFOPL+3          ; Access byte
+              JSR   SETINFO            ; SET_FILE_INFO
+              JSR   WILDNEXT
+              BCS   :NOMORE
+              BRA   :MAINLOOP
+:EXIT         >>>   XF2AUX,ACCRET
+:NOMORE       JSR   CLSDIR
+              LDA   #$00
+              BRA   :EXIT
+:ERR2         LDA   #$53               ; Invalid parameter
+              BRA   :EXIT
+:LFLAG        DB    $00                ; 'L' attribute
+:WFLAG        DB    $00                ; 'W' attribute
+:RFLAG        DB    $00                ; 'R' attribute
 
 * Multi file delete, for *DESTROY
 * Filename in MOSFILE
-MULTIDEL     >>>   ENTMAIN
-             JSR   PREPATH            ; Preprocess pathname
-             BCS   :SYNERR
-             CLC
-             JSR   WILDCARD           ; Handle any wildcards
-             BCS   :NONE
-             BRA   :MAINLOOP
-:SYNERR      LDA   #$40               ; Invalid pathname syn
-             BRA   :EXIT
-:NONE        JSR   CLSDIR
-             LDA   #$46               ; 'File not found'
-             BRA   :EXIT
-:MAINLOOP    JSR   DODELETE
-             BCS   :DELERR
-             JSR   WILDNEXT
-             BCS   :NOMORE
-             BRA   :MAINLOOP
-:EXIT        >>>   XF2AUX,DESTRET
-:DELERR      PHA
-             JSR   CLSDIR
-             PLA
-             BRA   :EXIT
-:NOMORE      JSR   CLSDIR
-             LDA   #$00
-             BRA   :EXIT
+MULTIDEL      >>>   ENTMAIN
+              JSR   PREPATH            ; Preprocess pathname
+              BCS   :SYNERR
+              CLC
+              JSR   WILDCARD           ; Handle any wildcards
+              BCS   :NONE
+              BRA   :MAINLOOP
+:SYNERR       LDA   #$40               ; Invalid pathname syn
+              BRA   :EXIT
+:NONE         JSR   CLSDIR
+              LDA   #$46               ; 'File not found'
+              BRA   :EXIT
+:MAINLOOP     JSR   DODELETE
+              BCS   :DELERR
+              JSR   WILDNEXT
+              BCS   :NOMORE
+              BRA   :MAINLOOP
+:EXIT         >>>   XF2AUX,DESTRET
+:DELERR       PHA
+              JSR   CLSDIR
+              PLA
+              BRA   :EXIT
+:NOMORE       JSR   CLSDIR
+              LDA   #$00
+              BRA   :EXIT
 
 * Read machid from auxmem
-MACHRD       LDA   $C081
-             LDA   $C081
-             LDA   $FBC0
-             SEC
-             JSR   $FE1F
-             BRA   MAINRDEXIT
+MACHRD        LDA   $C081
+              LDA   $C081
+              LDA   $FBC0
+              SEC
+              JSR   $FE1F
+              BRA   MAINRDEXIT
 
 * Read mainmem from auxmem
-MAINRDMEM    STA   A1L
-             STY   A1H
-             LDA   $C081
-             LDA   $C081
-             LDA   (A1L)
-MAINRDEXIT   >>>   XF2AUX,NULLRTS     ; Back to an RTS
+MAINRDMEM     STA   A1L
+              STY   A1H
+              LDA   $C081
+              LDA   $C081
+              LDA   (A1L)
+MAINRDEXIT    >>>   XF2AUX,NULLRTS     ; Back to an RTS
+
+
 

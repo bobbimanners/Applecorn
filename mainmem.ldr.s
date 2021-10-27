@@ -17,10 +17,10 @@ START       JSR   CROUT
             TRB   $C035
 
             JSR   ROMMENU
-            LDA   #>AUXADDR        ; Address in aux
-            LDX   #<AUXADDR
-            SEC                    ; Load into aux
-            JSR   LOADCODE         ; Load lang ROM
+*            LDA   #>AUXADDR        ; Address in aux
+*            LDX   #<AUXADDR
+*            SEC                    ; Load into aux
+*            JSR   LOADCODE         ; Load lang ROM
 
             LDA   #<:FDFILE
             STA   OPENPL+1
@@ -158,6 +158,16 @@ LOADCODE    PHP                    ; Save carry flag
 :LEN        DB    $00              ; Length of filename
 :CANTOPEN   ASC   "Unable to open "
             DB    $00
+
+
+
+
+
+
+
+
+
+
 
 
 
