@@ -5,6 +5,8 @@
 * 02-Sep-2021 Written GSINIT/GSREAD
 * 11-Sep-2021 PR16DEC uses OS workspace, added rest of default vectors/etc.
 * 20-Sep-2021 Updated PRDECIMAL routine, prints up to 32 bits.
+* 25-Oct-2021 Initial pseudo-sideways ROM selection code.
+* 26-Oct-2021 Corrected entry parameters to OSRDRM.
 
 
 * OSBYTE $80 - ADVAL
@@ -314,10 +316,12 @@ GSREADOK    INY                    ; Step to next character
 
 
 * Read a byte from sideways ROM
-* On entry, X=ROM to read from
+* On entry, Y=ROM to read from
 * On exit,  A=byte read, X=current ROM, Y=$00
 RDROM       LDA   $F4
-            PHA
+            PHA                    ; Save current ROM
+            TYA
+            TAX                    ; X=ROM to read from
             JSR   ROMSELECT        ; Page in the required ROM
             LDY   #$00
             LDA   ($F6),Y          ; Read the byte
@@ -326,27 +330,33 @@ RDROM       LDA   $F4
 * Select a sideways ROM
 * X=ROM to select
 * All registers must be preserved
-ROMSELECT   CPX   $F4
+ROMSELECT   CPX   $F8
             BEQ   :ROMSELOK        ; Already selected
 
 * Insert code here for faking sideways ROMs by loading or otherwise
 * fetching code to $8000. All registers must be preserved.
-            PHA
+            CPX   MAXROM
+            BEQ   :ROMSEL
+            BCS   :ROMSELOK        ; Out of range, ignore
+:ROMSEL     PHA
             PHX
             PHY
             TXA
             ASL   A
             TAX
-            LDA   ROMTAB,X         ; LSB of pointer to name
+            LDA   ROMTAB+0,X       ; LSB of pointer to name
             STA   OSFILECB+0
             LDA   ROMTAB+1,X       ; MSB of pointer to name
             STA   OSFILECB+1
             STZ   OSFILECB+2       ; Dest address $8000
             LDA   #$80
             STA   OSFILECB+3
+            STZ   OSFILECB+4
+            STZ   OSFILECB+5
+            STZ   OSFILECB+6       ; Load to specified address
             LDX   #<OSFILECB
             LDY   #>OSFILECB
-            LDA   OSLPTR+0         ; Preserve OSLPTR
+            LDA   OSLPTR+0
             PHA
             LDA   OSLPTR+1
             PHA
@@ -359,8 +369,8 @@ ROMSELECT   CPX   $F4
             PLY
             PLX
             PLA
-            STX   $F4              ; Set Current ROM number
-:ROMSELOK
+            STX   $F8              ; Set ROM loaded
+:ROMSELOK   STX   $F4              ; Set Current ROM number
 EVENT       RTS
 
 BASICROM    ASC   'BASIC2.ROM'
@@ -387,10 +397,9 @@ PASCROM1    ASC   'PASC.1.10.1.ROM'
 PASCROM2    ASC   'PASC.1.10.2.ROM'
             DB    $0D,$00
 
-MAXROM      DB    $00              ; Index of highest sideways ROM
 
 * Initialize ROMTAB according to user selection in menu
-INITROMS    STZ   MAXROM           ; One sideways ROM only
+ROMINIT     STZ   MAXROM           ; One sideways ROM only
             STA   $C002            ; Read main mem
             LDA   USERSEL
             STA   $C003            ; Read aux mem
@@ -455,7 +464,7 @@ INITROMS    STZ   MAXROM           ; One sideways ROM only
             LDA   #7               ; 8 sideways ROMs
             STA   MAXROM
 :DONE       LDA   #$FF
-            STA   $F4              ; Force ROM to load
+            STA   $F8              ; Force ROM to load
             RTS
 
 * Active sideways ROMs
@@ -665,8 +674,6 @@ MOSVEND
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK      ASC   '**ENDOFCODE**'
             DS    $200-13
-
-
 
 
 
