@@ -867,6 +867,7 @@ CHKNOTFND     CMP   #$44               ; Convert ProDOS 'not found'
 * Quit to ProDOS
 QUIT          INC   $3F4               ; Invalidate powerup byte
               STA   $C054              ; PAGE2 off
+              STA   $C00E              ; Turn off alt charset
               JSR   MLI
               DB    QUITCMD
               DW    QUITPL
