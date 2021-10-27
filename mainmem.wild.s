@@ -124,6 +124,7 @@ SEGMENT     LDY   #$00
             LDA   MOSFILE+1,X
             CMP   #'/'
             BEQ   :DONE
+            JSR   TOUPPER
             STA   SEGBUF+1,Y
             INX
             INY
@@ -139,6 +140,14 @@ SEGMENT     LDY   #$00
             STA   SEGBUF+1,Y    ; Null terminate for MATCH
             SEC                 ; Last segment
             RTS
+
+* Convert char in A to uppercase
+TOUPPER     CMP   #'z'+1
+            BCS   :DONE         ; > 'z'
+            CMP   #'a'
+            BCC   :DONE         ; < 'a'
+            AND   #$DF          ; Clear $20 bits
+:DONE       RTS
 
 * See if SEGBUF contains any of '*', '#', '?'
 * Set carry if wild, clear otherwise
