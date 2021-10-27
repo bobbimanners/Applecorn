@@ -604,7 +604,7 @@ VDU22         LDA   VDUQ+8
               STA   $C00C,X                ; Select 40col/80col
               STA   $C051                  ; Enable Text
               STA   $C055                  ; PAGE2
-              STA   $C00F                  ; Enable alt charset
+*              STA   $C00F                  ; Enable alt charset
 * Fall through into CLS
 
 
