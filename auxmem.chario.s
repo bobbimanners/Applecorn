@@ -26,10 +26,8 @@
 * 09-Sep-2021 Moved keyboard OSBYTEs to here.
 * 12-Sep-2021 COPY calls new VDU entry point.
 * 15-Sep-2021 INKEY(0) tests once and returns immediately.
+* TO DO: CHKESC should go through translations before testing.
 
-* TO DO: move these to VDU
-* OLDCHAR      EQU   OSKBD1 ; *TEMP*  ; character under cursor
-* COPYCHAR     EQU   OSKBD2 ; *TEMP*  ; character under copy cursor
 
 FLASHER      EQU   BYTEVARBASE+176           ; VSync counter for flashing cursor
 FXEXEC       EQU   BYTEVARBASE+198
@@ -56,6 +54,7 @@ WRCHHND      PHA
              PHX
              PHY
 * TO DO Check any output redirections
+*  PHA
 
              JSR   OUTCHAR
 * TO DO Check any printer output
@@ -444,33 +443,3 @@ BYTE7DOK     RTS
 
 BYTE76       LDX   #$00                      ; Update LEDs and return X=SHIFT
              RTS                             ; Not possible with Apple
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

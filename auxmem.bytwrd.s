@@ -14,7 +14,7 @@
 *************************
 * OSBYTE DISPATCH TABLE *
 *************************
-BYTWRDADDR   DW    BYTE00XX               ; OSBYTE   0 - Machine host
+BYTWRDADDR   DW    BYTE00                 ; OSBYTE   0 - Machine host    - INIT.s
              DW    BYTE01                 ; OSBYTE   1 - User flag
              DW    BYTE02                 ; OSBYTE   2 - OSRDCH source
              DW    BYTE03                 ; OSBYTE   3 - OSWRCH dest
@@ -248,14 +248,14 @@ WORD00       IF    MAXLEN-OSTEXT-2
              BPL   :WORD00LP2
              INY                          ; Initial line length = zero
              ELSE
-             LDA   (OSCTRL),Y             ; Copy control block 
-             STA   OSTEXT,Y               ; 0,1 => text
-             INY                          ;  2  = MAXLEN 
-             CPY   #$05                   ;  3  = MINCHAR
-             BCC   WORD00                 ;  4  = MAXCHAR
-             LDY   #$00                   ; Initial line length = zero
+             LDY   #$04                   ; Copy control block
+:WORD00LP3   LDA   (OSCTRL),Y             ; 0,1 => text
+             STA   OSTEXT,Y               ;  2  = MAXLEN
+             DEY                          ;  3  = MINCHAR
+             BPL   :WORD00LP3             ;  4  = MAXCHAR
+             INY                          ; Initial line length = zero
              FIN
-*          STY   FXLINES         ; Reset line counter
+*             STY   FXLINES                ; Reset line counter
              CLI
              BEQ   :WORD00LP              ; Enter main loop
 
@@ -467,38 +467,3 @@ OSWORDM      ASC   'OSWORD($'
              DB    $00
 OSBM2        ASC   ').'
              DB    $00
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
