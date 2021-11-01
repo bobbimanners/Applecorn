@@ -19,6 +19,7 @@
 *             Optimised entry and return from OSFILE routines.
 *             DELETE returns 'Dir not empty' when appropriate.
 * 29-Oct-2021 DRVINFO reads current drive if "".
+* 01-Nov-2021 DRVINFO checks reading info on a root directory.
 
 
 * ProDOS file handling to rename a file
@@ -941,11 +942,18 @@ INFOCLS      JSR   CLSDIR             ; Be sure to close it!
 
 
 * Set prefix. Used by *CHDIR/*DRIVE to change directory
+* Y= $00 - CHDIR, select any directory
+* Y<>$00 - DRIVE, must select root
 *
 SETPFX       >>>   ENTMAIN
+             PHY                      ; Save CHDIR/DRIVE flag
              JSR   PREPATH            ; Preprocess pathname
+             BCS   :EXIT
              JSR   WILDONE            ; Handle any wildcards
-             BCS   :ERR
+             LDA   #$2E
+             BCS   :EXIT              ; Exit with wildcard path
+* TO DO: If DRIVE disallow selecting a directory
+*
              LDA   #<MOSFILE
              STA   SPFXPL+1
              LDA   #>MOSFILE
@@ -953,12 +961,12 @@ SETPFX       >>>   ENTMAIN
              JSR   MLI                ; SET_PREFIX
              DB    SPFXCMD
              DW    SPFXPL
-* Returns $4B 'Unknown storage' if *CD <notdir>
-:EXIT        >>>   XF2AUX,CHDIRRET
-:ERR         LDA   #$40               ; Invalid pathname syn
-             BRA   :EXIT
 
-* Obtain info on blocks used/total blocks
+:EXIT        PLY                      ; Drop CHDIR/DRIVE flag
+             >>>   XF2AUX,CHDIRRET
+
+
+* Obtain info on total/used blocks
 DRVINFO      >>>   ENTMAIN
              LDA   MOSFILE
              BNE   :DRVINF2
@@ -966,28 +974,34 @@ DRVINFO      >>>   ENTMAIN
              LDA   #'@'
              STA   MOSFILE+1          ; Convert "" to "@"
 :DRVINF2     JSR   PREPATH
-             BCS   :ERR
+             BCS   :EXIT
              LDA   #<MOSFILE
              STA   GINFOPL+1
              LDA   #>MOSFILE
              STA   GINFOPL+2
              JSR   GETINFO            ; GET_FILE_INFO
              BCS   :EXIT
-             PHA
+             LDA   GINFOPL+7
+             CMP   #$0F
+             BNE   :EXIT1             ; Not a drive, exit with 'Bad drive'
+
              >>>   ALTZP              ; Alt ZP & Alt LC on
-             LDA   GINFOPL+8          ; Blcks used LSB
-             STA   AUXBLK
-             LDA   GINFOPL+9          ; Blks used MSB
+             LDA   GINFOPL+8          ; Blocks used LSB
+             STA   AUXBLK+0
+             LDA   GINFOPL+9          ; Blocks used MSB
              STA   AUXBLK+1
-             LDA   GINFOPL+5          ; Tot blks LSB
+             LDA   GINFOPL+5          ; Total blocks LSB
              STA   AUXBLK+2
-             LDA   GINFOPL+6          ; Tot blks MSB
+             LDA   GINFOPL+6          ; Total blocks MSB
              STA   AUXBLK+3
              >>>   MAINZP             ; ALt ZP off, ROM back in
-             PLA
-:EXIT        >>>   XF2AUX,FREERET
-:ERR         LDA   #$40               ; Invalid pathname syn
-             BRA   :EXIT
+             LDA   #$00               ; $00=Ok
+
+:EXIT        CMP   #$46
+             BNE   :EXIT2
+:EXIT1       LDA   #$2A               ; Change 'Not found' to 'Bad drive'
+:EXIT2       >>>   XF2AUX,FREERET
+
 
 * Change file permissions, for *ACCESS
 * Filename in MOSFILE, flags in MOSFILE2

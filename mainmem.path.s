@@ -3,6 +3,7 @@
 *
 * Code for handling Applecorn paths and converting them to
 * ProDOS paths.  Runs in main memory.
+* TO DO: check range in :sd
 
 * Preprocess path in MOSFILE, handles:
 * 1) ':sd' type slot and drive prefix (s,d are digits)
@@ -291,16 +292,6 @@ PFXtoMF     LDA   #<PREFIX
 
 MFTEMP      DS    65           ; Temp copy of MOSFILE
 PREFIX      DS    65           ; Buffer for ProDOS prefix
-
-
-
-
-
-
-
-
-
-
 
 
 

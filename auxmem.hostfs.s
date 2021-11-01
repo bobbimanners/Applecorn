@@ -18,6 +18,7 @@
 *             *EX can use two columns. *OPT stored.
 * 29-Oct-2021 Bad *command->Bad command, bad *RUN->File not found.
 *             Optimised RENAME, COPY, CHDIR, DRIVE. FREE<cr> allowed.
+* 01-Oct-2021 DRIVE, CHDIR shares same code, checking moved to maincode.
 
 
 * $B0-$BF Temporary filing system workspace
@@ -99,9 +100,16 @@ OSBGETRET   >>>   ENTAUX
 *           A=01 Write PTR#Y
 *           A=02 Read  EXT#Y
 *           A=03 Write EXT#Y
+*          (A=04 Read  alloc#Y)
+*          (A=05 Read  EOF#Y)
+*          (A=06 Write alloc#Y)
 *      Y=0  A=FF Flush all channels
 *           A=00 Return filing system number in A
 *           A=01 Read command line address
+*          (A=02 Read NFS bugfix flag)
+*          (A=03 Read LIBFS filing system)
+*          (A=04 Read used disk space)
+*          (A=05 Read free disk space)
 * On exit,  A=0 - implemented (except ARGS 0,0)
 *           A   - preserved=unimplemented
 *           X,Y - preserved
@@ -633,6 +641,7 @@ FSCCOPY     JSR   PARSLPTR            ; Copy Arg1->MOSFILE
 *
 FSCCHDIR    JSR   PARSLPTR            ; Copy filename->MOSFILE
             BEQ   ERRCHDIR            ; No <dir>
+            LDY   #$00                ; Y=$00 - CHDIR
 FSCCHDIR2   >>>   XF2MAIN,SETPFX
 ERRCHDIR    BRK
             DB    $DC
@@ -643,12 +652,15 @@ ERRCHDIR    BRK
 * Handle *DRIVE command, which is similar to CHDIR
 * LPTR=>parameters string
 *
-FSCDRIVE    LDA   (OSLPTR),Y          ; First char
-            CMP   #$3A                ; Colon
-            BNE   :SYNTAX
+FSCDRIVE
+*            LDA   (OSLPTR),Y          ; First char
+*            CMP   #$3A                ; Colon
+*            BNE   :SYNTAX
             JSR   PARSLPTR            ; Copy arg->MOSFILE
-            CMP   #$03                ; Check 3 char arg
-            BEQ   FSCCHDIR2           ; Pass on as CHDIR
+            TAY                       ; Y<>$00 - DRIVE
+            BNE   FSCCHDIR2           ; Pass on as CHDIR
+*            CMP   #$03                ; Check 3 char arg
+*            BEQ   FSCCHDIR2           ; Pass on as CHDIR
 :SYNTAX     BRK
             DB    $DC
             ASC   'Syntax: DRIVE <drv> (eg: DRIVE :61)'
@@ -657,31 +669,30 @@ FSCDRIVE    LDA   (OSLPTR),Y          ; First char
 
 * Handle *FREE command
 * LPTR=>parameters string
-* Also allows *FREE<cr> for current drive
+* Syntax is FREE (<drv>)
 *
 FSCFREE
 *            LDA   (OSLPTR),Y          ; First char
 *            CMP   #$3A                ; Colon
 *            BNE   :ERR
             JSR   PARSLPTR            ; Copy arg->MOSFILE
-            BEQ   :HASPARM            ; *FREE <cr>
-            CMP   #$03                ; Check 3 char arg
-            BEQ   :HASPARM
-:ERR        BRK
-            DB    $DC
-            ASC   'Syntax: FREE (<drv>) (eg: FREE :61)'
-            BRK
-:HASPARM    >>>   XF2MAIN,DRVINFO
+*            BEQ   :SYNTAX
+*            BEQ   :HASPARM            ; *FREE <cr>
+*            CMP   #$03                ; Check 3 char arg
+            >>>   XF2MAIN,DRVINFO
+*:SYNTAX     BRK
+*            DB    $DC
+*            ASC   'Syntax: FREE (<drv>) (eg: FREE :61)'
+*            BRK
 
-FREERET
-            >>>   ENTAUX
+FREERET     >>>   ENTAUX
             JSR   CHKERROR
-            CMP   #$00
-            BEQ   :NOERR
-            BRK
-            DB    $CE                 ; Bad directory
-            ASC   'Bad dir'
-            BRK
+*            CMP   #$00
+*            BEQ   :NOERR
+*            BRK
+*            DB    $CE                 ; Bad directory
+*            ASC   'Bad dir'
+*            BRK
 
 * Disk size is two-byte 512-byte block count
 * Maximum disk size is $FFFF blocks = 1FFFF00 bytes = 33554176 bytes = 32M-512
@@ -739,8 +750,7 @@ FREERET
 *
 ACCESS
 FSCACCESS   JSR   PARSLPTR            ; Copy filename->MOSFILE
-            CMP   #$00                ; Filename length
-            BEQ   :SYNTAX
+            BEQ   :SYNTAX             ; No filename
             JSR   PARSLPTR2           ; Copy Arg2->MOSFILE2
             >>>   XF2MAIN,SETPERM
 :SYNTAX     BRK
@@ -885,19 +895,19 @@ MKERROR3    ASL   A
             PHA
             PHP
             RTI
-MKERROR4    DW    ERROR28,ERROR27,ERROR27,ERROR2B,ERROR2C,ERROR27,ERROR2E,ERROR27
+MKERROR4    DW    ERROR28,ERROR27,ERROR2A,ERROR2B,ERROR2C,ERROR27,ERROR2E,ERROR27
             DW    ERROR40,ERROR41,ERROR42,ERROR43,ERROR44,ERROR45,ERROR46,ERROR47
             DW    ERROR48,ERROR49,ERROR4A,ERROR4B,ERROR4C,ERROR4D,ERROR4E,ERROR4F
             DW    ERROR50,ERROR51,ERROR52,ERROR53,ERROR54,ERROR55,ERROR56,ERROR57
             DW    ERROR27,ERROR27,ERROR5A,ERROR27,ERROR27,ERROR27,ERROR5E,ERROR27
 
 * $27 - I/O error (disk not formatted)
-* $28 - No device con'd (drive not present)  Disk not present
+* $28 - No device con'd (drive not present)  Drive not present
 * $29 -(GSOS Driver is busy)
-* $2A - 
+* $2A -(Not a drive specifier)               DRIVE/FREE: Bad drive
 * $2B - Disk write protected.                Disk write protected
 * $2C - Bad byte count - file too long       File too long
-* $2D -(GSOS bad block number)
+* $2D -(GSOS bad block number)              (Sector not found?)
 * $2E - Disk switched                        Disk changed
 * $2F - Device is offline (drive empty/absent)
 
@@ -912,7 +922,7 @@ MKERROR4    DW    ERROR28,ERROR27,ERROR27,ERROR2B,ERROR2C,ERROR27,ERROR2E,ERROR2
 * $48 - Overrun error.                       Disk full
 * $49 - Volume directory full.               Directory full
 * $4A - Incompatible file format.            Disk not recognised
-* $4B - Unsupported storage_type.            Disk not recognised
+* $4B - Unsupported storage_type.            Not a directory
 * $4C - End of file has been encountered.    End of file
 * $4D - Position out of range.               Past end of file
 * $4E - Access error. (see also $4F)         RD/WR: Insufficient access
@@ -921,7 +931,7 @@ MKERROR4    DW    ERROR28,ERROR27,ERROR27,ERROR2B,ERROR2C,ERROR27,ERROR2E,ERROR2
 * $51 - Directory count error.               Broken directory
 * $52 - Not a ProDOS disk.                   Disk not recognised
 * $53 - Invalid parameter.                   Invalid parameter
-* $54 -(Dir not empty when deleting, cf $4E) DEL: Dir not empty
+* $54 -(Dir not empty when deleting, cf $4E) DEL: Directory not empty
 * $55 - Volume Control Block table full. (Too many disks mounted)
 * $56 - Bad buffer address.
 * $57 - Duplicate volume.
@@ -936,9 +946,11 @@ MKERROR4    DW    ERROR28,ERROR27,ERROR27,ERROR2B,ERROR2C,ERROR27,ERROR2E,ERROR2
 * $60+ - (GSOS)
 
 
-*       AcornOS                     ProDOS
+*           AcornOS                     ProDOS
 ERROR28     DW    $D200
             ASC   'Disk not present'    ; $28 - No device detected/connected
+ERROR2A     DW    $CD00
+            ASC   'Bad drive'           ; $2A - Not a drive specifier
 ERROR2B     DW    $C900
             ASC   'Disk write protected'; $2B - Disk write protected
 ERROR2C     DW    $C600
@@ -965,9 +977,10 @@ ERROR48     DW    $C600
 ERROR49     DW    $B300
             ASC   'Directory full'      ; $49 - Volume directory full
 ERROR4A                                 ; $4A - Incompatible file format
-ERROR4B                                 ; $4B - Unsupported storage_type
 ERROR52     DW    $C800
             ASC   'Disk not recognised' ; $52 - Not a ProDOS disk
+ERROR4B     DW    $BE00                 ; $4B - Unsupported storage_type
+            ASC   'Not a directory'
 ERROR4C     DW    $DF00
             ASC   'End of file'         ; $4C - End of file has been encountered
 ERROR4D     DW    $C100
