@@ -19,6 +19,9 @@
 * 29-Oct-2021 Bad *command->Bad command, bad *RUN->File not found.
 *             Optimised RENAME, COPY, CHDIR, DRIVE. FREE<cr> allowed.
 * 01-Oct-2021 DRIVE, CHDIR shares same code, checking moved to maincode.
+* 02-Oct-2021 ACCESS uses generic access byte parsing.
+*             PRACCESS shares code with ACCESS.
+* *BUG* PARSNAME should check len<64.
 
 
 * $B0-$BF Temporary filing system workspace
@@ -31,6 +34,7 @@ FSCTRL      EQU   FSXREG
 FSPTR1      EQU   $C4
 FSPTR2      EQU   $C6
 FSNUM       EQU   $C8
+FSACCBYTE   EQU   FSNUM+1
 FSZPCC      EQU   $CC
 FSCMDLINE   EQU   $CE
 
@@ -554,41 +558,67 @@ PRDECSLH    JSR   PRDEC
             JMP   OSWRCH
 
 * Print object access string
-PRACCESS    LDX   #$04              ; Offset to chars
+PRACCESS    LDX   #$04              ; Offset to 'D' char
+            LDY   #$00
+            LDA   (FSPTR1),Y
+            CMP   #$D0              ; CS=Directory
             LDY   #$1E
-            LDA   (FSPTR1),Y
-            PHA
-            LDY   #$00              ; Chars printed
-            LDA   (FSPTR1),Y
-            CMP   #$D0
-            JSR   :PRACCCHR         ; 'D'
-            PLA
-            CPY   #$01              ; Has 'D' been printed?
-            PHP
-            PHA
+            LDA   (FSPTR1),Y        ; Permission byte
+            LDY   #$0C              ; Char counter
             EOR   #$C0
-            CMP   #$40
-            JSR   :PRACCCHR         ; 'L'
-            PLA
-            PLP
-            BCS   :PRACCDONE        ; Dir, skip 'WR'
-            ROR   A
-            PHP
-            ROR   A
-            JSR   :PRACCCHR         ; 'W'
-            PLP
-            JSR   :PRACCCHR         ; 'R'
-:PRACCDONE  LDA   #$20
-:PRACCLP    JSR   :PRSPACE
-            CPY   #$04
-            BCC   :PRACCLP
-:PRSKIP     RTS
-:PRACCCHR   DEX
-            BCC   :PRSKIP
-            LDA   ACCESSCHRS,X
-:PRSPACE    INY
-            JMP   OSWRCH
-ACCESSCHRS  ASC   'RWLD'
+*            AND   #$E3              ; Keep LLB---WR
+            AND   #$C3              ; Keep LL----WR
+            BCC   :PRACC1           ; Not a directory
+            AND   #$FC              ; Drop 'WR' bits
+:PRACC1     STA   FSACCBYTE
+            BCS   :PRACC2           ; Jump to print 'D'
+:PRACCLP    LDA   FSACCBYTE
+            AND   ACCESSBITS,X      ; Is bit set?
+            BEQ   :PRACC3
+:PRACC2     LDA   ACCESSCHRS,X      ; If so, print character
+            JSR   OSWRCH
+            INY                     ; Inc. char counter
+:PRACC3     DEX
+            BPL   :PRACCLP          ; Loop for all chars
+            JMP   PRSPACES          ; Pad
+                        
+*            LDX   #$04              ; Offset to chars
+*            LDY   #$1E
+*            LDA   (FSPTR1),Y
+*            PHA
+*            LDY   #$00              ; Chars printed
+*            LDA   (FSPTR1),Y
+*            CMP   #$D0
+*            JSR   :PRACCCHR         ; 'D'
+*            PLA
+*            CPY   #$01              ; Has 'D' been printed?
+*            PHP
+*            PHA
+*            EOR   #$C0
+*            CMP   #$40
+*            JSR   :PRACCCHR         ; 'L'
+*            PLA
+*            PLP
+*            BCS   :PRACCDONE        ; Dir, skip 'WR'
+*            ROR   A
+*            PHP
+*            ROR   A
+*            JSR   :PRACCCHR         ; 'W'
+*            PLP
+*            JSR   :PRACCCHR         ; 'R'
+*:PRACCDONE  LDA   #$20
+*:PRACCLP    JSR   :PRSPACE
+*            CPY   #$04
+*            BCC   :PRACCLP
+*:PRSKIP     RTS
+*:PRACCCHR   DEX
+*            BCC   :PRSKIP
+*            LDA   ACCESSCHRS,X
+*:PRSPACE    INY
+*            JMP   OSWRCH
+
+ACCESSCHRS  ASC   'RWBLD'
+ACCESSBITS  DB    $01,$02,$20,$C0,$00
 
 * Print object addresses
 PRADDR      LDX   #3
@@ -616,8 +646,10 @@ FSCRENAME   JSR   PARSNAME            ; Copy Arg1->MOSFILE
             BRK
 * ProDOS returns $40 (Bad filename) for bad renames.
 * Not easy to seperate out, so leave as Bad filename error.
+ACCRET
 RENRET
 COPYRET
+DESTRET
 CHDIRRET    >>>   ENTAUX
             JMP   CHKERROR
 
@@ -632,7 +664,7 @@ FSCCOPY     JSR   PARSLPTR            ; Copy Arg1->MOSFILE
             >>>   XF2MAIN,COPYFILE    ; Do the heavy lifting
 :SYNTAX     BRK
             DB    $DC
-            ASC   'Syntax: COPY <sourcespec> <destspec>'
+            ASC   'Syntax: COPY <srcspec> <destspec>'
             BRK
 
 
@@ -652,15 +684,9 @@ ERRCHDIR    BRK
 * Handle *DRIVE command, which is similar to CHDIR
 * LPTR=>parameters string
 *
-FSCDRIVE
-*            LDA   (OSLPTR),Y          ; First char
-*            CMP   #$3A                ; Colon
-*            BNE   :SYNTAX
-            JSR   PARSLPTR            ; Copy arg->MOSFILE
+FSCDRIVE    JSR   PARSLPTR            ; Copy arg->MOSFILE
             TAY                       ; Y<>$00 - DRIVE
             BNE   FSCCHDIR2           ; Pass on as CHDIR
-*            CMP   #$03                ; Check 3 char arg
-*            BEQ   FSCCHDIR2           ; Pass on as CHDIR
 :SYNTAX     BRK
             DB    $DC
             ASC   'Syntax: DRIVE <drv> (eg: DRIVE :61)'
@@ -671,29 +697,11 @@ FSCDRIVE
 * LPTR=>parameters string
 * Syntax is FREE (<drv>)
 *
-FSCFREE
-*            LDA   (OSLPTR),Y          ; First char
-*            CMP   #$3A                ; Colon
-*            BNE   :ERR
-            JSR   PARSLPTR            ; Copy arg->MOSFILE
-*            BEQ   :SYNTAX
-*            BEQ   :HASPARM            ; *FREE <cr>
-*            CMP   #$03                ; Check 3 char arg
+FSCFREE     JSR   PARSLPTR            ; Copy arg->MOSFILE
             >>>   XF2MAIN,DRVINFO
-*:SYNTAX     BRK
-*            DB    $DC
-*            ASC   'Syntax: FREE (<drv>) (eg: FREE :61)'
-*            BRK
-
 FREERET     >>>   ENTAUX
             JSR   CHKERROR
-*            CMP   #$00
-*            BEQ   :NOERR
-*            BRK
-*            DB    $CE                 ; Bad directory
-*            ASC   'Bad dir'
-*            BRK
-
+*
 * Disk size is two-byte 512-byte block count
 * Maximum disk size is $FFFF blocks = 1FFFF00 bytes = 33554176 bytes = 32M-512
 :NOERR      SEC
@@ -748,20 +756,30 @@ FREERET     >>>   ENTAUX
 * Handle *ACCESS command
 * LPTR=>parameters string
 *
-ACCESS
 FSCACCESS   JSR   PARSLPTR            ; Copy filename->MOSFILE
             BEQ   :SYNTAX             ; No filename
-            JSR   PARSLPTR2           ; Copy Arg2->MOSFILE2
+            STZ   FSACCBYTE           ; Initialise access to ""
+:ACCESSLP1  LDA   (OSLPTR),Y          ; Get access character
+            CMP   #$0D
+            BEQ   :ACCESSGO           ; End of line, action it
+            INY
+            AND   #$DF                ; Upper case
+            LDX   #$04                ; Check five chars 'DLBWR'
+:ACCESSLP2  CMP   ACCESSCHRS,X
+            BNE   :ACCESSNXT
+            LDA   ACCESSBITS,X        ; Add this to access mask
+            ORA   FSACCBYTE
+            STA   FSACCBYTE
+:ACCESSNXT  DEX
+            BPL   :ACCESSLP2
+            BMI   :ACCESSLP1          ; Check next character
+:ACCESSGO   LDA   FSACCBYTE
+            EOR   #$C0                ; MOSFILE=filename, A=access mask
             >>>   XF2MAIN,SETPERM
 :SYNTAX     BRK
             DB    $DC
             ASC   'Syntax: ACCESS <listspec> <L|W|R>'
             BRK
-
-ACCRET      >>>   ENTAUX
-            JSR   CHKERROR
-            LDA   #$00
-            RTS
 
 
 * Handle *DESTROY command
@@ -769,18 +787,12 @@ ACCRET      >>>   ENTAUX
 *
 FSCDESTROY
 DESTROY     JSR   PARSLPTR            ; Copy filename->MOSFILE
-            CMP   #$00                ; Filename length
-            BEQ   :SYNTAX
+            BEQ   :SYNTAX             ; No filename
             >>>   XF2MAIN,MULTIDEL
 :SYNTAX     BRK
             DB    $DC
             ASC   'Syntax: DESTROY <listspec>'
             BRK
-
-DESTRET     >>>   ENTAUX
-            JSR   CHKERROR
-            LDA   #$00
-            RTS
 
 
 * Handle *TITLE command
