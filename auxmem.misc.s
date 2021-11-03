@@ -7,6 +7,7 @@
 * 20-Sep-2021 Updated PRDECIMAL routine, prints up to 32 bits.
 * 25-Oct-2021 Initial pseudo-sideways ROM selection code.
 * 26-Oct-2021 Corrected entry parameters to OSRDRM.
+* 03-Nov-2021 Temp'y fix, if can't find SROM, ignores it.
 
 
 * OSBYTE $80 - ADVAL
@@ -341,6 +342,12 @@ ROMSELECT   CPX   $F8
 :ROMSEL     PHA
             PHX
             PHY
+
+            LDA   OSLPTR+0
+            PHA
+            LDA   OSLPTR+1
+            PHA
+
             TXA
             ASL   A
             TAX
@@ -348,6 +355,14 @@ ROMSELECT   CPX   $F8
             STA   OSFILECB+0
             LDA   ROMTAB+1,X       ; MSB of pointer to name
             STA   OSFILECB+1
+
+            LDX   #<OSFILECB
+            LDY   #>OSFILECB
+            LDA   #$05             ; Means 'INFO'
+            JSR   OSFILE
+            CMP   #$01
+            BNE   :ROMNOTFND       ; File not found
+
             STZ   OSFILECB+2       ; Dest address $8000
             LDA   #$80
             STA   OSFILECB+3
@@ -356,12 +371,9 @@ ROMSELECT   CPX   $F8
             STZ   OSFILECB+6       ; Load to specified address
             LDX   #<OSFILECB
             LDY   #>OSFILECB
-            LDA   OSLPTR+0
-            PHA
-            LDA   OSLPTR+1
-            PHA
             LDA   #$FF             ; Means 'LOAD'
             JSR   OSFILE
+:ROMNOTFND
             PLA
             STA   OSLPTR+1
             PLA
