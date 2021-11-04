@@ -20,6 +20,9 @@
 *             DELETE returns 'Dir not empty' when appropriate.
 * 29-Oct-2021 DRVINFO reads current drive if "".
 * 01-Nov-2021 DRVINFO checks reading info on a root directory.
+* 02-Nov-2021 SETPERMS passed parsed access byte.
+* 03-Nov-2021 Optimised CAT/EX/INFO, DESTROY.
+* *BUG* RENAME won't rename between directories, eg RENAME CHARS VDU/CHARS.
 
 
 * ProDOS file handling to rename a file
@@ -868,77 +871,74 @@ CATALOG      >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
              JSR   WILDONE            ; Handle any wildcards
              JSR   EXISTS             ; See if path exists ...
-             CMP   #$01               ; ... and is a file
-             BNE   :NOTFILE
-             LDA   #$46               ; Not found (TO DO: err code?)
-             BRA   CATEXIT
-:NOTFILE     LDA   #<MOSFILE
-             STA   OPENPL+1
-             LDA   #>MOSFILE
-             STA   OPENPL+2
-             BRA   :OPEN
+             BEQ   :NOTFND            ; Not found
+             CMP   #$02
+             BEQ   :DIRFOUND
+             LDA   #$0D               ; Becomes Not a directory
+:NOTFND      EOR   #$46               ; $00->$46, $xx->$4B          
+             BNE   CATEXIT
+
 :NOPATH      JSR   GETPREF            ; Fetch prefix into PREFIX
-             LDA   #<PREFIX
-             STA   OPENPL+1
-             LDA   #>PREFIX
-             STA   OPENPL+2
-:OPEN        JSR   OPENFILE
+             LDX   #<PREFIX           ; XY=>prefix
+             LDY   #>PREFIX
+             BRA   :OPEN
+:DIRFOUND    LDX   #<MOSFILE          ; XY=>specified directory
+             LDY   #>MOSFILE
+
+:OPEN        STX   OPENPL+1           ; Open the specified directory
+             STY   OPENPL+2
+             JSR   OPENFILE
              BCS   CATEXIT            ; Can't open dir
 
-CATREENTRY
-             LDA   OPENPL+5           ; File ref num
+CATREENTRY   LDA   OPENPL+5           ; File ref num
              STA   READPL+1
              JSR   RDFILE
-             BCC   :S1
-             CMP   #$4C               ; EOF
-             BEQ   :EOF
-             BRA   :READERR
-:S1          JSR   COPYAUXBLK
+             BCS   :CATERR
+             JSR   COPYAUXBLK
              >>>   XF2AUX,PRONEBLK
-:READERR
-:EOF         LDA   OPENPL+5           ; File ref num
+
+:CATERR      CMP   #$4C               ; EOF
+             BNE   :NOTEOF
+             LDA   #$00
+:NOTEOF      PHA
+             LDA   OPENPL+5           ; File ref num
              STA   CLSPL+1
              JSR   CLSFILE
+             PLA
 CATEXIT      >>>   XF2AUX,STARCATRET
-
-* PRONEBLK call returns here ...
-CATALOGRET
-             >>>   ENTMAIN
-             LDA   CATARG
-             CMP   #$80               ; Is this an *INFO call?
-             BEQ   INFOREENTRY
-             BRA   CATREENTRY
-
-CATARG       DB    $00
 
 * Handle *INFO
 INFO         JSR   PREPATH            ; Preprocess pathname
              SEC
              JSR   WILDCARD           ; Handle any wildcards
              JSR   EXISTS             ; Check matches something
-             CMP   #$00
-             BNE   INFOFIRST
-             JSR   CLSDIR
-             LDA   #$46               ; Not found (TO DO: err code?)
+             BNE   INFOFIRST          ; Match found, start listing
+             LDA   #$46               ; No match, error Not found
+INFOEXIT     CMP   #$4C               ; EOF
+             BNE   INFOCLS
+             LDA   #$00               ; EOF is not an error
+INFOCLS      PHA
+             JSR   CLSDIR             ; Be sure to close it!
+             PLA
              BRA   CATEXIT
 
-INFOREENTRY
-             JSR   WILDNEXT2          ; Start of new block
+* PRONEBLK call returns here ...
+CATALOGRET   >>>   ENTMAIN
+             LDA   CATARG
+             CMP   #$80               ; Is this an *INFO call?
+             BNE   CATREENTRY         ; No, go back and do another CAT/EX
+
+INFOREENTRY  JSR   WILDNEXT2          ; Start of new block
              BCS   INFOEXIT           ; No more matches
 INFOFIRST    LDA   WILDIDX
              CMP   #$FF               ; Is WILDNEXT about to read new blk?
              BEQ   :DONEBLK           ; If so, print this blk first
              JSR   WILDNEXT2
-             BCS   :DONEBLK           ; If no more matches
-             BRA   INFOFIRST
+             BCC   INFOFIRST          ; Find more entries
 :DONEBLK     JSR   COPYAUXBLK
              >>>   XF2AUX,PRONEBLK
 
-INFOEXIT     CMP   #$4C               ; EOF
-             BNE   INFOCLS
-             LDA   #$00               ; EOF is not an error
-INFOCLS      JSR   CLSDIR             ; Be sure to close it!
-             BRA   CATEXIT
+CATARG       DB    $00
 
 
 * Set prefix. Used by *CHDIR/*DRIVE to change directory
@@ -1004,34 +1004,38 @@ DRVINFO      >>>   ENTMAIN
 
 
 * Change file permissions, for *ACCESS
-* Filename in MOSFILE, flags in MOSFILE2
+* Filename in MOSFILE, access mask in A
+*
 SETPERM      >>>   ENTMAIN
+             PHA                      ; Save access mask
              JSR   PREPATH            ; Preprocess pathname
              BCS   :SYNERR
              CLC
              JSR   WILDCARD           ; Handle any wildcards
              BCS   :NONE
-             STZ   :LFLAG
-             STZ   :WFLAG
-             STZ   :RFLAG
-             LDX   MOSFILE2           ; Length of arg2
-             INX
-:L1          DEX
-             CPX   #$00
-             BEQ   :MAINLOOP
-             LDA   MOSFILE2,X         ; Read arg2 char
-             CMP   #'L'               ; L=Locked
-             BNE   :S1
-             STA   :LFLAG
-             BRA   :L1
-:S1          CMP   #'R'               ; R=Readable
-             BNE   :S2
-             STA   :RFLAG
-             BRA   :L1
-:S2          CMP   #'W'               ; W=Writable
-             BNE   :ERR2              ; Bad attribute
-             STA   :WFLAG
-             BRA   :L1
+             BCC   :MAINLOOP
+*             STZ   :LFLAG
+*             STZ   :WFLAG
+*             STZ   :RFLAG
+*             LDX   MOSFILE2           ; Length of arg2
+*             INX
+*:L1          DEX
+*             CPX   #$00
+*             BEQ   :MAINLOOP
+*             LDA   MOSFILE2,X         ; Read arg2 char
+*             CMP   #'L'               ; L=Locked
+*             BNE   :S1
+*             STA   :LFLAG
+*             BRA   :L1
+*:S1          CMP   #'R'               ; R=Readable
+*             BNE   :S2
+*             STA   :RFLAG
+*             BRA   :L1
+*:S2          CMP   #'W'               ; W=Writable
+*             BNE   :ERR2              ; Bad attribute
+*             STA   :WFLAG
+*             BRA   :L1
+
 :SYNERR      LDA   #$40               ; Invalid pathname syn
              BRA   :EXIT
 :NONE        JSR   CLSDIR
@@ -1043,60 +1047,61 @@ SETPERM      >>>   ENTMAIN
              STA   GINFOPL+2
              JSR   GETINFO            ; GET_FILE_INFO
              BCS   :EXIT
-             LDA   GINFOPL+3          ; Access byte
-             AND   #$03               ; Start with R, W off
-             ORA   #$C0               ; Start with dest/ren on
-             LDX   :RFLAG
-             BEQ   :S3
-             ORA   #$01               ; Turn on read enable
-:S3          LDX   :WFLAG
-             BEQ   :S4
-             ORA   #$02               ; Turn on write enable
-:S4          LDX   :LFLAG
-             BEQ   :S5
-             AND   #$3D               ; Turn off destroy/ren/write
+             PLA                      ; Access byte
+             PHA
+
+*             LDA   GINFOPL+3          ; Access byte
+*             AND   #$03               ; Start with R, W off
+*             ORA   #$C0               ; Start with dest/ren on
+*             LDX   :RFLAG
+*             BEQ   :S3
+*             ORA   #$01               ; Turn on read enable
+*:S3          LDX   :WFLAG
+*             BEQ   :S4
+*             ORA   #$02               ; Turn on write enable
+*:S4          LDX   :LFLAG
+*             BEQ   :S5
+*             AND   #$3D               ; Turn off destroy/ren/write
+
 :S5          STA   GINFOPL+3          ; Access byte
              JSR   SETINFO            ; SET_FILE_INFO
              JSR   WILDNEXT
-             BCS   :NOMORE
-             BRA   :MAINLOOP
-:EXIT        >>>   XF2AUX,ACCRET
+             BCC   :MAINLOOP
+*             BCS   :NOMORE
 :NOMORE      JSR   CLSDIR
              LDA   #$00
-             BRA   :EXIT
+*             BRA   :EXIT
+:EXIT        PLX                      ; Drop access byte
+             >>>   XF2AUX,ACCRET
 :ERR2        LDA   #$53               ; Invalid parameter
              BRA   :EXIT
-:LFLAG       DB    $00                ; 'L' attribute
-:WFLAG       DB    $00                ; 'W' attribute
-:RFLAG       DB    $00                ; 'R' attribute
+
+*:LFLAG       DB    $00                ; 'L' attribute
+*:WFLAG       DB    $00                ; 'W' attribute
+*:RFLAG       DB    $00                ; 'R' attribute
+
 
 * Multi file delete, for *DESTROY
 * Filename in MOSFILE
+*
 MULTIDEL     >>>   ENTMAIN
              JSR   PREPATH            ; Preprocess pathname
-             BCS   :SYNERR
-             CLC
+             BCS   :EXIT
+*             CLC                     ; CC already set
              JSR   WILDCARD           ; Handle any wildcards
-             BCS   :NONE
-             BRA   :MAINLOOP
-:SYNERR      LDA   #$40               ; Invalid pathname syn
-             BRA   :EXIT
-:NONE        JSR   CLSDIR
+             BCC   :MAINLOOP
              LDA   #$46               ; 'File not found'
-             BRA   :EXIT
+             BRA   :DELERR
 :MAINLOOP    JSR   DODELETE
              BCS   :DELERR
              JSR   WILDNEXT
-             BCS   :NOMORE
-             BRA   :MAINLOOP
-:EXIT        >>>   XF2AUX,DESTRET
+             BCC   :MAINLOOP          ; More to do
+             LDA   #$00               ; $00=Done
 :DELERR      PHA
              JSR   CLSDIR
              PLA
-             BRA   :EXIT
-:NOMORE      JSR   CLSDIR
-             LDA   #$00
-             BRA   :EXIT
+:EXIT        >>>   XF2AUX,DESTRET
+
 
 * Read machid from auxmem
 MACHRD       LDA   $C081

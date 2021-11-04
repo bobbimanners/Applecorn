@@ -4,6 +4,10 @@
 * Code for handling Applecorn paths and converting them to
 * ProDOS paths.  Runs in main memory.
 * TO DO: check range in :sd
+* TO DO: need separate reference to current root and drive by name
+* TO DO: check for pathname too long
+* ie /filename should be filename in root
+
 
 * Preprocess path in MOSFILE, handles:
 * 1) ':sd' type slot and drive prefix (s,d are digits)
