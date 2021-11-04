@@ -93,7 +93,7 @@ WILDNEXT    LDX   MFTEMP        ; Length of MFTEMP
 
 * Different version of WILDNEXT which is used by the *INFO handler
 * Because it needs to intercept each block.
-* TO DO: Refactor/cleanup
+* TODO: Once this works, refactor/cleanup
 WILDNEXT2   LDX   MFTEMP        ; Length of MFTEMP
 :L1         CPX   #$00          ; Find final segment (previous match)
             BEQ   :AGAIN
@@ -228,14 +228,16 @@ SRCHBLK     LDA   WILDIDX
             RTS
 
 * Close directory, if it was open
-* Preserves flags
+* Preserves A and flags
 CLSDIR      PHP
+            PHA
             LDA   WILDFILE      ; File ref num for open dir
             BEQ   :ALREADY      ; Already been closed
             STA   CLSPL+1
             JSR   CLSFILE
             STZ   WILDFILE      ; Not strictly necessary
-:ALREADY    PLP
+:ALREADY    PLA
+            PLP
             RTS
 
 * Apply wildcard match to a directory block
@@ -371,34 +373,6 @@ MATCH       LDX   #$00          ; X is an index in the pattern
 
 SEGBUF      DS    65            ; For storing path segments (Pascal str)
 MATCHBUF    DS    65            ; For storing match results (Pascal str)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
