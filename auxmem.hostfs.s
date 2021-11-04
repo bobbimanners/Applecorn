@@ -21,7 +21,7 @@
 * 01-Oct-2021 DRIVE, CHDIR shares same code, checking moved to maincode.
 * 02-Oct-2021 ACCESS uses generic access byte parsing.
 *             PRACCESS shares code with ACCESS.
-* *BUG* PARSNAME should check len<64.
+* 03-Oct-2021 PARSNAME checks filename length<64.
 
 
 * $B0-$BF Temporary filing system workspace
@@ -29,14 +29,14 @@
 FSXREG      EQU   $C0
 FSYREG      EQU   $C1
 FSAREG      EQU   $C2
-FSZPC3      EQU   $C3
-FSCTRL      EQU   FSXREG
-FSPTR1      EQU   $C4
-FSPTR2      EQU   $C6
-FSNUM       EQU   $C8
-FSACCBYTE   EQU   FSNUM+1
-FSZPCC      EQU   $CC
-FSCMDLINE   EQU   $CE
+FSZPC3      EQU   $C3       ; (unused so far)
+FSCTRL      EQU   FSXREG    ; =>control block
+FSPTR1      EQU   $C4       ; =>directory entry
+FSPTR2      EQU   $C6       ; (unused so far)
+FSNUM       EQU   $C8       ; 32-bit number, cat file count
+FSACCBYTE   EQU   FSNUM+1   ; access bits
+FSZPCC      EQU   $CC       ; (unused so far)
+FSCMDLINE   EQU   $CE       ; command line address
 
 
 * OSFIND - open/close a file for byte access
@@ -319,11 +319,16 @@ FSCHND      CMP   #13
 FSCNULL     LDA   FSAREG
             LDY   FSYREG
             LDX   FSXREG              ; Set EQ/NE from X
-            RTS
+FSCUKN
+FSCRET      RTS
 
 * OSFSC 00 - *OPT function
 * Entered with A=$00 and EQ/NE from X
 FSCOPT      BEQ   :OPT0
+            CPX   #$05
+            BCS   :OPTNULL
+            CPY   #$04
+            BCS   :OPTNULL
             LDA   FSFLAG2
             AND   :OPTMSK-1,X
             EOR   :OPTSET-0,Y
@@ -334,19 +339,19 @@ FSCOPT      BEQ   :OPT0
 :OPTMSK     DB    $3F,$CF,$F3,$FC
 :OPTSET     DB    $00,$55,$AA,$FF
 
-FSCUKN
-            DO    DEBUG
-            PHA
-            LDA   #<OSFSCM
-            LDY   #>OSFSCM
-            JSR   PRSTR
-            PLA
-            FIN
-FSCRET      RTS
-            DO    DEBUG
-OSFSCM      ASC   'OSFSC.'
-            DB    $00
-            FIN
+*FSCUKN
+*            DO    DEBUG
+*            PHA
+*            LDA   #<OSFSCM
+*            LDY   #>OSFSCM
+*            JSR   PRSTR
+*            PLA
+*            FIN
+*            RTS
+*            DO    DEBUG
+*OSFSCM      ASC   'OSFSC.'
+*            DB    $00
+*            FIN
 
 
 * OSFSC 01 - Read EOF function
@@ -447,8 +452,8 @@ PRONEBLK    >>>   ENTAUX
             LDY   #>:DIRM
             JSR   PRSTR
             SEC
-:NOTKEY     JSR   PRONEENT              ; CC=entry, CS=header
-            CLC                         ; Step to next entry
+:NOTKEY     JSR   PRONEENT            ; CC=entry, CS=header
+            CLC                       ; Step to next entry
             LDA   FSPTR1+0
             ADC   #$27
             STA   FSPTR1+0
@@ -456,7 +461,7 @@ PRONEBLK    >>>   ENTAUX
             ADC   #$00
             STA   FSPTR1+1
             DEC   FSNUM
-            BNE   :CATLP                ; Loop for all entries
+            BNE   :CATLP              ; Loop for all entries
             >>>   XF2MAIN,CATALOGRET
 :DIRM       ASC   'Directory: '
             DB    $00
@@ -817,7 +822,10 @@ PARSLPTR    CLC                       ; Means parsing a filename
             STA   MOSFILE+1,X
             STA   $C005               ; Write to aux mem
             INX
-            BNE   :L1
+            CPX   #$40
+            BNE   :L1                 ; Name not too long
+            TXA                       ; $40=Bad filename
+            JMP   MKERROR
 :DONE       STA   $C004               ; Write to main mem
             STX   MOSFILE             ; Length byte (Pascal)
             STA   $C005               ; Back to aux
@@ -840,7 +848,10 @@ PARSLPTR2   CLC                       ; Means parsing a filename
             STA   MOSFILE2+1,X
             STA   $C005               ; Write to aux mem
             INX
-            BNE   :L1
+            CPX   #$40
+            BNE   :L1                 ; Name not too long
+            TXA                       ; $40=Bad filename
+            JMP   MKERROR
 :DONE       STA   $C004               ; Write to main mem
             STX   MOSFILE2            ; Length byte (Pascal)
             STA   $C005               ; Back to aux
@@ -857,7 +868,7 @@ ERRNOTFND   LDA   #$46                ; File not found
 CHKERROR    CMP   #$20
             BCC   NOTERROR
 MKERROR
-*            IF    FALSE
+            DO    DEBUG
             BIT   $E0
             BPL   MKERROR1            ; *DEBUG*
             PHA
@@ -888,7 +899,7 @@ ERRMSG      BRK
             DB    $FF
             ASC   'ERR: $00'
             BRK
-*            FIN
+            FIN
 
 * Translate ProDOS error code into BBC error
 MKERROR1    CMP   #$40

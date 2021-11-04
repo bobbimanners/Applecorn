@@ -237,14 +237,16 @@ SRCHBLK     LDA   WILDIDX
             RTS
 
 * Close directory, if it was open
-* Preserves flags
+* Preserves A and flags
 CLSDIR      PHP
+            PHA
             LDA   WILDFILE      ; File ref num for open dir
             BEQ   :ALREADY      ; Already been closed
             STA   CLSPL+1
             JSR   CLSFILE
             STZ   WILDFILE      ; Not strictly necessary
-:ALREADY    PLP
+:ALREADY    PLA
+            PLP
             RTS
 
 * Apply wildcard match to a directory block
