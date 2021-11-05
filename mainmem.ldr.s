@@ -16,6 +16,8 @@ START       JSR   CROUT
             LDA   #$20             ; PAGE2 shadow on ROM3 GS
             TRB   $C035
 
+            STZ   $C073            ; Force RamWorks bank zero
+
             JSR   ROMMENU
 *            LDA   #>AUXADDR        ; Address in aux
 *            LDX   #<AUXADDR
@@ -158,6 +160,8 @@ LOADCODE    PHP                    ; Save carry flag
 :LEN        DB    $00              ; Length of filename
 :CANTOPEN   ASC   "Unable to open "
             DB    $00
+
+
 
 
 
