@@ -46,7 +46,7 @@ Most of the BBC Micro languages (including BBC BASIC) prefer upper case
 input.  You may want to keep Caps Lock enabled most of the time!
 
 32 Kilobytes of space is available for your programs and variables. `PAGE`
-is set to `&0E0`.
+is set to `&0E00`.
 
 ## 'Applecorn MOS' Features
 
