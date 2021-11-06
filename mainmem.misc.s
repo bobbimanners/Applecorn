@@ -36,7 +36,7 @@ COPYAUXBLK   >>>   ALTZP          ; Alt ZP & Alt LC on
              BNE   :L1
              STA   $C004          ; Write main mem
 :S2          >>>   MAINZP         ; Alt ZP off, ROM back in
-             RTS
+RTSINSTR     RTS
 
 * Search FILEREFS for value in A
 * On return, buffer number is in X (or $FF if no bufs)

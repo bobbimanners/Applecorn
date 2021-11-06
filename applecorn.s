@@ -83,7 +83,7 @@ XF2AUX      MAC
             STX   STRTH
             SEI               ; Disable IRQ before XFER
             SEC               ; Use aux memory
-            BIT   $FF58       ; Set V: use alt ZP and LC
+            BIT   RTSINSTR    ; Set V: use alt ZP and LC
             JMP   XFER
             EOM
 
