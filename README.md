@@ -50,10 +50,10 @@ is set to `&0E00`.
 
 ## 'Applecorn MOS' Features
 
-### Compatible ROMs
+### Compatible Language ROMs
 - In principle any Acorn language ROM should work.
-- 'Sideways ROMs' are now emulated, allowing languages which are supplied
-  in more than one ROM to be supported.
+- 'Sideways ROMs' are now emulated (see below).  This allows languages
+   which were supplied in more than one ROM to be supported.
 - Currently I have verified operation with:
   - BBC BASIC
   - Acornsoft COMAL
@@ -112,7 +112,50 @@ program in memory.
   cursor keys to move the copy cursor and the `Tab` key to copy a character
   from the copy cursor to the insert cursor.
 - BBC Micro function keys are supported.  Use Open Apple with the number
-  keys for the unshifted function keys.
+  keys for the unshifted function keys.  Use Closed Apple with the number
+  keys for the function keys with Ctrl.
+
+### 'Sideways ROM' Support
+
+The BBC Micro allows multiple ROMs to be banked into the 16KB space between
+$8000 to $BFFF.  Acorn referred to such ROMs as 'sideways ROMs'.  The BBC
+Micro architecture allows up to 16 sideways ROMs to be connected to the
+system and paged into this address space (although the original BBC Micro
+only featured four physical sockets.)
+
+A sideways ROM may be either a 'language ROM' or a 'service ROM'.  Language
+ROMs include a user interface, and are typically programming
+languages.  However, note that ROM-based applications such as Acorn's View
+word processor are also considered to be language ROMs.  Service ROMs do
+not contain a user interface but instead provide additional star commands
+to the operating system.  Utility and filing system ROMs fall into this
+category.
+
+When a star command is entered, the operating system first offers it to
+the currently active language ROM.  If the current language does not support
+the command, the system pages in the ROMs one at a time, starting from the
+highest slot, offering the command to each of them.  If none of the ROMs
+services the command an error is displayed.
+
+Sideways ROMs are used in a number of ways:
+- Support for multiple programming languages.  For example, a BBC Micro
+  may have the COMAL ROM in addition to the BASIC ROM.  The machine normally
+  boots into the highest numbered ROM (BASIC typically).  In this case,
+  COMAL could be selected using the `*COMAL` command.  In COMAL, one could
+  return to BASIC using `*BASIC`.
+- Support for languages which are too large to fit in a single ROM such as
+  Acornsoft ISO-Pascal, which occupies two 16KB ROMs.
+- Utility and filesystem ROMs.
+
+Applecorn emulates sideways ROMs by simply loading the ROM images from disk
+into the $8000 to $BFFF space.  Unlike switching physical ROMs in the BBC
+Micro, this is not instantaneous.  While it is possible to configure up to
+16 ROMs, fewer are recommended in order to keep response times down.  This
+mechanism allows multi-ROM languages such as ISO-Pascal to be supported.
+
+The `*HELP` command displays information about each of the available
+sideways ROMs.  (Note that the BCPL ROM does not print any `*HELP` info.
+This is a bug in the ROM, not Applecorn!)
 
 ### HostFS
 
@@ -266,8 +309,9 @@ to using `*DIR` but does not allow subdirectories to be specified.  The
 working directory will be set to the volume directory corresponding to
 the physical device specified.
 
-`*FREE <dry>` - Shows blocks used and blocks free on the specified physical
-device.
+`*FREE [<dry>]` - Shows blocks used and blocks free on the specified physical
+device.  If no drive is specified, the free space on the drive corresponding
+to the current ProDOS prefix is returned.
 
 `*CDIR <objspec>` - create directory `dirname`.  `*MKDIR` is a synonym.
 
