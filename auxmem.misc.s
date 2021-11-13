@@ -8,6 +8,7 @@
 * 25-Oct-2021 Initial pseudo-sideways ROM selection code.
 * 26-Oct-2021 Corrected entry parameters to OSRDRM.
 * 03-Nov-2021 Temp'y fix, if can't find SROM, ignores it.
+* 13-Nov-2021 ROMSELECT calls mainmem to load ROM.
 
 
 * OSBYTE $80 - ADVAL
@@ -331,182 +332,211 @@ RDROM       LDA   $F4
 * Select a sideways ROM
 * X=ROM to select
 * All registers must be preserved
-ROMSELECT   CPX   $F8
-            BEQ   :ROMSELOK        ; Already selected
-
+ROMSELECT
 * Insert code here for faking sideways ROMs by loading or otherwise
 * fetching code to $8000. All registers must be preserved.
-            CPX   MAXROM
-            BEQ   :ROMSEL
-            BCS   :ROMSELOK        ; Out of range, ignore
-:ROMSEL     PHA
+:ROMSEL     PHP
+            PHA
             PHX
             PHY
-
-            LDA   OSLPTR+0
-            PHA
-            LDA   OSLPTR+1
-            PHA
-
-            TXA
-            ASL   A
-            TAX
-            LDA   ROMTAB+0,X       ; LSB of pointer to name
-            STA   OSFILECB+0
-            LDA   ROMTAB+1,X       ; MSB of pointer to name
-            STA   OSFILECB+1
-
-            LDX   #<OSFILECB
-            LDY   #>OSFILECB
-            LDA   #$05             ; Means 'INFO'
-            JSR   OSFILE
-            CMP   #$01
-            BNE   :ROMNOTFND       ; File not found
-
-            STZ   OSFILECB+2       ; Dest address $8000
-            LDA   #$80
-            STA   OSFILECB+3
-            STZ   OSFILECB+4
-            STZ   OSFILECB+5
-            STZ   OSFILECB+6       ; Load to specified address
-            LDX   #<OSFILECB
-            LDY   #>OSFILECB
-            LDA   #$FF             ; Means 'LOAD'
-            JSR   OSFILE
-:ROMNOTFND
-            PLA
-            STA   OSLPTR+1
-            PLA
-            STA   OSLPTR+0
+            SEI
+            TXA                    ; A=ROM to select
+            >>>   XF2MAIN,SELECTROM
+ROMSELDONE  >>>   ENTAUX
             PLY
             PLX
             PLA
-            STX   $F8              ; Set ROM loaded
+            PLP
 :ROMSELOK   STX   $F4              ; Set Current ROM number
+            RTS
+            
+          
+ROMXX
+*            CPX   $F8
+*            BEQ   :ROMSELOK        ; Already selected
+*
+** Insert code here for faking sideways ROMs by loading or otherwise
+** fetching code to $8000. All registers must be preserved.
+*            CPX   MAXROM
+*            BEQ   :ROMSEL
+*            BCS   :ROMSELOK        ; Out of range, ignore
+*:ROMSEL     PHA
+*            PHX
+*            PHY
+*
+*            LDA   OSLPTR+0
+*            PHA
+*            LDA   OSLPTR+1
+*            PHA
+*
+*            TXA
+*            ASL   A
+*            TAX
+*            LDA   ROMTAB+0,X       ; LSB of pointer to name
+*            STA   OSFILECB+0
+*            LDA   ROMTAB+1,X       ; MSB of pointer to name
+*            STA   OSFILECB+1
+*
+*            LDX   #<OSFILECB
+*            LDY   #>OSFILECB
+*            LDA   #$05             ; Means 'INFO'
+*            JSR   OSFILE
+*            CMP   #$01
+*            BNE   :ROMNOTFND       ; File not found
+*
+*            STZ   OSFILECB+2       ; Dest address $8000
+*            LDA   #$80
+*            STA   OSFILECB+3
+*            STZ   OSFILECB+4
+*            STZ   OSFILECB+5
+*            STZ   OSFILECB+6       ; Load to specified address
+*            LDX   #<OSFILECB
+*            LDY   #>OSFILECB
+*            LDA   #$FF             ; Means 'LOAD'
+*            JSR   OSFILE
+*:ROMNOTFND
+*            PLA
+*            STA   OSLPTR+1
+*            PLA
+*            STA   OSLPTR+0
+*            PLY
+*            PLX
+*            PLA
+*            STX   $F8              ; Set ROM loaded
+*:ROMSELOK   STX   $F4              ; Set Current ROM number
 EVENT       RTS
 
-BASICROM    ASC   'BASIC2.ROM'
-            DB    $0D,$00
-
-COMALROM    ASC   'COMAL.ROM'
-            DB    $0D,$00
-
-LISPROM     ASC   'LISP501.ROM'
-            DB    $0D,$00
-
-FORTHROM    ASC   'FORTH103.ROM'
-            DB    $0D,$00
-
-PROLOGROM   ASC   'MPROLOG310.ROM'
-            DB    $0D,$00
-
-BCPLROM     ASC   'BCPL7.0.ROM'
-            DB    $0D,$00
-
-PASCROM1    ASC   'PASC.1.10.1.ROM'
-            DB    $0D,$00
-
-PASCROM2    ASC   'PASC.1.10.2.ROM'
-            DB    $0D,$00
-
+*BASICROM    ASC   'BASIC2.ROM'
+*            DB    $0D,$00
+*
+*COMALROM    ASC   'COMAL.ROM'
+*            DB    $0D,$00
+*
+*LISPROM     ASC   'LISP501.ROM'
+*            DB    $0D,$00
+*
+*FORTHROM    ASC   'FORTH103.ROM'
+*            DB    $0D,$00
+*
+*PROLOGROM   ASC   'MPROLOG310.ROM'
+*            DB    $0D,$00
+*
+*BCPLROM     ASC   'BCPL7.0.ROM'
+*            DB    $0D,$00
+*
+*PASCROM1    ASC   'PASC.1.10.1.ROM'
+*            DB    $0D,$00
+*
+*PASCROM2    ASC   'PASC.1.10.2.ROM'
+*            DB    $0D,$00
+*
 
 * Initialize ROMTAB according to user selection in menu
 ROMINIT     STZ   MAXROM           ; One sideways ROM only
             STA   $C002            ; Read main mem
             LDA   USERSEL
             STA   $C003            ; Read aux mem
-            ASL                    ; x2
-            CLC
-            ADC   #<ROMS
-            STA   OSLPTR+0
-            LDA   #>ROMS
-            ADC   #$00
-            STA   OSLPTR+1
-            LDY   #$00
-            LDA   (OSLPTR),Y
-            STA   ROMTAB+0
-            INY
-            LDA   (OSLPTR),Y
-            STA   ROMTAB+1
-            STA   $C002            ; Read main mem
-            LDA   USERSEL
-            STA   $C003            ; Read aux mem
-            CMP   #6               ; Menu entry 7 has two ROMs
-            BNE   :S1
-            LDA   #<PASCROM2
-            STA   ROMTAB+2
-            LDA   #>PASCROM2
-            STA   ROMTAB+3
-            INC   MAXROM           ; Two ROMs
-            BRA   :DONE
-:S1         CMP   #7               ; Menu entry 8
-            BNE   :DONE
-            LDA   #<PASCROM1
-            STA   ROMTAB+0
-            LDA   #>PASCROM1
-            STA   ROMTAB+1
-            LDA   #<PASCROM2
-            STA   ROMTAB+2
-            LDA   #>PASCROM2
-            STA   ROMTAB+3
-            LDA   #<LISPROM
-            STA   ROMTAB+4
-            LDA   #>LISPROM
-            STA   ROMTAB+5
-            LDA   #<FORTHROM
-            STA   ROMTAB+6
-            LDA   #>FORTHROM
-            STA   ROMTAB+7
-            LDA   #<PROLOGROM
-            STA   ROMTAB+8
-            LDA   #>PROLOGROM
-            STA   ROMTAB+9
-            LDA   #<BCPLROM
-            STA   ROMTAB+10
-            LDA   #>BCPLROM
-            STA   ROMTAB+11
-            LDA   #<COMALROM
-            STA   ROMTAB+12
-            LDA   #>COMALROM
-            STA   ROMTAB+13
-            LDA   #<BASICROM
-            STA   ROMTAB+14
-            LDA   #>BASICROM
-            STA   ROMTAB+15
-            LDA   #7               ; 8 sideways ROMs
+
+            CMP   #6
+            BNE   :X1
+            INC   MAXROM
+:X1         CMP   #7
+            BNE   :X2
             STA   MAXROM
-:DONE       LDA   #$FF
-            STA   $F8              ; Force ROM to load
-            RTS
+:X2         RTS
 
-* Active sideways ROMs
-ROMTAB      DW    $0000            ; ROM0
-            DW    $0000            ; ROM1
-            DW    $0000            ; ROM2
-            DW    $0000            ; ROM3
-            DW    $0000            ; ROM4
-            DW    $0000            ; ROM5
-            DW    $0000            ; ROM6
-            DW    $0000            ; ROM7
-            DW    $0000            ; ROM8
-            DW    $0000            ; ROM9
-            DW    $0000            ; ROMA
-            DW    $0000            ; ROMB
-            DW    $0000            ; ROMC
-            DW    $0000            ; ROMD
-            DW    $0000            ; ROME
-            DW    $0000            ; ROMF
-
-* ROM filenames in same order as in the menu
-* ROMMENU copies these to ROMTAB upon user selection
-ROMS        DW    BASICROM
-            DW    COMALROM
-            DW    LISPROM
-            DW    FORTHROM
-            DW    PROLOGROM
-            DW    BCPLROM
-            DW    PASCROM1
-            DW    PASCROM2
+*            ASL                    ; x2
+*            CLC
+*            ADC   #<ROMS
+*            STA   OSLPTR+0
+*            LDA   #>ROMS
+*            ADC   #$00
+*            STA   OSLPTR+1
+*            LDY   #$00
+*            LDA   (OSLPTR),Y
+*            STA   ROMTAB+0
+*            INY
+*            LDA   (OSLPTR),Y
+*            STA   ROMTAB+1
+*            STA   $C002            ; Read main mem
+*            LDA   USERSEL
+*            STA   $C003            ; Read aux mem
+*            CMP   #6               ; Menu entry 7 has two ROMs
+*            BNE   :S1
+*            LDA   #<PASCROM2
+*            STA   ROMTAB+2
+*            LDA   #>PASCROM2
+*            STA   ROMTAB+3
+*            INC   MAXROM           ; Two ROMs
+*            BRA   :DONE
+*:S1         CMP   #7               ; Menu entry 8
+*            BNE   :DONE
+*            LDA   #<PASCROM1
+*            STA   ROMTAB+0
+*            LDA   #>PASCROM1
+*            STA   ROMTAB+1
+*            LDA   #<PASCROM2
+*            STA   ROMTAB+2
+*            LDA   #>PASCROM2
+*            STA   ROMTAB+3
+*            LDA   #<LISPROM
+*            STA   ROMTAB+4
+*            LDA   #>LISPROM
+*            STA   ROMTAB+5
+*            LDA   #<FORTHROM
+*            STA   ROMTAB+6
+*            LDA   #>FORTHROM
+*            STA   ROMTAB+7
+*            LDA   #<PROLOGROM
+*            STA   ROMTAB+8
+*            LDA   #>PROLOGROM
+*            STA   ROMTAB+9
+*            LDA   #<BCPLROM
+*            STA   ROMTAB+10
+*            LDA   #>BCPLROM
+*            STA   ROMTAB+11
+*            LDA   #<COMALROM
+*            STA   ROMTAB+12
+*            LDA   #>COMALROM
+*            STA   ROMTAB+13
+*            LDA   #<BASICROM
+*            STA   ROMTAB+14
+*            LDA   #>BASICROM
+*            STA   ROMTAB+15
+*            LDA   #7               ; 8 sideways ROMs
+*            STA   MAXROM
+*:DONE       LDA   #$FF
+*            STA   $F8              ; Force ROM to load
+*            RTS
+*
+** Active sideways ROMs
+*ROMTAB      DW    $0000            ; ROM0
+*            DW    $0000            ; ROM1
+*            DW    $0000            ; ROM2
+*            DW    $0000            ; ROM3
+*            DW    $0000            ; ROM4
+*            DW    $0000            ; ROM5
+*            DW    $0000            ; ROM6
+*            DW    $0000            ; ROM7
+*            DW    $0000            ; ROM8
+*            DW    $0000            ; ROM9
+*            DW    $0000            ; ROMA
+*            DW    $0000            ; ROMB
+*            DW    $0000            ; ROMC
+*            DW    $0000            ; ROMD
+*            DW    $0000            ; ROME
+*            DW    $0000            ; ROMF
+*
+** ROM filenames in same order as in the menu
+** ROMMENU copies these to ROMTAB upon user selection
+*ROMS        DW    BASICROM
+*            DW    COMALROM
+*            DW    LISPROM
+*            DW    FORTHROM
+*            DW    PROLOGROM
+*            DW    BCPLROM
+*            DW    PASCROM1
+*            DW    PASCROM2
 
 *EVENT       LDA   #<OSEVENM
 *            LDY   #>OSEVENM

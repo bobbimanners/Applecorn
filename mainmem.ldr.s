@@ -3,6 +3,8 @@
 *
 * Applecorn loader code.  Runs in main memory.
 * 01-Oct-2021 Copies MOS code to whole $D000-$FFFF.
+* 13-Nov-2021 LOADCODE uses absolute path to Applecorn directory.
+
 
 * Loads Acorn ROM file (16KB) from disk and writes it
 * to aux memory starting at $08000. Copies Applecorn MOS
@@ -82,21 +84,60 @@ START       JSR   CROUT
 :FNTFILE    STR   "FONT.DAT"       ; Filename for bitmap font
 
 * Load image from file into memory
-* On entry: OPENPL set up to point to file to load
+* On entry: OPENPL set up to point to leafname of file to load
+*           Loads file from directory applecorn started from
+*           Uses BLKBUF at loading buffer
 *           Load address in A,X
 *           Carry set->load to aux, carry clear->load to main
 LOADCODE    PHP                    ; Save carry flag
             STA   :ADDRH           ; MSB of load address
             STX   :ADDRL           ; LSB of load address
             STZ   :BLOCKS
-            JSR   OPENFILE         ; Open ROM file
+
+            LDX   #0
+:LP1        LDA   CMDPATH+1,X      ; Copy Applecorn path to MOSFILE
+            STA   MOSFILE2+1,X
+            INX
+            CPX   CMDPATH
+            BCC   :LP1
+:LP2        DEX
+            LDA   MOSFILE2+1,X
+            CMP   #'/'
+            BNE   :LP2
+            LDA   OPENPL+1
+            STA   A1L
+            LDA   OPENPL+2
+            STA   A1H
+            LDY   #1
+            LDA   (A1L),Y
+            CMP   #'/'
+            BEQ   :L4              ; Already absolute path
+:LP3        LDA   (A1L),Y
+            STA   MOSFILE2+2,X
+            INX
+            INY
+            TYA
+            CMP   (A1L)
+            BCC   :LP3
+            BEQ   :LP3
+            INX
+            STX   MOSFILE2+0
+            LDA   #<MOSFILE2       ; Point to absolute path
+            STA   OPENPL+1
+            LDA   #>MOSFILE2
+            STA   OPENPL+2
+
+:L4         JSR   OPENFILE         ; Open ROM file
             BCC   :S1
-            LDX   #$00
-:L1A        LDA   :CANTOPEN,X      ; Part one of error msg
+            PLP
+            BCC   :L1A             ; Load to main, report error
+            RTS                    ; Load to aux, return CS=Failed
+:L1A        LDX   #$00
+:L1B        LDA   :CANTOPEN,X      ; Part one of error msg
             BEQ   :S0
             JSR   COUT1
             INX
-            BRA   :L1A
+            BRA   :L1B
 :S0         LDA   OPENPL+1         ; Print filename
             STA   A1L
             LDA   OPENPL+2
@@ -115,9 +156,12 @@ LOADCODE    PHP                    ; Save carry flag
 :SPIN       BRA   :SPIN
 :S1         LDA   OPENPL+5         ; File reference number
             STA   READPL+1
-:L2         LDA   #'.'+$80         ; Read file block by block
+:L2         PLP
+            PHP
+            BCS   :L2A             ; Loading to aux, skip dots
+            LDA   #'.'+$80         ; Print progress dots
             JSR   COUT1
-            JSR   RDFILE
+:L2A        JSR   RDFILE           ; Read file block by block
             BCS   :CLOSE           ; EOF (0 bytes left) or some error
             LDA   #<BLKBUF         ; Source start addr -> A1L,A1H
             STA   A1L
@@ -151,6 +195,7 @@ LOADCODE    PHP                    ; Save carry flag
             JSR   CLSFILE
             JSR   CROUT
             PLP
+            CLC                    ; CC=Ok
             RTS
 :ADDRL      DB    $00              ; Destination address (LSB)
 :ADDRH      DB    $00              ; Destination address (MSB)
@@ -158,8 +203,6 @@ LOADCODE    PHP                    ; Save carry flag
 :LEN        DB    $00              ; Length of filename
 :CANTOPEN   ASC   "Unable to open "
             DB    $00
-
-
 
 
 
