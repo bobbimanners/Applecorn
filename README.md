@@ -52,6 +52,8 @@ is set to `&0E00`.
 
 ### Compatible ROMs
 - In principle any Acorn language ROM should work.
+- 'Sideways ROMs' are now emulated, allowing languages which are supplied
+  in more than one ROM to be supported.
 - Currently I have verified operation with:
   - BBC BASIC
   - Acornsoft COMAL
@@ -59,8 +61,7 @@ is set to `&0E00`.
   - Acornsoft Lisp
   - Acornsoft MicroProlog
   - Acornsoft BCPL
-- I have not yet investigated two-ROM languages such as Logo or
-  ISO Pascal.  It may be possible to support these also.
+  - Acronsoft ISO-Pascal (supplied on two 16KB ROMs)
 
 <img src="Applecorn-Collage.png" alt="Applecorn Collage" height="432px" width="768px"/>
 
