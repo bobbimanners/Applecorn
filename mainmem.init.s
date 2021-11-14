@@ -4,6 +4,9 @@
 * Initialization, interrupt handling and reset handling code
 * that resides in main memory.
 
+* 14-Nov-2021 If started from CSD, gets prefix to CMDBUF.
+
+
 * Trampoline in main memory used by aux memory IRQ handler
 * to invoke Apple II / ProDOS IRQs in main memory
 A2IRQ       >>>   IENTMAIN          ; IENTMAIN does not do CLI
@@ -37,7 +40,18 @@ SETPRFX     LDA   #GPFXCMD
             STA   DRVBUF2           ; was $0301
             DEC   :OPC7
             BNE   :L1
-RTSINST     RTS
+RTSINST     LDA   CMDPATH
+            BEQ   :GETPFX           ; CMDPATH empty
+            LDA   CMDPATH+1
+            CMP   #'/'
+            BEQ   :GETPFXDONE       ; CMDPATH already absolute path
+:GETPFX     JSR   MLI
+            DB    $C7               ; Get Prefix
+            DW    :GETADDR
+:GETPFXDONE RTS
+:GETADDR    HEX   01                ; One parameter
+            DW    CMDPATH           ; Get prefix to CMDPATH
+
 
 * Disconnect /RAM ramdrive to avoid aux corruption
 * Stolen from Beagle Bros Extra K
@@ -89,56 +103,4 @@ RESET       TSX
             TSB   $C035
             >>>   XF2AUX,AUXMOS
             RTS
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
