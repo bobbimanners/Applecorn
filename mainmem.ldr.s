@@ -145,12 +145,12 @@ LOADCODE    PHP                    ; Save carry flag
             LDY   #$00
             LDA   (A1L),Y
             STA   :LEN
-:L1B        CPY   :LEN
+:L1C        CPY   :LEN
             BEQ   :ERR1
             INY
             LDA   (A1L),Y
             JSR   COUT1
-            BRA   :L1B
+            BRA   :L1C
 :ERR1       JSR   CROUT
             JSR   BELL
 :SPIN       BRA   :SPIN

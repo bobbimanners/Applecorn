@@ -3,7 +3,7 @@
 *
 * Applecorn ROM menu.  Runs in main memory.
 
-13-Nov-2021 List of selected ROMs kept locally.
+* 13-Nov-2021 List of selected ROMs kept locally.
 
 
 ROMMAX      EQU   $0382

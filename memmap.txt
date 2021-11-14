@@ -5,19 +5,24 @@ MOSZP     EQU   $0030 ;             $0030-$0037 Filing system zero page
 *                     ;             $0038-$004F Monitor/ProDOS
 *                     ; $0100-$01FF Stack
 *                     ; $0200-$02FF ProDOS string buffers
-RTCBUF    EQU   $0200 ;             $0200-$022F Overwritten by RTC routines
+RTCBUF    EQU   $0200 ;             $0200-$0227 Overwritten by RTC routines
 *                     ;             $0228-$023D
 DRVBUF1   EQU   $023E ;             $023E  Drive
 DRVBUF2   EQU   $023F ;             $022F  Prefix on current drive
 CMDPATH   EQU   $0280 ;             $0280  Path used to start Applecorn
-*
+*                     ;             $02C0
+*                     ;
 *                     ; $0300-$03CF File system core workspace
 *                     ;             $0300-$0382 Filename string buffers
 MOSFILE1  EQU   $0300 ;                   $0300 length
 *                     ;                   $0301 64 byte string
 MOSFILE2  EQU   $0341 ;                   $0341 length
 *                     ;                   $0342 64 byte string
-*                     ;             $0382-$03BD $3C spare bytes
+ROMMAX    EQU   $0382 ;             $0382 Maximum ROM number
+ROMTHIS   EQU   $0383 ;             $0383 Currently loaded ROM
+ROMADDRS  EQU   $0384 ;             $0384 16xaddress of ROM filename
+*                     ;             
+*                     ;             $03A4-$03BD $1A spare bytes
 *                     ;
 FILEBLK   EQU   $03BE ;             $03BE-$03CF: local copy of control block
 *                     ;                   $03BE FPTR FPTR
