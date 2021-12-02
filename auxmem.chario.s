@@ -26,6 +26,7 @@
 * 09-Sep-2021 Moved keyboard OSBYTEs to here.
 * 12-Sep-2021 COPY calls new VDU entry point.
 * 15-Sep-2021 INKEY(0) tests once and returns immediately.
+* 30-Nov-2021 With *FX4,<>0 TAB returns $09, allows eg VIEW to work.
 * TO DO: CHKESC should go through translations before testing.
 
 
@@ -290,11 +291,11 @@ KEYREAD
              BCC   KEYSOFT                   ; Not cursor key
              LDX   FX4VAR
              BEQ   KEYCURSOR                 ; *FX4,0 - editing keys
-             DEX
-             BNE   KEYSOFT1                  ; Not *FX4,1 - soft key
              LDY   FXTABCHAR
              CMP   #$C9
              BEQ   KEYREADOKY                ; TAB key
+             DEX
+             BNE   KEYSOFT1                  ; Not *FX4,1 - soft key
              SBC   #$44                      ; Return $88-$8B
              TAY
 KEYREADOKY   TYA
