@@ -558,27 +558,35 @@ GSBRKAUX    >>>   IENTAUX            ; IENTAUX does not do CLI
 IRQBRKHDLR  PHA
 * Mustn't enable IRQs within the IRQ handler
 * Do not use WRTMAIN/WRTAUX macros
+            BIT   $C014              ; Set N if aux write active
             STA   $C004              ; Write to main memory
             STA   $45                ; $45=A for ProDOS IRQ handlers
+            BPL   :S1                ; If aux write wasn't active, skip
             STA   $C005              ; Write to aux memory
-
-            TXA
+:S1         TXA
             PHA
             CLD
             TSX
-            LDA   $103,X             ; Get PSW from stack
+            PHX
+            INX
+            INX
+            INX
+            LDA   $100,X             ; Get PSW from stack
             AND   #$10
             BEQ   :IRQ               ; IRQ
             SEC
-            LDA   $0104,X
+            INX
+            LDA   $0100,X
             SBC   #$01
             STA   FAULT+0            ; FAULT=>error block after BRK
-            LDA   $0105,X
+            INX
+            LDA   $0100,X
             SBC   #$00
             STA   FAULT+1
 
             LDA   $F4                ; Get current ROM
             STA   BYTEVARBASE+$BA    ; Set ROM at last BRK
+            PLX
             STX   OSXREG             ; Pass stack pointer
             LDA   #$06               ; Service Call 6 = BRK occured
             JSR   SERVICE
