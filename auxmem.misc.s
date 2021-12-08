@@ -596,7 +596,6 @@ IRQBRKHDLR  PHA
             PLA
             TAX
             PLA
-            CLI
             JMP   (BRKV)             ; Pass on to BRK handler
 
 :IRQ        >>>   XF2MAIN,A2IRQ      ; Bounce to Apple IRQ handler
