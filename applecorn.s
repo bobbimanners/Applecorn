@@ -75,13 +75,13 @@ AUXMOS      EQU   $D000       ; Final location in aux LC
 * Called by code running in main mem to invoke a
 * routine in aux memory
 XF2AUX      MAC
+            SEI               ; Disable IRQ before XFER
             LDX   $C08B       ; R/W LC RAM, bank 1
             LDX   $C08B
             LDX   #<]1
             STX   STRTL
             LDX   #>]1
             STX   STRTH
-            SEI               ; Disable IRQ before XFER
             SEC               ; Use aux memory
             BIT   RTSINSTR    ; Set V: use alt ZP and LC
             JMP   XFER
