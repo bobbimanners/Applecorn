@@ -1,0 +1,9 @@
+#
+# Script for building on Linux using Merlin32
+# Uses cadius for manipulating ProDOS disk images
+#
+
+merlin32 -v applecorn.s
+cp APPLECORN APPLECORN#064000
+cadius deletefile applecorn.po /APPLECORN/APPLECORN
+cadius addfile applecorn.po /APPLECORN APPLECORN#064000
