@@ -1,0 +1,1 @@
+mame -w apple2ee -sl7 cffa2 -harddisk1 ~/Personal/Development/Applecorn/applecorn.po
