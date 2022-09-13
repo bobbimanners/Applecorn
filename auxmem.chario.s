@@ -27,6 +27,7 @@
 * 12-Sep-2021 COPY calls new VDU entry point.
 * 15-Sep-2021 INKEY(0) tests once and returns immediately.
 * 30-Nov-2021 With *FX4,<>0 TAB returns $09, allows eg VIEW to work.
+* 13-Sep-2022 Fix bug in INKEY with misbalanced stack when Escape pressed
 * TO DO: CHKESC should go through translations before testing.
 
 
@@ -197,9 +198,9 @@ INKEYOFF2    JSR   PUTCHRC                   ; Remove cursor
              BCS   INKEYOK3                  ; Timeout
              LDA   ESCFLAG                   ; Keypress, test for Escape
              ASL   A                         ; Cy=Escape flag
-             PLA                             ; Get char back
+INKEYOK3     PLA                             ; Get char back
              PLX                             ; Restore X,Y for key pressed
-INKEYOK3     PLY                             ; Or pop TimeOut
+             PLY                             ; Or pop TimeOut
              RTS
 * RDCH  Character read: CC, A=char, X=restored, Y=restored
 * RDCH  Escape:         CS, A=char, X=restored, Y=restored

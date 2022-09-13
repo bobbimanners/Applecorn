@@ -204,7 +204,7 @@ BYTE00      BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
             RTS                              ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2021-12-08'
+HELLO       ASC   'Applecorn MOS 2022-09-13'
             DB    $00                        ; Unify MOS messages
 
 
