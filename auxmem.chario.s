@@ -198,9 +198,9 @@ INKEYOFF2    JSR   PUTCHRC                   ; Remove cursor
              BCS   INKEYOK3                  ; Timeout
              LDA   ESCFLAG                   ; Keypress, test for Escape
              ASL   A                         ; Cy=Escape flag
-INKEYOK3     PLA                             ; Get char back
+             PLA                             ; Get char back
              PLX                             ; Restore X,Y for key pressed
-             PLY                             ; Or pop TimeOut
+INKEYOK3     PLY                             ; Or pop TimeOut
              RTS
 * RDCH  Character read: CC, A=char, X=restored, Y=restored
 * RDCH  Escape:         CS, A=char, X=restored, Y=restored
