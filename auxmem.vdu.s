@@ -478,30 +478,26 @@ HCHARADDR     LDA   VDUTEXTY
 ***************************
 * Move cursor left
 VDU08         LDA   VDUTEXTX               ; COL
+              CMP   TXTWINLFT
               BEQ   :S1
               DEC   VDUTEXTX               ; COL
               BRA   :S3
 :S1           LDA   VDUTEXTY               ; ROW
+              CMP   TXTWINTOP
               BEQ   :S3
               DEC   VDUTEXTY               ; ROW
-              LDA   #39
-              BIT   $C01F
-              BPL   :S2
-              LDA   #79
-:S2           STA   VDUTEXTX               ; COL
+              LDA   TXTWINRGT
+              STA   VDUTEXTX               ; COL
 :S3           RTS
 
 * Move cursor right
 VDU09         LDA   VDUTEXTX               ; COL
-              CMP   #39
+              CMP   TXTWINRGT
               BCC   :S2
-              BIT   $C01F
-              BPL   :T11
-              CMP   #79
-              BCC   :S2
-:T11          STZ   VDUTEXTX               ; COL
+:T11          LDA   TXTWINLFT
+              STA   VDUTEXTX               ; COL
               LDA   VDUTEXTY               ; ROW
-              CMP   #23
+              CMP   TXTWINBOT
               BEQ   SCROLL
               INC   VDUTEXTY               ; ROW
 :DONE         RTS
@@ -513,7 +509,7 @@ SCROLL        JSR   SCROLLER
 
 * Move cursor down
 VDU10         LDA   VDUTEXTY               ; ROW
-              CMP   #23
+              CMP   TXTWINBOT
               BEQ   :TOSCRL                ; JGH
               INC   VDUTEXTY               ; ROW
               RTS
@@ -521,6 +517,7 @@ VDU10         LDA   VDUTEXTY               ; ROW
 
 * Move cursor up
 VDU11         LDA   VDUTEXTY               ; ROW
+              CMP   TXTWINTOP
               BEQ   :DONE
               DEC   VDUTEXTY               ; ROW
 :DONE         RTS
@@ -528,15 +525,19 @@ VDU11         LDA   VDUTEXTY               ; ROW
 * Move to start of line
 VDU13         LDA   #$BF
               JSR   CLRSTATUS              ; Turn copy cursor off
-              STZ   VDUTEXTX               ; COL
+              LDA   TXTWINLFT
+              STA   VDUTEXTX               ; COL
               RTS
 
 * Move to (0,0)
-VDU30         STZ   VDUTEXTY               ; ROW
+VDU30         LDA   TXTWINTOP
+              STA   VDUTEXTY               ; ROW
+              LDA   TXTWINLFT
               STZ   VDUTEXTX               ; COL
               RTS
 
 * Move to (X,Y)
+** TODO
 VDU31         LDY   VDUQ+8
               CPY   #24
               BCS   :DONE
@@ -611,18 +612,22 @@ VDU22         LDA   VDUQ+8
 * Clear areas of the screen
 ***************************
 VDU12         STZ   FXLINES
-              STZ   VDUTEXTX
-              STZ   VDUTEXTY
+              LDA   TXTWINTOP
+              STA   VDUTEXTY
+              LDA   TXTWINLFT
+              STA   VDUTEXTX
 
 * Clear the text screen buffer
 :L1           JSR   CLREOL
 :S2           LDA   VDUTEXTY               ; ROW
-              CMP   #23
+              CMP   TXTWINBOT
               BEQ   :S3
               INC   VDUTEXTY               ; ROW
               BRA   :L1
-:S3           STZ   VDUTEXTY               ; ROW
-              STZ   VDUTEXTX               ; COL
+:S3           LDA   TXTWINTOP
+              STA   VDUTEXTY               ; ROW
+              LDA   TXTWINLFT
+              STA   VDUTEXTX               ; COL
               BIT   VDUSCREEN
               BMI   VDU12SOFT              ; Graphics mode
               RTS
@@ -676,13 +681,13 @@ CLREOLGS      LDX   #1
 
 * Scroll areas of the screen
 ****************************
-* Scroll whole screen one line
-SCROLLER      LDA   #$00
+* Scroll text window one line
+SCROLLER      LDA   TXTWINTOP
 :L1           PHA
               JSR   SCR1LINE
               PLA
               INC
-              CMP   #23
+              CMP   TXTWINBOT
               BNE   :L1
               BIT   VDUSTATUS
               BVC   :L2                    ; Copy cursor not active
@@ -869,7 +874,13 @@ VDU28B        LDA   VDUQCOORD+1            ; bottom
               BEQ   VDU28C
               BCS   VDUCOPYEXIT            ; top>height
 VDU28C        LDY   #TXTWINLFT+3-VDUVARS   ; Copy to txt window params
-              BNE   VDUCOPY4
+              BEQ   VDU28D
+              JSR   VDUCOPY4
+              LDA   TXTWINLFT              ; Cursor to top-left of window
+              STA   VDUTEXTX
+              LDA   TXTWINTOP
+              STA   VDUTEXTY
+VDU28D        RTS
 
 * VDU 24,left;bottom;right;top; - define graphics window
 VDU24         RTS
