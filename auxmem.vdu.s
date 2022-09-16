@@ -45,10 +45,8 @@ VDUBANK       EQU   VDUADDR+2              ; $D4 screen bank
 VDUADDR2      EQU   VDUADDR+3              ; $D5 address being scrolled
 VDUBANK2      EQU   VDUBANK+3              ; $D7 screen bank being scrolled
 PLOTACTION    EQU   VDUSTATUS+8            ; &D8
-*
 OLDCHAR       EQU   OSKBD1                 ; &EC character under cursor
 COPYCHAR      EQU   OSKBD2                 ; &ED character under copy cursor
-
 * VDU DRIVER MAIN WORKSPACE
 ***************************
 FXLINES       EQU   BYTEVARBASE+217        ; Paged scrolling line counter
@@ -504,7 +502,9 @@ VDU09         LDA   VDUTEXTX               ; COL
 :S2           INC   VDUTEXTX               ; COL
               BRA   :DONE
 SCROLL        JSR   SCROLLER
-              JSR   CLRLINE
+              LDA   TXTWINLFT
+              STA   VDUTEXTX
+              JSR   CLREOL2
               RTS
 
 * Move cursor down
@@ -618,7 +618,7 @@ VDU12         STZ   FXLINES
               STA   VDUTEXTX
 
 * Clear the text screen buffer
-:L1           JSR   CLREOL
+:L1           JSR   CLREOL2
 :S2           LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
               BEQ   :S3
@@ -641,7 +641,6 @@ VDU22G        STA   $C050                  ; Enable Graphics
               JMP   VDU12                  ; Clear text and HGR screen
 
 * Clear to EOL
-CLRLINE
 CLREOL        JSR   CHARADDR               ; Set VDUADDR=>start of line
               BIT   VDUBANK
               BMI   CLREOLGS               ; AppleGS
@@ -650,9 +649,9 @@ CLREOL        JSR   CHARADDR               ; Set VDUADDR=>start of line
 :L1           STA   (VDUADDR),Y
               PHP
               SEI
-              STA   $C004
+              STA   $C004                  ; Write to main
               STA   (VDUADDR),Y
-              STA   $C005
+              STA   $C005                  ; Write to aux
               PLP
               DEY
               BPL   :L1
@@ -675,6 +674,70 @@ CLREOLGS      LDX   #1
               BPL   :L2
               BIT   VDUSCREEN
               BPL   CLREOLOK
+              JMP   HSCRCLREOL             ; Clear an HGR line
+              RTS
+
+
+*** EXPERIMENTAL
+* Clear to EOL
+CLREOL2       JSR   CHARADDR               ; Set VDUADDR=>start of line
+              BIT   VDUBANK
+              BMI   CLREOL2GS              ; AppleGS
+              INC   TXTWINRGT
+              BIT   $C01F
+              BPL   :FORTY                 ; 40-col mode
+:EIGHTY       TYA                          ; Addr offset for column
+              ASL
+              TAX                          ; Column number
+:L1           TXA                          ; Column/2 into Y
+              LSR
+              TAY
+              LDA   #$A0
+              BCS   :MAIN                  ; Odd cols in main mem
+              STA   (VDUADDR),Y            ; Even cols in aux
+              BRA   :NOTMAIN
+:MAIN         PHP
+              SEI
+              STA   $C004                  ; Write to main
+              STA   (VDUADDR),Y
+              STA   $C005                  ; Write to aux
+              PLP
+:NOTMAIN      INX
+              CPX   TXTWINRGT
+              BMI   :L1
+              BRA   :DONE
+:FORTY        LDA   #$A0
+:L2           PHP
+              SEI
+              STA   $C004                  ; Write to main
+              STA   (VDUADDR),Y
+              STA   $C005                  ; Write to aux
+              PLP
+              INY
+              CPY   TXTWINRGT
+              BMI   :L2
+:DONE         DEC   TXTWINRGT
+              BIT   VDUSCREEN
+              BPL   CLREOL2OK
+              JMP   HSCRCLREOL             ; Clear an HGR line
+CLREOL2OK      RTS
+
+** TODO ....
+CLREOL2GS      LDX   #1
+:L2           LDY   #39
+              LDA   #$A0
+:L3           >>>   WRTMAIN
+              STA   [VDUADDR],Y
+              >>>   WRTAUX
+              DEY
+              BPL   :L3
+              LDA   VDUBANK
+              EOR   #$01
+              STA   VDUBANK
+              DEX
+              BPL   :L2
+              BIT   VDUSCREEN
+              BPL   CLREOL2OK
               JMP   HSCRCLREOL             ; Clear an HGR line
               RTS
 
