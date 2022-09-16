@@ -504,7 +504,7 @@ VDU09         LDA   VDUTEXTX               ; COL
 SCROLL        JSR   SCROLLER
               LDA   TXTWINLFT
               STA   VDUTEXTX
-              JSR   CLREOL2
+              JSR   CLREOL
               RTS
 
 * Move cursor down
@@ -618,7 +618,7 @@ VDU12         STZ   FXLINES
               STA   VDUTEXTX
 
 * Clear the text screen buffer
-:L1           JSR   CLREOL2
+:L1           JSR   CLREOL
 :S2           LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
               BEQ   :S3
@@ -640,50 +640,12 @@ VDU22G        STA   $C050                  ; Enable Graphics
               STA   $C00C                  ; Select 40col text
               JMP   VDU12                  ; Clear text and HGR screen
 
+
 * Clear to EOL
 CLREOL        JSR   CHARADDR               ; Set VDUADDR=>start of line
+              INC   TXTWINRGT
               BIT   VDUBANK
               BMI   CLREOLGS               ; AppleGS
-              LDY   #39
-              LDA   #$A0
-:L1           STA   (VDUADDR),Y
-              PHP
-              SEI
-              STA   $C004                  ; Write to main
-              STA   (VDUADDR),Y
-              STA   $C005                  ; Write to aux
-              PLP
-              DEY
-              BPL   :L1
-              BIT   VDUSCREEN
-              BPL   CLREOLOK
-              JMP   HSCRCLREOL             ; Clear an HGR line
-CLREOLOK      RTS
-CLREOLGS      LDX   #1
-:L2           LDY   #39
-              LDA   #$A0
-:L3           >>>   WRTMAIN
-              STA   [VDUADDR],Y
-              >>>   WRTAUX
-              DEY
-              BPL   :L3
-              LDA   VDUBANK
-              EOR   #$01
-              STA   VDUBANK
-              DEX
-              BPL   :L2
-              BIT   VDUSCREEN
-              BPL   CLREOLOK
-              JMP   HSCRCLREOL             ; Clear an HGR line
-              RTS
-
-
-*** EXPERIMENTAL
-* Clear to EOL
-CLREOL2       JSR   CHARADDR               ; Set VDUADDR=>start of line
-              BIT   VDUBANK
-              BMI   CLREOL2GS              ; AppleGS
-              INC   TXTWINRGT
               BIT   $C01F
               BPL   :FORTY                 ; 40-col mode
 :EIGHTY       LDX   VDUTEXTX               ; Addr offset for column
@@ -693,17 +655,17 @@ CLREOL2       JSR   CHARADDR               ; Set VDUADDR=>start of line
               LDA   #$A0
               BCS   :MAIN                  ; Odd cols in main mem
               STA   (VDUADDR),Y            ; Even cols in aux
-              BRA   :NOTMAIN
+              BRA   :SKIPMAIN
 :MAIN         PHP
               SEI
               STA   $C004                  ; Write to main
               STA   (VDUADDR),Y
               STA   $C005                  ; Write to aux
               PLP
-:NOTMAIN      INX
+:SKIPMAIN     INX
               CPX   TXTWINRGT
               BMI   :L1
-              BRA   :DONE
+              BRA   CLREOLDONE
 :FORTY        LDA   #$A0
 :L2           PHP
               SEI
@@ -714,30 +676,39 @@ CLREOL2       JSR   CHARADDR               ; Set VDUADDR=>start of line
               INY
               CPY   TXTWINRGT
               BMI   :L2
-:DONE         DEC   TXTWINRGT
+CLREOLDONE    DEC   TXTWINRGT
               BIT   VDUSCREEN
-              BPL   CLREOL2OK
+              BPL   :NOHIRES
               JMP   HSCRCLREOL             ; Clear an HGR line
-CLREOL2OK      RTS
-
-** TODO ....
-CLREOL2GS      LDX   #1
-:L2           LDY   #39
-              LDA   #$A0
-:L3           >>>   WRTMAIN
-              STA   [VDUADDR],Y
-              >>>   WRTAUX
-              DEY
-              BPL   :L3
-              LDA   VDUBANK
-              EOR   #$01
+:NOHIRES      RTS
+CLREOLGS      BIT   $C01F
+              BPL   :FORTY                 ; 40-col mode
+:EIGHTY       LDX   VDUTEXTX               ; Addr offset for column
+:L1           TXA                          ; Column/2 into Y
+              LSR
+              TAY
+              BCS   :E0                    ; Odd cols
+              LDA   #$E1                   
               STA   VDUBANK
-              DEX
-              BPL   :L2
-              BIT   VDUSCREEN
-              BPL   CLREOL2OK
-              JMP   HSCRCLREOL             ; Clear an HGR line
-              RTS
+              LDA   #$A0
+              STA   [VDUADDR],Y            ; Even cols in bank $E1
+              BRA   :SKIPE0
+:E0           LDA   #$E0
+              STA   VDUBANK
+              LDA   #$A0
+              STA   [VDUADDR],Y            ; Odd cols in bank $E0
+:SKIPE0       INX
+              CPX   TXTWINRGT
+              BMI   :L1
+              BRA   CLREOLDONE
+:FORTY        LDA   #$E0
+              STA   VDUBANK
+              LDA   #$A0
+:L2           STA   [VDUADDR],Y
+              INY
+              CPY   TXTWINRGT
+              BMI   :L2
+              BRA   CLREOLDONE
 
 
 * Scroll areas of the screen
