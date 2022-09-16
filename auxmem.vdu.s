@@ -686,9 +686,7 @@ CLREOL2       JSR   CHARADDR               ; Set VDUADDR=>start of line
               INC   TXTWINRGT
               BIT   $C01F
               BPL   :FORTY                 ; 40-col mode
-:EIGHTY       TYA                          ; Addr offset for column
-              ASL
-              TAX                          ; Column number
+:EIGHTY       LDX   VDUTEXTX               ; Addr offset for column
 :L1           TXA                          ; Column/2 into Y
               LSR
               TAY
