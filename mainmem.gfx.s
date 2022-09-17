@@ -145,6 +145,7 @@ DRAWCHAR    >>>   ENTMAIN
 
 * Copy text line A+1 to line A 
 HGRSCR1L    >>>   ENTMAIN
+            INC   MTXTWINRGT
             ASL                     ; Dest addr->A4L,A4H
             TAX
             LDA   MHGRTAB,X
@@ -158,11 +159,11 @@ HGRSCR1L    >>>   ENTMAIN
             LDA   MHGRTAB+1,X
             STA   A1H
             LDX   #$00
-:L1         LDY   #$00
+:L1         LDY   MTXTWINLFT
 :L2         LDA   (A1L),Y
             STA   (A4L),Y
             INY
-            CPY   #40               ; 40 chars in line
+            CPY   MTXTWINRGT
             BNE   :L2
             INC   A1H               ; Advance source 1024 bytes
             INC   A1H
@@ -207,6 +208,7 @@ LINETYPE    DB    $00               ; 0 normal, 1 XOR
 PLOTMODE    DB    $00               ; K value for PLOT K,X,Y
 HGRADDR     DW    $0000             ; Address 1st line of HGR char
 MVDUTEXTX   DB    $00               ; Main mem copy of VDUTEXTX
+MTXTWINLFT  DB    $00               ; Main mem copy of TEXTWINLFT
 MTXTWINRGT  DB    $00               ; Main mem copy of TEXTWINRGT
 
 * Addresses of start of pixel rows in PAGE1

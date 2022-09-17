@@ -35,7 +35,13 @@ PRCHRSOFT    CMP   #$A0              ; Convert to screen code
 PUTCHRET     >>>   ENTAUX
              RTS
 
-HSCR1LINE    >>>   XF2MAIN,HGRSCR1L
+HSCR1LINE    >>>   WRTMAIN
+             LDX   TXTWINLFT
+             STX   MTXTWINLFT
+             LDX   TXTWINRGT
+             STX   MTXTWINRGT
+             >>>   WRTAUX
+             >>>   XF2MAIN,HGRSCR1L
 HSCR1RET     >>>   ENTAUX
              RTS
 
