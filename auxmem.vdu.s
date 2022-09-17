@@ -785,7 +785,7 @@ SCR1LNDONE    DEC   TXTWINRGT
               BIT   VDUSCREEN
               BMI   SCR1SOFT               ; Scroll graphics screen
               RTS
-SCR1LINEGS    LDX   VDUTEXTX
+SCR1LINEGS    LDX   TXTWINLFT
               BIT   $C01F
               BPL   :FORTY                 ; 40-col mode
 :EIGHTY       
