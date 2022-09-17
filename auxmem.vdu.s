@@ -783,8 +783,8 @@ SCR1LINE      PHA
               CPY   TXTWINRGT
               BMI   :L2
 SCR1LNDONE    DEC   TXTWINRGT
-              BIT   VDUSCREEN
               PLA
+              BIT   VDUSCREEN
               BMI   SCR1SOFT               ; Scroll graphics screen
               RTS
 SCR1LINEGS    LDX   TXTWINLFT
