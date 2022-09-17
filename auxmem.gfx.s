@@ -47,9 +47,14 @@ HSCRCLREOL   LDA   VDUTEXTY
              STA   HGRADDR+0
              LDA   HGRTAB+1,X
              STA   HGRADDR+1
+             LDA   VDUTEXTX
+             STA   MVDUTEXTX
+             LDA   TXTWINRGT
+             STA   MTXTWINRGT
              >>>   WRTAUX
-             >>>   XF2MAIN,HCLRLINE
+             >>>   XF2MAIN,HCLREOL
 
+* VDU16 (CLG) clears the whole HGR screen right now
 HSCRCLEAR    >>>   XF2MAIN,CLRHGR
 VDU16RET     >>>   ENTAUX
              STZ   XPIXEL+0

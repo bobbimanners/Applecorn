@@ -619,6 +619,9 @@ VDU12         STZ   FXLINES
 
 * Clear the text screen buffer
 :L1           JSR   CLREOL
+              BIT   VDUSCREEN
+              BPL   :S2
+              JSR   HSCRCLREOL
 :S2           LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
               BEQ   :S3
@@ -628,9 +631,8 @@ VDU12         STZ   FXLINES
               STA   VDUTEXTY               ; ROW
               LDA   TXTWINLFT
               STA   VDUTEXTX               ; COL
-              BIT   VDUSCREEN
-              BMI   VDU12SOFT              ; Graphics mode
               RTS
+
 * Clear the graphics screen buffer
 VDU12SOFT     JMP   VDU16                  ; *TEMP*
 
