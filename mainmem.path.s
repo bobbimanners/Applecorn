@@ -78,6 +78,7 @@ PREPATH     LDX   MOSFILE      ; Length
 :APPEND     JSR   APFXMF       ; Append MOSFILE->PREFIX
             JSR   PFXtoMF      ; Copy back to MOSFILE
 :EXIT       JSR   DIGCONV      ; Handle initial digits
+            JSR   USCONV       ; Handle any underscores
             CLC
             RTS
 :ERR        LDA   #$40         ; $40=Bad filename
@@ -157,6 +158,18 @@ APFXMF      LDY   PREFIX       ; Length of PREFIX
             BRA   :L1
 :DONE       STY   PREFIX       ; Update length PREFIX
             RTS
+
+* Scan pathname in MOSFILE converting '_' to '.'
+USCONV      LDX   MOSFILE      ; Length
+            BEQ   :EXIT        ; Nothing to replace
+:L1         LDA   MOSFILE,X
+            CMP   #'_'
+            BNE   :S1
+            LDA   #'.'
+            STA   MOSFILE,X
+:S1         DEX
+            BNE   :L1
+:EXIT       RTS
 
 * Scan pathname in MOSFILE converting files/dirs
 * starting with digit by adding 'N' before.
