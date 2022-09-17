@@ -738,6 +738,7 @@ SCR1LINE      PHA
               DEX
               BPL   :L0
               PLA
+              PHA
               INC   A
               JSR   CHARADDRY              ; VDUADDR=>line A+1
               INC   TXTWINRGT
@@ -783,6 +784,7 @@ SCR1LINE      PHA
               BMI   :L2
 SCR1LNDONE    DEC   TXTWINRGT
               BIT   VDUSCREEN
+              PLA
               BMI   SCR1SOFT               ; Scroll graphics screen
               RTS
 SCR1LINEGS    LDX   TXTWINLFT
