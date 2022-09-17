@@ -641,7 +641,7 @@ VDU22G        STA   $C050                  ; Enable Graphics
               JMP   VDU12                  ; Clear text and HGR screen
 
 
-* Clear to EOL
+* Clear to EOL, respecting text window boundaries
 CLREOL        JSR   CHARADDR               ; Set VDUADDR=>start of line
               INC   TXTWINRGT
               BIT   VDUBANK
@@ -729,58 +729,90 @@ SCROLLER      LDA   TXTWINTOP
               JSR   COPYSWAP1
 :L2           RTS
 
-* Copy line A+1 to line A
+* Copy line A+1 to line A, respecting text window boundaries
 SCR1LINE      PHA
               JSR   CHARADDRY              ; VDUADDR=>line A
               LDX   #2
-:L1           LDA   VDUADDR,X              ; Copy to VDUADDR2
+:L0           LDA   VDUADDR,X              ; Copy VDUADDR->VDUADDR2
               STA   VDUADDR2,X
               DEX
-              BPL   :L1
+              BPL   :L0
               PLA
-              PHA
               INC   A
               JSR   CHARADDRY              ; VDUADDR=>line A+1
+              INC   TXTWINRGT
               BIT   VDUBANK
-              BMI   SCROLLGS
-              LDY   #39
-:L2           LDA   (VDUADDR),Y
+              BMI   SCR1LINEGS             ; AppleGS
+              LDX   TXTWINLFT              ; Addr offset for column
+              BIT   $C01F
+              BPL   :FORTY                 ; 40-col mode
+:EIGHTY
+:L1           TXA                          ; Column/2 into Y
+              LSR
+              TAY
+              BCS   :MAIN                  ; Odd cols in main mem
+              LDA   (VDUADDR),Y            ; Even cols in aux
               STA   (VDUADDR2),Y
-              PHP
+              BRA   :SKIPMAIN
+:MAIN         PHP
               SEI
-              STA   $C002                  ; Read main mem
-              STA   $C004                  ; Write main mem
+              STA   $C002                  ; Read from main
+              STA   $C004                  ; Write to main
               LDA   (VDUADDR),Y
               STA   (VDUADDR2),Y
-              STA   $C003                  ; Read aux mem
-              STA   $C005                  ; Write aux mem
+              STA   $C003                  ; Read from aux
+              STA   $C005                  ; Write to aux
               PLP
-              DEY
-              BPL   :L2
-              PLA
-              BIT   VDUSCREEN              ; Also screen graphics screen
-              BMI   SCR1SOFT
+:SKIPMAIN     INX
+              CPX   TXTWINRGT
+              BMI   :L1
+              BRA   SCR1LNDONE
+:FORTY        TXA
+              TAY
+:L2           PHP
+              SEI
+              STA   $C002                  ; Read from main
+              STA   $C004                  ; Write to main
+              LDA   (VDUADDR),Y
+              STA   (VDUADDR2),Y
+              STA   $C003                  ; Read from aux
+              STA   $C005                  ; Write to aux
+              PLP
+              INY
+              CPY   TXTWINRGT
+              BMI   :L2
+SCR1LNDONE    DEC   TXTWINRGT
+              BIT   VDUSCREEN
+              BMI   SCR1SOFT               ; Scroll graphics screen
               RTS
-SCROLLGS      LDX   #1
-:L4           LDY   #39
-:L5           >>>   WRTMAIN
-              STA   $C002                  ; Read main mem
-              LDA   [VDUADDR],Y
-              STA   [VDUADDR2],Y
-              STA   $C003                  ; Read aux mem
-              >>>   WRTAUX
-              DEY
-              BPL   :L5
-              LDA   VDUBANK
-              EOR   #$01
+SCR1LINEGS    BIT   $C01F
+              BPL   :FORTY                 ; 40-col mode
+:EIGHTY       LDX   VDUTEXTX               ; Addr offset for column
+:L1           TXA                          ; Column/2 into Y
+              LSR
+              TAY
+              BCS   :E0                    ; Odd cols
+              LDA   #$E1                   
               STA   VDUBANK
-              STA   VDUBANK2
-              DEX
-              BPL   :L4
-              PLA
-              BIT   VDUSCREEN              ; Also screen graphics screen
-              BMI   SCR1SOFT
-              RTS
+              LDA   [VDUADDR],Y            ; Even cols in bank $E1
+              STA   [VDUADDR2],Y
+              BRA   :SKIPE0
+:E0           LDA   #$E0
+              STA   VDUBANK
+              LDA   [VDUADDR],Y            ; Odd cols in bank $E0
+              STA   [VDUADDR2],Y
+:SKIPE0       INX
+              CPX   TXTWINRGT
+              BMI   :L1
+              BRA   SCR1LNDONE
+:FORTY        LDA   #$E0
+              STA   VDUBANK
+:L2           LDA   [VDUADDR],Y
+              STA   [VDUADDR2],Y
+              INY
+              CPY   TXTWINRGT
+              BMI   :L2
+              BRA   SCR1LNDONE
 
 * Copy text line A+1 to line A for HGR bitmap gfx mode
 SCR1SOFT      JMP   HSCR1LINE
