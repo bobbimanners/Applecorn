@@ -785,27 +785,32 @@ SCR1LNDONE    DEC   TXTWINRGT
               BIT   VDUSCREEN
               BMI   SCR1SOFT               ; Scroll graphics screen
               RTS
-SCR1LINEGS    BIT   $C01F
+SCR1LINEGS    LDX   VDUTEXTX
+              BIT   $C01F
               BPL   :FORTY                 ; 40-col mode
-:EIGHTY       LDX   VDUTEXTX               ; Addr offset for column
+:EIGHTY       
 :L1           TXA                          ; Column/2 into Y
               LSR
               TAY
               BCS   :E0                    ; Odd cols
               LDA   #$E1                   
               STA   VDUBANK
+              STA   VDUBANK2
               LDA   [VDUADDR],Y            ; Even cols in bank $E1
               STA   [VDUADDR2],Y
               BRA   :SKIPE0
 :E0           LDA   #$E0
               STA   VDUBANK
+              STA   VDUBANK2
               LDA   [VDUADDR],Y            ; Odd cols in bank $E0
               STA   [VDUADDR2],Y
 :SKIPE0       INX
               CPX   TXTWINRGT
               BMI   :L1
               BRA   SCR1LNDONE
-:FORTY        LDA   #$E0
+:FORTY        TXA
+              TAY
+              LDA   #$E0
               STA   VDUBANK
 :L2           LDA   [VDUADDR],Y
               STA   [VDUADDR2],Y
