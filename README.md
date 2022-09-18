@@ -68,8 +68,8 @@ subdirectory.
 
 The Applecorn diskette includes all of the example programs
 which were provided on diskette with COMAL, Forth, Lisp and ISO Pascal.  The
-main BCPL diskette, which contains essential tools is also included on the
-Applecorn diskette.
+main BCPL diskette, which contains tools that are essential for using the
+BCPL ROM, is also included on the Applecorn diskette.
 
 <img src="Applecorn-Collage.png" alt="Applecorn Collage" height="432px" width="768px"/>
 
