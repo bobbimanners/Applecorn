@@ -19,40 +19,6 @@ ROMMENU      JSR   HOME               ; Clear screen
              BNE   :LP0
 :LP1
 
-*            LDA   #<TITLE1    ; Print title
-*            STA   A1L
-*            LDA   #>TITLE1
-*            STA   A1H
-*            JSR   PRSTRA1
-             JSR   CROUT
-* TEMP
-* LDA #$00
-* JMP :KEYOK
-* TEMP
-*            JSR   CROUT
-*            LDA   #<TITLE2
-*            STA   A1L
-*            LDA   #>TITLE2
-*            STA   A1H
-*            JSR   PRSTRA1
-*            JSR   CROUT
-*            JSR   CROUT
-*            JSR   CROUT
-*
-*            LDX   #$00        ; Print menu
-*:L1         LDA   MSGTBL,X
-*            STA   A1L
-*            INX
-*            LDA   MSGTBL,X
-*            STA   A1H
-*            INX
-*            JSR   PRSTRA1
-*            JSR   CROUT
-*            JSR   CROUT
-*            CPX   #8*2
-*            BEQ   :KEYIN
-*            BRA   :L1
-
 :KEYIN       LDA   $C000              ; Kdb data / strobe
              BPL   :KEYIN             ; Wait for keystroke
              STA   $C010              ; Clear strobe
@@ -121,31 +87,10 @@ SELECTROM    >>>   ENTMAIN
 :SELECTDONE  >>>   XF2AUX,ROMSELDONE
 
 
-** Print a string pointed to by A1L/A1H
-** Trashes A, preserves X and Y
-*PRSTRA1     PHY
-*            LDY   #$00
-*:L1         LDA   (A1L),Y
-*            BEQ   :NULL
-*            JSR   COUT1
-*            INY
-*            BRA   :L1
-*:NULL       PLY
-*            RTS
-
 TITLE1       ASC   "** APPLECORN **"
              DB    $8D,$8D
 TITLE2       ASC   "Choose a BBC Micro ROM:"
              DB    $8D,$8D
-
-*MSGTBL      DW    MSG1
-*            DW    MSG2
-*            DW    MSG3
-*            DW    MSG4
-*            DW    MSG5
-*            DW    MSG6
-*            DW    MSG7
-*            DW    MSG8
 
 MSG1         ASC   " 1. BBC BASIC"
              DB    $8D,$8D
