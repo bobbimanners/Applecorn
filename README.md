@@ -57,11 +57,19 @@ is set to `&0E00`.
 - Currently I have verified operation with:
   - BBC BASIC
   - Acornsoft COMAL
-  - Acornsoft FORTH
+  - Acornsoft Forth
   - Acornsoft Lisp
   - Acornsoft MicroProlog
   - Acornsoft BCPL
-  - Acronsoft ISO-Pascal (supplied on two 16KB ROMs)
+  - Acornsoft ISO-Pascal (supplied on two 16KB ROMs)
+
+All of the language manuals are provided.  They may be found in the `Manuals`
+subdirectory.
+
+The Applecorn diskette includes all of the example programs
+which were provided on diskette with COMAL, Forth, Lisp and ISO Pascal.  The
+main BCPL diskette, which contains essential tools is also included on the
+Applecorn diskette.
 
 <img src="Applecorn-Collage.png" alt="Applecorn Collage" height="432px" width="768px"/>
 
