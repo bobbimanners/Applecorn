@@ -518,8 +518,16 @@ VDU10         LDA   VDUTEXTY               ; ROW
 * Move cursor up
 VDU11         LDA   VDUTEXTY               ; ROW
               CMP   TXTWINTOP
-              BEQ   :DONE
-              DEC   VDUTEXTY               ; ROW
+              BNE   :S1
+              LDA   VDUTEXTX               ; COL
+              CMP   TXTWINLFT
+              BNE   :DONE
+              JSR   RSCROLLER
+              LDA   TXTWINLFT
+              STA   VDUTEXTX
+              JSR   CLREOL
+              RTS
+:S1           DEC   VDUTEXTY               ; ROW
 :DONE         RTS
 
 * Move to start of line
@@ -715,7 +723,7 @@ CLREOLGS      BIT   $C01F
 
 * Scroll areas of the screen
 ****************************
-* Scroll text window one line
+* Scroll text window up one line
 SCROLLER      LDA   TXTWINTOP
 :L1           PHA
               JSR   SCR1LINE
@@ -724,12 +732,45 @@ SCROLLER      LDA   TXTWINTOP
               CMP   TXTWINBOT
               BNE   :L1
               BIT   VDUSTATUS
-              BVC   :L2                    ; Copy cursor not active
+              BVC   :S1                    ; Copy cursor not active
               JSR   COPYSWAP1
               LDA   #11
               JSR   OUTCHARGO
               JSR   COPYSWAP1
-:L2           RTS
+:S1           RTS
+
+* Scroll text window down one line
+RSCROLLER     DEC   TXTWINTOP
+              LDA   TXTWINBOT
+              DEC   A
+:L1           PHA
+              JSR   RSCR1LINE
+              PLA
+              DEC   A
+              CMP   TXTWINTOP
+              BNE   :L1
+              BIT   VDUSTATUS
+              BVC   :S1                    ; Copy cursor not active
+              JSR   COPYSWAP1
+              LDA   #11
+              JSR   OUTCHARGO
+              JSR   COPYSWAP1
+:S1           INC   TXTWINTOP
+              RTS
+
+* Copy line A to line A+1, respecting text window boundaries
+RSCR1LINE     PHA
+              INC   A
+              JSR   CHARADDRY              ; VDUADDR=>line A+1
+              LDX   #2
+:L0           LDA   VDUADDR,X              ; Copy VDUADDR->VDUADDR2
+              STA   VDUADDR2,X
+              DEX
+              BPL   :L0
+              PLA
+              PHA
+              JSR   CHARADDRY              ; VDUADDR=>line A+1
+              BRA   DOSCR1LINE
 
 * Copy line A+1 to line A, respecting text window boundaries
 SCR1LINE      PHA
@@ -743,7 +784,7 @@ SCR1LINE      PHA
               PHA
               INC   A
               JSR   CHARADDRY              ; VDUADDR=>line A+1
-              INC   TXTWINRGT
+DOSCR1LINE    INC   TXTWINRGT
               BIT   VDUBANK
               BMI   SCR1LINEGS             ; AppleGS
               LDX   TXTWINLFT              ; Addr offset for column
