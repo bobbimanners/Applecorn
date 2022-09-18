@@ -533,7 +533,7 @@ VDU13         LDA   #$BF
 VDU30         LDA   TXTWINTOP
               STA   VDUTEXTY               ; ROW
               LDA   TXTWINLFT
-              STZ   VDUTEXTX               ; COL
+              STA   VDUTEXTX               ; COL
               RTS
 
 * Move to (X,Y)
