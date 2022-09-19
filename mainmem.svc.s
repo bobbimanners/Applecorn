@@ -365,6 +365,8 @@ GBPB          >>>   ENTMAIN
 :S1           INC   GBPBPTR+0          ; Increment file pointer
               BNE   :S2
               INC   GBPBPTR+1
+              BNE   :S2
+              INC   GBPBPTR+2
 :S2           LDA   GBPBNUM+0          ; Decrement number of bytes
               BNE   :S3
               LDA   GBPBNUM+1
