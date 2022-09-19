@@ -327,8 +327,46 @@ CFILE         >>>   ENTMAIN
 * A=2 : Write bytes to disk, ignoring seq pointer
 * A=3 : Read bytes from disk, using new seq pointer
 * A=4 : Read bytes from disk, ignoring seq pointer
+* All others unsupported
 GBPB          >>>   ENTMAIN
 *             ...
+              LDY   GBPBHDL            ; File ref number
+              STY   READPL2+1
+:L1           JSR   MLI                ; Read one byte
+              DB    READCMD
+              DW    READPL2
+              BCS   :ERR
+              LDA   GBPBDAT+0
+              STA   ZPMOS+0
+              LDA   GBPBDAT+1
+              STA   ZPMOS+1
+              LDA   BLKBUF
+              >>>   WRTAUX
+              STA   (ZPMOS)            ; Store byte in aux mem
+              >>>   WRTMAIN
+              INC   GBPBDAT+0          ; Increment data pointer
+              BNE   :S1
+              INC   GBPBDAT+1
+:S1           LDA   GBPBNUM+0          ; Decrement number of bytes
+              BNE   :S2
+              LDA   GBPBNUM+1
+              BEQ   :ZERO              ; Zero remaining, done!
+              DEC   GBPBNUM+1
+:S2           DEC   GBPBNUM+0
+              BRA   :L1
+*             ...
+:ERR
+:ZERO         LDA   GBPBAUXCB+0        ; Copy control block back ..
+              STA   ZPMOS+0            ; .. to aux memory
+              LDA   GBPBAUXCB+1
+              STA   ZPMOS+1
+              LDY   #$0C+1
+              >>>   WRTAUX
+:L2           LDA   GBPBBLK,Y
+              STA   (ZPMOS),Y
+              DEY
+              BPL   :L2
+              >>>   WRTMAIN
               >>>   XF2AUX,OSGBPBRET
 
 * ProDOS file handling for MOS OSBGET call

@@ -60,22 +60,31 @@ OSFINDRET    >>>   ENTAUX
              RTS
 
 * OSGBPB - Get/Put a block of bytes to/from an open file
-GBPBHND      PHX
+* Supports commands A=1,2,3,4 others unsupported
+GBPBHND      CMP   #4
+             BCC   :S1
+             RTS
+:S1          PHX
              PHY
              PHA
+             >>>   WRTMAIN
+             STX   GBPBAUXCB+0               ; Copy address of control block ..
+             STY   GBPBAUXCB+1               ; .. to main mem
+             >>>   WRTAUX
              JSR   XYtoLPTR                  ; Copy control block to GBPBBLK ..
              LDY   #$0C                      ; .. in main memory
              >>>   WRTMAIN
 :L1          LDA   (OSLPTR),Y
              STA   GBPBBLK,Y
              DEY
-             BNE   :L1
+             BPL   :L1
              >>>   WRTAUX
-             PLA                             ; A represents the command
+             PLA                             ; A => OSGBPB command
              >>>   XF2MAIN,GBPB
 OSGBPBRET    >>>   ENTAUX
              PLY
              PLX
+             LDA   #$00                      ; A=0 means supported command
              RTS
 
 * OSBPUT - write one byte to an open file

@@ -22,8 +22,9 @@ GBPBHDL     EQU   GBPBBLK+0   ; File handle
 GBPBDAT     EQU   GBPBBLK+1   ; Pointer to data (4 bytes)
 GBPBNUM     EQU   GBPBBLK+5   ; Num bytes to transfer (4 bytes)
 GBPBPTR     EQU   GBPBBLK+9   ; File pointer (4 bytes)
+GBPBAUXCB   EQU   GBPBBLK+13  ; Address of aux control block (2 bytes)
 
-*                 $038F       ; $2F bytes here
+*                 $0391       ; $2D bytes here
 
 * Control block for OSFILE
 FILEBLK     EQU   $03BE
