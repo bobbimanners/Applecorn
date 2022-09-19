@@ -322,6 +322,14 @@ CFILE         >>>   ENTMAIN
               PLX
               BCS   FINDEXIT
 
+* ProDOS file handling for MOS OSGBPB call
+* A=1 : Write bytes to disk, using new seq pointer
+* A=2 : Write bytes to disk, ignoring seq pointer
+* A=3 : Read bytes from disk, using new seq pointer
+* A=4 : Read bytes from disk, ignoring seq pointer
+GBPB          >>>   ENTMAIN
+*             ...
+              >>>   XF2AUX,OSGBPBRET
 
 * ProDOS file handling for MOS OSBGET call
 * Returns with char read in A and error num in Y (or 0)
