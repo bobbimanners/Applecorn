@@ -881,14 +881,17 @@ VDU16         JMP   HSCRCLEAR
 * Colour control
 ****************
 * VDU 20 - Reset to default colours
-VDU20         LDA   #$F0
-              STA   $C022                  ; Set text palette
+VDU20
+* THE FOLLOWING TWO LINES ARE FOR GS ONLY & NOT SAFE ON //c
+*             LDA   #$F0
+*             STA   $C022                  ; Set text palette
               LDX   #VDUCOLEND-TXTFGD
               LDA   #$00
 VDU20LP       STA   TXTFGD,X               ; Clear all colours
               DEX                          ; and gcol actions
               BPL   VDU20LP
-              STA   $C034                  ; Set border
+* THE FOLLOWING LINE IS FOR GS ONLY & NOT SAFE ON //c
+*             STA   $C034                  ; Set border
               LDA   #$80
               JSR   HSCRSETTCOL            ; Set txt background
               LDX   #$00
