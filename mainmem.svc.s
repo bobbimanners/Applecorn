@@ -329,8 +329,23 @@ CFILE         >>>   ENTMAIN
 * A=4 : Read bytes from disk, ignoring seq pointer
 * All others unsupported
 GBPB          >>>   ENTMAIN
-*             ...
-              LDY   GBPBHDL            ; File ref number
+*
+* TODO: THIS ALWAYS READS ATM, NEEDS TO WRITE ALSO!!
+*
+              LSR   A                  ; Test LSB of A
+              BCC   :NOSEEK            ; A=2 or 4, no seek
+              LDA   GBPBHDL            ; File ref number
+              STA   GMARKPL+1
+              LDY   #$02               ; Copy file pointer
+:L0           LDA   GBPBPTR+0,Y
+              STA   GMARKPL+2,Y
+              DEY
+              BMI   :L0
+              JSR   MLI                ; Perform seek
+              DB    SMARKCMD
+              DW    GMARKPL
+              BCS   :ERR
+:NOSEEK       LDY   GBPBHDL            ; File ref number
               STY   READPL2+1
 :L1           JSR   MLI                ; Read one byte
               DB    READCMD
@@ -347,12 +362,15 @@ GBPB          >>>   ENTMAIN
               INC   GBPBDAT+0          ; Increment data pointer
               BNE   :S1
               INC   GBPBDAT+1
-:S1           LDA   GBPBNUM+0          ; Decrement number of bytes
+:S1           INC   GBPBPTR+0          ; Increment file pointer
               BNE   :S2
+              INC   GBPBPTR+1
+:S2           LDA   GBPBNUM+0          ; Decrement number of bytes
+              BNE   :S3
               LDA   GBPBNUM+1
               BEQ   :ZERO              ; Zero remaining, done!
               DEC   GBPBNUM+1
-:S2           DEC   GBPBNUM+0
+:S3           DEC   GBPBNUM+0
               BRA   :L1
 *             ...
 :ERR
@@ -360,7 +378,7 @@ GBPB          >>>   ENTMAIN
               STA   ZPMOS+0            ; .. to aux memory
               LDA   GBPBAUXCB+1
               STA   ZPMOS+1
-              LDY   #$0C+1
+              LDY   #$0C
               >>>   WRTAUX
 :L2           LDA   GBPBBLK,Y
               STA   (ZPMOS),Y
