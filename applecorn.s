@@ -149,6 +149,7 @@ IENTMAIN    MAC
 
 * Enable writing to main memory (for code running in aux)
 WRTMAIN     MAC
+            PHP
             SEI               ; Keeps IRQ handler easy
             STA   $C004       ; Write to main memory
             EOM
@@ -156,11 +157,12 @@ WRTMAIN     MAC
 * Go back to writing to aux (for code running in aux)
 WRTAUX      MAC
             STA   $C005       ; Write to aux memory
-            CLI               ; Normal service resumed
+            PLP               ; Normal service resumed
             EOM
 
 * Manually enable AltZP (for code running in main)
 ALTZP       MAC
+            PHP
             SEI               ; Disable IRQ when AltZP on
             LDA   $C08B       ; R/W LC bank 1
             LDA   $C08B
@@ -172,7 +174,7 @@ MAINZP      MAC
             STA   $C008       ; Main ZP and LC
             LDA   $C081       ; Bank ROM back in
             LDA   $C081
-            CLI               ; Turn IRQ back on
+            PLP               ; Turn IRQ back on
             EOM
 
 * Code is all included from PUT files below ...
