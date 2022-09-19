@@ -361,9 +361,7 @@ PRCHR4        JSR   CHARADDR               ; Find character address
               TXA                          ; Get character back
               BIT   VDUBANK
               BPL   PRCHR5                 ; Not AppleGS, use short write
-              >>>   WRTMAIN
               STA   [VDUADDR],Y
-              >>>   WRTAUX
               BRA   PRCHR8
 PRCHR5        PHP                          ; Disable IRQs while
               SEI                          ;  toggling memory
