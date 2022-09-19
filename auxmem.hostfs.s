@@ -60,11 +60,23 @@ OSFINDRET    >>>   ENTAUX
              RTS
 
 * OSGBPB - Get/Put a block of bytes to/from an open file
-GBPBHND      LDA   #<OSGBPBM
-             LDY   #>OSGBPBM
-             JMP   PRSTR
-OSGBPBM      ASC   'OSGBPB.'
-             DB    $00
+GBPBHND      PHX
+             PHY
+             PHA
+             JSR   XYtoLPTR                  ; Copy control block to GBPBBLK ..
+             LDY   #$0C                      ; .. in main memory
+             >>>   WRTMAIN
+:L1          LDA   (OSLPTR),Y
+             STA   GBPBBLK,Y
+             DEY
+             BNE   :L1
+             >>>   WRTAUX
+             PLA                             ; A represents the command
+             >>>   XF2MAIN,GBPB
+OSGBPBRET    >>>   ENTAUX
+             PLY
+             PLX
+             RTS
 
 * OSBPUT - write one byte to an open file
 BPUTHND      PHX

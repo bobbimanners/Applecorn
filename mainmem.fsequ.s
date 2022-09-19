@@ -15,7 +15,14 @@ CMDPATH     EQU   $0280       ; Path used to start Applecorn
 MOSFILE1    EQU   $0300       ; length + 64 bytes
 MOSFILE2    EQU   $0341       ; length + 64 bytes
 MOSFILE     EQU   MOSFILE1
-*                 $0382           ; $3C bytes here
+
+GBPBBLK     EQU   $0382
+GBPBHDL     EQU   $GBPBBLK+0  ; File handle
+GBPBDAT     EQU   $GBPBBLK+1  ; Pointer to data
+GBPBNUM     EQU   $GBPBBLK+5  ; Num bytes to transfer
+GBPBPTR     EQU   $GBPBBLK+9  ; File pointer
+GBPBEND     EQU   GBPBBLK+12
+*                 $038F       ; $2F bytes here
 *
 FILEBLK     EQU   $03BE
 FBPTR       EQU   FILEBLK+0   ; Pointer to name (in aux)
