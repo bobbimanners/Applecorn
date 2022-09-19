@@ -84,8 +84,18 @@ GBPBHND      CMP   #4
 OSGBPBRET    >>>   ENTAUX
              PLY
              PLX
+             PHY
+             LDY   #$05                      ; Check if bytes left = 0
+             LDA   (OSLPTR),Y
+             BNE   :BYTESLEFT
+             INY
+             LDA   (OSLPTR),Y
+             BNE   :BYTESLEFT
+             CLC
+             BRA   :S2
+:BYTESLEFT   SEC                             ; Set carry if bytes left
+:S2          PLY
              LDA   #$00                      ; A=0 means supported command
-             CLC                             ; SHOULD SET CARRY IF EOF
              RTS
 
 * OSBPUT - write one byte to an open file
