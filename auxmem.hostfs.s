@@ -63,7 +63,7 @@ OSFINDRET    >>>   ENTAUX
 * Supports commands A=1,2,3,4 others unsupported
 GBPBHND      CMP   #4
              BCC   :S1
-             RTS
+             RTS                             ; Not supported: regs unchanged
 :S1          PHX
              PHY
              PHA
@@ -85,6 +85,7 @@ OSGBPBRET    >>>   ENTAUX
              PLY
              PLX
              LDA   #$00                      ; A=0 means supported command
+             CLC                             ; SHOULD SET CARRY IF EOF
              RTS
 
 * OSBPUT - write one byte to an open file
