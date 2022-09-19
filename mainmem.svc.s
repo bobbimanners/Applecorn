@@ -340,14 +340,14 @@ GBPB          >>>   ENTMAIN
 :L0           LDA   GBPBPTR+0,Y
               STA   GMARKPL+2,Y
               DEY
-              BMI   :L0
+              BPL   :L0
               JSR   MLI                ; Perform seek
               DB    SMARKCMD
               DW    GMARKPL
               BCS   :ERR
-:NOSEEK       LDY   GBPBHDL            ; File ref number
-              STY   READPL2+1
-:L1           JSR   MLI                ; Read one byte
+:NOSEEK       LDA   GBPBHDL            ; File ref number
+              STA   READPL2+1
+:L1           JSR   MLI                ; Read one byte from file
               DB    READCMD
               DW    READPL2
               BCS   :ERR
