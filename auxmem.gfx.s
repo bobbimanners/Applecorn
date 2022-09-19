@@ -35,6 +35,7 @@ PRCHRSOFT    CMP   #$A0              ; Convert to screen code
 PUTCHRET     >>>   ENTAUX
              RTS
 
+* Forwards scroll one line
 HSCR1LINE    >>>   WRTMAIN
              LDX   TXTWINLFT
              STX   MTXTWINLFT
@@ -43,6 +44,17 @@ HSCR1LINE    >>>   WRTMAIN
              >>>   WRTAUX
              >>>   XF2MAIN,HGRSCR1L
 HSCR1RET     >>>   ENTAUX
+             RTS
+
+* Reverse scroll one line
+HRSCR1LINE   >>>   WRTMAIN
+             LDX   TXTWINLFT
+             STX   MTXTWINLFT
+             LDX   TXTWINRGT
+             STX   MTXTWINRGT
+             >>>   WRTAUX
+             >>>   XF2MAIN,HGRRSCR1L
+HRSCR1RET    >>>   ENTAUX
              RTS
 
 HSCRCLREOL   LDA   VDUTEXTY

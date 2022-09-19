@@ -727,7 +727,10 @@ CLREOLGS      BIT   $C01F
 SCROLLER      LDA   TXTWINTOP
 :L1           PHA
               JSR   SCR1LINE
-              PLA
+              BIT   VDUSCREEN
+              BPL   :S0
+              JSR   SCR1SOFT               ; Scroll graphics screen
+:S0           PLA
               INC
               CMP   TXTWINBOT
               BNE   :L1
@@ -745,7 +748,10 @@ RSCROLLER     DEC   TXTWINTOP
               DEC   A
 :L1           PHA
               JSR   RSCR1LINE
-              PLA
+              BIT   VDUSCREEN
+              BPL   :S0
+              JSR   RSCR1SOFT              ; Scroll graphics screen
+:S0           PLA
               DEC   A
               CMP   TXTWINTOP
               BNE   :L1
@@ -827,8 +833,6 @@ DOSCR1LINE    INC   TXTWINRGT
               BMI   :L2
 SCR1LNDONE    DEC   TXTWINRGT
               PLA
-              BIT   VDUSCREEN
-              BMI   SCR1SOFT               ; Scroll graphics screen
               RTS
 SCR1LINEGS    LDX   TXTWINLFT
               BIT   $C01F
@@ -866,6 +870,9 @@ SCR1LINEGS    LDX   TXTWINLFT
 
 * Copy text line A+1 to line A for HGR bitmap gfx mode
 SCR1SOFT      JMP   HSCR1LINE
+
+* Copy text line A to line A+1 for HGR bitmap gfx mode
+RSCR1SOFT      JMP   HRSCR1LINE
 
 * VDU 16 - CLG, clear graphics window
 VDU16         JMP   HSCRCLEAR

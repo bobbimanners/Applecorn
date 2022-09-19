@@ -178,6 +178,41 @@ HGRSCR1L    >>>   ENTMAIN
             BNE   :L1
             >>>   XF2AUX,HSCR1RET
 
+* Copy text line A to line A+1
+HGRRSCR1L   >>>   ENTMAIN
+            INC   MTXTWINRGT
+            ASL                     ; Source addr->A1L,A1H
+            TAX
+            LDA   MHGRTAB,X
+            STA   A1L
+            LDA   MHGRTAB+1,X
+            STA   A1H
+            INX                     ; Dest addr->A4L,A4H
+            INX
+            LDA   MHGRTAB,X
+            STA   A4L
+            LDA   MHGRTAB+1,X
+            STA   A4H
+            LDX   #$00
+:L1         LDY   MTXTWINLFT
+:L2         LDA   (A1L),Y
+            STA   (A4L),Y
+            INY
+            CPY   MTXTWINRGT
+            BNE   :L2
+            INC   A1H               ; Advance source 1024 bytes
+            INC   A1H
+            INC   A1H
+            INC   A1H
+            INC   A4H               ; Advance dest 1024 bytes
+            INC   A4H
+            INC   A4H
+            INC   A4H
+            INX
+            CPX   #8                ; 8 pixel rows in character
+            BNE   :L1
+            >>>   XF2AUX,HRSCR1RET
+
 * Clear one text line on HGR screen,
 * from current cursor col to text window right limit
 HCLREOL     >>>   ENTMAIN
