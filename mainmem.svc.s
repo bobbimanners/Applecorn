@@ -374,17 +374,19 @@ GBPB          >>>   ENTMAIN
               BRA   :L1
 *             ...
 :ERR
-:ZERO         LDA   GBPBAUXCB+0        ; Copy control block back ..
-              STA   ZPMOS+0            ; .. to aux memory
-              LDA   GBPBAUXCB+1
-              STA   ZPMOS+1
-              LDY   #$0C
+:ZERO         >>>   ALTZP              ; Control block can be in ZP!
               >>>   WRTAUX
+              LDA   GBPBAUXCB+0        ; Copy control block back to aux
+              STA   $B0+0              ; $B0 in AltZP is temp FS workspace
+              LDA   GBPBAUXCB+1
+              STA   $B0+1
+              LDY   #$0C
 :L2           LDA   GBPBBLK,Y
-              STA   (ZPMOS),Y
+              STA   ($B0),Y
               DEY
               BPL   :L2
               >>>   WRTMAIN
+              >>>   MAINZP
               >>>   XF2AUX,OSGBPBRET
 
 * ProDOS file handling for MOS OSBGET call
