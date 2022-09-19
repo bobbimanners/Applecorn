@@ -18,13 +18,13 @@ MOSFILE     EQU   MOSFILE1
 
 * Control block for OSGBPB
 GBPBBLK     EQU   $0382
-GBPBHDL     EQU   $GBPBBLK+0  ; File handle
-GBPBDAT     EQU   $GBPBBLK+1  ; Pointer to data
-GBPBNUM     EQU   $GBPBBLK+5  ; Num bytes to transfer
-GBPBPTR     EQU   $GBPBBLK+9  ; File pointer
-GBPBEND     EQU   GBPBBLK+12
+GBPBHDL     EQU   GBPBBLK+0   ; File handle
+GBPBDAT     EQU   GBPBBLK+1   ; Pointer to data (4 bytes)
+GBPBNUM     EQU   GBPBBLK+5   ; Num bytes to transfer (4 bytes)
+GBPBPTR     EQU   GBPBBLK+9   ; File pointer (4 bytes)
+
 *                 $038F       ; $2F bytes here
-*
+
 * Control block for OSFILE
 FILEBLK     EQU   $03BE
 FBPTR       EQU   FILEBLK+0   ; Pointer to name (in aux)
