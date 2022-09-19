@@ -54,8 +54,6 @@ HRSCR1LINE   >>>   WRTMAIN
              STX   MTXTWINRGT
              >>>   WRTAUX
              >>>   XF2MAIN,HGRRSCR1L
-HRSCR1RET    >>>   ENTAUX
-             RTS
 
 HSCRCLREOL   LDA   VDUTEXTY
              ASL
