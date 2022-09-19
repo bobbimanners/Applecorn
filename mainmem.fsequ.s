@@ -16,6 +16,7 @@ MOSFILE1    EQU   $0300       ; length + 64 bytes
 MOSFILE2    EQU   $0341       ; length + 64 bytes
 MOSFILE     EQU   MOSFILE1
 
+* Control block for OSGBPB
 GBPBBLK     EQU   $0382
 GBPBHDL     EQU   $GBPBBLK+0  ; File handle
 GBPBDAT     EQU   $GBPBBLK+1  ; Pointer to data
@@ -24,6 +25,7 @@ GBPBPTR     EQU   $GBPBBLK+9  ; File pointer
 GBPBEND     EQU   GBPBBLK+12
 *                 $038F       ; $2F bytes here
 *
+* Control block for OSFILE
 FILEBLK     EQU   $03BE
 FBPTR       EQU   FILEBLK+0   ; Pointer to name (in aux)
 FBLOAD      EQU   FILEBLK+2   ; Load address
