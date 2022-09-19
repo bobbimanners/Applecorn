@@ -158,7 +158,7 @@ HGRSCR1L    >>>   ENTMAIN
             STA   A1L
             LDA   MHGRTAB+1,X
             STA   A1H
-            LDX   #$00
+DOHGRSCR1L  LDX   #$00
 :L1         LDY   MTXTWINLFT
 :L2         LDA   (A1L),Y
             STA   (A4L),Y
@@ -193,25 +193,7 @@ HGRRSCR1L   >>>   ENTMAIN
             STA   A4L
             LDA   MHGRTAB+1,X
             STA   A4H
-            LDX   #$00
-:L1         LDY   MTXTWINLFT
-:L2         LDA   (A1L),Y
-            STA   (A4L),Y
-            INY
-            CPY   MTXTWINRGT
-            BNE   :L2
-            INC   A1H               ; Advance source 1024 bytes
-            INC   A1H
-            INC   A1H
-            INC   A1H
-            INC   A4H               ; Advance dest 1024 bytes
-            INC   A4H
-            INC   A4H
-            INC   A4H
-            INX
-            CPX   #8                ; 8 pixel rows in character
-            BNE   :L1
-            >>>   XF2AUX,HRSCR1RET
+            BRA   DOHGRSCR1L
 
 * Clear one text line on HGR screen,
 * from current cursor col to text window right limit
