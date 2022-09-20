@@ -361,7 +361,9 @@ PRCHR4        JSR   CHARADDR               ; Find character address
               TXA                          ; Get character back
               BIT   VDUBANK
               BPL   PRCHR5                 ; Not AppleGS, use short write
+              STA   $C004                  ; Write to main
               STA   [VDUADDR],Y
+              STA   $C005                  ; Write to aux
               BRA   PRCHR8
 PRCHR5        PHP                          ; Disable IRQs while
               SEI                          ;  toggling memory
@@ -699,12 +701,16 @@ CLREOLGS      BIT   $C01F
               LDA   #$E1                   
               STA   VDUBANK
               LDA   #$A0
+              STA   $C004                  ; Write to main
               STA   [VDUADDR],Y            ; Even cols in bank $E1
+              STA   $C005                  ; Write to aux
               BRA   :SKIPE0
 :E0           LDA   #$E0
               STA   VDUBANK
               LDA   #$A0
+              STA   $C004                  ; Write to main
               STA   [VDUADDR],Y            ; Odd cols in bank $E0
+              STA   $C005                  ; Write to aux
 :SKIPE0       INX
               CPX   TXTWINRGT
               BMI   :L1
@@ -712,7 +718,9 @@ CLREOLGS      BIT   $C01F
 :FORTY        LDA   #$E0
               STA   VDUBANK
               LDA   #$A0
-:L2           STA   [VDUADDR],Y
+:L2           STA   $C004                  ; Write to main
+              STA   [VDUADDR],Y
+              STA   $C005                  ; Write to aux
               INY
               CPY   TXTWINRGT
               BMI   :L2
@@ -843,14 +851,22 @@ SCR1LINEGS    LDX   TXTWINLFT
               LDA   #$E1                   
               STA   VDUBANK
               STA   VDUBANK2
+              STA   $C002                  ; Read from main
+              STA   $C004                  ; Write to main
               LDA   [VDUADDR],Y            ; Even cols in bank $E1
               STA   [VDUADDR2],Y
+              STA   $C003                  ; Read from aux
+              STA   $C005                  ; Write to aux
               BRA   :SKIPE0
 :E0           LDA   #$E0
               STA   VDUBANK
               STA   VDUBANK2
+              STA   $C002                  ; Read from main
+              STA   $C004                  ; Write to main
               LDA   [VDUADDR],Y            ; Odd cols in bank $E0
               STA   [VDUADDR2],Y
+              STA   $C003                  ; Read from aux
+              STA   $C005                  ; Write to aux
 :SKIPE0       INX
               CPX   TXTWINRGT
               BMI   :L1
@@ -859,8 +875,12 @@ SCR1LINEGS    LDX   TXTWINLFT
               TAY
               LDA   #$E0
               STA   VDUBANK
-:L2           LDA   [VDUADDR],Y
+:L2           STA   $C002                  ; Read from main
+              STA   $C004                  ; Write to main
+              LDA   [VDUADDR],Y
               STA   [VDUADDR2],Y
+              STA   $C003                  ; Read from aux
+              STA   $C005                  ; Write to aux
               INY
               CPY   TXTWINRGT
               BMI   :L2
