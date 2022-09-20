@@ -361,9 +361,9 @@ WORD06       JSR   GETADDR                ; Point to address, set Y=>data
              LDA   (OSCTRL),Y             ; Get byte
              PLP
              BNE   WORD06A
-             STA   $C004                  ; Switch to main memory
+             >>>   WRTMAIN
 WORD06A      STA   (OSINTWS)              ; Store it
-             STA   $C005                  ; Back to aux memory
+             >>>   WRTAUX
              RTS
 
 GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
