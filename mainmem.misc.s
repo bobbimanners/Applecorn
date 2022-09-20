@@ -98,12 +98,12 @@ EXISTS       LDA   #<MOSFILE
 * Preserves A
 COPYFB       PHA
              LDX   #$11           ; 18 bytes in FILEBLK
-             >>>   WRTAUX         ; Write to Aux mem
+             STA   $C005          ; Write to aux mem
 :L1          LDA   FILEBLK,X
              STA   OSFILECB,X
              DEX
              BPL   :L1
-             >>>   WRTMAIN        ; Back to Main mem
+             STA   $C004          ; Write to main mem again
              PLA
              RTS
 

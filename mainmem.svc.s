@@ -359,9 +359,9 @@ GBPB          >>>   ENTMAIN
               LDA   GBPBDAT+1
               STA   ZPMOS+1
               LDA   BLKBUF
-              >>>   WRTAUX
+              STA   $C005              ; Write to aux
               STA   (ZPMOS)            ; Store byte in aux mem
-              >>>   WRTMAIN
+              STA   $C004              ; Write to main again
               BRA   :UPDCB
 :WRITE        LDA   #<BLKBUF           ; Start of destination
               STA   A4L
@@ -403,7 +403,7 @@ GBPB          >>>   ENTMAIN
 :ERR
 :ZERO         PLA                      ; Throw away A
               >>>   ALTZP              ; Control block can be in ZP!
-              >>>   WRTAUX
+              STA   $C005              ; Write to aux
               LDA   GBPBAUXCB+0        ; Copy control block back to aux
               STA   $B0+0              ; $B0 in AltZP is temp FS workspace
               LDA   GBPBAUXCB+1
@@ -413,7 +413,7 @@ GBPB          >>>   ENTMAIN
               STA   ($B0),Y
               DEY
               BPL   :L2
-              >>>   WRTMAIN
+              STA   $C004              ; Write to main again
               >>>   MAINZP
               >>>   XF2AUX,OSGBPBRET
 
