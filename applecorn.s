@@ -149,7 +149,6 @@ IENTMAIN    MAC
 
 * Enable writing to main memory (for code running in aux)
 WRTMAIN     MAC
-            PHP
             SEI               ; Keeps IRQ handler easy
             STA   $C004       ; Write to main memory
             EOM
@@ -157,7 +156,7 @@ WRTMAIN     MAC
 * Go back to writing to aux (for code running in aux)
 WRTAUX      MAC
             STA   $C005       ; Write to aux memory
-            PLP               ; Normal service resumed
+            CLI               ; Normal service resumed
             EOM
 
 * Manually enable AltZP (for code running in main)
