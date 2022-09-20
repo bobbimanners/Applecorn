@@ -850,17 +850,17 @@ PARSLPTR     CLC                             ; Means parsing a filename
              LDX   #$00                      ; Length
 :L1          JSR   GSREAD                    ; Handle next char
              BCS   :DONE
-             STA   $C004                     ; Write to main mem
+             >>>   WRTMAIN
              STA   MOSFILE+1,X
-             STA   $C005                     ; Write to aux mem
+             >>>   WRTAUX
              INX
              CPX   #$40
              BNE   :L1                       ; Name not too long
              TXA                             ; $40=Bad filename
              JMP   MKERROR
-:DONE        STA   $C004                     ; Write to main mem
+:DONE        >>>   WRTMAIN
              STX   MOSFILE                   ; Length byte (Pascal)
-             STA   $C005                     ; Back to aux
+             >>>   WRTAUX
              PLP                             ; IRQs back as they were
              TXA                             ; Return len in A
              RTS
@@ -876,17 +876,17 @@ PARSLPTR2    CLC                             ; Means parsing a filename
              LDX   #$00                      ; Length
 :L1          JSR   GSREAD                    ; Handle next char
              BCS   :DONE
-             STA   $C004                     ; Write to main mem
+             >>>   WRTMAIN
              STA   MOSFILE2+1,X
-             STA   $C005                     ; Write to aux mem
+             >>>   WRTAUX
              INX
              CPX   #$40
              BNE   :L1                       ; Name not too long
              TXA                             ; $40=Bad filename
              JMP   MKERROR
-:DONE        STA   $C004                     ; Write to main mem
+:DONE        >>>   WRTMAIN
              STX   MOSFILE2                  ; Length byte (Pascal)
-             STA   $C005                     ; Back to aux
+             >>>   WRTAUX
              PLP                             ; IRQs back as they were
              TXA                             ; Return len in A
 NOTERROR     RTS

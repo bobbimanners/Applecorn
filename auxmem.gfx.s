@@ -23,12 +23,12 @@ PRCHRSOFT    CMP   #$A0              ; Convert to screen code
              JSR   HCHARADDR         ; Addr in VDUADDR
              PHP                     ; Disable IRQs while
              SEI                     ;  toggling memory
-             STA   $C004             ; Write to main
+             >>>   WRTMAIN
              LDA   VDUADDR+0
              STA   HGRADDR+0
              LDA   VDUADDR+1
              STA   HGRADDR+1
-             STA   $C005             ; Write to aux
+             >>>   WRTAUX
              PLP                     ; Restore IRQs
              PLA                     ; Recover character
              >>>   XF2MAIN,DRAWCHAR  ; Plot char on HGR screen
