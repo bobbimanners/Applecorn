@@ -361,16 +361,16 @@ PRCHR4        JSR   CHARADDR               ; Find character address
               TXA                          ; Get character back
               BIT   VDUBANK
               BPL   PRCHR5                 ; Not AppleGS, use short write
-              STA   $C004                  ; Write to main
+              >>>   WRTMAIN
               STA   [VDUADDR],Y
-              STA   $C005                  ; Write to aux
+              >>>   WRTAUX
               BRA   PRCHR8
 PRCHR5        PHP                          ; Disable IRQs while
               SEI                          ;  toggling memory
               BCC   PRCHR6                 ; Aux memory
-              STA   $C004                  ; Switch to main memory
+              >>>   WRTMAIN
 PRCHR6        STA   (VDUADDR),Y            ; Store it
-PRCHR7        STA   $C005                  ; Back to aux memory
+PRCHR7        >>>   WRTAUX
               PLP                          ; Restore IRQs
 PRCHR8        PLA
               BIT   VDUSCREEN
@@ -388,9 +388,9 @@ GETCHRC       JSR   CHARADDR               ; Find character address
               PHP                          ; Disable IRQs while
               SEI                          ;  toggling memory
               BCC   GETCHR6                ; Aux memory
-              STA   $C002                  ; Switch to main memory
+              STA   $C002                  ; Read main memory
 GETCHR6       LDA   (VDUADDR),Y            ; Get character
-              STA   $C003                  ; Back to aux memory
+              STA   $C003                  ; Read aux memory
               PLP                          ; Restore IRQs
               TAY                          ; Convert character
               AND   #$A0
@@ -406,9 +406,9 @@ GETCHROK      RTS
 GETCHRGS      PHP                          ; Disable IRQs while
               SEI                          ;  toggling memory
               BCC   GETCHR8                ; Aux memory
-              STA   $C002                  ; Switch to main memory
+              STA   $C002                  ; Read main memory
 GETCHR8       LDA   [VDUADDR],Y            ; Get character
-              STA   $C003                  ; Back to aux memory
+              STA   $C003                  ; Read aux memory
               PLP                          ; Restore IRQs
               TAY                          ; Convert character
               AND   #$A0
@@ -668,9 +668,9 @@ CLREOL        JSR   CHARADDR               ; Set VDUADDR=>start of line
               BRA   :SKIPMAIN
 :MAIN         PHP
               SEI
-              STA   $C004                  ; Write to main
+              >>>   WRTMAIN
               STA   (VDUADDR),Y
-              STA   $C005                  ; Write to aux
+              >>>   WRTAUX
               PLP
 :SKIPMAIN     INX
               CPX   TXTWINRGT
@@ -679,9 +679,9 @@ CLREOL        JSR   CHARADDR               ; Set VDUADDR=>start of line
 :FORTY        LDA   #$A0
 :L2           PHP
               SEI
-              STA   $C004                  ; Write to main
+              >>>   WRTMAIN
               STA   (VDUADDR),Y
-              STA   $C005                  ; Write to aux
+              >>>   WRTAUX
               PLP
               INY
               CPY   TXTWINRGT
@@ -701,16 +701,16 @@ CLREOLGS      BIT   $C01F
               LDA   #$E1                   
               STA   VDUBANK
               LDA   #$A0
-              STA   $C004                  ; Write to main
+              >>>   WRTMAIN
               STA   [VDUADDR],Y            ; Even cols in bank $E1
-              STA   $C005                  ; Write to aux
+              >>>   WRTAUX
               BRA   :SKIPE0
 :E0           LDA   #$E0
               STA   VDUBANK
               LDA   #$A0
-              STA   $C004                  ; Write to main
+              >>>   WRTMAIN
               STA   [VDUADDR],Y            ; Odd cols in bank $E0
-              STA   $C005                  ; Write to aux
+              >>>   WRTAUX
 :SKIPE0       INX
               CPX   TXTWINRGT
               BMI   :L1
@@ -718,9 +718,9 @@ CLREOLGS      BIT   $C01F
 :FORTY        LDA   #$E0
               STA   VDUBANK
               LDA   #$A0
-:L2           STA   $C004                  ; Write to main
+:L2           >>>   WRTMAIN
               STA   [VDUADDR],Y
-              STA   $C005                  ; Write to aux
+              >>>   WRTAUX
               INY
               CPY   TXTWINRGT
               BMI   :L2
@@ -812,12 +812,12 @@ DOSCR1LINE    INC   TXTWINRGT
               BRA   :SKIPMAIN
 :MAIN         PHP
               SEI
-              STA   $C002                  ; Read from main
-              STA   $C004                  ; Write to main
+              >>>   WRTMAIN
+              STA   $C002                  ; Read main memory
               LDA   (VDUADDR),Y
               STA   (VDUADDR2),Y
-              STA   $C003                  ; Read from aux
-              STA   $C005                  ; Write to aux
+              STA   $C003                  ; Read aux memory
+              >>>   WRTAUX
               PLP
 :SKIPMAIN     INX
               CPX   TXTWINRGT
@@ -827,12 +827,12 @@ DOSCR1LINE    INC   TXTWINRGT
               TAY
 :L2           PHP
               SEI
-              STA   $C002                  ; Read from main
-              STA   $C004                  ; Write to main
+              >>>   WRTMAIN
+              STA   $C002                  ; Read main memory
               LDA   (VDUADDR),Y
               STA   (VDUADDR2),Y
-              STA   $C003                  ; Read from aux
-              STA   $C005                  ; Write to aux
+              STA   $C003                  ; Read aux memory
+              >>>   WRTAUX
               PLP
               INY
               CPY   TXTWINRGT
@@ -851,22 +851,22 @@ SCR1LINEGS    LDX   TXTWINLFT
               LDA   #$E1                   
               STA   VDUBANK
               STA   VDUBANK2
-              STA   $C002                  ; Read from main
-              STA   $C004                  ; Write to main
+              >>>   WRTMAIN
+              STA   $C002                  ; Read main memory
               LDA   [VDUADDR],Y            ; Even cols in bank $E1
               STA   [VDUADDR2],Y
-              STA   $C003                  ; Read from aux
-              STA   $C005                  ; Write to aux
+              STA   $C003                  ; Read aux memory
+              >>>   WRTAUX
               BRA   :SKIPE0
 :E0           LDA   #$E0
               STA   VDUBANK
               STA   VDUBANK2
-              STA   $C002                  ; Read from main
-              STA   $C004                  ; Write to main
+              >>>   WRTMAIN
+              STA   $C002                  ; Read main memory
               LDA   [VDUADDR],Y            ; Odd cols in bank $E0
               STA   [VDUADDR2],Y
-              STA   $C003                  ; Read from aux
-              STA   $C005                  ; Write to aux
+              STA   $C003                  ; Read aux memory
+              >>>   WRTAUX
 :SKIPE0       INX
               CPX   TXTWINRGT
               BMI   :L1
@@ -875,12 +875,12 @@ SCR1LINEGS    LDX   TXTWINLFT
               TAY
               LDA   #$E0
               STA   VDUBANK
-:L2           STA   $C002                  ; Read from main
-              STA   $C004                  ; Write to main
+:L2           >>>   WRTMAIN
+              STA   $C002                  ; Read main memory
               LDA   [VDUADDR],Y
               STA   [VDUADDR2],Y
-              STA   $C003                  ; Read from aux
-              STA   $C005                  ; Write to aux
+              STA   $C003                  ; Read aux memory
+              >>>   WRTAUX
               INY
               CPY   TXTWINRGT
               BMI   :L2
