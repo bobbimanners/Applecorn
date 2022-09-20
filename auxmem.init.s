@@ -28,7 +28,8 @@ MOSSHIM
 *
 * Initially executing at $3000 until copied to $D000
 
-MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
+MOSINIT     SEI                              ; Disable IRQ while initializing
+            LDX   #$FF                       ; Initialize Alt SP to $1FF
             TXS
 
             STA   $C005                      ; Make sure we are writing aux
@@ -108,7 +109,7 @@ MOSINIT     LDX   #$FF                       ; Initialize Alt SP to $1FF
             STA   $C055                      ; PAGE2
             JMP   MOSHIGH                    ; Ensure executing in high memory here
 
-MOSHIGH     SEI
+MOSHIGH     SEI                              ; Disable IRQ while initializing
             LDX   #$FF
             TXS                              ; Initialise stack
             INX                              ; X=$00
