@@ -339,7 +339,6 @@ ROMSELECT
             PHA
             PHX
             PHY
-            SEI
             TXA                      ; A=ROM to select
             >>>   XF2MAIN,SELECTROM
 ROMSELDONE  >>>   ENTAUX

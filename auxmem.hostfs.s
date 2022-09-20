@@ -845,8 +845,6 @@ FSCTITLE     RTS
 PARSNAME     JSR   XYtoLPTR
 PARSLPTR     CLC                             ; Means parsing a filename
              JSR   GSINIT                    ; Init general string handling
-             PHP
-             SEI                             ; Disable IRQs
              LDX   #$00                      ; Length
 :L1          JSR   GSREAD                    ; Handle next char
              BCS   :DONE
@@ -861,7 +859,6 @@ PARSLPTR     CLC                             ; Means parsing a filename
 :DONE        >>>   WRTMAIN
              STX   MOSFILE                   ; Length byte (Pascal)
              >>>   WRTAUX
-             PLP                             ; IRQs back as they were
              TXA                             ; Return len in A
              RTS
 
@@ -871,8 +868,6 @@ PARSLPTR     CLC                             ; Means parsing a filename
 PARSNAME2    JSR   XYtoLPTR
 PARSLPTR2    CLC                             ; Means parsing a filename
              JSR   GSINIT                    ; Init gen string handling
-             PHP
-             SEI                             ; Disable IRQs
              LDX   #$00                      ; Length
 :L1          JSR   GSREAD                    ; Handle next char
              BCS   :DONE
@@ -887,7 +882,6 @@ PARSLPTR2    CLC                             ; Means parsing a filename
 :DONE        >>>   WRTMAIN
              STX   MOSFILE2                  ; Length byte (Pascal)
              >>>   WRTAUX
-             PLP                             ; IRQs back as they were
              TXA                             ; Return len in A
 NOTERROR     RTS
 
