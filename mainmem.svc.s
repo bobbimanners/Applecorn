@@ -342,7 +342,8 @@ GBPB          >>>   ENTMAIN
               JSR   MLI                ; Perform seek
               DB    SMARKCMD
               DW    GMARKPL
-              BCS   :ERR
+              BCC   :L1
+              JMP   :ERR
 :L1           PLA
               PHA
               CMP   #$02               ; If A<=2 WRITE
@@ -362,9 +363,28 @@ GBPB          >>>   ENTMAIN
               STA   (ZPMOS)            ; Store byte in aux mem
               >>>   WRTMAIN
               BRA   :UPDCB
-:WRITE        
-*             TODO
-
+:WRITE        LDA   #<BLKBUF           ; Start of destination
+              STA   A4L
+              LDA   #>BLKBUF
+              STA   A4H
+              LDA   GBPBDAT            ; Start of source buf
+              STA   A1L
+              STA   A2L
+              LDA   GBPBDAT+1
+              STA   A1H
+              STA   A2H
+              INC   A2L                ; End of source buf
+              BNE   :S0
+              INC   A2H
+:S0           CLC                      ; AUX -> Main
+              JSR   AUXMOVE
+              LDA   GBPBHDL            ; File ref number
+              STA   WRITEPL+1
+              LDA   #$01               ; Write one byte
+              STA   WRITEPL+4
+              LDA   #$00
+              STA   WRITEPL+5
+              JSR   WRTFILE            ; Write one byte to file
 :UPDCB        INC   GBPBDAT+0          ; Increment data pointer
               BNE   :S1
               INC   GBPBDAT+1
@@ -379,7 +399,7 @@ GBPB          >>>   ENTMAIN
               BEQ   :ZERO              ; Zero remaining, done!
               DEC   GBPBNUM+1
 :S3           DEC   GBPBNUM+0
-              BRA   :L1
+              JMP   :L1
 :ERR
 :ZERO         PLA                      ; Throw away A
               >>>   ALTZP              ; Control block can be in ZP!
