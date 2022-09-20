@@ -367,15 +367,12 @@ GBPB          >>>   ENTMAIN
               STA   A4L
               LDA   #>BLKBUF
               STA   A4H
-              LDA   GBPBDAT            ; Start of source buf
-              STA   A1L
+              LDA   GBPBDAT            ; Start & end of source buf
+              STA   A1L                ; (one byte buffer)
               STA   A2L
               LDA   GBPBDAT+1
               STA   A1H
               STA   A2H
-              INC   A2L                ; End of source buf
-              BNE   :S0
-              INC   A2H
 :S0           CLC                      ; AUX -> Main
               JSR   AUXMOVE
               LDA   GBPBHDL            ; File ref number
