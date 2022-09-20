@@ -121,7 +121,8 @@ program in memory.
   from the copy cursor to the insert cursor.
 - BBC Micro function keys are supported.  Use Open Apple with the number
   keys for the unshifted function keys.  Use Closed Apple with the number
-  keys for the function keys with Ctrl.
+  keys for the function keys with Shift.  Use both Open Apple and Closed
+  Apple together with the number keys for the function keys with Ctrl.
 
 ### 'Sideways ROM' Support
 
