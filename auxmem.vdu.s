@@ -365,13 +365,10 @@ PRCHR4        JSR   CHARADDR               ; Find character address
               STA   [VDUADDR],Y
               >>>   WRTAUX
               BRA   PRCHR8
-PRCHR5        PHP                          ; Disable IRQs while
-              SEI                          ;  toggling memory
-              BCC   PRCHR6                 ; Aux memory
+PRCHR5        BCC   PRCHR6                 ; Aux memory
               >>>   WRTMAIN
 PRCHR6        STA   (VDUADDR),Y            ; Store it
 PRCHR7        >>>   WRTAUX
-              PLP                          ; Restore IRQs
 PRCHR8        PLA
               BIT   VDUSCREEN
               BPL   GETCHROK
@@ -385,13 +382,10 @@ BYTE87
 GETCHRC       JSR   CHARADDR               ; Find character address
               BIT   VDUBANK
               BMI   GETCHRGS
-              PHP                          ; Disable IRQs while
-              SEI                          ;  toggling memory
               BCC   GETCHR6                ; Aux memory
               STA   $C002                  ; Read main memory
 GETCHR6       LDA   (VDUADDR),Y            ; Get character
               STA   $C003                  ; Read aux memory
-              PLP                          ; Restore IRQs
               TAY                          ; Convert character
               AND   #$A0
               BNE   GETCHR7
@@ -403,13 +397,10 @@ GETCHR7       TYA
               LDY   VDUMODE                ; Y=MODE
               TAX                          ; X=char
 GETCHROK      RTS
-GETCHRGS      PHP                          ; Disable IRQs while
-              SEI                          ;  toggling memory
-              BCC   GETCHR8                ; Aux memory
+GETCHRGS      BCC   GETCHR8                ; Aux memory
               STA   $C002                  ; Read main memory
 GETCHR8       LDA   [VDUADDR],Y            ; Get character
               STA   $C003                  ; Read aux memory
-              PLP                          ; Restore IRQs
               TAY                          ; Convert character
               AND   #$A0
               BNE   GETCHR9
@@ -666,23 +657,17 @@ CLREOL        JSR   CHARADDR               ; Set VDUADDR=>start of line
               BCS   :MAIN                  ; Odd cols in main mem
               STA   (VDUADDR),Y            ; Even cols in aux
               BRA   :SKIPMAIN
-:MAIN         PHP
-              SEI
-              >>>   WRTMAIN
+:MAIN         >>>   WRTMAIN
               STA   (VDUADDR),Y
               >>>   WRTAUX
-              PLP
 :SKIPMAIN     INX
               CPX   TXTWINRGT
               BMI   :L1
               BRA   CLREOLDONE
 :FORTY        LDA   #$A0
-:L2           PHP
-              SEI
-              >>>   WRTMAIN
+:L2           >>>   WRTMAIN
               STA   (VDUADDR),Y
               >>>   WRTAUX
-              PLP
               INY
               CPY   TXTWINRGT
               BMI   :L2
@@ -810,30 +795,24 @@ DOSCR1LINE    INC   TXTWINRGT
               LDA   (VDUADDR),Y            ; Even cols in aux
               STA   (VDUADDR2),Y
               BRA   :SKIPMAIN
-:MAIN         PHP
-              SEI
-              >>>   WRTMAIN
+:MAIN         >>>   WRTMAIN
               STA   $C002                  ; Read main memory
               LDA   (VDUADDR),Y
               STA   (VDUADDR2),Y
               STA   $C003                  ; Read aux memory
               >>>   WRTAUX
-              PLP
 :SKIPMAIN     INX
               CPX   TXTWINRGT
               BMI   :L1
               BRA   SCR1LNDONE
 :FORTY        TXA
               TAY
-:L2           PHP
-              SEI
-              >>>   WRTMAIN
+:L2           >>>   WRTMAIN
               STA   $C002                  ; Read main memory
               LDA   (VDUADDR),Y
               STA   (VDUADDR2),Y
               STA   $C003                  ; Read aux memory
               >>>   WRTAUX
-              PLP
               INY
               CPY   TXTWINRGT
               BMI   :L2
