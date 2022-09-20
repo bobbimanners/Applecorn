@@ -329,11 +329,9 @@ CFILE         >>>   ENTMAIN
 * A=4 : Read bytes from disk, ignoring seq pointer
 * All others unsupported
 GBPB          >>>   ENTMAIN
-*
-* TODO: THIS ALWAYS READS ATM, NEEDS TO WRITE ALSO!!
-*
+              PHA
               LSR   A                  ; Test LSB of A
-              BCC   :NOSEEK            ; A=2 or 4, no seek
+              BCC   :L1                ; A=2 or 4, no seek
               LDA   GBPBHDL            ; File ref number
               STA   GMARKPL+1
               LDY   #$02               ; Copy file pointer
@@ -345,9 +343,13 @@ GBPB          >>>   ENTMAIN
               DB    SMARKCMD
               DW    GMARKPL
               BCS   :ERR
-:NOSEEK       LDA   GBPBHDL            ; File ref number
+:L1           PLA
+              PHA
+              CMP   #$02               ; If A<=2 WRITE
+              BCC   :WRITE
+:READ         LDA   GBPBHDL            ; File ref number
               STA   READPL2+1
-:L1           JSR   MLI                ; Read one byte from file
+              JSR   MLI                ; Read one byte from file
               DB    READCMD
               DW    READPL2
               BCS   :ERR
@@ -359,7 +361,11 @@ GBPB          >>>   ENTMAIN
               >>>   WRTAUX
               STA   (ZPMOS)            ; Store byte in aux mem
               >>>   WRTMAIN
-              INC   GBPBDAT+0          ; Increment data pointer
+              BRA   :UPDCB
+:WRITE        
+*             TODO
+
+:UPDCB        INC   GBPBDAT+0          ; Increment data pointer
               BNE   :S1
               INC   GBPBDAT+1
 :S1           INC   GBPBPTR+0          ; Increment file pointer
@@ -374,9 +380,9 @@ GBPB          >>>   ENTMAIN
               DEC   GBPBNUM+1
 :S3           DEC   GBPBNUM+0
               BRA   :L1
-*             ...
 :ERR
-:ZERO         >>>   ALTZP              ; Control block can be in ZP!
+:ZERO         PLA                      ; Throw away A
+              >>>   ALTZP              ; Control block can be in ZP!
               >>>   WRTAUX
               LDA   GBPBAUXCB+0        ; Copy control block back to aux
               STA   $B0+0              ; $B0 in AltZP is temp FS workspace
@@ -390,6 +396,7 @@ GBPB          >>>   ENTMAIN
               >>>   WRTMAIN
               >>>   MAINZP
               >>>   XF2AUX,OSGBPBRET
+
 
 * ProDOS file handling for MOS OSBGET call
 * Returns with char read in A and error num in Y (or 0)
