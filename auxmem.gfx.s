@@ -21,15 +21,12 @@ PRCHRSOFT    CMP   #$A0              ; Convert to screen code
              TAX
 :B1          PHX
              JSR   HCHARADDR         ; Addr in VDUADDR
-             PHP                     ; Disable IRQs while
-             SEI                     ;  toggling memory
              >>>   WRTMAIN
              LDA   VDUADDR+0
              STA   HGRADDR+0
              LDA   VDUADDR+1
              STA   HGRADDR+1
              >>>   WRTAUX
-             PLP                     ; Restore IRQs
              PLA                     ; Recover character
              >>>   XF2MAIN,DRAWCHAR  ; Plot char on HGR screen
 PUTCHRET     >>>   ENTAUX
