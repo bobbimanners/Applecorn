@@ -124,7 +124,6 @@ WORDMAX      EQU   WORDSZ/2-1
 *
 WORDHND      PHA
              PHP
-             SEI
              STA   OSAREG                 ; Store registers
              STX   OSCTRL+0               ; Point to control block
              STY   OSCTRL+1
@@ -149,7 +148,6 @@ WORDGO1      LDA   #WORDOFF+WORDMAX+1
 *
 BYTEHND      PHA
              PHP
-             SEI
              STA   OSAREG                 ; Store registers
              STX   OSXREG
              STY   OSYREG
@@ -201,7 +199,7 @@ BYTWRDGO     JSR   JMPADDR                ; Call the routine
 * X,Y,Cy from routine returned to caller
 
 BYTWRDEXIT   ROR   A                      ; Move Carry to A
-             PLP                          ; Restore original flags and IRQs
+             PLP                          ; Restore original flags
              ROL   A                      ; Move Carry back to flags
              PLA                          ; Restore A
              CLV                          ; Clear V = Actioned
@@ -217,7 +215,7 @@ BYTWRDFAIL   PHX                          ; *DEBUG*
              BVC   BYTEFAIL1              ; Debug turned off
              JSR   UNSUPBYTWRD            ; *DEBUG*
 BYTEFAIL1    LDX   #$FF                   ; X=&FF if unclaimed
-             PLP                          ; Restore original flags and IRQs
+             PLP                          ; Restore original flags
              PLA                          ; Restore A
              BIT   SETV                   ; Set V = Not actioned
              RTS
