@@ -75,9 +75,9 @@ START       JSR   CROUT
             JSR   GFXINIT          ; Initialize FDraw graphics
 
             TSX                    ; Save SP at $0100 in aux
-            STA   $C009            ; Write to AltZP
+            >>>   ALTZP
             STX   $0100
-            STA   $C008            ; Write to main ZP
+            >>>   MAINZP
             >>>   XF2AUX,AUXMOS1
 
 :FDFILE     STR   "FDRAW.FAST"     ; Filename for FDraw lib
