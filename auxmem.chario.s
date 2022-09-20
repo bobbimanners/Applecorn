@@ -137,7 +137,6 @@ INKEYGO      PHX                             ; Save registers
              JSR   COPYSWAP1                 ; Swap to copy cursor
 INKEYGO2     JSR   GETCHRC                   ; Get character under cursor
              STA   OLDCHAR
-             CLI
              BRA   INKEY1                    ; Turn cursor on
 
 INKEYLP      CLC
@@ -434,7 +433,6 @@ BYTE7E       LDX   #$00                      ; $7E = ack detection of ESC
              BPL   BYTE7DOK                  ; No Escape pending
              LDA   FXESCEFFECT               ; Process Escape effects
              BEQ   BYTE7E2
-             CLI                             ; Allow IRQs while flushing
              STA   FXLINES                   ; Clear scroll counter
 *             JSR   STAREXEC0      ; Close any EXEC file
 *             JSR   FLUSHALL       ; Flush all buffers

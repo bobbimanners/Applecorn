@@ -254,7 +254,6 @@ WORD00       IF    MAXLEN-OSTEXT-2
              INY                          ; Initial line length = zero
              FIN
 *             STY   FXLINES                ; Reset line counter
-             CLI
              BEQ   :WORD00LP              ; Enter main loop
 
 :WORD00BELL  LDA   #$07                   ; $07=BELL
