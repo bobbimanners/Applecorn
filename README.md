@@ -539,9 +539,10 @@ AUX BANK:
 
 ## Limitations
 
-Applecorn currently has the following limitations:
+Applecorn MOS is relatively complete.  Most limitations reflect the different
+hardware capabilities of the BBC Micro and the Apple II.
 - Most MOS calls are implemented.
-- There is file I/O support for file-orientated (`OSFILE`) file
+- There is disk I/O support for file-orientated (`OSFILE`) file
   operations.  This allows `LOAD` and `SAVE` to work in languages such as
   BASIC or COMAL.
 - There is also support for the character orientated operations (`OSFIND`,
@@ -549,7 +550,16 @@ Applecorn currently has the following limitations:
   languages to work correctly.  For example in BBC BASIC the following
   commands work: `OPENIN`, `OPENOUT`, `OPENUP`, `BGET#` `BPUT#` `PTR#=`,
   `EOF#`, `EXT#`.
+- `OSGBPB` calls with A=1 through 4 are supported.  These allow reading
+  and writing a range of bytes from a file that is already open.  The
+  Forth ROM uses this system call for loading and saving screens of
+  code.
 - Many `OSBYTE` and `OSWORD` calls are implemented.
+- The VDU driver is has most of the important functions for working in text
+  modes.  Since the Apple II can not display colour text, VDU codes
+  related to colour are not implemented.  The VDU driver is sufficient to
+  run full screen editors such as the ISO Pascal editor and the View
+  word processor.
 - Special BBC Micro functions such as sound, A/D interfaces, programmable
   function keys and so on are currently not supported.
 
