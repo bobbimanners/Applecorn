@@ -587,10 +587,10 @@ SPOOL        JSR   LPTRtoXY
              JSR   FINDHND                   ; Close file
              STZ   FXSPOOL
 :DONE        RTS
-:NOTTWICE     BRK
-              DB    $D6
-              ASC   'Already spooling'
-              BRK
+:NOTTWICE    BRK
+             DB    $D6                       ; TODO: WRONG ERROR CODE
+             ASC   'Already spooling'        ; TODO: WHAT MESSAGE HERE?
+             BRK
 
 
 * Handle *EXEC command
