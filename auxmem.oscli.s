@@ -570,27 +570,24 @@ SPOOL        JSR   LPTRtoXY
              JSR   XYtoLPTR
              JSR   PARSLPTR                  ; Just for error handling
              BEQ   :CLOSE                    ; No filename - stop spooling
-             PLY
+             LDY   FXSPOOL                   ; Already spooling?
+             BEQ   :OPEN
+             LDA   #$00                      ; If so, close file
+             JSR   FINDHND
+:OPEN        PLY
              PLX
-             LDA   FXSPOOL
-             BNE   :NOTTWICE
              LDA   #$80                      ; Open for writing
              JSR   FINDHND                   ; Try to open file
              STA   FXSPOOL                   ; Store SPOOL file handle
              RTS
-:CLOSE       PLY                             ; Fix the stack
+:CLOSE       PLY                             ; Clean up stack
              PLX
              LDY   FXSPOOL
-             CPY   #$00
              BEQ   :DONE
              LDA   #$00
              JSR   FINDHND                   ; Close file
              STZ   FXSPOOL
 :DONE        RTS
-:NOTTWICE    BRK
-             DB    $D6                       ; TODO: WRONG ERROR CODE
-             ASC   'Already spooling'        ; TODO: WHAT MESSAGE HERE?
-             BRK
 
 
 * Handle *EXEC command
