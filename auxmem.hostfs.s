@@ -310,6 +310,9 @@ FSCCOMMAND   ASC   'CHDIR'
              ASC   'COPY'
              DB    $80
              DW    FSCCOPY-1                 ; COPY <listspec> <*objspec*>, LPTR=>params
+             ASC   'XEXEC'
+             DB    $80
+             DW    FSCEXEC-1                 ; EXEC <*objspec*>, LPTR=>params
              ASC   'TYPE'
              DB    $80
              DW    FSCTYPE-1                 ; TYPE <*objspec*>, LPTR=>params
@@ -840,6 +843,7 @@ DESTROY      JSR   PARSLPTR                  ; Copy filename->MOSFILE
 *
 FSCTITLE     RTS
 
+
 * Handle *TYPE command
 * LPTR=>parameters string
 *
@@ -879,6 +883,36 @@ FSCTYPE      JSR   LPTRtoXY
              DB    $11
              ASC   'Escape'
              BRK
+
+
+* Handle *EXEC command
+* LPTR=>parameters string
+*
+FSCEXEC      JSR   LPTRtoXY
+             PHX
+             PHY
+             JSR   XYtoLPTR
+             JSR   PARSLPTR                  ; Just for error handling
+             BEQ   :SYNTAX                   ; No filename
+             PLY
+             PLX
+             LDA   #$FF
+             JSR   FINDHND                   ; Try to open file
+             CMP   #$00                      ; Was file opened?
+             BEQ   :NOTFOUND
+             STA   FXEXEC                    ; Store EXEC file handle
+             RTS
+             RTS
+:SYNTAX      BRK
+             DB    $DC
+             ASC   'Syntax: EXEC <*objspec*>'
+             BRK
+:NOTFOUND    STZ   FXEXEC
+             BRK
+             DB    $D6
+             ASC   'Not found'
+             BRK
+
 
 * Parse filename pointed to by XY
 * Write filename to MOSFILE in main memory

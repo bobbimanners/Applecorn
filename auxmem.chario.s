@@ -259,16 +259,15 @@ NEGCALL      >>>   XF2MAIN,MACHRD            ; Try to read Machine ID
 * On exit, CS=no keypress
 *          CC=keypress
 *          A =keycode, X,Y=corrupted
-KEYREAD
-* TO DO: check *EXEC source
-*  LDY FXEXEC
-*  BEQ KEYREAD1
-*  JSR OSBGET
-*  BCC KEYREADOK
-*  LDA #0
-*  STA FXVAREXEC
-*  JSR OSFIND
-* KEYREAD1
+KEYREAD      LDY   FXEXEC                    ; See if *EXEC file is open
+             BEQ   KEYREAD1
+             JSR   OSBGET                    ; Read keypress from file
+             BCC   KEYREADOK
+             LDA   #0                        ; EOF, close *EXEC file
+             STA   FXEXEC
+             JSR   OSFIND
+KEYREAD1
+
 *
 * TO DO: expand current soft key
 *  LDA SOFTKEYLEN
@@ -283,7 +282,6 @@ KEYREAD
 *
              JSR   KBDREAD                   ; Fetch character from KBD "buffer"
              BCS   KEYREADOK                 ; Nothing pending
-*
              TAY
              BPL   KEYREADOK                 ; Not top-bit key
              AND   #$CF
