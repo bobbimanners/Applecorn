@@ -352,6 +352,13 @@ the `*COPY` command:
 
 `*TYPE <*objspec*>` - type a text file to the screen.
 
+`*SPOOL <objspec>` - copies all screen output to the filename given.
+Issuing the `*SPOOL` command with no filename stops spooling and closes any
+open spool file.
+
+`*EXEC <*objspec*>` - reads input from the filename given, and executes
+it, as though it were being typed on the keyboard.
+
 `*ECHO This is some text` - echo a line of text to the screen.
 
 `*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
