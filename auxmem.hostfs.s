@@ -285,31 +285,34 @@ FILEIGNORE   PLA                             ; Returned object type
 *
 FSCCOMMAND   ASC   'CHDIR'
              DB    $80
-             DW    FSCCHDIR-1                ; Change directory, LPTR=>params
+             DW    FSCCHDIR-1                ; CHDIR <*objspec*>, LPTR=>params
              ASC   'CD'
              DB    $80
-             DW    FSCCHDIR-1                ; Change directory, LPTR=>params
+             DW    FSCCHDIR-1                ; CD <*objspec*> , LPTR=>params
              ASC   'DIR'
              DB    $80
-             DW    FSCCHDIR-1                ; Change directory, LPTR=>params
+             DW    FSCCHDIR-1                ; DIR <*objspec*>, LPTR=>params
              ASC   'DRIVE'
              DB    $80
-             DW    FSCDRIVE-1                ; Select drive, LPTR=>params
+             DW    FSCDRIVE-1                ; DRIVE <drive>, LPTR=>params
              ASC   'FREE'
              DB    $80
              DW    FSCFREE-1                 ; FREE <drive>, LPTR=>params
              ASC   'ACCESS'
              DB    $80
-             DW    FSCACCESS-1               ; ACCESS <objlist> <access>, LPTR=>params
+             DW    FSCACCESS-1               ; ACCESS <listspec> <access>, LPTR=>params
              ASC   'TITLE'
              DB    $80
              DW    FSCTITLE-1                ; TITLE (<drive>) <title>, LPTR=>params
              ASC   'DESTROY'
              DB    $80
-             DW    FSCDESTROY-1              ; DESTROY <objlist>, LPTR=>params
+             DW    FSCDESTROY-1              ; DESTROY <listspec>, LPTR=>params
              ASC   'COPY'
              DB    $80
-             DW    FSCCOPY-1                 ; COPY <source> <dest>, LPTR=>params
+             DW    FSCCOPY-1                 ; COPY <listspec> <*objspec*>, LPTR=>params
+             ASC   'TYPE'
+             DB    $80
+             DW    FSCTYPE-1                 ; TYPE <*objspec*>, LPTR=>params
 *
              DB    $FF                       ; Terminator
 
@@ -679,7 +682,7 @@ FSCRENAME    JSR   PARSNAME                  ; Copy Arg1->MOSFILE
              >>>   XF2MAIN,RENFILE
 :SYNTAX      BRK
              DB    $DC
-             ASC   'Syntax: RENAME <oldspec> <newspec>'
+             ASC   'Syntax: RENAME <objspec> <objspec>'
              BRK
 * ProDOS returns $40 (Bad filename) for bad renames.
 * Not easy to seperate out, so leave as Bad filename error.
@@ -701,7 +704,7 @@ FSCCOPY      JSR   PARSLPTR                  ; Copy Arg1->MOSFILE
              >>>   XF2MAIN,COPYFILE          ; Do the heavy lifting
 :SYNTAX      BRK
              DB    $DC
-             ASC   'Syntax: COPY <srcspec> <destspec>'
+             ASC   'Syntax: COPY <listspec> <*objspec*>'
              BRK
 
 
@@ -714,7 +717,7 @@ FSCCHDIR     JSR   PARSLPTR                  ; Copy filename->MOSFILE
 FSCCHDIR2    >>>   XF2MAIN,SETPFX
 ERRCHDIR     BRK
              DB    $DC
-             ASC   'Syntax: DIR <dir>'
+             ASC   'Syntax: DIR <*objspec*>'
              BRK
 
 
@@ -834,10 +837,31 @@ DESTROY      JSR   PARSLPTR                  ; Copy filename->MOSFILE
 
 * Handle *TITLE command
 * LPTR=>parameters string
-* Syntax: *TITLE (<drive>) <title>
 *
 FSCTITLE     RTS
 
+* Handle *TYPE command
+* LPTR=>parameters string
+*
+FSCTYPE      JSR   LPTRtoXY
+             LDA   #$FF
+             JSR   FINDHND                   ; Try to open file
+             CMP   #$00                      ; Was file opened?
+             BEQ   :ERR
+             TAY                             ; File handle in Y
+:L1          JSR   BGETHND                   ; Read a byte
+             BCS   :CLOSE                    ; EOF
+             JSR   OSWRCH                    ; Print the character
+             LDA   ESCFLAG
+             BMI   :CLOSE
+             BRA   :L1
+:CLOSE       LDA   #$00
+             JSR   FINDHND                   ; Close file
+:DONE        RTS
+:ERR         BRK
+             DB    $DC
+             ASC   'Not found'
+             BRK
 
 * Parse filename pointed to by XY
 * Write filename to MOSFILE in main memory
