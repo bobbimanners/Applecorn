@@ -55,10 +55,10 @@ FX4VAR       EQU   BYTEVARBASE+$ED
 WRCHHND      PHA
              PHX
              PHY
-* TO DO Check any output redirections
              PHA
-
              JSR   OUTCHAR
+
+* TO DO Check any output redirections
 * TO DO Check any printer output
 *  BCC WRCHHND3
 *  PLA
@@ -66,14 +66,12 @@ WRCHHND      PHA
 *  JSR PRNCHAR
 * WRCHHND3
 
-* TO DO Check any spool output
-             LDY   FXSPOOL
+             LDY   FXSPOOL                   ; See if *SPOOL is in effect
              BEQ   WRCHHND4
              PLA
              PHA
-             JSR   OSBPUT
+             JSR   OSBPUT                    ; Write char to spool file
 WRCHHND4     PLA
-
              PLY
              PLX
              PLA
@@ -83,10 +81,10 @@ WRCHHND4     PLA
 * Character Input
 *****************
 * Default keyboard OSBYTE variables
-*DEFBYTELOW  EQU  219              ; First default OSBYTE value
-*DEFBYTE     DB   $09,$1B          ; Default key codes
-*            DB   $01,$D0,$E0,$F0  ; Default key expansion
-*            DB   $01,$80,$90,$00  ; Default key expansion
+*DEFBYTELOW  EQU  219                        ; First default OSBYTE value
+*DEFBYTE     DB   $09,$1B                    ; Default key codes
+*            DB   $01,$D0,$E0,$F0            ; Default key expansion
+*            DB   $01,$80,$90,$00            ; Default key expansion
 *DEFBYTEEND
 
 * TEMP as no *KEY
@@ -428,11 +426,15 @@ KBDDONE      RTS
 BYTE7E       LDX   #$00                      ; $7E = ack detection of ESC
              BIT   ESCFLAG
              BPL   BYTE7DOK                  ; No Escape pending
-             LDA   FXESCEFFECT               ; Process Escape effects
+             LDY   FXEXEC                    ; See if *EXEC is active
+             BEQ   :NOEXEC
+             LDA   #0                        ; Close *EXEC file
+             STA   FXEXEC
+             JSR   OSFIND
+:NOEXEC      LDA   FXESCEFFECT               ; Process Escape effects
              BEQ   BYTE7E2
              STA   FXLINES                   ; Clear scroll counter
-*             JSR   STAREXEC0      ; Close any EXEC file
-*             JSR   FLUSHALL       ; Flush all buffers
+*            JSR   FLUSHALL                  ; Flush all buffers
 BYTE7E2      LDX   #$FF                      ; X=$FF, Escape was pending
 BYTE7C       CLC                             ; &7C = clear escape condition
 BYTE7D       ROR   ESCFLAG                   ; $7D = set escape condition
