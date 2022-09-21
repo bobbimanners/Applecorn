@@ -844,23 +844,40 @@ FSCTITLE     RTS
 * LPTR=>parameters string
 *
 FSCTYPE      JSR   LPTRtoXY
+             PHX
+             PHY
+             JSR   XYtoLPTR
+             JSR   PARSLPTR                  ; Just for error handling
+             BEQ   :SYNTAX                   ; No filename
+             PLY
+             PLX
              LDA   #$FF
              JSR   FINDHND                   ; Try to open file
              CMP   #$00                      ; Was file opened?
-             BEQ   :ERR
+             BEQ   :NOTFOUND
              TAY                             ; File handle in Y
 :L1          JSR   BGETHND                   ; Read a byte
              BCS   :CLOSE                    ; EOF
              JSR   OSWRCH                    ; Print the character
              LDA   ESCFLAG
-             BMI   :CLOSE
+             BMI   :ESC
              BRA   :L1
 :CLOSE       LDA   #$00
              JSR   FINDHND                   ; Close file
 :DONE        RTS
-:ERR         BRK
+:SYNTAX      BRK
              DB    $DC
+             ASC   'Syntax: TYPE <*objspec*>'
+             BRK
+:NOTFOUND    BRK
+             DB    $D6
              ASC   'Not found'
+             BRK
+:ESC         LDA   #$00                      ; Close file
+             JSR   FINDHND
+             BRK
+             DB    $11
+             ASC   'Escape'
              BRK
 
 * Parse filename pointed to by XY
