@@ -538,7 +538,7 @@ TYPE         JSR   LPTRtoXY
              TAY                             ; File handle in Y
 :L1          JSR   BGETHND                   ; Read a byte
              BCS   :CLOSE                    ; EOF
-             JSR   OSWRCH                    ; Print the character
+             JSR   OSASCI                    ; Print the character
              LDA   ESCFLAG
              BMI   :ESC
              BRA   :L1
