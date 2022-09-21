@@ -350,6 +350,8 @@ the `*COPY` command:
     directory, while `^` or `..` may be used to specify the parent
     directory.
 
+`*TYPE <*objspec*>` - type a text file to the screen.
+
 `*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
 
 `*OPT` - sets file system options.  `*OPT 255,x` may be used to enable or
