@@ -56,7 +56,7 @@ WRCHHND      PHA
              PHX
              PHY
 * TO DO Check any output redirections
-*  PHA
+             PHA
 
              JSR   OUTCHAR
 * TO DO Check any printer output
@@ -67,14 +67,13 @@ WRCHHND      PHA
 * WRCHHND3
 
 * TO DO Check any spool output
-*  LDY FXSPOOL
-*  BEQ WRCHHND4
-*  PLA
-*  PHA
-*  JSR OSBPUT
-* WRCHHND4
-*  PLA
-*
+             LDY   FXSPOOL
+             BEQ   WRCHHND4
+             PLA
+             PHA
+             JSR   OSBPUT
+WRCHHND4     PLA
+
              PLY
              PLX
              PLA
