@@ -359,6 +359,8 @@ open spool file.
 `*EXEC <*objspec*>` - reads input from the filename given, and executes
 it, as though it were being typed on the keyboard.
 
+`*CLOSE` - close any open files (including spool file, if open.)
+
 `*ECHO This is some text` - echo a line of text to the screen.
 
 `*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
