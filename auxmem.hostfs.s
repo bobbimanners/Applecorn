@@ -905,7 +905,9 @@ FSCSPOOL     JSR   LPTRtoXY
              JSR   FINDHND                   ; Try to open file
              STA   FXSPOOL                   ; Store SPOOL file handle
              RTS
-:CLOSE       LDY   FXSPOOL
+:CLOSE       PLY                             ; Fix the stack
+             PLX
+             LDY   FXSPOOL
              CPY   #$00
              BEQ   :DONE
              LDA   #$00
@@ -936,7 +938,9 @@ FSCEXEC      JSR   LPTRtoXY
              STA   FXEXEC                    ; Store EXEC file handle
              RTS
              RTS
-:SYNTAX      BRK
+:SYNTAX      PLY                             ; Fix the stack
+             PLX
+             BRK
              DB    $DC
              ASC   'Syntax: EXEC <*objspec*>'
              BRK
