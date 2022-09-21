@@ -352,6 +352,8 @@ the `*COPY` command:
 
 `*TYPE <*objspec*>` - type a text file to the screen.
 
+`*ECHO This is some text` - echo a line of text to the screen.
+
 `*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
 
 `*OPT` - sets file system options.  `*OPT 255,x` may be used to enable or
