@@ -562,6 +562,8 @@ IRQBRKHDLR  PHA
             STA   $45                ; $45=A for ProDOS IRQ handlers
             BPL   :S1                ; If aux write wasn't active, skip
             STA   $C005              ; Write to aux memory
+            LDA   #$80
+            TSB   $C036              ; For GS: Enable 'fast' speed
 :S1         TXA
             PHA
             CLD
