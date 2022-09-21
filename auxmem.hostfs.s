@@ -310,15 +310,6 @@ FSCCOMMAND   ASC   'CHDIR'
              ASC   'COPY'
              DB    $80
              DW    FSCCOPY-1                 ; COPY <listspec> <*objspec*>, LPTR=>params
-             ASC   'TYPE'
-             DB    $80
-             DW    FSCTYPE-1                 ; TYPE <*objspec*>, LPTR=>params
-             ASC   'SPOOL'
-             DB    $80
-             DW    FSCSPOOL-1                ; SPOOL <*objspec*>, LPTR=>params
-             ASC   'XEXEC'
-             DB    $80
-             DW    FSCEXEC-1                 ; EXEC <*objspec*>, LPTR=>params
 *
              DB    $FF                       ; Terminator
 
@@ -845,110 +836,6 @@ DESTROY      JSR   PARSLPTR                  ; Copy filename->MOSFILE
 * LPTR=>parameters string
 *
 FSCTITLE     RTS
-
-
-* Handle *TYPE command
-* LPTR=>parameters string
-*
-FSCTYPE      JSR   LPTRtoXY
-             PHX
-             PHY
-             JSR   XYtoLPTR
-             JSR   PARSLPTR                  ; Just for error handling
-             BEQ   :SYNTAX                   ; No filename
-             PLY
-             PLX
-             LDA   #$40                      ; Open for input
-             JSR   FINDHND                   ; Try to open file
-             CMP   #$00                      ; Was file opened?
-             BEQ   :NOTFOUND
-             TAY                             ; File handle in Y
-:L1          JSR   BGETHND                   ; Read a byte
-             BCS   :CLOSE                    ; EOF
-             JSR   OSWRCH                    ; Print the character
-             LDA   ESCFLAG
-             BMI   :ESC
-             BRA   :L1
-:CLOSE       LDA   #$00
-             JSR   FINDHND                   ; Close file
-:DONE        RTS
-:SYNTAX      BRK
-             DB    $DC
-             ASC   'Syntax: TYPE <*objspec*>'
-             BRK
-:NOTFOUND    BRK
-             DB    $D6
-             ASC   'Not found'
-             BRK
-:ESC         LDA   #$00                      ; Close file
-             JSR   FINDHND
-             BRK
-             DB    $11
-             ASC   'Escape'
-             BRK
-
-
-* Handle *SPOOL command
-* LPTR=>parameters string
-*
-FSCSPOOL     JSR   LPTRtoXY
-             PHX
-             PHY
-             JSR   XYtoLPTR
-             JSR   PARSLPTR                  ; Just for error handling
-             BEQ   :CLOSE                    ; No filename - stop spooling
-             PLY
-             PLX
-             LDA   FXSPOOL
-             BNE   :NOTTWICE
-             LDA   #$80                      ; Open for writing
-             JSR   FINDHND                   ; Try to open file
-             STA   FXSPOOL                   ; Store SPOOL file handle
-             RTS
-:CLOSE       PLY                             ; Fix the stack
-             PLX
-             LDY   FXSPOOL
-             CPY   #$00
-             BEQ   :DONE
-             LDA   #$00
-             JSR   FINDHND                   ; Close file
-             STZ   FXSPOOL
-:DONE        RTS
-:NOTTWICE     BRK
-              DB    $D6
-              ASC   'Already spooling'
-              BRK
-
-
-* Handle *EXEC command
-* LPTR=>parameters string
-*
-FSCEXEC      JSR   LPTRtoXY
-             PHX
-             PHY
-             JSR   XYtoLPTR
-             JSR   PARSLPTR                  ; Just for error handling
-             BEQ   :SYNTAX                   ; No filename
-             PLY
-             PLX
-             LDA   #$40                      ; Open for input
-             JSR   FINDHND                   ; Try to open file
-             CMP   #$00                      ; Was file opened?
-             BEQ   :NOTFOUND
-             STA   FXEXEC                    ; Store EXEC file handle
-             RTS
-             RTS
-:SYNTAX      PLY                             ; Fix the stack
-             PLX
-             BRK
-             DB    $DC
-             ASC   'Syntax: EXEC <*objspec*>'
-             BRK
-:NOTFOUND    STZ   FXEXEC
-             BRK
-             DB    $D6
-             ASC   'Not found'
-             BRK
 
 
 * Parse filename pointed to by XY
