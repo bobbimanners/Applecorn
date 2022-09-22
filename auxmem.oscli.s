@@ -72,6 +72,9 @@ CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
             ASC   'TYPE'
             DB    $80
             DW    TYPE-1             ; TYPE   -> (LPTR)=>params
+            ASC   'DUMP'
+            DB    $80
+            DW    DUMP-1             ; DUMP   -> (LPTR)=>params
             ASC   'SPOOL'
             DB    $80
             DW    SPOOL-1            ; EXEC   -> (LPTR)=>params
@@ -538,8 +541,10 @@ TYPE         JSR   LPTRtoXY
              TAY                             ; File handle in Y
 :L1          JSR   BGETHND                   ; Read a byte
              BCS   :CLOSE                    ; EOF
+             CMP   #$0A                      ; Don't print LF
+             BEQ   :S1
              JSR   OSASCI                    ; Print the character
-             LDA   ESCFLAG
+:S1          LDA   ESCFLAG
              BMI   :ESC
              BRA   :L1
 :CLOSE       LDA   #$00
@@ -560,6 +565,129 @@ TYPE         JSR   LPTRtoXY
              ASC   'Escape'
              BRK
 
+
+* Handle *DUMP command
+* LPTR=>parameters string
+*
+DUMP         JSR   LPTRtoXY
+             PHX
+             PHY
+             JSR   XYtoLPTR
+             JSR   PARSLPTR                  ; Just for error handling
+             BEQ   :SYNTAX                   ; No filename
+             PLY
+             PLX
+             LDA   #$40                      ; Open for input
+             JSR   FINDHND                   ; Try to open file
+             CMP   #$00                      ; Was file opened?
+             BEQ   :NOTFOUND
+             TAY                             ; File handle in Y
+             STZ   DUMPOFF
+             STZ   DUMPOFF+1
+:L1          JSR   BGETHND                   ; Read a byte
+             BCS   :CLOSE                    ; EOF
+             PHA
+             LDA   DUMPOFF+0
+             AND   #$07
+             BNE   :INC
+             LDA   DUMPOFF+1                 ; Print file offset
+             JSR   PRHEXBYTE
+             LDA   DUMPOFF+0
+             JSR   PRHEXBYTE
+             LDA   #' '
+             JSR   OSASCI
+             LDX   #$07
+             LDA   #' '                      ; Clear ASCII buffer
+:L2          STA   DUMPASCI,X
+             DEX
+             BNE   :L2
+:INC         INC   DUMPOFF+0                 ; Increment file offset
+             BNE   :S1
+             INC   DUMPOFF+1
+:S1          PLA
+             STA   DUMPASCI,X
+             JSR   PRHEXBYTE
+             INX
+             LDA   #' '
+             JSR   OSASCI
+             CPX   #$08                      ; If EOL ..
+             BNE   :S2
+             JSR   PRCHARS                   ; Print ASCII representation
+:S2          LDA   ESCFLAG
+             BMI   :ESC
+             BRA   :L1
+:CLOSE       JSR   PRCHARS                   ; Print ASCII representation
+             LDA   #$00
+             JSR   FINDHND                   ; Close file
+:DONE        RTS
+:SYNTAX      BRK
+             DB    $DC
+             ASC   'Syntax: DUMP <*objspec*>'
+             BRK
+:NOTFOUND    BRK
+             DB    $D6
+             ASC   'Not found'
+             BRK
+:ESC         LDA   #$00                      ; Close file
+             JSR   FINDHND
+             BRK
+             DB    $11
+             ASC   'Escape'
+             BRK
+DUMPOFF      DW    $0000
+DUMPASCI     DS    8
+
+* Print byte in A in hex format
+PRHEXBYTE    PHA
+             LSR   A
+             LSR   A
+             LSR   A
+             LSR   A
+             JSR   PRHEXNIB
+             PLA
+             JSR   PRHEXNIB
+             RTS
+
+* Print nibble in A in hex format
+PRHEXNIB     AND   #$0F
+             CMP   #10
+             BPL   :LETTER
+             CLC
+             ADC   #'0'
+             BRA   :PRINT
+:LETTER      CLC
+             ADC   #'A'-10
+:PRINT       JSR   OSASCI
+             RTS
+
+* Print ASCII char buffer
+* with non-printing chars shown as '.'
+PRCHARS      CPX   #$00
+             BEQ   :DONE
+             CPX   #$08                      ; Pad final line
+             BEQ   :S0
+             LDA   #' '
+             JSR   OSASCI
+             JSR   OSASCI
+             JSR   OSASCI
+             INX
+             BRA   PRCHARS
+:S0          LDX   #$00
+:L2          LDA   DUMPASCI,X
+             CMP   #$20
+             BMI   :NOTPRINT
+             CMP   #$7F
+             BPL   :NOTPRINT
+             JSR   OSASCI
+:S1          INX
+             CPX   #$08
+             BNE   :L2            
+             JSR   OSNEWL
+             LDX   #$00
+:DONE        RTS
+:NOTPRINT    LDA   #'.'
+             JSR   OSASCI
+             BRA   :S1
 
 * Handle *SPOOL command
 * LPTR=>parameters string
