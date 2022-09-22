@@ -352,6 +352,8 @@ the `*COPY` command:
 
 `*TYPE <*objspec*>` - type a text file to the screen.
 
+`*DUMP <*objspec*>` - print a hexdump of a file to the screen.
+
 `*SPOOL <objspec>` - copies all screen output to the filename given.
 Issuing the `*SPOOL` command with no filename stops spooling and closes any
 open spool file.
