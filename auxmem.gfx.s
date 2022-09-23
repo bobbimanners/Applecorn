@@ -149,10 +149,6 @@ HGRPLOTTER2  LDA   VDUQ+5,X
 *
 HGRPLOT      JSR   CVTCOORD          ; Convert coordinate system
 HGRPLOT2     LDA   VDUQ+4
-             AND   #$04              ; Bit 2 set -> absolute
-             BNE   HGRPLOTABS
-             JSR   RELCOORD          ; Add coords to XPIXEL/YPIXEL
-HGRPLOTABS   LDA   VDUQ+4
              AND   #$03
              CMP   #$0               ; Bits 0,1 clear -> just move
              BNE   HGRPLOTACT
@@ -324,34 +320,5 @@ CVTCOORD
              LDA   #$01
              STA   VDUQ+6
              BRA   :YCOORD
-
-* Add coordinates to XPIXEL, YPIXEL
-RELCOORD     CLC
-             LDA   XPIXEL+0
-             ADC   VDUQ+5
-             STA   VDUQ+5
-             LDA   XPIXEL+1
-             ADC   VDUQ+6
-             STA   VDUQ+6
-             CLC
-             LDA   YPIXEL
-             ADC   VDUQ+7
-             STA   VDUQ+7
-             RTS
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

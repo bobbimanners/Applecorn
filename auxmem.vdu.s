@@ -1063,16 +1063,17 @@ VDUCOPYEXIT   RTS
 * x is in VDUQ+5,VDUQ+6
 * y is in VDUQ+7,VDUQ+8
 *
-VDU25         LDA   VDUPIXELS
-              BEQ   VDU25NULL
+
 * TO DO:
 * coord=coord+origin
 * scale coord
 * clip to viewport
 
-              JSR   HGRPLOTTER
-
-VDU25NULL     LDX   #7
+VDU25         LDA   VDUQ+4
+              AND   #$04                   ; Bit 2 set -> absolute
+              BNE   :S0
+              JSR   RELCOORD
+:S0           LDX   #7
 VDU25BACKUP1  LDA   PIXELPLOTX+0,X         ; Copy pixel coords
               STA   PIXELPLOTX+4,X         ; POSN becomes LAST
               DEX                          ; and PLOT becomes POSN
@@ -1084,12 +1085,32 @@ VDU25BACKUP2  LDA   GFXPOSNX,X             ; POSN becomes LAST
               STA   GFXPOSNX,X
               DEX
               BPL   VDU25BACKUP2
-              LDA   $C000                  ; This and PRCHRC need to be
+              LDA   VDUPIXELS
+              BEQ   :S1
+              JSR   HGRPLOTTER
+:S1           LDA   $C000                  ; This and PRCHRC need to be
               EOR   #$80                   ; made more generalised
               BMI   VDU25EXIT              ; No key pressed
               JSR   KBDCHKESC              ; Ask KBD to test if Escape
 VDU25EXIT     RTS
 
+
+* Add coordinates to GFXPOSNX, GFXPOSNY
+RELCOORD     CLC
+             LDA   GFXPOSNX+0
+             ADC   VDUQ+5
+             STA   VDUQ+5
+             LDA   GFXPOSNX+1
+             ADC   VDUQ+6
+             STA   VDUQ+6
+             CLC
+             LDA   GFXPOSNY+0
+             ADC   VDUQ+7
+             STA   VDUQ+7
+             LDA   GFXPOSNY+1
+             ADC   VDUQ+8
+             STA   VDUQ+8
+             RTS
 
 * Program video system and define characters
 ********************************************
