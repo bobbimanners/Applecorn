@@ -1065,15 +1065,15 @@ VDUCOPYEXIT   RTS
 *
 
 * TO DO:
-* coord=coord+origin
-* scale coord
 * clip to viewport
 
 VDU25         LDA   VDUQ+4
               AND   #$04                   ; Bit 2 set -> absolute
               BNE   :S0
-              JSR   RELCOORD
-:S0           LDX   #7
+              JSR   RELCOORD               ; Relative->Absolute coords
+              BRA   :S1
+:S0           JSR   ADJORIG                ; Adjust graphics origin
+:S1           LDX   #7
 VDU25BACKUP1  LDA   PIXELPLOTX+0,X         ; Copy pixel coords
               STA   PIXELPLOTX+4,X         ; POSN becomes LAST
               DEX                          ; and PLOT becomes POSN
@@ -1086,14 +1086,30 @@ VDU25BACKUP2  LDA   GFXPOSNX,X             ; POSN becomes LAST
               DEX
               BPL   VDU25BACKUP2
               LDA   VDUPIXELS
-              BEQ   :S1
+              BEQ   :S2
               JSR   HGRPLOTTER
-:S1           LDA   $C000                  ; This and PRCHRC need to be
+:S2           LDA   $C000                  ; This and PRCHRC need to be
               EOR   #$80                   ; made more generalised
               BMI   VDU25EXIT              ; No key pressed
               JSR   KBDCHKESC              ; Ask KBD to test if Escape
 VDU25EXIT     RTS
 
+* Adjust graphics origin
+ADJORIG      CLC
+             LDA   GFXORIGX+0
+             ADC   VDUQ+5
+             STA   VDUQ+5
+             LDA   GFXORIGX+1
+             ADC   VDUQ+6
+             STA   VDUQ+6
+             CLC
+             LDA   GFXORIGY+0
+             ADC   VDUQ+7
+             STA   VDUQ+7
+             LDA   GFXORIGY+1
+             ADC   VDUQ+8
+             STA   VDUQ+8
+             RTS
 
 * Add coordinates to GFXPOSNX, GFXPOSNY
 RELCOORD     CLC
