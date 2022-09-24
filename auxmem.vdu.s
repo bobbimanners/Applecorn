@@ -364,12 +364,14 @@ PRCHR4        JSR   CHARADDR               ; Find character address
               >>>   WRTMAIN
               STA   [VDUADDR],Y
               >>>   WRTAUX
-              BRA   PRCHR8
+              BRA   PRCHR7
 PRCHR5        BCC   PRCHR6                 ; Aux memory
               >>>   WRTMAIN
-PRCHR6        STA   (VDUADDR),Y            ; Store it
-PRCHR7        >>>   WRTAUX
-PRCHR8        PLA
+              STA   (VDUADDR),Y            ; Store in main
+              >>>   WRTAUX
+              BRA   PRCHR7
+PRCHR6        STA   (VDUADDR),Y            ; Store in aux
+PRCHR7        PLA
               BIT   VDUSCREEN
               BPL   GETCHROK
               JMP   PRCHRSOFT              ; Write character to graphics
