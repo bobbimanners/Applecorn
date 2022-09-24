@@ -370,6 +370,10 @@ it, as though it were being typed on the keyboard.
 `*OPT` - sets file system options.  `*OPT 255,x` may be used to enable or
 disable debugging output.
 
+`*FAST` - turn Apple II accelerator on (supports GS, Ultrawarp and ZipChip).
+
+`*SLOW` - turn Apple II accelerator off (supports GS, Ultrawarp and ZipChip).
+
 ## How to Build
 
 Applecorn is built natively on the Apple //e using the Merlin 16 assembler
