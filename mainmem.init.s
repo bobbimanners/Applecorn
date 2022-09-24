@@ -99,8 +99,6 @@ RESET        TSX
              LDA   $C05A             ; AN1 off
              LDA   $C05D             ; AN2 on
              LDA   $C05F             ; AN3 on
-             LDA   #$20              ; Turn off PAGE2 shadow on ROM3 GS
-             TSB   $C035
              >>>   XF2AUX,AUXMOS
              RTS
 
