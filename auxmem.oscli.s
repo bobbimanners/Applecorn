@@ -785,12 +785,12 @@ UNLOCKZIP    PHP
              STA   $C05A
              STA   $C05A
              STA   $C05A
+             PLP
              RTS
 
 * Lock ZipChip registers
 LOCKZIP      LDA   #$A5
              STA   $C05A
-             PLP
              RTS
 
 
