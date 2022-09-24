@@ -154,7 +154,7 @@ INKEY1       LDA   CURSOR                    ; Add cursor
              LDA   CURSORCP
 INKEY2       JSR   PUTCHRC                   ; Toggle cursor
 INKEY3       LDA   ESCFLAG
-             BMI   INKEYOK                   ; Escape pending, return it
+             BMI   INKEYXXX                  ; Escape pending, return it
 INKEY4       JSR   KEYREAD                   ; Test for input, all can be trashed
              PLY
              BCC   INKEYOK                   ; Char returned, return it
@@ -182,7 +182,7 @@ INKEYOUT     PLA                             ; Drop stacked Y
 *
 INKEYOK      PHA                             ; Save key or timeout
              PHP                             ; Save CC=key, CS=timeout
-             LDA   OLDCHAR                   ; Prepare for main cursor
+INKEYXXX     LDA   OLDCHAR                   ; Prepare for main cursor
              BIT   VDUSTATUS
              BVC   INKEYOFF2                 ; No editing cursor
              JSR   PUTCHRC                   ; Remove cursor
