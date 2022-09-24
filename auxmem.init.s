@@ -126,6 +126,10 @@ MOSHIGH     SEI                              ; Disable IRQ while initializing
             DEX
             BPL   :INITPG2
 
+            LDA   $C036                      ; GS speed register
+            AND   #$80                       ; Speed bit only
+            STA   GSSPEED                    ; In Alt LC for IRQ/BRK hdlr
+
             JSR   ROMINIT                    ; Build list of sideways ROMs
             JSR   KBDINIT                    ; Returns A=startup MODE
             JSR   VDUINIT                    ; Initialise VDU driver
@@ -205,8 +209,9 @@ BYTE00      BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
             RTS                              ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2022-09-22'
+HELLO       ASC   'Applecorn MOS 2022-09-23'
             DB    $00                        ; Unify MOS messages
+GSSPEED     DB    $00                        ; $80 if GS is fast, $00 for slow
 
 
 
