@@ -81,7 +81,12 @@ CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
             ASC   'EXEC'
             DB    $80
             DW    EXEC-1             ; EXEC   -> (LPTR)=>params
-* DUMP <file>
+            ASC   'FAST'
+            DB    $80
+            DW    FAST-1             ; FAST   -> (LPTR)=>params
+            ASC   'SLOW'
+            DB    $80
+            DW    SLOW-1             ; SLOW   -> (LPTR)=>params
 * BUILD <file>
 * terminator
             DB    $FF
@@ -748,6 +753,23 @@ EXEC         JSR   LPTRtoXY
              ASC   'Not found'
              BRK
 
+*
+* Handle *FAST command
+* Turn Apple II accelerators on
+FAST         LDA   #$80                      ; Apple IIgs
+             TSB   $C036
+             STA   GSSPEED
+             STA   $C05C                     ; Ultrawarp fast
+             RTS
+
+*
+* Handle *SLOW command
+* Turn Apple II accelerators off
+SLOW         LDA   #$80                      ; Apple IIgs
+             TRB   $C036
+             STZ   GSSPEED
+             STA   $C05D                     ; Ultrawarp slow
+             RTS
 
 
 
