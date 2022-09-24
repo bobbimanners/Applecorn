@@ -25,7 +25,7 @@ ROMMENU      JSR   HOME               ; Clear screen
              AND   #$7F
              SEC
              SBC   #'1'               ; '1'->0, '2'->1 etc.
-             CMP   #8
+             CMP   #9
              BCC   :KEYOK
              JSR   BELL               ; Invalid - beep
              BRA   :KEYIN             ; Go again
@@ -41,7 +41,9 @@ ROMMENU      JSR   HOME               ; Clear screen
              LDY   USERSEL            ; Index to ROM to load
              LDA   #0                 ; Load it to bank 0
              CPY   #6
-             BCC   :INITROM2          ; <6, single ROM
+             BCC   :INITROM2          ; <=6, single ROM
+             CPY   #8
+             BEQ   :INITROM2          ; =8, also single ROM
              LDA   #1                 ; Load to bank 1 and 0
              CPY   #7
              BCC   :INITROM2          ; =7, two ROMs
@@ -106,7 +108,9 @@ MSG6         ASC   " 6. Acornsoft BCPL"
              DB    $8D,$8D
 MSG7         ASC   " 7. Acornsoft ISO Pascal (2 ROMs)"
              DB    $8D,$8D
-MSG8         ASC   " 8. Everything! (8 ROMs)"
+MSG8         ASC   " 8. 1 through 7 (8 ROMs)"
+             DB    $8D,$8D
+MSG9         ASC   " 9. Acornsoft View"
              DB    $8D
              DB    $00
 
@@ -119,6 +123,7 @@ ROMLIST      DW    ROM1
              DW    ROM6
              DW    ROM7
              DW    ROM8
+             DW    ROM9
 
 ROM1         STR   "BASIC2.ROM"
 ROM2         STR   "COMAL.ROM"
@@ -128,6 +133,7 @@ ROM5         STR   "MPROLOG310.ROM"
 ROM6         STR   "BCPL700.ROM"
 ROM7         STR   "PASCAL110A.ROM"
 ROM8         STR   "PASCAL110B.ROM"
+ROM9         STR   "VIEWA3.0.ROM"
 
 USERSEL      DB    $00
 
