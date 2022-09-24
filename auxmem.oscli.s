@@ -759,10 +759,12 @@ EXEC         JSR   LPTRtoXY
 FAST         LDA   #$80                      ; Apple IIgs
              TSB   $C036
              STA   GSSPEED
-             STA   $C05C                     ; Ultrawarp fast
              JSR   UNLOCKZIP                 ; ZipChip
+             JSR   DETECTZIP
+             BCC   :NOZIP
              STA   $C05B                     ; Enable
-             JSR   LOCKZIP
+             JMP   LOCKZIP
+:NOZIP       STA   $C05C                     ; Ultrawarp fast
              RTS
 
 *
@@ -771,12 +773,30 @@ FAST         LDA   #$80                      ; Apple IIgs
 SLOW         LDA   #$80                      ; Apple IIgs
              TRB   $C036
              STZ   GSSPEED
-             STA   $C05D                     ; Ultrawarp slow
              JSR   UNLOCKZIP                 ; ZipChip
+             JSR   DETECTZIP
+             BCC   :NOZIP
              STZ   $C05A                     ; Disable
-             JSR   LOCKZIP
+             JMP   LOCKZIP
+:NOZIP       STA   $C05D                     ; Ultrawarp slow
              RTS
 
+* Detect a ZipChip
+* Set carry is ZipChip found
+DETECTZIP    LDA   $C05C                     ; ZipChip manual p25
+             EOR   #$FF
+             STA   $C05C
+             CMP   $C05C
+             BNE   :NOZIP
+             EOR   #$FF
+             STA   $C05C
+             CMP   $C05C
+             BNE   :NOZIP
+             SEC
+             RTS
+:NOZIP       CLC
+             RTS
+           
 * Unlock ZipChip registers
 UNLOCKZIP    PHP
              SEI                             ; Timing sensitive
