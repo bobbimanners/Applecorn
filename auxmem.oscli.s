@@ -760,6 +760,11 @@ FAST         LDA   #$80                      ; Apple IIgs
              TSB   $C036
              STA   GSSPEED
              STA   $C05C                     ; Ultrawarp fast
+             JSR   UNLOCKZIP                 ; ZipChip
+             STA   $C05B                     ; Enable
+             LDA   #$00                      ; Full speed
+             STA   $C05D
+             JSR   LOCKZIP
              RTS
 
 *
@@ -769,8 +774,25 @@ SLOW         LDA   #$80                      ; Apple IIgs
              TRB   $C036
              STZ   GSSPEED
              STA   $C05D                     ; Ultrawarp slow
+             JSR   UNLOCKZIP                 ; ZipChip
+             STA   $C05B                     ; Enable
+             LDA   #$D0                      ; 1.0667MHz
+             STA   $C05D
+             JSR   LOCKZIP
              RTS
 
+* Unlock ZipChip registers
+UNLOCKZIP    LDA   #$5A
+             STA   $C05A
+             STA   $C05A
+             STA   $C05A
+             STA   $C05A
+             RTS
+
+* Lock ZipChip registers
+LOCKZIP      LDA   #$A5
+             STA   $C05A
+             RTS
 
 
 
