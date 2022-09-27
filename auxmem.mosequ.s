@@ -68,6 +68,20 @@ FINDV        EQU   $21C        ; OSFIND vector
 FSCV         EQU   $21E        ; FSCV misc file ops
 
 BYTEVARBASE  EQU   $190        ; Base of OSBYTE variables
+
+SND0EMPTY    EQU   $2D3        ; Empty flag for sound bufs
+SND1EMPTY    EQU   $2D4
+SND2EMPTY    EQU   $2D5
+SND3EMPTY    EQU   $2D6
+SND0STARTIDX EQU   $2DC        ; Start index for sound bufs
+SND1STARTIDX EQU   $2DD
+SND2STARTIDX EQU   $2DE
+SND3STARTIDX EQU   $2DF
+SND0ENDIDX   EQU   $2E5        ; End index for sound bufs
+SND1ENDIDX   EQU   $2E6
+SND2ENDIDX   EQU   $2E7
+SND3ENDIDX   EQU   $2E8
+
 OSFILECB     EQU   $2EE        ; OSFILE control block
 OSGBPBCB     EQU   OSFILECB+1  ; OSGBPB control block
 
@@ -75,6 +89,11 @@ OSGBPBCB     EQU   OSFILECB+1  ; OSGBPB control block
 * $0300-$03DF
 * $03E0-$03FF Used for interfacing with ProDOS XFER
 
+* $0800-$08FF
+SNDBUF0      EQU  $840         ; Sound buffers (16 bytes each)
+SNDBUF1      EQU  $850
+SNDBUF2      EQU  $860
+SNDBUF3      EQU  $870
 
 
 
