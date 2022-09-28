@@ -42,9 +42,10 @@ GETBUFADDR  LDA   :BUFADDRL,X
 
 * Insert value into buffer (INSV)
 * On entry: A is value, X is buffer number.
-* On exit: A, X preserved. C clear on success.
+* On exit: A, X, Y preserved. C clear on success.
 INSHND      PHP                              ; Save flags, turn off interrupts
             SEI
+            PHY
             PHA
             LDY   ENDINDICES,X               ; Get input pointer
             INY                              ; Next byte
@@ -59,10 +60,12 @@ INSHND      PHP                              ; Save flags, turn off interrupts
             JSR   GETBUFADDR                 ; Buffer address into OSINTWS
             PLA                              ; Get value back
             STA   (OSINTWS),Y                ; Write to buffer
+            PLY
             PLP                              ; Restore flags
             CLC                              ; Exit with carry clear
             RTS
 :FULL       PLA                              ; Restore A
+            PLY
             PLP                              ; Restore flags
             SEC                              ; Exit with carry set
             RTS
@@ -71,27 +74,26 @@ INSHND      PHP                              ; Save flags, turn off interrupts
 * OSBYTE &07 - Make a sound
 * On entry: (OSCTRL),Y points to eight byte parameter block (2 bytes each for
 *           channel, amplitude, pitch, duration)
-WORD07      INY
-            LDA  (OSCTRL),Y                  ; Get channel number 0-3
+WORD07      LDA  (OSCTRL),Y                  ; Get channel number 0-3
             ORA  #$04                        ; Convert to buffer number 4-7
             TAX                              ; Into X
+            INY                              ; Point to channel num MSB
             INY                              ; Point to amplitude LSB
             LDA  (OSCTRL),Y
-            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
+            JSR  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
             INY                              ; Point to amplitude MSB
             LDA  (OSCTRL),Y
-            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
+            JSR  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
             INY                              ; Point to pitch LSB
             LDA  (OSCTRL),Y
-            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
+            JSR  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
             INY                              ; Point to pitch MSB
             LDA  (OSCTRL),Y
-            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
+            JSR  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
             INY                              ; Point to duration LSB
             LDA  (OSCTRL),Y
-            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
+            JSR  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
             INY                              ; Point to duration MSB
             LDA  (OSCTRL),Y
             JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
-            RTS
 
