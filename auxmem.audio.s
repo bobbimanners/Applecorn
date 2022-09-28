@@ -4,7 +4,12 @@
 * Applecorn audio code
 *
 
-SNDBUFSZ   EQU   16                          ; All audio buffers are 16 bytes
+* Sound buffers in aux LC for now
+* Not sure where to move them to
+SNDBUF0    DS    16
+SNDBUF1    DS    16
+SNDBUF2    DS    16
+SNDBUF3    DS    16
 
 * Get address of sound buffer
 * On entry: X is buffer number
@@ -43,7 +48,7 @@ INSHND      PHP                              ; Save flags, turn off interrupts
             PHA
             LDY   ENDINDICES,X               ; Get input pointer
             INY                              ; Next byte
-            CPY   #SNDBUFSZ
+            CPY   #16
             BNE   :NOTEND                    ; See if it's the end
             LDY   #0                         ; If so, wraparound
 :NOTEND     TYA
@@ -60,5 +65,33 @@ INSHND      PHP                              ; Save flags, turn off interrupts
 :FULL       PLA                              ; Restore A
             PLP                              ; Restore flags
             SEC                              ; Exit with carry set
+            RTS
+
+
+* OSBYTE &07 - Make a sound
+* On entry: (OSCTRL),Y points to eight byte parameter block (2 bytes each for
+*           channel, amplitude, pitch, duration)
+WORD07      INY
+            LDA  (OSCTRL),Y                  ; Get channel number 0-3
+            ORA  #$04                        ; Convert to buffer number 4-7
+            TAX                              ; Into X
+            INY                              ; Point to amplitude LSB
+            LDA  (OSCTRL),Y
+            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
+            INY                              ; Point to amplitude MSB
+            LDA  (OSCTRL),Y
+            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
+            INY                              ; Point to pitch LSB
+            LDA  (OSCTRL),Y
+            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
+            INY                              ; Point to pitch MSB
+            LDA  (OSCTRL),Y
+            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
+            INY                              ; Point to duration LSB
+            LDA  (OSCTRL),Y
+            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
+            INY                              ; Point to duration MSB
+            LDA  (OSCTRL),Y
+            JMP  INSHND                      ; SHOULD CALL THIS THRU VECTOR INSV
             RTS
 

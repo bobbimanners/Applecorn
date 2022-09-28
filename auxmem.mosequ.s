@@ -92,13 +92,4 @@ OSGBPBCB     EQU   OSFILECB+1  ; OSGBPB control block
 * $0300-$03DF
 * $03E0-$03FF Used for interfacing with ProDOS XFER
 
-* $0800-$08FF
-SNDBUF0      EQU  $840         ; Sound buffers (16 bytes each)
-SNDBUF1      EQU  $850
-SNDBUF2      EQU  $860
-SNDBUF3      EQU  $870
-
-
-
-
 
