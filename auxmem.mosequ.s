@@ -69,14 +69,17 @@ FSCV         EQU   $21E        ; FSCV misc file ops
 
 BYTEVARBASE  EQU   $190        ; Base of OSBYTE variables
 
+EMPTYFLAGS   EQU   $2CF
 SND0EMPTY    EQU   $2D3        ; Empty flag for sound bufs
 SND1EMPTY    EQU   $2D4
 SND2EMPTY    EQU   $2D5
 SND3EMPTY    EQU   $2D6
+STARTINDICES EQU   $2D8
 SND0STARTIDX EQU   $2DC        ; Start index for sound bufs
 SND1STARTIDX EQU   $2DD
 SND2STARTIDX EQU   $2DE
 SND3STARTIDX EQU   $2DF
+ENDINDICES   EQU   $2E1
 SND0ENDIDX   EQU   $2E5        ; End index for sound bufs
 SND1ENDIDX   EQU   $2E6
 SND2ENDIDX   EQU   $2E7

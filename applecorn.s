@@ -198,6 +198,7 @@ MAINZP      MAC
             PUT   AUXMEM.BYTWRD
             PUT   AUXMEM.CHARIO
             PUT   AUXMEM.MISC
+            PUT   AUXMEM.AUDIO
 
 * Automatically save the object file:
             SAV   APPLECORN
