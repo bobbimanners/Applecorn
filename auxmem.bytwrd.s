@@ -95,7 +95,7 @@ OSWBASE      DW    WORD00                 ; OSWORD  0 - Read input line
              DW    WORD05                 ; OSWORD  5 - Read I/O memory
              DW    WORD06                 ; OSWORD  6 - Write I/O memory
              DW    WORD07                 ; OSWORD  7 - SOUND
-*          DW    WORD08   ; OSWORD  8 - ENVELOPE
+             DW    WORD08                 ; OSWORD  8 - ENVELOPE
 *          DW    WORD09   ; OSWORD  9 - POINT
 *          DW    WORD0A   ; OSWORD 10 - Read character bitmap
 *          DW    WORD0B   ; OSWORD 11 - Read palette

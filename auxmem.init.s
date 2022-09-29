@@ -134,6 +134,8 @@ MOSHIGH     SEI                              ; Disable IRQ while initializing
             DEX
             BNE   :INITSND
 
+            JSR   ENSQINIT                   ; Initialize Ensoniq DOC
+
             LDA   $C036                      ; GS speed register
             AND   #$80                       ; Speed bit only
             STA   GSSPEED                    ; In Alt LC for IRQ/BRK hdlr
