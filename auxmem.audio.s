@@ -133,10 +133,45 @@ WORD08
 
 
 * Called from Ensoniq interrupt handler - process audio queue
-*
-ENSQIRQ
-*           TODO: IMPLEMENT THIS!!!
-            RTS
+* Called at 100Hz
+ENSQIRQ     INC   COUNTER                   ; Increment centisecond timer
+            INC   :CNT                      ; Find every 5th cycle
+            CMP   #5
+            BNE   :NOT20HZ
+            STZ   :CNT
+            LDX   #3                        ; Process four audio queues
+:L1         LDA   OSCTIMES,X                ; Time remaining on current note
+            BEQ   :NONOTE                   ; No note playing
+            DEC   OSCTIMES,X
+            BRA   :NOTE
+:NONOTE     LDY   #$00                      ; Zero volume
+            LDA   #$00                      ; Zero freq
+            JSR   ENSQNOTE                  ; Silence channel Y
+:NOTE       CLV                             ; Means remove from queue
+            JSR   REMHND                    ; Remove byte from queue
+            BCS   :EMPTY                    ; Nothing in queue
+            PHY                             ; Amplitude
+            JSR   REMHND                    ; Remove byte from queue
+            PHY                             ; Frequency
+            JSR   REMHND                    ; Remove byte from queue
+            TYA                             ; Duration
+            STA   OSCTIMES,X
+            PLA                             ; Recover frequency
+            PLY                             ; Recover amplitude
+            JSR   ENSQNOTE                  ; Start note playing
+:EMPTY	    DEX
+            BNE   :L1                       ; Next audio queue
+:NOT20HZ
+* TODO: Envelope processing on all cycles (AT 100Hz)
+:RTS        RTS
+:CNT        DB    $00                       ; Used to determine 20Hz cycles
+COUNTER     DW    $0000                     ; Centisecond counter
+
+* Time remaining for current note, in 1/20th of second
+OSCTIMES    DB    $00
+            DB    $00
+            DB    $00
+            DB    $00
 
 
 * Initialize Ensoniq
@@ -167,21 +202,25 @@ ENSQINIT    LDA   ENSQSNDCTL                ; Get settings
             LDX   #$E1                      ; DOC Osc Enable register $E1
             LDY   #8                        ; Four oscillators enabled
             JSR   ENSQWRTDOC
-            LDX   #$00                      ; Amplitude
+                                            ; Fall through
+* Silence all channels
+ENSQSILENT  LDY   #$00                      ; Amplitude
             LDA   #$80                      ; Frequency
-            LDY   #$03
-:L3         JSR   ENSQOSCIL                 ; Initialize channel Y
-            DEY
-            BPL   :L3
+            LDX   #$03
+:L1         JSR   ENSQNOTE                  ; Initialize channel Y
+            STZ   OSCTIMES,X                ; No note playing
+            DEX
+            BPL   :L1
             RTS
 
+
 * Configure Ensoniq oscillator
-* On entry: Y - oscillator number 0-3 , A - frequency, X - amplitude
+* On entry: X - oscillator number 0-3 , A - frequency, Y - amplitude
 * Preserves all registers
 * TODO: ALWAYS USES OSCILLATOR CHANNEL 0 FOR NOW
-ENSQOSCIL   PHA
-            PHY
+ENSQNOTE    PHA
             PHX
+            PHY
             LDX   #$00                      ; DOC register $00 (Freq Lo)
             TAY                             ; Frequency value LS byte
             JSR   ENSQWRTDOC
@@ -189,7 +228,7 @@ ENSQOSCIL   PHA
             LDY   #$00                      ; Frequency value MS byte
             JSR   ENSQWRTDOC
             LDX   #$40                      ; DOC register $40 (Volume)
-            PLY                             ; Frequency value orig in X
+            PLY                             ; Amplitude value
             PHY
             JSR   ENSQWRTDOC
             LDX   #$80                      ; DOC register $80 (Wavetable)
@@ -201,8 +240,8 @@ ENSQOSCIL   PHA
             LDX   #$C0                      ; DOC register $C0 (WT size)
             LDY   #$00                      ; For 256 byte wavetable
             JSR   ENSQWRTDOC
-            PLX
             PLY
+            PLX
             PLA
             RTS
 
