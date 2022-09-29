@@ -71,6 +71,40 @@ INSHND      PHP                              ; Save flags, turn off interrupts
             RTS
 
 
+* Remove value from buffer or examine buffer (REMV)
+* On entry: X is buffer number, V=1 if only examination is requested
+* On exit: If examination, A next byte, X preserved, Y=offset to next char
+*          Removal: A undef, X preserved, Y value of byte removed
+*          If buffer already empty C=1, else C=0
+REMHND      PHP                              ; Save flags, turn off interrupts
+            SEI
+            LDA   STARTINDICES,X             ; Output pointer for buf X
+            CMP   ENDINDICES,X
+            BEQ   :EMPTY                     ; Buffer is empty
+            TAY                              ; Buffer pointer into Y
+            JSR   GETBUFADDR                 ; Buffer address into OSINTWS
+            LDA   (OSINTWS),Y                ; Read byte from buffer
+            PHA                              ; Stash for later
+            BVS   :EXAM                      ; If only examination, done
+            INY                              ; Next byte
+            CPY   #16
+            BNE   :NOTEND                    ; See if it's the end
+            LDY   #0                         ; If so, wraparound
+:NOTEND     TYA
+            STA   STARTINDICES,X             ; Set output pointer
+            PLY                              ; Char read from buffer
+            PLP
+            CLC                              ; Success
+            RTS
+:EXAM       PLA                              ; Char read from buffer
+            PLP
+            CLC                              ; Success
+            RTS
+:EMPTY      PLP
+            SEC                              ; Buffer already empty
+            RTS
+
+
 * OSBYTE &07 - Make a sound
 * On entry: (OSCTRL),Y points to eight byte parameter block (2 bytes each for
 *           channel, amplitude, pitch, duration)
@@ -90,11 +124,13 @@ WORD07      LDA   (OSCTRL),Y                 ; Get channel number 0-3
             JSR   INSHND                     ; Insert into queue X
             RTS
 
+
 * OSBYTE &08 - Envelope
 * On entry: (OSCTRL),Y points to 14 byte parameter block
 WORD08
 *           TODO: IMPLEMENT THIS!!!
             RTS
+
 
 * Called from Ensoniq interrupt handler - process audio queue
 *
@@ -102,12 +138,15 @@ ENSQIRQ
 *           TODO: IMPLEMENT THIS!!!
             RTS
 
+
 * Initialize Ensoniq
 ENSQSNDCTL  EQU   $C03C
 ENSQSNDDAT  EQU   $C03D
 ENSQADDRL   EQU   $C03E
 ENSQADDRH   EQU   $C03F
 
+* Initialize Ensoniq
+* Setup wavetable - one period of a square wave
 ENSQINIT    LDA   ENSQSNDCTL                ; Get settings
             ORA   #$60                      ; DOC RAM, autoincrement on
             STA   ENSQSNDCTL                ; Set it
