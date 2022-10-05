@@ -126,16 +126,6 @@ MOSHIGH     SEI                              ; Disable IRQ while initializing
             DEX
             BPL   :INITPG2
 
-            LDX   #3
-            LDA   #$80                       ; Initialize sound queues
-:INITSND    STA   SND0EMPTY,X
-            STZ   SND0STARTIDX,X
-            STZ   SND0ENDIDX,X
-            DEX
-            BNE   :INITSND
-
-            JSR   ENSQINIT                   ; Initialize Ensoniq DOC
-
             LDA   $C036                      ; GS speed register
             AND   #$80                       ; Speed bit only
             STA   GSSPEED                    ; In Alt LC for IRQ/BRK hdlr
