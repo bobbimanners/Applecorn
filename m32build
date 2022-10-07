@@ -4,6 +4,6 @@
 #
 
 merlin32 -v applecorn.s
-cp APPLECORN APPLECORN#064000
-cadius deletefile applecorn.po /APPLECORN/APPLECORN
-cadius addfile applecorn.po /APPLECORN APPLECORN#064000
+cp APLCORN.SYSTEM APLCORN.SYSTEM#FF2000
+cadius deletefile applecorn.po /APPLECORN/APLCORN.SYSTEM
+cadius addfile applecorn.po /APPLECORN APLCORN.SYSTEM#FF2000
