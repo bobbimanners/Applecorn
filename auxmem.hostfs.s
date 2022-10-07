@@ -310,9 +310,6 @@ FSCCOMMAND   ASC   'CHDIR'
              ASC   'COPY'
              DB    $80
              DW    FSCCOPY-1                 ; COPY <listspec> <*objspec*>, LPTR=>params
-             ASC   'CLOSE'
-             DB    $80
-             DW    FSCCLOSE-1                ; CLOSE
 *
              DB    $FF                       ; Terminator
 
@@ -840,20 +837,6 @@ DESTROY      JSR   PARSLPTR                  ; Copy filename->MOSFILE
 *
 FSCTITLE     RTS
 
-
-* Handle *CLOSE command
-*
-FSCCLOSE     JSR   PARSLPTR
-             BNE   :SYNTAX                   ; Trailing junk
-             LDA   #$00                      ; Close all open files
-             LDY   #$00
-             JSR   FINDHND
-             STZ   FXSPOOL                   ; Also, stop spooling
-             RTS
-:SYNTAX      BRK
-             DB    $DC
-             ASC   'Syntax: CLOSE'
-             BRK
 
 * Parse filename pointed to by XY
 * Write filename to MOSFILE in main memory
