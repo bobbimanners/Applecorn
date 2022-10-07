@@ -10,7 +10,7 @@
 
 
             XC                ; 65c02
-            ORG   $4000       ; Load addr of loader in main memory
+            ORG   $2000       ; Load addr of loader in main memory
                               ; Clear of first HGR frame buffer
 
 * Monitor routines
@@ -200,6 +200,6 @@ MAINZP      MAC
             PUT   AUXMEM.MISC
 
 * Automatically save the object file:
-            SAV   APPLECORN
+            SAV   APLCORN.SYSTEM
 
 
