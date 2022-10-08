@@ -9,6 +9,7 @@
 * 02-Sep-2021 *LOAD/*SAVE now uses GSTRANS.
 * 12-Sep-2021 *HELP uses subject lookup, *HELP MOS, *HELP HOSTFS.
 * 25-Oct-2021 Implemented *BASIC.
+* 07-Oct-2022 *CLOSE is a host command, fixed *EXEC.
 
 
 * COMMAND TABLE
@@ -69,6 +70,13 @@ CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
             ASC   'ECHO'
             DB    $80
             DW    ECHO-1             ; ECHO   -> (LPTR)=>params
+            ASC   'FAST'
+            DB    $80
+            DW    FAST-1             ; FAST   -> (LPTR)=>params
+            ASC   'SLOW'
+            DB    $80
+            DW    SLOW-1             ; SLOW   -> (LPTR)=>params
+* filing utilities
             ASC   'TYPE'
             DB    $80
             DW    TYPE-1             ; TYPE   -> (LPTR)=>params
@@ -77,16 +85,13 @@ CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
             DW    DUMP-1             ; DUMP   -> (LPTR)=>params
             ASC   'SPOOL'
             DB    $80
-            DW    SPOOL-1            ; EXEC   -> (LPTR)=>params
+            DW    SPOOL-1            ; SPOOL  -> (LPTR)=>params
             ASC   'EXEC'
             DB    $80
             DW    EXEC-1             ; EXEC   -> (LPTR)=>params
-            ASC   'FAST'
+            ASC   'CLOSE'
             DB    $80
-            DW    FAST-1             ; FAST   -> (LPTR)=>params
-            ASC   'SLOW'
-            DB    $80
-            DW    SLOW-1             ; SLOW   -> (LPTR)=>params
+            DW    STARCLOSE-1        ; CLOSE  -> (LPTR)=>params
 * BUILD <file>
 * terminator
             DB    $FF
@@ -527,6 +532,17 @@ ECHOLP1     JSR   GSREAD
             JSR   OSWRCH
             JMP   ECHOLP1
 
+* FILING UTILITIES
+******************
+
+* *CLOSE
+********
+STARCLOSE    LDA   #$00
+             TAY
+             JSR   OSFIND            ; Close all files
+             STA   FXEXEC            ; Clear Spool/Exec handles
+             STA   FXSPOOL
+             RTS
 
 * Handle *TYPE command
 * LPTR=>parameters string
@@ -540,7 +556,7 @@ TYPE         JSR   LPTRtoXY
              PLY
              PLX
              LDA   #$40                      ; Open for input
-             JSR   FINDHND                   ; Try to open file
+             JSR   OSFIND                    ; Try to open file
              CMP   #$00                      ; Was file opened?
              BEQ   :NOTFOUND
              TAY                             ; File handle in Y
@@ -553,7 +569,7 @@ TYPE         JSR   LPTRtoXY
              BMI   :ESC
              BRA   :L1
 :CLOSE       LDA   #$00
-             JSR   FINDHND                   ; Close file
+             JSR   OSFIND                    ; Close file
 :DONE        RTS
 :SYNTAX      BRK
              DB    $DC
@@ -564,7 +580,7 @@ TYPE         JSR   LPTRtoXY
              ASC   'Not found'
              BRK
 :ESC         LDA   #$00                      ; Close file
-             JSR   FINDHND
+             JSR   OSFIND
              BRK
              DB    $11
              ASC   'Escape'
@@ -583,7 +599,7 @@ DUMP         JSR   LPTRtoXY
              PLY
              PLX
              LDA   #$40                      ; Open for input
-             JSR   FINDHND                   ; Try to open file
+             JSR   OSFIND                    ; Try to open file
              CMP   #$00                      ; Was file opened?
              BEQ   :NOTFOUND
              TAY                             ; File handle in Y
@@ -623,7 +639,7 @@ DUMP         JSR   LPTRtoXY
              BRA   :L1
 :CLOSE       JSR   PRCHARS                   ; Print ASCII representation
              LDA   #$00
-             JSR   FINDHND                   ; Close file
+             JSR   OSFIND                    ; Close file
 :DONE        RTS
 :SYNTAX      BRK
              DB    $DC
@@ -634,7 +650,7 @@ DUMP         JSR   LPTRtoXY
              ASC   'Not found'
              BRK
 :ESC         LDA   #$00                      ; Close file
-             JSR   FINDHND
+             JSR   OSFIND
              BRK
              DB    $11
              ASC   'Escape'
@@ -706,11 +722,11 @@ SPOOL        JSR   LPTRtoXY
              LDY   FXSPOOL                   ; Already spooling?
              BEQ   :OPEN
              LDA   #$00                      ; If so, close file
-             JSR   FINDHND
+             JSR   OSFIND
 :OPEN        PLY
              PLX
              LDA   #$80                      ; Open for writing
-             JSR   FINDHND                   ; Try to open file
+             JSR   OSFIND                    ; Try to open file
              STA   FXSPOOL                   ; Store SPOOL file handle
              RTS
 :CLOSE       PLY                             ; Clean up stack
@@ -718,7 +734,7 @@ SPOOL        JSR   LPTRtoXY
              LDY   FXSPOOL
              BEQ   :DONE
              LDA   #$00
-             JSR   FINDHND                   ; Close file
+             JSR   OSFIND                    ; Close file
              STZ   FXSPOOL
 :DONE        RTS
 
@@ -726,29 +742,24 @@ SPOOL        JSR   LPTRtoXY
 * Handle *EXEC command
 * LPTR=>parameters string
 *
-EXEC         JSR   LPTRtoXY
-             PHX
-             PHY
-             JSR   XYtoLPTR
-             JSR   PARSLPTR                  ; Just for error handling
-             BEQ   :SYNTAX                   ; No filename
-             PLY
-             PLX
+EXEC         PHY
+             LDY   FXEXEC
+             BEQ   :EXEC1
+             LDA   #$00
+             STA   FXEXEC
+             JSR   OSFIND                    ; If Exec open, close it
+:EXEC1       PLY
+             LDA   (OSLPTR),Y
+             CMP   #$0D
+             BEQ   :DONE                     ; No filename, all done
+             JSR   LPTRtoXY                  ; XY=>filename
              LDA   #$40                      ; Open for input
-             JSR   FINDHND                   ; Try to open file
-             CMP   #$00                      ; Was file opened?
+             JSR   OSFIND                    ; Try to open file
+             TAY                             ; Was file opened?
              BEQ   :NOTFOUND
              STA   FXEXEC                    ; Store EXEC file handle
-             RTS
-             RTS
-:SYNTAX      PLY                             ; Fix the stack
-             PLX
-             BRK
-             DB    $DC
-             ASC   'Syntax: EXEC <*objspec*>'
-             BRK
-:NOTFOUND    STZ   FXEXEC
-             BRK
+:DONE        RTS
+:NOTFOUND    BRK
              DB    $D6
              ASC   'Not found'
              BRK

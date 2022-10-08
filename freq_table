@@ -1,0 +1,19 @@
+#!/usr/bin/python3
+
+#
+# Make a table of Ensoniq frequency values (high and low bytes)
+# Corresponding to the frequency values used in BBC Micro
+# SOUND statements.
+#
+
+base=123.47
+
+print("\nFREQHIGH");
+for i in range(0,256):
+  v = 2**(i/48)*base
+  print("          DB >{:.0f}".format(v * 10))
+
+print("\nFREQLOW");
+for i in range(0,256):
+  v = 2**(i/48)*base
+  print("          DB <{:.0f}".format(v * 10))
