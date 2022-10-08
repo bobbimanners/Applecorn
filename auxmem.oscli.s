@@ -10,15 +10,11 @@
 * 12-Sep-2021 *HELP uses subject lookup, *HELP MOS, *HELP HOSTFS.
 * 25-Oct-2021 Implemented *BASIC.
 * 07-Oct-2022 *CLOSE is a host command, fixed *EXEC.
-* 08-Oct-2022 Rewrote *TYPE, *DUMP, *SPOOL, shares code with *EXEC.
 
 
 * COMMAND TABLE
 ***************
 * Table structure is: { string, byte OR $80, destword-1 } $00
-* Commands are entered with A=command byte with b7=1
-*                           if b6=1 (LPTR),Y=>parameters
-*                           if b6=0 XY=>parameters
 * fsc commands
 CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $85
@@ -83,19 +79,19 @@ CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
 * filing utilities
             ASC   'TYPE'
             DB    $80
-            DW    CMDTYPE-1          ; TYPE   -> (LPTR)=>params
+            DW    TYPE-1             ; TYPE   -> (LPTR)=>params
             ASC   'DUMP'
             DB    $80
-            DW    CMDDUMP-1          ; DUMP   -> (LPTR)=>params
+            DW    DUMP-1             ; DUMP   -> (LPTR)=>params
             ASC   'SPOOL'
             DB    $80
-            DW    CMDSPOOL-1         ; SPOOL  -> (LPTR)=>params
+            DW    SPOOL-1            ; SPOOL  -> (LPTR)=>params
             ASC   'EXEC'
             DB    $80
-            DW    CMDEXEC-1          ; EXEC   -> (LPTR)=>params
+            DW    EXEC-1             ; EXEC   -> (LPTR)=>params
             ASC   'CLOSE'
             DB    $80
-            DW    CMDCLOSE-1         ; CLOSE  -> (LPTR)=>params
+            DW    STARCLOSE-1        ; CLOSE  -> (LPTR)=>params
 * BUILD <file>
 * terminator
             DB    $FF
@@ -170,8 +166,8 @@ CLIMATCH3   JSR   SKIPSPC            ; (OSLPTR),Y=>parameters
             PHA                      ; Push address low
             TXA                      ; Command byte
             PHA
-            ASL   A                  ; Move bit 6 into bit 7
-            BEQ   CLICALL            ; If $80-&BF don't convert LPTR
+            ASL   A                  ; Drop bit 7
+            BEQ   CLICALL            ; If $80 don't convert LPTR
             JSR   LPTRtoXY           ; XY=>parameters
 CLICALL     PLA                      ; A=command parameter
             RTS                      ; Call command routine
@@ -375,7 +371,7 @@ LPTRtoXY    CLC
 XYtoLPTR    STX   OSLPTR+0
             STY   OSLPTR+1
             LDY   #0
-STARHELP9   RTS
+            RTS
 
 * Print *HELP text
 STARHELP    JSR   XYtoLPTR           ; (OSLPTR),Y=>parameters
@@ -383,9 +379,8 @@ STARHELP    JSR   XYtoLPTR           ; (OSLPTR),Y=>parameters
             LDX   #<HLPTABLE         ; XY=>command table
             LDY   #>HLPTABLE
             JSR   CLILOOKUP          ; Look for *HELP subject
-            BEQ   STARHELP9          ; Matched
             LDA   $8006              ; Does ROM have service entry?
-            BMI   STARHELP6          ; Yes, skip to send service call
+            BMI   STARHELP6          ; Yes, send service call
             JSR   OSNEWL
             LDA   #$09               ; Language name
             LDY   #$80               ; *TO DO* make this and BYTE8E
@@ -538,179 +533,236 @@ ECHOLP1     JSR   GSREAD
             JMP   ECHOLP1
 
 * FILING UTILITIES
-* ================
+******************
 
 * *CLOSE
 ********
-CMDCLOSE     LDA   #$00
+STARCLOSE    LDA   #$00
              TAY
              JSR   OSFIND            ; Close all files
-             STA   FXEXEC            ; Ensure Spool/Exec handles cleared
+             STA   FXEXEC            ; Clear Spool/Exec handles
              STA   FXSPOOL
              RTS
 
-* *TYPE <afsp>
-**************
+* Handle *TYPE command
 * LPTR=>parameters string
 *
-CMDTYPE
-             LDA   (OSLPTR),Y	; TEMP
-             CMP   #$0D		; TEMP 
-             BEQ   ERRTYPE           ; No filename
-             JSR   LPTRtoXY	; TEMP
-*
-             JSR   OPENINFILE        ; Try to open file
-:LOOP        JSR   OSBGET            ; Read a byte
-             BCS   TYPDMPEND         ; EOF
-             CMP   #$0A
-             BEQ   :LOOP             ; Ignore <lf>
-             TAX                     ; Remember last character
-             JSR   OSASCI            ; Print the character
-             BIT   ESCFLAG
-             BPL   :LOOP             ; No Escape, keep going
-TYPEESC      JSR   TYPCLOSE
-ERRESCAPE    BRK
+TYPE         JSR   LPTRtoXY
+             PHX
+             PHY
+             JSR   XYtoLPTR
+             JSR   PARSLPTR                  ; Just for error handling
+             BEQ   :SYNTAX                   ; No filename
+             PLY
+             PLX
+             LDA   #$40                      ; Open for input
+             JSR   OSFIND                    ; Try to open file
+             CMP   #$00                      ; Was file opened?
+             BEQ   :NOTFOUND
+             TAY                             ; File handle in Y
+:L1          JSR   BGETHND                   ; Read a byte
+             BCS   :CLOSE                    ; EOF
+             CMP   #$0A                      ; Don't print LF
+             BEQ   :S1
+             JSR   OSASCI                    ; Print the character
+:S1          LDA   ESCFLAG
+             BMI   :ESC
+             BRA   :L1
+:CLOSE       LDA   #$00
+             JSR   OSFIND                    ; Close file
+:DONE        RTS
+:SYNTAX      BRK
+             DB    $DC
+             ASC   'Syntax: TYPE <*objspec*>'
+             BRK
+:NOTFOUND    BRK
+             DB    $D6
+             ASC   'Not found'
+             BRK
+:ESC         LDA   #$00                      ; Close file
+             JSR   OSFIND
+             BRK
              DB    $11
              ASC   'Escape'
              BRK
-TYPDMPEND    CPX   #$0D
-             BEQ   TYPCLOSE
-             JSR   OSNEWL
-TYPCLOSE     LDA   #$00
-             JMP   OSFIND            ; Close file
-ERRTYPE      BRK
-             DB    $DC
-             ASC   'Syntax: TYPE <afsp>'
-             BRK
+
 
 * Handle *DUMP command
 * LPTR=>parameters string
 *
-CMDDUMP
-             LDA   (OSLPTR),Y	; TEMP
-             CMP   #$0D		; TEMP 
-             BEQ   :ERRDUMP          ; No filename
-             JSR   LPTRtoXY	; TEMP
-*
-             JSR   OPENINFILE        ; Try to open file
-             STZ   OSNUM+0           ; Offset = zero
-             STZ   OSNUM+1
-:LOOP1       BIT   ESCFLAG
-             BMI   TYPEESC           ; Escape pressed
-             PHY                     ; Save handle
-             LDX   OSNUM+0           ; Print file offset
-             LDY   OSNUM+1
-             JSR   PR2HEX
-             JSR   PRSPACE
-             PLY                     ; Get handle back
-             LDA   #8                ; 8 bytes to dump
-             STA   OSNUM+2
-             TSX                     ; Reserve bytes on stack
-             TXA
-             SEC
-             SBC   OSNUM+2
-             TAX
-             TXS                     ; X=>space on stack
-:LOOP2       JSR   OSBGET            ; Read a byte
-             BCS   :DUMPEOF
-             STA   $0101,X           ; Store on stack
-             JSR   PRHEX             ; Print as hex
-             JSR   PRSPACE
-             INX
-             DEC   OSNUM+2
-             BNE   :LOOP2            ; Loop to do 8 bytes
-             CLC                     ; CLC=Not EOF
-             BCC   :DUMPCHRS         ; Jump to display characters
-:DUMPEOF     LDA   #$2A              ; EOF met, pad with '**'
-             JSR   OSWRCH
-             JSR   OSWRCH
-             JSR   PRSPACE
-             LDA   #$00
-             STA   $0101,X
-             INX
-             DEC   OSNUM+2
-             BNE   :DUMPEOF          ; Loop to do 8 bytes
-             SEC                     ; SEC=EOF
-:DUMPCHRS    LDX   #8                ; 8 bytes to print
-:LOOP4       PLA                     ; Get character
-             PHP                     ; Save EOF flag
-             CMP   #$7F
-             BEQ   :DUMPDOT
-             CMP   #$20
-             BCS   :DUMPCHR
-:DUMPDOT     LDA   #$2E
-:DUMPCHR     JSR   OSWRCH            ; Print character
-             INC   OSNUM+0           ; Increment offset
-             BNE   :DUMPNXT
-             INC   OSNUM+1
-:DUMPNXT     PLP                     ; Get EOF flag back
+DUMP         JSR   LPTRtoXY
+             PHX
+             PHY
+             JSR   XYtoLPTR
+             JSR   PARSLPTR                  ; Just for error handling
+             BEQ   :SYNTAX                   ; No filename
+             PLY
+             PLX
+             LDA   #$40                      ; Open for input
+             JSR   OSFIND                    ; Try to open file
+             CMP   #$00                      ; Was file opened?
+             BEQ   :NOTFOUND
+             TAY                             ; File handle in Y
+             STZ   DUMPOFF
+             STZ   DUMPOFF+1
+:L1          JSR   BGETHND                   ; Read a byte
+             BCS   :CLOSE                    ; EOF
+             PHA
+             LDA   DUMPOFF+0
+             AND   #$07
+             BNE   :INC
+             LDA   DUMPOFF+1                 ; Print file offset
+             JSR   PRHEXBYTE
+             LDA   DUMPOFF+0
+             JSR   PRHEXBYTE
+             LDA   #' '
+             JSR   OSASCI
+             LDX   #$07
+             LDA   #' '                      ; Clear ASCII buffer
+:L2          STA   DUMPASCI,X
              DEX
-             BNE   :LOOP4            ; Loop to do 8 bytes
-             PHP
-             JSR   OSNEWL
-             PLP
-             BCC   :LOOP1
-             JMP   TYPCLOSE          ; Close and finish
-:ERRDUMP     BRK
+             BNE   :L2
+:INC         INC   DUMPOFF+0                 ; Increment file offset
+             BNE   :S1
+             INC   DUMPOFF+1
+:S1          PLA
+             STA   DUMPASCI,X
+             JSR   PRHEXBYTE
+             INX
+             LDA   #' '
+             JSR   OSASCI
+             CPX   #$08                      ; If EOL ..
+             BNE   :S2
+             JSR   PRCHARS                   ; Print ASCII representation
+:S2          LDA   ESCFLAG
+             BMI   :ESC
+             BRA   :L1
+:CLOSE       JSR   PRCHARS                   ; Print ASCII representation
+             LDA   #$00
+             JSR   OSFIND                    ; Close file
+:DONE        RTS
+:SYNTAX      BRK
              DB    $DC
-             ASC   'Syntax: DUMP <afsp>'
+             ASC   'Syntax: DUMP <*objspec*>'
              BRK
+:NOTFOUND    BRK
+             DB    $D6
+             ASC   'Not found'
+             BRK
+:ESC         LDA   #$00                      ; Close file
+             JSR   OSFIND
+             BRK
+             DB    $11
+             ASC   'Escape'
+             BRK
+DUMPOFF      DW    $0000
+DUMPASCI     DS    8
 
+* Print byte in A in hex format
+PRHEXBYTE    PHA
+             LSR   A
+             LSR   A
+             LSR   A
+             LSR   A
+             JSR   PRHEXNIB
+             PLA
+             JSR   PRHEXNIB
+             RTS
+
+* Print nibble in A in hex format
+PRHEXNIB     AND   #$0F
+             CMP   #10
+             BPL   :LETTER
+             CLC
+             ADC   #'0'
+             BRA   :PRINT
+:LETTER      CLC
+             ADC   #'A'-10
+:PRINT       JSR   OSASCI
+             RTS
+
+* Print ASCII char buffer
+* with non-printing chars shown as '.'
+PRCHARS      CPX   #$00
+             BEQ   :DONE
+             CPX   #$08                      ; Pad final line
+             BEQ   :S0
+             LDA   #' '
+             JSR   OSASCI
+             JSR   OSASCI
+             JSR   OSASCI
+             INX
+             BRA   PRCHARS
+:S0          LDX   #$00
+:L2          LDA   DUMPASCI,X
+             CMP   #$20
+             BMI   :NOTPRINT
+             CMP   #$7F
+             BPL   :NOTPRINT
+             JSR   OSASCI
+:S1          INX
+             CPX   #$08
+             BNE   :L2            
+             JSR   OSNEWL
+             LDX   #$00
+:DONE        RTS
+:NOTPRINT    LDA   #'.'
+             JSR   OSASCI
+             BRA   :S1
 
 * Handle *SPOOL command
 * LPTR=>parameters string
 *
-CMDSPOOL
-             LDA   (OSLPTR),Y	; TEMP
-             CMP   #$0D		; TEMP 
-             PHP		; TEMP
-             JSR   LPTRtoXY	; TEMP
-*
-             PHY                        ; Save Y
-             LDY   FXSPOOL              ; Get SPOOL handle
-             BEQ   :SPOOL1              ; Wasn't open, skip closing
-             LDA   #$00                 ; A=CLOSE
-             STA   FXSPOOL              ; Clear SPOOL handle
-             JSR   OSFIND               ; Close SPOOL file
-:SPOOL1      PLY                        ; Get Y back, XY=>filename
-             PLP                        ; Get NE=filename, EQ=no filename
-             BEQ   :DONE                ; No filename, all done
-             LDA   #$80                 ; A=OPENOUT, for writing
-             JSR   OUTPUTFILE           ; Try to open file
-             STA   FXSPOOL              ; Store SPOOL handle
+SPOOL        JSR   LPTRtoXY
+             PHX
+             PHY
+             JSR   XYtoLPTR
+             JSR   PARSLPTR                  ; Just for error handling
+             BEQ   :CLOSE                    ; No filename - stop spooling
+             LDY   FXSPOOL                   ; Already spooling?
+             BEQ   :OPEN
+             LDA   #$00                      ; If so, close file
+             JSR   OSFIND
+:OPEN        PLY
+             PLX
+             LDA   #$80                      ; Open for writing
+             JSR   OSFIND                    ; Try to open file
+             STA   FXSPOOL                   ; Store SPOOL file handle
+             RTS
+:CLOSE       PLY                             ; Clean up stack
+             PLX
+             LDY   FXSPOOL
+             BEQ   :DONE
+             LDA   #$00
+             JSR   OSFIND                    ; Close file
+             STZ   FXSPOOL
 :DONE        RTS
 
 
 * Handle *EXEC command
 * LPTR=>parameters string
 *
-CMDEXEC
-             LDA   (OSLPTR),Y	; TEMP
-             CMP   #$0D		; TEMP 
-             PHP		; TEMP
-             JSR   LPTRtoXY	; TEMP
-*
-             PHY                        ; Save Y
-             LDY   FXEXEC		; Get EXEC handle
-             BEQ   :EXEC1               ; Wasn't open, skip closing it
-             LDA   #$00                 ; A=CLOSE
-             STA   FXEXEC               ; Clear EXEC handle
-             JSR   OSFIND               ; Close EXEC file
-:EXEC1       PLY                        ; Get Y back, XY=>filename
-             PLP                        ; Get NE=filename, EQ=no filename
-             BEQ   EXECDONE             ; No filename, all done
-             JSR   OPENINFILE           ; Try to open file
-             STA   FXEXEC               ; Store EXEC file handle
-EXECDONE     RTS
-
-OPENINFILE   LDA   #$40                 ; Open for input
-OUTPUTFILE   JSR   OSFIND               ; Try to open file
-             TAY                        ; Was file opened?
-             BNE   EXECDONE             ; File opened
-EXECNOTFND   LDA   #$46
-             JMP   MKERROR              ; File not found
-
-
+EXEC         PHY
+             LDY   FXEXEC
+             BEQ   :EXEC1
+             LDA   #$00
+             STA   FXEXEC
+             JSR   OSFIND                    ; If Exec open, close it
+:EXEC1       PLY
+             LDA   (OSLPTR),Y
+             CMP   #$0D
+             BEQ   :DONE                     ; No filename, all done
+             JSR   LPTRtoXY                  ; XY=>filename
+             LDA   #$40                      ; Open for input
+             JSR   OSFIND                    ; Try to open file
+             TAY                             ; Was file opened?
+             BEQ   :NOTFOUND
+             STA   FXEXEC                    ; Store EXEC file handle
+:DONE        RTS
+:NOTFOUND    BRK
+             DB    $D6
+             ASC   'Not found'
+             BRK
 
 *
 * Handle *FAST command
@@ -771,4 +823,10 @@ UNLOCKZIP    PHP
 LOCKZIP      LDA   #$A5
              STA   $C05A
              RTS
+
+
+
+
+
+
 
