@@ -55,7 +55,7 @@ RTSINST      LDA   CMDPATH
 
 * Disconnect /RAM ramdrive to avoid aux corruption
 * Stolen from Beagle Bros Extra K
-DISCONN      LDA   $BF98
+DISCONN      LDA   MACHID
              AND   #$30
              CMP   #$30
              BNE   :S1
