@@ -11,100 +11,102 @@
 * 25-Oct-2021 Implemented *BASIC.
 * 07-Oct-2022 *CLOSE is a host command, fixed *EXEC.
 * 08-Oct-2022 Rewrote *TYPE, *DUMP, *SPOOL, shares code with *EXEC.
+*             Sorted command table, added *HELP FILE.
 
 
 * COMMAND TABLE
 ***************
 * Table structure is: { string, byte OR $80, destword-1 } $00
 * Commands are entered with A=command byte with b7=1
-*                           if b6=1 (LPTR),Y=>parameters
-*                           if b6=0 XY=>parameters
-* fsc commands
-CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
+*
+* Ok, let's get around to sorting these
+CMDTABLE
+CMDFILE     ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $85
             DW    STARFSC-1          ; CAT    -> FSC 5, XY=>params
-            ASC   'RUN'
-            DB    $84
-            DW    STARFSC-1          ; RUN    -> FSC 4, XY=>params
+            ASC   'CDIR'
+            DB    $88
+            DW    STARFILE-1         ; CDIR   -> OSFILE 08, CBLK=>filename
+            ASC   'CLOSE'
+            DB    $80
+            DW    CMDCLOSE-1         ; CLOSE  -> (LPTR)=>params
+            ASC   'DELETE'
+            DB    $86
+            DW    STARFILE-1         ; DELETE -> OSFILE 06, CBLK=>filename
+            ASC   'DUMP'
+            DB    $80
+            DW    CMDDUMP-1          ; DUMP   -> (LPTR)=>params
+            ASC   'EXEC'
+            DB    $80
+            DW    CMDEXEC-1          ; EXEC   -> (LPTR)=>params
             ASC   'EX'
             DB    $89
             DW    STARFSC-1          ; EX     -> FSC 9, XY=>params
             ASC   'INFO'
             DB    $8A
             DW    STARFSC-1          ; INFO   -> FSC 10, XY=>params
-            ASC   'RENAME'
-            DB    $8C
-            DW    STARFSC-1          ; RENAME -> FSC 12, XY=>params
-* osfile commands
             ASC   'LOAD'
             DB    $FF
             DW    STARLOAD-1         ; LOAD   -> OSFILE FF, CBLK=>filename
-            ASC   'SAVE'
-            DB    $FF
-            DW    STARSAVE-1         ; SAVE   -> OSFILE 00, CBLK=>filename
-            ASC   'DELETE'
-            DB    $86
-            DW    STARFILE-1         ; DELETE -> OSFILE 06, CBLK=>filename
             ASC   'MKDIR'
             DB    $88
             DW    STARFILE-1         ; MKDIR  -> OSFILE 08, CBLK=>filename
-            ASC   'CDIR'
-            DB    $88
-            DW    STARFILE-1         ; CDIR   -> OSFILE 08, CBLK=>filename
-* osbyte commands
-            ASC   'FX'
-            DB    $80
-            DW    STARFX-1           ; FX     -> OSBYTE A,X,Y    (LPTR)=>params
             ASC   'OPT'
             DB    $8B
             DW    STARBYTE-1         ; OPT    -> OSBYTE &8B,X,Y  XY=>params
-* others
-            ASC   'QUIT'
-            DB    $80
-            DW    STARQUIT-1         ; QUIT   -> (LPTR)=>params
-            ASC   'HELP'
+            ASC   'RUN'
+            DB    $84
+            DW    STARFSC-1          ; RUN    -> FSC 4, XY=>params
+            ASC   'RENAME'
+            DB    $8C
+            DW    STARFSC-1          ; RENAME -> FSC 12, XY=>params
+            ASC   'SAVE'
             DB    $FF
-            DW    STARHELP-1         ; HELP   -> XY=>params
-            ASC   'BASIC'
-            DB    $80
-            DW    STARBASIC-1        ; BASIC  -> (LPTR)=>params
-            ASC   'KEY'
-            DB    $80
-            DW    STARKEY-1          ; KEY    -> (LPTR)=>params
-            ASC   'ECHO'
-            DB    $80
-            DW    ECHO-1             ; ECHO   -> (LPTR)=>params
-            ASC   'FAST'
-            DB    $80
-            DW    FAST-1             ; FAST   -> (LPTR)=>params
-            ASC   'SLOW'
-            DB    $80
-            DW    SLOW-1             ; SLOW   -> (LPTR)=>params
-* filing utilities
-            ASC   'TYPE'
-            DB    $80
-            DW    CMDTYPE-1          ; TYPE   -> (LPTR)=>params
-            ASC   'DUMP'
-            DB    $80
-            DW    CMDDUMP-1          ; DUMP   -> (LPTR)=>params
+            DW    STARSAVE-1         ; SAVE   -> OSFILE 00, CBLK=>filename
             ASC   'SPOOL'
             DB    $80
             DW    CMDSPOOL-1         ; SPOOL  -> (LPTR)=>params
-            ASC   'EXEC'
+            ASC   'TYPE'
             DB    $80
-            DW    CMDEXEC-1          ; EXEC   -> (LPTR)=>params
-            ASC   'CLOSE'
+            DW    CMDTYPE-1          ; TYPE   -> (LPTR)=>params
+            DB    $00                ; Split between HELP lists
+*
+CMDMOS      ASC   'BASIC'
             DB    $80
-            DW    CMDCLOSE-1         ; CLOSE  -> (LPTR)=>params
-* BUILD <file>
+            DW    STARBASIC-1        ; BASIC  -> (LPTR)=>params
+            ASC   'ECHO'
+            DB    $80
+            DW    ECHO-1             ; ECHO   -> (LPTR)=>params
+            ASC   'FX'
+            DB    $80
+            DW    STARFX-1           ; FX     -> OSBYTE A,X,Y    (LPTR)=>params
+            ASC   'FAST'
+            DB    $80
+            DW    FAST-1             ; FAST   -> (LPTR)=>params
+            ASC   'HELP'
+            DB    $FF
+            DW    STARHELP-1         ; HELP   -> XY=>params
+            ASC   'KEY'
+            DB    $80
+            DW    STARKEY-1          ; KEY    -> (LPTR)=>params
+            ASC   'QUIT'
+            DB    $80
+            DW    STARQUIT-1         ; QUIT   -> (LPTR)=>params
+            ASC   'SLOW'
+            DB    $80
+            DW    SLOW-1             ; SLOW   -> (LPTR)=>params
 * terminator
             DB    $FF
+
 
 * *HELP TABLE
 *************
 HLPTABLE    ASC   'MOS'
             DB    $80
             DW    HELPMOS-1          ; *HELP MOS
+            ASC   'FILE'
+            DB    $80
+            DW    HELPFILE-1         ; *HELP FILE
             ASC   'HOSTFS'
             DB    $80
             DW    HELPHOSTFS-1       ; *HELP HOSTFS
@@ -139,7 +141,9 @@ CLINEXT     JSR   CLISTEP            ; No match, step to next entry
 CLINEXT2    JSR   CLISTEP            ; Step past byte, address
             JSR   CLISTEP
             JSR   CLISTEP
-            BPL   CLILP4             ; Loop to check next
+            BNE   CLINEXT3
+            JSR   CLISTEP
+CLINEXT3    BPL   CLILP4             ; Loop to check next
             RTS                      ; Exit, A>$7F
 
 CLIDOT      LDA   (OSTEXT,X)
@@ -395,13 +399,15 @@ STARHELP6   LDY   #0                 ; (OSLPTR),Y=>parameters
             LDA   #9
             JMP   SERVICE            ; Pass to sideways ROM(s)
 
-
 HELPHOSTFS  LDX   #<FSCCOMMAND       ; *HELP HOSTFS
             LDY   #>FSCCOMMAND
             BNE   HELPLIST
-HELPMOS     LDX   #<CMDTABLE         ; *HELP MOS
-            LDY   #>CMDTABLE
-
+HELPFILE    LDX   #<CMDFILE          ; *HELP FILE
+            LDY   #>CMDFILE
+            BNE   HELPLIST
+HELPMOS     LDX   #<CMDMOS           ; *HELP MOS
+            LDY   #>CMDMOS
+*
 HELPLIST    STX   OSTEXT+0           ; Start of command table
             STY   OSTEXT+1
             LDX   #0
@@ -422,6 +428,7 @@ HELPLP4     LDA   #32
             JSR   CLISTEP
             JSR   CLISTEP
             JSR   CLISTEP
+            BEQ   STARHELP4
             BPL   HELPLP2
 STARHELP4   LDA   #$08
             JSR   OSWRCH
@@ -581,7 +588,11 @@ TYPCLOSE     LDA   #$00
 ERRTYPE      BRK
              DB    $DC
              ASC   'Syntax: TYPE <afsp>'
+ERRDUMP      BRK
+             DB    $DC
+             ASC   'Syntax: DUMP <afsp>'
              BRK
+
 
 * Handle *DUMP command
 * LPTR=>parameters string
@@ -589,7 +600,7 @@ ERRTYPE      BRK
 CMDDUMP
              LDA   (OSLPTR),Y	; TEMP
              CMP   #$0D		; TEMP 
-             BEQ   :ERRDUMP          ; No filename
+             BEQ   ERRDUMP           ; No filename
              JSR   LPTRtoXY	; TEMP
 *
              JSR   OPENINFILE        ; Try to open file
@@ -598,11 +609,18 @@ CMDDUMP
 :LOOP1       BIT   ESCFLAG
              BMI   TYPEESC           ; Escape pressed
              PHY                     ; Save handle
-             LDX   OSNUM+0           ; Print file offset
-             LDY   OSNUM+1
-             JSR   PR2HEX
-             JSR   PRSPACE
+             TYA
+             TAX                     ; X=handle
+             LDA   #$7F
+             JSR   OSBYTE            ; Read EOF
              PLY                     ; Get handle back
+             TXA
+             BNE   TYPCLOSE          ; At EOF
+             LDA   OSNUM+1           ; Print file offset
+             JSR   PRHEX
+             LDA   OSNUM+0
+             JSR   PRHEX
+             JSR   PRSPACE
              LDA   #8                ; 8 bytes to dump
              STA   OSNUM+2
              TSX                     ; Reserve bytes on stack
@@ -621,7 +639,7 @@ CMDDUMP
              BNE   :LOOP2            ; Loop to do 8 bytes
              CLC                     ; CLC=Not EOF
              BCC   :DUMPCHRS         ; Jump to display characters
-:DUMPEOF     LDA   #$2A              ; EOF met, pad with '**'
+:DUMPEOF     LDA   #'*'              ; EOF met, pad with '**'
              JSR   OSWRCH
              JSR   OSWRCH
              JSR   PRSPACE
@@ -636,9 +654,9 @@ CMDDUMP
              PHP                     ; Save EOF flag
              CMP   #$7F
              BEQ   :DUMPDOT
-             CMP   #$20
+             CMP   #' '
              BCS   :DUMPCHR
-:DUMPDOT     LDA   #$2E
+:DUMPDOT     LDA   #'.'
 :DUMPCHR     JSR   OSWRCH            ; Print character
              INC   OSNUM+0           ; Increment offset
              BNE   :DUMPNXT
@@ -651,10 +669,6 @@ CMDDUMP
              PLP
              BCC   :LOOP1
              JMP   TYPCLOSE          ; Close and finish
-:ERRDUMP     BRK
-             DB    $DC
-             ASC   'Syntax: DUMP <afsp>'
-             BRK
 
 
 * Handle *SPOOL command
@@ -707,9 +721,7 @@ OPENINFILE   LDA   #$40                 ; Open for input
 OUTPUTFILE   JSR   OSFIND               ; Try to open file
              TAY                        ; Was file opened?
              BNE   EXECDONE             ; File opened
-EXECNOTFND   LDA   #$46
-             JMP   MKERROR              ; File not found
-
+EXECNOTFND   JMP   ERRNOTFND            ; File not found
 
 
 *

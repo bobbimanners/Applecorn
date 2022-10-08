@@ -338,7 +338,8 @@ ROMSELECT
 * fetching code to $8000. All registers must be preserved.
             PHP
             CPX   ROMID            ; Speed up by checking if
-            BEQ   ROMSELOK         ; already paged in
+*            BEQ   ROMSELOK         ; already paged in
+* BUG: This needs ROMID an invalid value on startup so first access works
             PHA
             PHX
             PHY
