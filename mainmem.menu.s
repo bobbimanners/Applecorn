@@ -6,7 +6,7 @@
 * 13-Nov-2021 List of selected ROMs kept locally.
 
 
-ROMMAX       EQU   $0382
+ROMTOTL      EQU   $0382              ; Prevent name clash
 ROMTHIS      EQU   $0383
 ROMADDRS     EQU   $0384              ; List of ROM filename addresses
 
@@ -49,7 +49,7 @@ ROMMENU      JSR   HOME               ; Clear screen
              BCC   :INITROM2          ; =7, two ROMs
              LDA   #7                 ; Load to bank 7 to 0
              LDY   #0                 ; Starting at ROM 0
-:INITROM2    STA   ROMMAX
+:INITROM2    STA   ROMTOTL
              ASL   A
              TAX                      ; X=>ROM address table
              TYA
@@ -69,7 +69,7 @@ ROMMENU      JSR   HOME               ; Clear screen
 SELECTROM    >>>   ENTMAIN
              CMP   ROMTHIS
              BEQ   :SELECTDONE        ; Already selected
-             CMP   ROMMAX
+             CMP   ROMTOTL
              BCC   :GETROM
              BNE   :SELECTDONE        ; Out of range
 :GETROM      PHA
