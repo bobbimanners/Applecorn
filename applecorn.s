@@ -40,8 +40,21 @@ RSTV        EQU   $3F2
 * IRQ vector
 A2IRQV      EQU   $3FE
 
+* ProDOS Global Page equates
 * MLI entry point
 MLI         EQU   $BF00
+* Machine ID byte
+MACHID      EQU   $BF98
+* Versioning bytes
+IBAKVER     EQU   $BFFC
+IVERSION    EQU   $BFFD
+* System BitMap locations
+P8BMAP0007  EQU   $BF58
+P8BMAP080F  EQU   $BF59
+P8BMAP2027  EQU   $BF5C
+P8BMAP282F  EQU   $BF5D
+P8BMAP3037  EQU   $BF5E
+P8BMAP383F  EQU   $BF5F
 
 * IO Buffer for reading file (1024 bytes)
 IOBUF0      EQU   $0C00       ; For loading/saving, OSFILE, *.
