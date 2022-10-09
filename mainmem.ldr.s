@@ -11,6 +11,66 @@
 * to aux memory starting at AUXMOS1 and jumps to it.
 * (Note that the MOS code will copy itself to $D000.)
 
+SYSTEM      LDX   #$FF             ; Init stack pointer
+            TXS
+
+            LDA   #$00
+            STA   IBAKVER          ; Minimum compatible P8 version
+            LDA   #$01
+            STA   IVERSION         ; Version of .SYSTEM program
+
+            SED                    ; Check for 65C02
+            LDA   #$99
+            CLC
+            ADC   #$01
+            CLD
+            BPL   GOODCPU
+            JMP   UNSUPPORTED
+
+GOODCPU     LDA   MACHID
+            AND   #$F2             ; Clear bits 0,2,3
+            CMP   #$B2             ; Are we on a //e or //c w/ 80col and 128K or a IIgs?
+            BEQ   SUPPORTED        ; Supported machine
+            JMP   UNSUPPORTED      ; Unsupported machine
+
+SUPPORTED   LDA   #$DF             ; Protect pages $0,$1,and $3-$7
+            STA   P8BMAP0007
+            LDA   #$F0             ; Protect pages $8-$B
+            STA   P8BMAP080F
+            LDA   #$FF             ; Protect HGR1
+            STA   P8BMAP2027
+            STA   P8BMAP282F
+            STA   P8BMAP3037
+            STA   P8BMAP383F
+            JMP   START
+
+UNSUPPORTED JSR   HOME
+            LDX   #$00
+UNSUPLP     LDA   UNSUPMSG,X
+            BEQ   UNSUPWAIT
+            JSR   COUT1
+            INX
+            BNE   UNSUPLP
+UNSUPWAIT   STA   $C010
+UNSUPKEY    LDA   $C000
+            BPL   UNSUPKEY
+            STA   $C010
+
+            JSR   MLI
+            DB    QUITCMD
+            DW    UNSUPQPARM
+UNSUPQPARM  DB    $04,$00,$00,$00,$00,$00,$00
+
+UNSUPMSG    ASC   "APPLECORN REQUIRES AN APPLE IIGS, APPLE", 8D
+            ASC   "//C, OR ENHANCED APPLE //E WITH AN", 8D
+            ASC   "80-COLUMN CARD AND AT LEAST 128K", 8D, 8D
+            ASC   "PRESS ANY KEY TO QUIT TO PRODOS", 00
+
+PADDING     ASC   '***THISISPROTOTYPECODE***'
+            DS    $4000-*
+
+; Original APPLECORN.BIN code starts here
+
 START       JSR   CROUT
             JSR   SETPRFX
             JSR   DISCONN
