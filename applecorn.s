@@ -43,6 +43,16 @@ A2IRQV      EQU   $3FE
 * ProDOS Global Page equates
 * MLI entry point
 MLI         EQU   $BF00
+* Device Addresses
+DEVADR01    EQU   $BF10
+DEVADR32    EQU   $BF26
+* Device List
+DEVNUM      EQU   $BF30
+DEVCNT      EQU   $BF31
+DEVLST      EQU   $BF32
+* Date & time
+PRODOSDATE  EQU   $BF90
+PRODOSTIME  EQU   $BF92
 * Machine ID byte
 MACHID      EQU   $BF98
 * Versioning bytes
