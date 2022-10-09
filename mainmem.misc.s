@@ -133,13 +133,13 @@ CRTFILE      JSR   MLI            ; GET_TIME
              STA   CREATEPL+2
              LDA   #$C3           ; Open permissions
              STA   CREATEPL+3
-             LDA   $BF90          ; Current date
+             LDA   PRODOSDATE     ; Current date
              STA   CREATEPL+8
-             LDA   $BF91
+             LDA   PRODOSDATE+1
              STA   CREATEPL+9
-             LDA   $BF92          ; Current time
+             LDA   PRODOSTIME     ; Current time
              STA   CREATEPL+10
-             LDA   $BF93
+             LDA   PRODOSTIME+1
              STA   CREATEPL+11
              JSR   MLI
              DB    CREATCMD

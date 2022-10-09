@@ -26,7 +26,7 @@ SETPRFX      LDA   #GPFXCMD
              DW    GSPFXPL
              LDX   DRVBUF1           ; was $0300
              BNE   RTSINST
-             LDA   $BF30
+             LDA   DEVNUM
              STA   ONLNPL+1          ; Device number
              JSR   MLI
              DB    ONLNCMD
@@ -59,36 +59,36 @@ DISCONN      LDA   MACHID
              AND   #$30
              CMP   #$30
              BNE   :S1
-             LDA   $BF26
-             CMP   $BF10
+             LDA   DEVADR32
+             CMP   DEVADR01
              BNE   :S2
-             LDA   $BF27
-             CMP   $BF11
+             LDA   DEVADR32+1
+             CMP   DEVADR01+1
              BEQ   :S1
-:S2          LDY   $BF31
-:L1          LDA   $BF32,Y
+:S2          LDY   DEVCNT
+:L1          LDA   DEVLST,Y
              AND   #$F3
              CMP   #$B3
              BEQ   :S3
              DEY
              BPL   :L1
              BMI   :S1
-:S3          LDA   $BF32,Y
+:S3          LDA   DEVLST,Y
              STA   DRVBUF2+1         ; was $0302
-:L2          LDA   $BF33,Y
-             STA   $BF32,Y
+:L2          LDA   DEVLST+1,Y
+             STA   DEVLST,Y
              BEQ   :S4
              INY
              BNE   :L2
-:S4          LDA   $BF26
+:S4          LDA   DEVADR32
              STA   DRVBUF1           ; was $0300
-             LDA   $BF27
+             LDA   DEVADR32+1
              STA   DRVBUF2           ; was $0301
-             LDA   $BF10
-             STA   $BF26
-             LDA   $BF11
-             STA   $BF27
-             DEC   $BF31
+             LDA   DEVADR01
+             STA   DEVADR32
+             LDA   DEVADR01+1
+             STA   DEVADR32+1
+             DEC   DEVCNT
 :S1          RTS
 
 * Reset handler - invoked on Ctrl-Reset
