@@ -111,44 +111,7 @@ DISCONN     LDA   MACHID
             STA   DEVADR32+1
             DEC   DEVCNT
 :S1
-            JMP   START
-
-GETPFXPARM  HEX   01                ; One parameter
-            DW    CMDPATH           ; Get prefix to CMDPATH
-
-UNSUPPORTED JSR   HOME
-            LDX   #$00
-UNSUPLP     LDA   UNSUPMSG,X
-            BEQ   UNSUPWAIT
-            JSR   COUT1
-            INX
-            BNE   UNSUPLP
-UNSUPWAIT   STA   $C010
-UNSUPKEY    LDA   $C000
-            BPL   UNSUPKEY
-            STA   $C010
-
-            JSR   MLI
-            DB    QUITCMD
-            DW    UNSUPQPARM
-UNSUPQPARM  DB    $04,$00,$00,$00,$00,$00,$00
-
-UNSUPMSG    ASC   "APPLECORN REQUIRES AN APPLE IIGS, APPLE", 8D
-            ASC   "//C, OR ENHANCED APPLE //E WITH AN", 8D
-            ASC   "80-COLUMN CARD AND AT LEAST 128K", 8D, 8D
-            ASC   "PRESS ANY KEY TO QUIT TO PRODOS", 00
-
-PADDING     ASC   '***THISISPROTOTYPECODE***'
-            DS    $4000-*
-
-; Original APPLECORN.BIN code starts here
-
-START
-            JSR   ROMMENU
-*            LDA   #>AUXADDR        ; Address in aux
-*            LDX   #<AUXADDR
-*            SEC                    ; Load into aux
-*            JSR   LOADCODE         ; Load lang ROM
+            JSR   ROMMENU           ; This really needs to happen elsewhere
 
             LDA   #<:FDFILE
             STA   OPENPL+1
@@ -198,6 +161,48 @@ START
             LDA   #>GSBRK
             STA   $3F0+1
 
+            JMP   START
+
+* Filenames for loaded binaries - we're gonna address these later
+
+:FDFILE     STR   "FDRAW.FAST"     ; Filename for FDraw lib
+:FNTFILE    STR   "FONT.DAT"       ; Filename for bitmap font
+
+GETPFXPARM  HEX   01                ; One parameter
+            DW    CMDPATH           ; Get prefix to CMDPATH
+
+UNSUPPORTED JSR   HOME
+            LDX   #$00
+UNSUPLP     LDA   UNSUPMSG,X
+            BEQ   UNSUPWAIT
+            JSR   COUT1
+            INX
+            BNE   UNSUPLP
+UNSUPWAIT   STA   $C010
+UNSUPKEY    LDA   $C000
+            BPL   UNSUPKEY
+            STA   $C010
+
+            JSR   MLI
+            DB    QUITCMD
+            DW    UNSUPQPARM
+UNSUPQPARM  DB    $04,$00,$00,$00,$00,$00,$00
+
+UNSUPMSG    ASC   "APPLECORN REQUIRES AN APPLE IIGS, APPLE", 8D
+            ASC   "//C, OR ENHANCED APPLE //E WITH AN", 8D
+            ASC   "80-COLUMN CARD AND AT LEAST 128K", 8D, 8D
+            ASC   "PRESS ANY KEY TO QUIT TO PRODOS", 00
+
+PADDING     DS    $4000-*
+
+; Original APPLECORN.BIN code starts here
+
+START
+*            LDA   #>AUXADDR        ; Address in aux
+*            LDX   #<AUXADDR
+*            SEC                    ; Load into aux
+*            JSR   LOADCODE         ; Load lang ROM
+
             JSR   GFXINIT          ; Initialize FDraw graphics
 
             TSX                    ; Save SP at $0100 in aux
@@ -205,9 +210,6 @@ START
             STX   $0100
             >>>   MAINZP
             >>>   XF2AUX,AUXMOS1
-
-:FDFILE     STR   "FDRAW.FAST"     ; Filename for FDraw lib
-:FNTFILE    STR   "FONT.DAT"       ; Filename for bitmap font
 
 * Load image from file into memory
 * On entry: OPENPL set up to point to leafname of file to load
@@ -329,24 +331,3 @@ LOADCODE    PHP                    ; Save carry flag
 :LEN        DB    $00              ; Length of filename
 :CANTOPEN   ASC   "Unable to open "
             DB    $00
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
