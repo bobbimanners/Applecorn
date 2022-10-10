@@ -22,6 +22,7 @@
 * 02-Oct-2021 ACCESS uses generic access byte parsing.
 *             PRACCESS shares code with ACCESS.
 * 03-Oct-2021 PARSNAME checks filename length<64.
+* 09-Oct-2022 Sorted commands into order.
 
 
 * $B0-$BF Temporary filing system workspace
@@ -282,34 +283,43 @@ FILEIGNORE   PLA                             ; Returned object type
 *******************
 * These are commands specific to the filing system that can't be
 * called via OSFILE, OSFSC, etc.
+* Syntax is:
+* <afsp>      - ambiguous file specifier, acts on a single file, error if not file, wildcards allowed
+* <fsp>       - unambiguous file specifier, acts on a single file, error if not file, wildcards not allowed
+* <dir>       - directory, error if not directory
+* <drv>       - drive, eg :1 :2 :61, error if not drive
+* <*objspec*> - able to act on multiple objects, any object type, wildcards allowed
+* <access>    - access string
+* <title>     - disk title
+* (<...>)     - optional
 *
-FSCCOMMAND   ASC   'CHDIR'
-             DB    $80
-             DW    FSCCHDIR-1                ; CHDIR <*objspec*>, LPTR=>params
+FSCCOMMAND   ASC   'ACCESS'
+             DB    $FF
+             DW    FSCACCESS-1               ; ACCESS <*objspec*> <access>, LPTR=>params
              ASC   'CD'
-             DB    $80
-             DW    FSCCHDIR-1                ; CD <*objspec*> , LPTR=>params
-             ASC   'DIR'
-             DB    $80
-             DW    FSCCHDIR-1                ; DIR <*objspec*>, LPTR=>params
-             ASC   'DRIVE'
-             DB    $80
-             DW    FSCDRIVE-1                ; DRIVE <drive>, LPTR=>params
-             ASC   'FREE'
-             DB    $80
-             DW    FSCFREE-1                 ; FREE <drive>, LPTR=>params
-             ASC   'ACCESS'
-             DB    $80
-             DW    FSCACCESS-1               ; ACCESS <listspec> <access>, LPTR=>params
-             ASC   'TITLE'
-             DB    $80
-             DW    FSCTITLE-1                ; TITLE (<drive>) <title>, LPTR=>params
-             ASC   'DESTROY'
-             DB    $80
-             DW    FSCDESTROY-1              ; DESTROY <listspec>, LPTR=>params
+             DB    $FF
+             DW    FSCCHDIR-1                ; CD <dir> , LPTR=>params
+             ASC   'CHDIR'
+             DB    $FF
+             DW    FSCCHDIR-1                ; CHDIR <dir>, LPTR=>params
              ASC   'COPY'
-             DB    $80
-             DW    FSCCOPY-1                 ; COPY <listspec> <*objspec*>, LPTR=>params
+             DB    $FF
+             DW    FSCCOPY-1                 ; COPY <*objspec*> <dest>, LPTR=>params
+             ASC   'DIR'
+             DB    $FF
+             DW    FSCCHDIR-1                ; DIR <*objspec*>, LPTR=>params
+             ASC   'DESTROY'
+             DB    $FF
+             DW    FSCDESTROY-1              ; DESTROY <*objspec*> (Y), LPTR=>params
+             ASC   'DRIVE'
+             DB    $FF
+             DW    FSCDRIVE-1                ; DRIVE <drv>, LPTR=>params
+             ASC   'FREE'
+             DB    $FF
+             DW    FSCFREE-1                 ; FREE (<drv>), LPTR=>params
+             ASC   'TITLE'
+             DB    $FF
+             DW    FSCTITLE-1                ; TITLE (<drv>) <title>, LPTR=>params
 *
              DB    $FF                       ; Terminator
 
@@ -679,7 +689,7 @@ FSCRENAME    JSR   PARSNAME                  ; Copy Arg1->MOSFILE
              >>>   XF2MAIN,RENFILE
 :SYNTAX      BRK
              DB    $DC
-             ASC   'Syntax: RENAME <objspec> <objspec>'
+             ASC   'Syntax: RENAME <oldspec> <newspec>'
              BRK
 * ProDOS returns $40 (Bad filename) for bad renames.
 * Not easy to seperate out, so leave as Bad filename error.
@@ -701,7 +711,7 @@ FSCCOPY      JSR   PARSLPTR                  ; Copy Arg1->MOSFILE
              >>>   XF2MAIN,COPYFILE          ; Do the heavy lifting
 :SYNTAX      BRK
              DB    $DC
-             ASC   'Syntax: COPY <listspec> <*objspec*>'
+             ASC   'Syntax: COPY <*objspec*> <dest>'
              BRK
 
 
@@ -714,7 +724,7 @@ FSCCHDIR     JSR   PARSLPTR                  ; Copy filename->MOSFILE
 FSCCHDIR2    >>>   XF2MAIN,SETPFX
 ERRCHDIR     BRK
              DB    $DC
-             ASC   'Syntax: DIR <*objspec*>'
+             ASC   'Syntax: DIR <dir>'
              BRK
 
 
@@ -726,7 +736,7 @@ FSCDRIVE     JSR   PARSLPTR                  ; Copy arg->MOSFILE
              BNE   FSCCHDIR2                 ; Pass on as CHDIR
 :SYNTAX      BRK
              DB    $DC
-             ASC   'Syntax: DRIVE <drv> (eg: DRIVE :61)'
+             ASC   'Syntax: DRIVE <drv>'
              BRK
 
 
@@ -815,7 +825,7 @@ FSCACCESS    JSR   PARSLPTR                  ; Copy filename->MOSFILE
              >>>   XF2MAIN,SETPERM
 :SYNTAX      BRK
              DB    $DC
-             ASC   'Syntax: ACCESS <listspec> <L|W|R>'
+             ASC   'Syntax: ACCESS <*objspec*> <L|W|R>'
              BRK
 
 
@@ -828,12 +838,13 @@ DESTROY      JSR   PARSLPTR                  ; Copy filename->MOSFILE
              >>>   XF2MAIN,MULTIDEL
 :SYNTAX      BRK
              DB    $DC
-             ASC   'Syntax: DESTROY <listspec>'
+             ASC   'Syntax: DESTROY <*objspec*>'
              BRK
 
 
 * Handle *TITLE command
 * LPTR=>parameters string
+* Syntax: *TITLE (<drive>) <title>
 *
 FSCTITLE     RTS
 
