@@ -42,7 +42,79 @@ SUPPORTED   LDA   #$DF             ; Protect pages $0,$1,and $3-$7
             STA   P8BMAP282F
             STA   P8BMAP3037
             STA   P8BMAP383F
+
+* Set prefix if not already set
+SETPRFX     LDA   #GPFXCMD
+            STA   :OPC7             ; Initialize cmd byte to $C7
+:L1         JSR   MLI
+:OPC7        DB   $00
+             DW   GSPFXPL
+            LDX   DRVBUF1           ; was $0300
+            BNE   RTSINST
+            LDA   DEVNUM
+            STA   ONLNPL+1          ; Device number
+            JSR   MLI
+             DB   ONLNCMD
+             DW   ONLNPL
+            LDA   DRVBUF2           ; was $0301
+            AND   #$0F
+            TAX
+            INX
+            STX   DRVBUF1           ; was $0300
+            LDA   #'/'
+            STA   DRVBUF2           ; was $0301
+            DEC   :OPC7
+            BNE   :L1
+RTSINST     LDA   CMDPATH
+            BEQ   :GETPFX           ; CMDPATH empty
+            LDA   CMDPATH+1
+            CMP   #'/'
+            BEQ   DISCONN           ; CMDPATH already absolute path
+:GETPFX     JSR   MLI
+             DB   $C7               ; Get Prefix
+             DW   GETPFXPARM
+
+* Disconnect /RAM ramdrive to avoid aux corruption
+* Stolen from Beagle Bros Extra K
+DISCONN     LDA   MACHID
+            AND   #$30
+            CMP   #$30
+            BNE   :S1
+            LDA   DEVADR32
+            CMP   DEVADR01
+            BNE   :S2
+            LDA   DEVADR32+1
+            CMP   DEVADR01+1
+            BEQ   :S1
+:S2         LDY   DEVCNT
+:L1         LDA   DEVLST,Y
+            AND   #$F3
+            CMP   #$B3
+            BEQ   :S3
+            DEY
+            BPL   :L1
+            BMI   :S1
+:S3         LDA   DEVLST,Y
+            STA   DRVBUF2+1         ; was $0302
+:L2         LDA   DEVLST+1,Y
+            STA   DEVLST,Y
+            BEQ   :S4
+            INY
+            BNE   :L2
+:S4         LDA   DEVADR32
+            STA   DRVBUF1           ; was $0300
+            LDA   DEVADR32+1
+            STA   DRVBUF2           ; was $0301
+            LDA   DEVADR01
+            STA   DEVADR32
+            LDA   DEVADR01+1
+            STA   DEVADR32+1
+            DEC   DEVCNT
+:S1
             JMP   START
+
+GETPFXPARM  HEX   01                ; One parameter
+            DW    CMDPATH           ; Get prefix to CMDPATH
 
 UNSUPPORTED JSR   HOME
             LDX   #$00
@@ -71,10 +143,7 @@ PADDING     ASC   '***THISISPROTOTYPECODE***'
 
 ; Original APPLECORN.BIN code starts here
 
-START       JSR   CROUT
-            JSR   SETPRFX
-            JSR   DISCONN
-
+START
             JSR   ROMMENU
 *            LDA   #>AUXADDR        ; Address in aux
 *            LDX   #<AUXADDR
