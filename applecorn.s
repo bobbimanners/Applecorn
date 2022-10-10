@@ -203,15 +203,6 @@ MAINZP      MAC
 * Code is all included from PUT files below ...
 * ... order matters!
             PUT   MAINMEM.LDR
-            PUT   MAINMEM.MENU
-            PUT   MAINMEM.FSEQU
-            PUT   MAINMEM.INIT
-            PUT   MAINMEM.SVC
-            PUT   MAINMEM.GFX
-            PUT   MAINMEM.PATH
-            PUT   MAINMEM.WILD
-            PUT   MAINMEM.LISTS
-            PUT   MAINMEM.MISC
             PUT   AUXMEM.MOSEQU
             PUT   AUXMEM.INIT
             PUT   AUXMEM.VDU
@@ -221,6 +212,15 @@ MAINZP      MAC
             PUT   AUXMEM.BYTWRD
             PUT   AUXMEM.CHARIO
             PUT   AUXMEM.MISC
+            PUT   MAINMEM.MENU
+            PUT   MAINMEM.FSEQU
+            PUT   MAINMEM.INIT
+            PUT   MAINMEM.SVC
+            PUT   MAINMEM.GFX
+            PUT   MAINMEM.PATH
+            PUT   MAINMEM.WILD
+            PUT   MAINMEM.LISTS
+            PUT   MAINMEM.MISC
 
 * Automatically save the object file:
             SAV   APLCORN.SYSTEM

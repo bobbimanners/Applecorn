@@ -111,44 +111,7 @@ DISCONN     LDA   MACHID
             STA   DEVADR32+1
             DEC   DEVCNT
 :S1
-            JMP   START
-
-GETPFXPARM  HEX   01                ; One parameter
-            DW    CMDPATH           ; Get prefix to CMDPATH
-
-UNSUPPORTED JSR   HOME
-            LDX   #$00
-UNSUPLP     LDA   UNSUPMSG,X
-            BEQ   UNSUPWAIT
-            JSR   COUT1
-            INX
-            BNE   UNSUPLP
-UNSUPWAIT   STA   $C010
-UNSUPKEY    LDA   $C000
-            BPL   UNSUPKEY
-            STA   $C010
-
-            JSR   MLI
-            DB    QUITCMD
-            DW    UNSUPQPARM
-UNSUPQPARM  DB    $04,$00,$00,$00,$00,$00,$00
-
-UNSUPMSG    ASC   "APPLECORN REQUIRES AN APPLE IIGS, APPLE", 8D
-            ASC   "//C, OR ENHANCED APPLE //E WITH AN", 8D
-            ASC   "80-COLUMN CARD AND AT LEAST 128K", 8D, 8D
-            ASC   "PRESS ANY KEY TO QUIT TO PRODOS", 00
-
-PADDING     ASC   '***THISISPROTOTYPECODE***'
-            DS    $4000-*
-
-; Original APPLECORN.BIN code starts here
-
-START
-            JSR   ROMMENU
-*            LDA   #>AUXADDR        ; Address in aux
-*            LDX   #<AUXADDR
-*            SEC                    ; Load into aux
-*            JSR   LOADCODE         ; Load lang ROM
+            JSR   ROMMENU           ; This really needs to happen elsewhere
 
             LDA   #<:FDFILE
             STA   OPENPL+1
@@ -198,155 +161,174 @@ START
             LDA   #>GSBRK
             STA   $3F0+1
 
-            JSR   GFXINIT          ; Initialize FDraw graphics
+            JMP   START
 
-            TSX                    ; Save SP at $0100 in aux
-            >>>   ALTZP
-            STX   $0100
-            >>>   MAINZP
-            >>>   XF2AUX,AUXMOS1
+* Filenames for loaded binaries - we're gonna address these later
 
 :FDFILE     STR   "FDRAW.FAST"     ; Filename for FDraw lib
 :FNTFILE    STR   "FONT.DAT"       ; Filename for bitmap font
 
+GETPFXPARM  HEX   01                ; One parameter
+            DW    CMDPATH           ; Get prefix to CMDPATH
+
+UNSUPPORTED JSR   HOME
+            LDX   #$00
+UNSUPLP     LDA   UNSUPMSG,X
+            BEQ   UNSUPWAIT
+            JSR   COUT1
+            INX
+            BNE   UNSUPLP
+UNSUPWAIT   STA   $C010
+UNSUPKEY    LDA   $C000
+            BPL   UNSUPKEY
+            STA   $C010
+
+            JSR   MLI
+            DB    QUITCMD
+            DW    UNSUPQPARM
+UNSUPQPARM  DB    $04,$00,$00,$00,$00,$00,$00
+
+UNSUPMSG    ASC   "APPLECORN REQUIRES AN APPLE IIGS, APPLE", 8D
+            ASC   "//C, OR ENHANCED APPLE //E WITH AN", 8D
+            ASC   "80-COLUMN CARD AND AT LEAST 128K", 8D, 8D
+            ASC   "PRESS ANY KEY TO QUIT TO PRODOS", 00
+
+ENDSYSTEM
+*PADDING     DS    $4000-*
+
+; Original APPLECORN.BIN code starts here
+
+*START
+*            LDA   #>AUXADDR        ; Address in aux
+*            LDX   #<AUXADDR
+*            SEC                    ; Load into aux
+*            JSR   LOADCODE         ; Load lang ROM
+*
+*            JSR   GFXINIT          ; Initialize FDraw graphics
+*
+*            TSX                    ; Save SP at $0100 in aux
+*            >>>   ALTZP
+*            STX   $0100
+*            >>>   MAINZP
+*            >>>   XF2AUX,AUXMOS1
+*
 * Load image from file into memory
 * On entry: OPENPL set up to point to leafname of file to load
 *           Loads file from directory applecorn started from
 *           Uses BLKBUF at loading buffer
 *           Load address in A,X
 *           Carry set->load to aux, carry clear->load to main
-LOADCODE    PHP                    ; Save carry flag
-            STA   :ADDRH           ; MSB of load address
-            STX   :ADDRL           ; LSB of load address
-            STZ   :BLOCKS
-
-            LDX   #0
-:LP1        LDA   CMDPATH+1,X      ; Copy Applecorn path to MOSFILE
-            STA   MOSFILE2+1,X
-            INX
-            CPX   CMDPATH
-            BCC   :LP1
-:LP2        DEX
-            LDA   MOSFILE2+1,X
-            CMP   #'/'
-            BNE   :LP2
-            LDA   OPENPL+1
-            STA   A1L
-            LDA   OPENPL+2
-            STA   A1H
-            LDY   #1
-            LDA   (A1L),Y
-            CMP   #'/'
-            BEQ   :L4              ; Already absolute path
-:LP3        LDA   (A1L),Y
-            STA   MOSFILE2+2,X
-            INX
-            INY
-            TYA
-            CMP   (A1L)
-            BCC   :LP3
-            BEQ   :LP3
-            INX
-            STX   MOSFILE2+0
-            LDA   #<MOSFILE2       ; Point to absolute path
-            STA   OPENPL+1
-            LDA   #>MOSFILE2
-            STA   OPENPL+2
-
-:L4         JSR   OPENFILE         ; Open ROM file
-            BCC   :S1
-            PLP
-            BCC   :L1A             ; Load to main, report error
-            RTS                    ; Load to aux, return CS=Failed
-:L1A        LDX   #$00
-:L1B        LDA   :CANTOPEN,X      ; Part one of error msg
-            BEQ   :S0
-            JSR   COUT1
-            INX
-            BRA   :L1B
-:S0         LDA   OPENPL+1         ; Print filename
-            STA   A1L
-            LDA   OPENPL+2
-            STA   A1H
-            LDY   #$00
-            LDA   (A1L),Y
-            STA   :LEN
-:L1C        CPY   :LEN
-            BEQ   :ERR1
-            INY
-            LDA   (A1L),Y
-            JSR   COUT1
-            BRA   :L1C
-:ERR1       JSR   CROUT
-            JSR   BELL
-:SPIN       BRA   :SPIN
-:S1         LDA   OPENPL+5         ; File reference number
-            STA   READPL+1
-:L2         PLP
-            PHP
-            BCS   :L2A             ; Loading to aux, skip dots
-            LDA   #'.'+$80         ; Print progress dots
-            JSR   COUT1
-:L2A        JSR   RDFILE           ; Read file block by block
-            BCS   :CLOSE           ; EOF (0 bytes left) or some error
-            LDA   #<BLKBUF         ; Source start addr -> A1L,A1H
-            STA   A1L
-            LDA   #>BLKBUF
-            STA   A1H
-            LDA   #<BLKBUFEND      ; Source end addr -> A2L,A2H
-            STA   A2L
-            LDA   #>BLKBUFEND
-            STA   A2H
-            LDA   :ADDRL           ; Dest in aux -> A4L, A4H
-            STA   A4L
-            LDA   :ADDRH
-            LDX   :BLOCKS
-:L3         CPX   #$00
-            BEQ   :S2
-            INC
-            INC
-            DEX
-            BRA   :L3
-:S2         STA   A4H
-            PLP                    ; Recover carry flag
-            PHP
-            BCS   :TOAUX
-            JSR   MEMCPY           ; Destination in main mem
-            BRA   :S3
-:TOAUX      JSR   AUXMOVE          ; Carry already set (so to aux)
-:S3         INC   :BLOCKS
-            BRA   :L2
-:CLOSE      LDA   OPENPL+5         ; File reference number
-            STA   CLSPL+1
-            JSR   CLSFILE
-            JSR   CROUT
-            PLP
-            CLC                    ; CC=Ok
-            RTS
-:ADDRL      DB    $00              ; Destination address (LSB)
-:ADDRH      DB    $00              ; Destination address (MSB)
-:BLOCKS     DB    $00              ; Counter for blocks read
-:LEN        DB    $00              ; Length of filename
-:CANTOPEN   ASC   "Unable to open "
-            DB    $00
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+*LOADCODE    PHP                    ; Save carry flag
+*            STA   :ADDRH           ; MSB of load address
+*            STX   :ADDRL           ; LSB of load address
+*            STZ   :BLOCKS
+*
+*            LDX   #0
+*:LP1        LDA   CMDPATH+1,X      ; Copy Applecorn path to MOSFILE
+*            STA   MOSFILE2+1,X
+*            INX
+*            CPX   CMDPATH
+*            BCC   :LP1
+*:LP2        DEX
+*            LDA   MOSFILE2+1,X
+*            CMP   #'/'
+*            BNE   :LP2
+*            LDA   OPENPL+1
+*            STA   A1L
+*            LDA   OPENPL+2
+*            STA   A1H
+*            LDY   #1
+*            LDA   (A1L),Y
+*            CMP   #'/'
+*            BEQ   :L4              ; Already absolute path
+*:LP3        LDA   (A1L),Y
+*            STA   MOSFILE2+2,X
+*            INX
+*            INY
+*            TYA
+*            CMP   (A1L)
+*            BCC   :LP3
+*            BEQ   :LP3
+*            INX
+*            STX   MOSFILE2+0
+*            LDA   #<MOSFILE2       ; Point to absolute path
+*            STA   OPENPL+1
+*            LDA   #>MOSFILE2
+*            STA   OPENPL+2
+*
+*:L4         JSR   OPENFILE         ; Open ROM file
+*            BCC   :S1
+*            PLP
+*            BCC   :L1A             ; Load to main, report error
+*            RTS                    ; Load to aux, return CS=Failed
+*:L1A        LDX   #$00
+*:L1B        LDA   :CANTOPEN,X      ; Part one of error msg
+*            BEQ   :S0
+*            JSR   COUT1
+*            INX
+*            BRA   :L1B
+*:S0         LDA   OPENPL+1         ; Print filename
+*            STA   A1L
+*            LDA   OPENPL+2
+*            STA   A1H
+*            LDY   #$00
+*            LDA   (A1L),Y
+*            STA   :LEN
+*:L1C        CPY   :LEN
+*            BEQ   :ERR1
+*            INY
+*            LDA   (A1L),Y
+*            JSR   COUT1
+*            BRA   :L1C
+*:ERR1       JSR   CROUT
+*            JSR   BELL
+*:SPIN       BRA   :SPIN
+*:S1         LDA   OPENPL+5         ; File reference number
+*            STA   READPL+1
+*:L2         PLP
+*            PHP
+*            BCS   :L2A             ; Loading to aux, skip dots
+*            LDA   #'.'+$80         ; Print progress dots
+*            JSR   COUT1
+*:L2A        JSR   RDFILE           ; Read file block by block
+*            BCS   :CLOSE           ; EOF (0 bytes left) or some error
+*            LDA   #<BLKBUF         ; Source start addr -> A1L,A1H
+*            STA   A1L
+*            LDA   #>BLKBUF
+*            STA   A1H
+*            LDA   #<BLKBUFEND      ; Source end addr -> A2L,A2H
+*            STA   A2L
+*            LDA   #>BLKBUFEND
+*            STA   A2H
+*            LDA   :ADDRL           ; Dest in aux -> A4L, A4H
+*            STA   A4L
+*            LDA   :ADDRH
+*            LDX   :BLOCKS
+*:L3         CPX   #$00
+*            BEQ   :S2
+*            INC
+*            INC
+*            DEX
+*            BRA   :L3
+*:S2         STA   A4H
+*            PLP                    ; Recover carry flag
+*            PHP
+*            BCS   :TOAUX
+*            JSR   MEMCPY           ; Destination in main mem
+*            BRA   :S3
+*:TOAUX      JSR   AUXMOVE          ; Carry already set (so to aux)
+*:S3         INC   :BLOCKS
+*            BRA   :L2
+*:CLOSE      LDA   OPENPL+5         ; File reference number
+*            STA   CLSPL+1
+*            JSR   CLSFILE
+*            JSR   CROUT
+*            PLP
+*            CLC                    ; CC=Ok
+*            RTS
+*:ADDRL      DB    $00              ; Destination address (LSB)
+*:ADDRH      DB    $00              ; Destination address (MSB)
+*:BLOCKS     DB    $00              ; Counter for blocks read
+*:LEN        DB    $00              ; Length of filename
+*:CANTOPEN   ASC   "Unable to open "
+*            DB    $00
