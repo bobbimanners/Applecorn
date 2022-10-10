@@ -1,5 +1,5 @@
 * AUXMEM.OSCLI.S
-* (c) BOBBI 2021 GPLv3
+* (c) BOBBI 2021-2022 GPLv3
 *
 * Handle OSCLI system calls
 
@@ -12,12 +12,16 @@
 * 07-Oct-2022 *CLOSE is a host command, fixed *EXEC.
 * 08-Oct-2022 Rewrote *TYPE, *DUMP, *SPOOL, shares code with *EXEC.
 *             Sorted command table, added *HELP FILE.
+*             Optimised CLILOOK dispatcher.
 
 
 * COMMAND TABLE
 ***************
 * Table structure is: { string, byte OR $80, destword-1 } $00
 * Commands are entered with A=command byte with b7=1
+*                          EQ=no parameter
+*                          b6=0 - Enter with XY=>parameters
+*                          b6=1 - Enter with LPTR,Y=>parameters
 *
 * Ok, let's get around to sorting these
 CMDTABLE
@@ -28,17 +32,17 @@ CMDFILE     ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $88
             DW    STARFILE-1         ; CDIR   -> OSFILE 08, CBLK=>filename
             ASC   'CLOSE'
-            DB    $80
+            DB    $FF
             DW    CMDCLOSE-1         ; CLOSE  -> (LPTR)=>params
             ASC   'DELETE'
             DB    $86
             DW    STARFILE-1         ; DELETE -> OSFILE 06, CBLK=>filename
             ASC   'DUMP'
-            DB    $80
-            DW    CMDDUMP-1          ; DUMP   -> (LPTR)=>params
+            DB    $81 ; TO DO
+            DW    CMDDUMP-1          ; DUMP   -> XY=>params
             ASC   'EXEC'
-            DB    $80
-            DW    CMDEXEC-1          ; EXEC   -> (LPTR)=>params
+            DB    $81 ; TO DO
+            DW    CMDEXEC-1          ; EXEC   -> XY=>params
             ASC   'EX'
             DB    $89
             DW    STARFSC-1          ; EX     -> FSC 9, XY=>params
@@ -46,7 +50,7 @@ CMDFILE     ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $8A
             DW    STARFSC-1          ; INFO   -> FSC 10, XY=>params
             ASC   'LOAD'
-            DB    $FF
+            DB    $81
             DW    STARLOAD-1         ; LOAD   -> OSFILE FF, CBLK=>filename
             ASC   'MKDIR'
             DB    $88
@@ -61,41 +65,42 @@ CMDFILE     ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $8C
             DW    STARFSC-1          ; RENAME -> FSC 12, XY=>params
             ASC   'SAVE'
-            DB    $FF
+            DB    $81
             DW    STARSAVE-1         ; SAVE   -> OSFILE 00, CBLK=>filename
             ASC   'SPOOL'
-            DB    $80
-            DW    CMDSPOOL-1         ; SPOOL  -> (LPTR)=>params
+            DB    $81 ; TO DO
+            DW    CMDSPOOL-1         ; SPOOL  -> XY=>params
             ASC   'TYPE'
-            DB    $80
-            DW    CMDTYPE-1          ; TYPE   -> (LPTR)=>params
-            DB    $00                ; Split between HELP lists
+            DB    $81 ; TO DO
+            DW    CMDTYPE-1          ; TYPE   -> XY=>params
+* Split between HELP lists
+            DB    $00
 *
 CMDMOS      ASC   'BASIC'
-            DB    $80
+            DB    $FF
             DW    STARBASIC-1        ; BASIC  -> (LPTR)=>params
             ASC   'ECHO'
-            DB    $80
-            DW    ECHO-1             ; ECHO   -> (LPTR)=>params
+            DB    $FF
+            DW    CMDECHO-1          ; ECHO   -> (LPTR)=>params
             ASC   'FX'
-            DB    $80
+            DB    $FF
             DW    STARFX-1           ; FX     -> OSBYTE A,X,Y    (LPTR)=>params
             ASC   'FAST'
-            DB    $80
-            DW    FAST-1             ; FAST   -> (LPTR)=>params
-            ASC   'HELP'
             DB    $FF
+            DW    CMDFAST-1          ; FAST   -> (LPTR)=>params
+            ASC   'HELP'
+            DB    $81
             DW    STARHELP-1         ; HELP   -> XY=>params
             ASC   'KEY'
-            DB    $80
+            DB    $FF
             DW    STARKEY-1          ; KEY    -> (LPTR)=>params
             ASC   'QUIT'
-            DB    $80
+            DB    $FF
             DW    STARQUIT-1         ; QUIT   -> (LPTR)=>params
             ASC   'SLOW'
-            DB    $80
-            DW    SLOW-1             ; SLOW   -> (LPTR)=>params
-* terminator
+            DB    $FF
+            DW    CMDSLOW-1          ; SLOW   -> (LPTR)=>params
+* Table terminator
             DB    $FF
 
 
@@ -163,21 +168,28 @@ CLIMATCH2   JSR   CLIMATCH3          ; Call the routine
             RTS                      ; Return A=0 to claim
 
 CLIMATCH3   JSR   SKIPSPC            ; (OSLPTR),Y=>parameters
+            PHP                      ; Save EQ=end of line
             LDA   (OSTEXT,X)         ; Command byte
-            PHA
-            JSR   CLISTEP            ; Address low byte
             STA   OSTEMP
-            JSR   CLISTEP            ; Address high byte
-            PLX                      ; Get command byte
-            PHA                      ; Push address high
-            LDA   OSTEMP
-            PHA                      ; Push address low
-            TXA                      ; Command byte
+            JSR   CLISTEP            ; Address low byte
             PHA
+            JSR   CLISTEP            ; Address high byte
+            TAX                      ; X=high
+            PLA                      ; A=low
+            PLP                      ; EQ=end of line
+            PHX                      ; SP->high
+            PHA                      ; SP->low, high
+            PHP                      ; SP->flg, low, high
+* BIT OSTEMP
+* BVS CLICALL
+            LDA   OSTEMP
             ASL   A                  ; Move bit 6 into bit 7
-            BEQ   CLICALL            ; If $80-&BF don't convert LPTR
+            BMI   CLICALL            ; If b6=1 don't convert LPTR
+            BEQ   CLICALL  ; *TEMP* If $80, skip - remove when HOSTFS updated
+*
             JSR   LPTRtoXY           ; XY=>parameters
-CLICALL     PLA                      ; A=command parameter
+CLICALL     LDA   OSTEMP             ; A=command parameter
+            PLP                      ; EQ=no parameters
             RTS                      ; Call command routine
 
 CLISTEP     INC   OSTEXT+0,X         ; Point to next table byte
@@ -220,7 +232,7 @@ CLISLASH    JSR   SKIPSPC1
             BEQ   CLIDONE            ; */<cr>
             LDA   #$02
             BNE   STARFSC2           ; FSC 2 = */filename
-
+*
 CLIUNKNOWN  LDA   #$04
             JSR   SERVICE            ; Offer to sideways ROM(s)
             BEQ   CLIDONE            ; Claimed
@@ -244,13 +256,16 @@ ERRBADADD   BRK
             BRK
 
 
+* MOS COMMANDS
+**************
+
 * *FX num(,num(,num))
-*********************
+* -------------------
 STARFX      JSR   SCANDEC
             BRA   STARBYTE1
 
 * Commands passed to OSBYTE
-***************************
+* -------------------------
 STARBYTE    JSR   XYtoLPTR
 STARBYTE1   STA   OSAREG             ; Save OSBYTE number
             LDA   #$00               ; Default X and Y
@@ -272,6 +287,9 @@ STARBYTE2   LDY   OSYREG
             JSR   OSBYTE
             BVS   ERRBADCMD
             RTS
+
+* Line scanning
+* -------------
 
 * Scan decimal number
 SCANDEC     JSR   SKIPSPC
@@ -381,8 +399,29 @@ XYtoLPTR    STX   OSLPTR+0
             LDY   #0
 STARHELP9   RTS
 
-* Print *HELP text
-STARHELP    JSR   XYtoLPTR           ; (OSLPTR),Y=>parameters
+* *BASIC
+* ------
+STARBASIC   LDX   MAXROM
+:BASICLP    JSR   ROMSELECT
+            BIT   $8006
+            BPL   :BASICGO           ; No service, must be BASIC
+            DEX
+            BPL   :BASICLP
+            JMP   ERRBADCMD          ; No BASIC, give an error
+:BASICGO    JMP   BYTE8E
+
+* *ECHO <GSTRANS string>
+* ----------------------
+CMDECHO     SEC
+ECHO0       JSR   GSINIT
+:ECHOLP1    JSR   GSREAD
+            BCS   STARHELP9
+            JSR   OSWRCH
+            JMP   :ECHOLP1
+
+* *HELP (<options>)
+* -----------------
+STARHELP    JSR   XYtoLPTR           ; Update OSLPTR=>parameters
             JSR   PRHELLO            ; Unify version message
             LDX   #<HLPTABLE         ; XY=>command table
             LDY   #>HLPTABLE
@@ -391,14 +430,15 @@ STARHELP    JSR   XYtoLPTR           ; (OSLPTR),Y=>parameters
             LDA   $8006              ; Does ROM have service entry?
             BMI   STARHELP6          ; Yes, skip to send service call
             JSR   OSNEWL
-            LDA   #$09               ; Language name
+            LDX   #$09               ; Language name
             LDY   #$80               ; *TO DO* make this and BYTE8E
-            JSR   PRSTR              ;  use same code
+            JSR   OSPRSTR            ;  use same code
             JSR   OSNEWL
 STARHELP6   LDY   #0                 ; (OSLPTR),Y=>parameters
             LDA   #9
             JMP   SERVICE            ; Pass to sideways ROM(s)
 
+* Print *HELP text
 HELPHOSTFS  LDX   #<FSCCOMMAND       ; *HELP HOSTFS
             LDY   #>FSCCOMMAND
             BNE   HELPLIST
@@ -435,14 +475,25 @@ STARHELP4   LDA   #$08
             JSR   OSWRCH
             JMP   FORCENL
 
+* *KEY <num> <GSTRANS string>
+* ---------------------------
+STARKEY     RTS
 
-* Handle *QUIT command
+* *QUIT command
+* -------------
 STARQUIT    >>>   XF2MAIN,QUIT
 
 
-STARSAVE    LDA   #$00               ; Set A=0 - SAVE
-STARLOAD    PHA                      ; Entered with A=$FF - LOAD
-            JSR   XYtoLPTR           ; OSLPTR=>filename
+* FILING COMMANDS
+* ***************
+
+* *LOAD and *SAVE
+* ---------------
+STARLOAD    LDA   #$7E               ; Set here to A=$7E -> $FF, LOAD
+STARSAVE    EOR   #$81               ; Entered with A=$81 -> $00, SAVE
+* Can tweek this after HOSTFS command table updated
+            PHA
+            JSR   XYtoLPTR           ; Update OSLPTR=>filename
             JSR   SKIPWORD           ; Step past filename
             BNE   STARLDSV3          ; filename followed by addr
 *
@@ -508,7 +559,7 @@ STARLDSVGO  LDX   OSLPTR+0
 *
 
 * Commands passed to OSFILE
-***************************
+* -------------------------
 STARFILE    EOR   #$80
             STX   OSFILECB+0
             STY   OSFILECB+1
@@ -519,53 +570,20 @@ STARFILE    EOR   #$80
             BNE   STARDONE
             JMP   ERRNOTFND
 
-STARKEY
-STARDONE    RTS
-
-
-* *BASIC
-********
-STARBASIC   LDX   MAXROM
-:BASICLP    JSR   ROMSELECT
-            BIT   $8006
-            BPL   :BASICGO           ; No service, must be BASIC
-            DEX
-            BPL   :BASICLP
-            JMP   ERRBADCMD          ; No BASIC, give an error
-:BASICGO    JMP   BYTE8E
-
-
-* *ECHO <GSTRANS string>
-************************
-ECHO        SEC
-ECHO0       JSR   GSINIT
-ECHOLP1     JSR   GSREAD
-            BCS   STARDONE
-            JSR   OSWRCH
-            JMP   ECHOLP1
-
-* FILING UTILITIES
-* ================
-
 * *CLOSE
-********
+* ------
 CMDCLOSE     LDA   #$00
              TAY
              JSR   OSFIND            ; Close all files
              STA   FXEXEC            ; Ensure Spool/Exec handles cleared
              STA   FXSPOOL
-             RTS
+STARDONE     RTS
 
 * *TYPE <afsp>
-**************
-* LPTR=>parameters string
+* ------------
+* XY=>parameters string, EQ=no parameters
 *
-CMDTYPE
-             LDA   (OSLPTR),Y	; TEMP
-             CMP   #$0D		; TEMP 
-             BEQ   ERRTYPE           ; No filename
-             JSR   LPTRtoXY	; TEMP
-*
+CMDTYPE      BEQ   ERRTYPE           ; No filename
              JSR   OPENINFILE        ; Try to open file
 :LOOP        JSR   OSBGET            ; Read a byte
              BCS   TYPDMPEND         ; EOF
@@ -593,16 +611,11 @@ ERRDUMP      BRK
              ASC   'Syntax: DUMP <afsp>'
              BRK
 
-
 * Handle *DUMP command
-* LPTR=>parameters string
+* --------------------
+* XY=>parameters string, EQ=no parameters
 *
-CMDDUMP
-             LDA   (OSLPTR),Y	; TEMP
-             CMP   #$0D		; TEMP 
-             BEQ   ERRDUMP           ; No filename
-             JSR   LPTRtoXY	; TEMP
-*
+CMDDUMP      BEQ   ERRDUMP           ; No filename
              JSR   OPENINFILE        ; Try to open file
              STZ   OSNUM+0           ; Offset = zero
              STZ   OSNUM+1
@@ -670,16 +683,11 @@ CMDDUMP
              BCC   :LOOP1
              JMP   TYPCLOSE          ; Close and finish
 
-
-* Handle *SPOOL command
-* LPTR=>parameters string
+* *SPOOL (<afsp>)
+* ---------------
+* XY=>parameters string, EQ=no parameters
 *
-CMDSPOOL
-             LDA   (OSLPTR),Y	; TEMP
-             CMP   #$0D		; TEMP 
-             PHP		; TEMP
-             JSR   LPTRtoXY	; TEMP
-*
+CMDSPOOL     PHP                        ; Save EQ/NE
              PHY                        ; Save Y
              LDY   FXSPOOL              ; Get SPOOL handle
              BEQ   :SPOOL1              ; Wasn't open, skip closing
@@ -690,20 +698,16 @@ CMDSPOOL
              PLP                        ; Get NE=filename, EQ=no filename
              BEQ   :DONE                ; No filename, all done
              LDA   #$80                 ; A=OPENOUT, for writing
-             JSR   OUTPUTFILE           ; Try to open file
+             JSR   OPENAFILE            ; Try to open file
              STA   FXSPOOL              ; Store SPOOL handle
 :DONE        RTS
 
-
-* Handle *EXEC command
-* LPTR=>parameters string
+* *EXEC (<afsp>)
+* --------------
+* XY=>parameters string, EQ=no parameters
 *
-CMDEXEC
-             LDA   (OSLPTR),Y	; TEMP
-             CMP   #$0D		; TEMP 
-             PHP		; TEMP
-             JSR   LPTRtoXY	; TEMP
-*
+CMDEXEC0     LDA   #$00                 ; Close EXEC file
+CMDEXEC      PHP                        ; Save EQ/NE
              PHY                        ; Save Y
              LDY   FXEXEC		; Get EXEC handle
              BEQ   :EXEC1               ; Wasn't open, skip closing it
@@ -718,43 +722,47 @@ CMDEXEC
 EXECDONE     RTS
 
 OPENINFILE   LDA   #$40                 ; Open for input
-OUTPUTFILE   JSR   OSFIND               ; Try to open file
+OPENAFILE    JSR   OSFIND               ; Try to open file
              TAY                        ; Was file opened?
              BNE   EXECDONE             ; File opened
 EXECNOTFND   JMP   ERRNOTFND            ; File not found
 
 
-*
+* ZIP SPEED COMMANDS
+* ==================
+
 * Handle *FAST command
+* --------------------
 * Turn Apple II accelerators on
-FAST         LDA   #$80                      ; Apple IIgs
+CMDFAST      LDA   #$80                      ; Apple IIgs
              TSB   $C036
              STA   GSSPEED
-             JSR   UNLOCKZIP                 ; ZipChip
-             JSR   DETECTZIP
+             JSR   ZIPUNLOCK                 ; ZipChip
+             JSR   ZIPDETECT
              BCC   :NOZIP
              STA   $C05B                     ; Enable
-             JMP   LOCKZIP
+             BCS   ZIPLOCK
 :NOZIP       STA   $C05C                     ; Ultrawarp fast
              RTS
 
-*
 * Handle *SLOW command
+* --------------------
 * Turn Apple II accelerators off
-SLOW         LDA   #$80                      ; Apple IIgs
+CMDSLOW      LDA   #$80                      ; Apple IIgs
              TRB   $C036
              STZ   GSSPEED
-             JSR   UNLOCKZIP                 ; ZipChip
-             JSR   DETECTZIP
+             JSR   ZIPUNLOCK                 ; ZipChip
+             JSR   ZIPDETECT
              BCC   :NOZIP
              STZ   $C05A                     ; Disable
-             JMP   LOCKZIP
+             BCS   ZIPLOCK
 :NOZIP       STA   $C05D                     ; Ultrawarp slow
              RTS
 
 * Detect a ZipChip
 * Set carry is ZipChip found
-DETECTZIP    LDA   $C05C                     ; ZipChip manual p25
+DETECTZIP
+ZIPDETECT    LDA   $C05C                     ; ZipChip manual p25
              EOR   #$FF
              STA   $C05C
              CMP   $C05C
@@ -762,14 +770,16 @@ DETECTZIP    LDA   $C05C                     ; ZipChip manual p25
              EOR   #$FF
              STA   $C05C
              CMP   $C05C
-             BNE   :NOZIP
-             SEC
-             RTS
+             BEQ   :ZIPOK                    ; BEQ already has SEC
+*             BNE   :NOZIP
+*             SEC
+*             RTS
 :NOZIP       CLC
-             RTS
+:ZIPOK       RTS
            
 * Unlock ZipChip registers
-UNLOCKZIP    PHP
+UNLOCKZIP
+ZIPUNLOCK    PHP
              SEI                             ; Timing sensitive
              LDA   #$5A
              STA   $C05A
@@ -780,7 +790,8 @@ UNLOCKZIP    PHP
              RTS
 
 * Lock ZipChip registers
-LOCKZIP      LDA   #$A5
+LOCKZIP
+ZIPLOCK      LDA   #$A5
              STA   $C05A
              RTS
 
