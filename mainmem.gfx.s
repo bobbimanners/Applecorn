@@ -105,7 +105,7 @@ GFXINIT     JSR   FDRAWADDR+0       ; Initialize FDRAW library
             STA   FDRAWADDR+5
             JSR   FDRAWADDR+16      ; FDRAW: SetColor
             STZ   BGCOLOR
-            JSR   FDRAWADDR+22      ; FDRAW: clear HGR screen
+*            JSR   FDRAWADDR+22      ; FDRAW: clear HGR screen
             RTS
 
 * Plot bitmap character on the HGR screen

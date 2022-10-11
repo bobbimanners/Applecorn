@@ -11,14 +11,6 @@ ROMTOTL      EQU   $0382              ; Prevent name clash
 ROMTHIS      EQU   $0383
 ROMADDRS     EQU   $0384              ; List of ROM filename addresses
 
-START        JSR   GFXINIT          ; Initialize FDraw graphics
-
-             TSX                    ; Save SP at $0100 in aux
-            >>>   ALTZP
-            STX   $0100
-            >>>   MAINZP
-            >>>   XF2AUX,AUXMOS1
-
 ROMMENU      JSR   HOME               ; Clear screen
              LDX   #0
 :LP0         LDA   TITLE1,X           ; Print title
