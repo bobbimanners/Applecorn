@@ -161,7 +161,13 @@ DISCONN     LDA   MACHID
             LDA   #>GSBRK
             STA   $3F0+1
 
-            JMP   START
+            JSR   GFXINIT          ; Initialize FDraw graphics
+
+            TSX                    ; Save SP at $0100 in aux
+            >>>   ALTZP
+            STX   $0100
+            >>>   MAINZP
+            >>>   XF2AUX,AUXMOS1
 
 * Filenames for loaded binaries - we're gonna address these later
 
@@ -194,9 +200,8 @@ UNSUPMSG    ASC   "APPLECORN REQUIRES AN APPLE IIGS, APPLE", 8D
             ASC   "PRESS ANY KEY TO QUIT TO PRODOS", 00
 
 ENDSYSTEM
-*PADDING     DS    $4000-*
 
-; Original APPLECORN.BIN code starts here
+; Original APPLECORN.BIN code started here
 
 *START
 *            LDA   #>AUXADDR        ; Address in aux
