@@ -637,11 +637,12 @@ VDU12         STZ   FXLINES
 * Clear the graphics screen buffer
 VDU12SOFT     JMP   VDU16                  ; *TEMP*
 
-VDU22G        STA   $C050                  ; Enable Graphics
+VDU22G        JSR   VDU12                  ; Clear text and HGR screen
               STA   $C057                  ; Hi-Res
+              STA   $C050                  ; Enable Graphics
               STA   $C054                  ; PAGE1
               STA   $C00C                  ; Select 40col text
-              JMP   VDU12                  ; Clear text and HGR screen
+              RTS
 
 
 * Clear to EOL, respecting text window boundaries
