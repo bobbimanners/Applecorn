@@ -344,12 +344,13 @@ WORD05IO     LDA   OSINTWS+0              ; X CORRUPTED BY XF2MAIN
 WORD05IO1    >>>   XF2MAIN,MAINRDMEM
 
 * <8000xxxx language memory
-*  ????xxxx main memory RAM paged in via STA $C002
+*  ????xxxx MAIN RAM is activated by writing to RDMAINRAM ($C002)
+*           AUX  RAM us activated by writing to RDCARDRAM ($C003)
 *  ????xxxx main memory ROM paged in via XFER
 
-             STA   $C002                  ; Switch to main memory
+             STA   RDMAINRAM              ; Switch to main memory
 WORD05A      LDA   (OSINTWS)              ; Get byte
-             STA   $C003                  ; Back to aux memory
+             STA   RDCARDRAM              ; Back to aux memory
              STA   (OSCTRL),Y             ; Store it
              RTS
 

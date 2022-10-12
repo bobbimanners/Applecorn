@@ -105,7 +105,7 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
              BIT   SETV
              JSR   KBDTEST
              BCS   :KBDINITOK                ; Return default MODE=0
-             STA   $C010                     ; Ack. keypress
+             STA   KBDSTRB                   ; Ack. keypress
              TAX                             ; Use keypress as default MODE
 :KBDINITOK   TXA
              RTS
@@ -169,11 +169,11 @@ INKEY5       DEX
 INKEY6       PHY
 *
 * VBLK pulses at 50Hz/60Hz, toggles at 100Hz/120Hz
-             LDX   $C019                     ; Get initial VBLK state
-INKEY8       BIT   $C000
+             LDX   RDVBL                     ; Get initial VBLK state
+INKEY8       BIT   KEYBOARD
              BMI   INKEY4                    ; Key pressed
              TXA
-             EOR   $C019
+             EOR   RDVBL
              BPL   INKEY8                    ; Wait for VBLK change
              BMI   INKEYLP                   ; Loop back to key test
 
@@ -364,15 +364,15 @@ KEYCOPY      LDA   FXTABCHAR                 ; Prepare TAB if no copy cursor
 * Cursors      -> $CC-$CF
 *
 KBDREAD      CLV                             ; VC=return keypress
-KBDTEST      LDA   $C000                     ; VS here to test for keypress
+KBDTEST      LDA   KEYBOARD                  ; VS here to test for keypress
              EOR   #$80                      ; Toggle bit 7
              CMP   #$80
              BCS   KBDDONE                   ; No key pressed
              BVS   KBDDONE                   ; VS=test for keypress
-             STA   $C010                     ; Ack. keypress
-             BIT   $C061
+             STA   KBDSTRB                   ; Ack. keypress
+             BIT   BUTTON0
              BMI   KBDLALT                   ; Left Apple pressed
-             BIT   $C062
+             BIT   BUTTON1
              BMI   KBDRALT                   ; Right Apple pressed
              CMP   #$09
              BEQ   KBDTAB                    ; TAB is dual action TAB/COPY
@@ -398,10 +398,10 @@ KBDLALT      CMP   #$40                      ; Left Apple key pressed
              BCS   KBDCHKESC                 ; >'9'
 KBDFUNC      AND   #$0F                      ; Convert Apple-Num to function key
              ORA   #$80
-             BIT   $C062
+             BIT   BUTTON1
              BPL   KBDCHKESC                 ; Left+Digit       -> $8x
              ORA   #$90                      ; Right+Digit      -> $9x
-             BIT   $C061
+             BIT   BUTTON0
              BPL   KBDCHKESC
              EOR   #$30                      ; Left+Right+Digit -> $Ax
              BRA   KBDCHKESC

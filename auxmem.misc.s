@@ -35,7 +35,7 @@ ADVALBUF    INX
             BEQ   :ADVALOK         ; Serial input, return 0
             LDX   #$01             ; For outputs, return 1 char free
             RTS
-:ADVALKBD   BIT   $C000            ; Test keyboard data/strobe
+:ADVALKBD   BIT   KEYBOARD         ; Test keyboard data/strobe
             BPL   :ADVALOK         ; No Strobe, return 0
             INX                    ; Strobe, return 1
 :ADVALOK    RTS
@@ -73,7 +73,7 @@ BEEP        PHA
             BNE   :L2              ; 3cy/2cy  (BEEPX-1) * 3cy + 1 * 2cy
 *------------------------------------------------------
 *                                   BEEPX*5-1cy
-            LDA   $C030            ; 4cy        BEEPX*5+5
+            LDA   SPKR             ; 4cy        BEEPX*5+5
             DEY                    ; 2cy        BEEPX*5+7
             BNE   :L1              ; 3cy/2cy    BEEPX*5+10
             PLY                    ;
@@ -361,9 +361,9 @@ EVENT       RTS
 
 * Initialize ROMTAB according to user selection in menu
 ROMINIT     STZ   MAXROM           ; One sideways ROM only
-            STA   $C002            ; Read main mem
+            STA   RDMAINRAM        ; Read main mem
             LDA   USERSEL          ; *TO DO* Should be actual number of ROMs
-            STA   $C003            ; Read aux mem
+            STA   RDCARDRAM        ; Read aux mem
 
             CMP   #6
             BNE   :X1
@@ -387,9 +387,9 @@ GSBRKAUX    >>>   IENTAUX          ; IENTAUX does not do CLI
 IRQBRKHDLR  PHA
 * Mustn't enable IRQs within the IRQ handler
 * Do not use WRTMAIN/WRTAUX macros
-            STA   $C004            ; Write to main memory
+            STA   WRMAINRAM        ; Write to main memory
             STA   $45              ; $45=A for ProDOS IRQ handlers
-            STA   $C005            ; Write to aux memory
+            STA   WRCARDRAM        ; Write to aux memory
 
             TXA
             PHA

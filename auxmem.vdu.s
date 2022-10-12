@@ -321,7 +321,7 @@ VDU127        JSR   VDU08                  ; Move cursor back
 
 * Display character at current (TEXTX,TEXTY)
 PRCHRC        PHA                          ; Save character
-              LDA   $C000
+              LDA   KEYBOARD
               BPL   :RESUME                ; No key pressed
               EOR   #$80
 :PAUSE1       JSR   KBDCHKESC              ; Ask KBD to test if Escape
@@ -329,8 +329,8 @@ PRCHRC        PHA                          ; Save character
               BMI   :RESUMEACK             ; Escape, skip pausing
               CMP   #$13
               BNE   :RESUME                ; Not Ctrl-S
-              STA   $C010                  ; Ack. keypress
-:PAUSE2       LDA   $C000
+              STA   KBDSTRB                ; Ack. keypress
+:PAUSE2       LDA   KEYBOARD
               BPL   :PAUSE2                ; Loop until keypress
               EOR   #$80
               CMP   #$11                   ; Ctrl-Q
@@ -338,7 +338,7 @@ PRCHRC        PHA                          ; Save character
               JSR   KBDCHKESC              ; Ask KBD to test if Escape
               BIT   ESCFLAG
               BPL   :PAUSE2                ; No Escape, keep pausing
-:RESUMEACK    STA   $C010                  ; Ack. keypress
+:RESUMEACK    STA   KBDSTRB                ; Ack. keypress
 :RESUME       PLA
 
 * Put character to screen
@@ -385,9 +385,9 @@ GETCHRC       JSR   CHARADDR               ; Find character address
               BIT   VDUBANK
               BMI   GETCHRGS
               BCC   GETCHR6                ; Aux memory
-              STA   $C002                  ; Read main memory
+              STA   RDMAINRAM              ; Read main memory
 GETCHR6       LDA   (VDUADDR),Y            ; Get character
-              STA   $C003                  ; Read aux memory
+              STA   RDCARDRAM              ; Read aux memory
               TAY                          ; Convert character
               AND   #$A0
               BNE   GETCHR7
@@ -400,9 +400,9 @@ GETCHR7       TYA
               TAX                          ; X=char
 GETCHROK      RTS
 GETCHRGS      BCC   GETCHR8                ; Aux memory
-              STA   $C002                  ; Read main memory
+              STA   RDMAINRAM              ; Read main memory
 GETCHR8       LDA   [VDUADDR],Y            ; Get character
-              STA   $C003                  ; Read aux memory
+              STA   RDCARDRAM              ; Read aux memory
               TAY                          ; Convert character
               AND   #$A0
               BNE   GETCHR9
@@ -433,7 +433,7 @@ CHARADDRY     ASL
               LDA   SCNTAB+1,Y             ; MSB of row address
               STA   VDUADDR+1
               LDA   VDUTEXTX
-              BIT   $C01F
+              BIT   RD80VID
               SEC
               BPL   CHARADDR40             ; 40-col
               LSR   A
@@ -545,7 +545,7 @@ VDU31         LDY   VDUQ+8
               LDX   VDUQ+7
               CPX   #80
               BCS   :DONE
-              BIT   $C01F
+              BIT   RD80VID
               BMI   :T9A
               CPX   #40
               BCS   :DONE
@@ -598,15 +598,15 @@ VDU22         LDA   VDUQ+8
               STA   CURSORED               ; Edit cursor when editing
               JSR   VDU20                  ; Default colours
               JSR   VDU26                  ; Default windows
-              STA   $C052                  ; Clear MIXED
+              STA   FULLGR                 ; Clear MIXED mode
               LDA   VDUSCREEN
               BMI   VDU22G                 ; b7=1, graphics mode
               AND   #$01                   ; 40col/80col bit
               TAX
-              STA   $C00C,X                ; Select 40col/80col
-              STA   $C051                  ; Enable Text
-              STA   $C055                  ; PAGE2
-              STA   $C00F                  ; Enable alt charset
+              STA   CLR80VID,X             ; Select 40col/80col
+              STA   TEXTON                 ; Enable Text
+              STA   PAGE2                  ; PAGE2
+              STA   SETALTCHAR             ; Enable alt charset
 * Fall through into CLS
 
 
@@ -638,10 +638,10 @@ VDU12         STZ   FXLINES
 VDU12SOFT     JMP   VDU16                  ; *TEMP*
 
 VDU22G        JSR   VDU12                  ; Clear text and HGR screen
-              STA   $C057                  ; Hi-Res
-              STA   $C050                  ; Enable Graphics
-              STA   $C054                  ; PAGE1
-              STA   $C00C                  ; Select 40col text
+              STA   HIRES                  ; Hi-Res
+              STA   GRON                   ; Enable Graphics
+              STA   PAGE1                  ; PAGE1
+              STA   CLR80VID               ; Select 40col text
               RTS
 
 
@@ -650,7 +650,7 @@ CLREOL        JSR   CHARADDR               ; Set VDUADDR=>start of line
               INC   TXTWINRGT
               BIT   VDUBANK
               BMI   CLREOLGS               ; AppleGS
-              BIT   $C01F
+              BIT   RD80VID
               BPL   :FORTY                 ; 40-col mode
 :EIGHTY       LDX   VDUTEXTX               ; Addr offset for column
 :L1           TXA                          ; Column/2 into Y
@@ -679,7 +679,7 @@ CLREOLDONE    DEC   TXTWINRGT
               BPL   :NOHIRES
               JMP   HSCRCLREOL             ; Clear an HGR line
 :NOHIRES      RTS
-CLREOLGS      BIT   $C01F
+CLREOLGS      BIT   RD80VID
               BPL   :FORTY                 ; 40-col mode
 :EIGHTY       LDX   VDUTEXTX               ; Addr offset for column
 :L1           TXA                          ; Column/2 into Y
@@ -788,7 +788,7 @@ DOSCR1LINE    INC   TXTWINRGT
               BIT   VDUBANK
               BMI   SCR1LINEGS             ; AppleGS
               LDX   TXTWINLFT              ; Addr offset for column
-              BIT   $C01F
+              BIT   RD80VID
               BPL   :FORTY                 ; 40-col mode
 :EIGHTY
 :L1           TXA                          ; Column/2 into Y
@@ -799,10 +799,10 @@ DOSCR1LINE    INC   TXTWINRGT
               STA   (VDUADDR2),Y
               BRA   :SKIPMAIN
 :MAIN         >>>   WRTMAIN
-              STA   $C002                  ; Read main memory
+              STA   RDMAINRAM              ; Read main memory
               LDA   (VDUADDR),Y
               STA   (VDUADDR2),Y
-              STA   $C003                  ; Read aux memory
+              STA   RDCARDRAM              ; Read aux memory
               >>>   WRTAUX
 :SKIPMAIN     INX
               CPX   TXTWINRGT
@@ -811,10 +811,10 @@ DOSCR1LINE    INC   TXTWINRGT
 :FORTY        TXA
               TAY
 :L2           >>>   WRTMAIN
-              STA   $C002                  ; Read main memory
+              STA   RDMAINRAM              ; Read main memory
               LDA   (VDUADDR),Y
               STA   (VDUADDR2),Y
-              STA   $C003                  ; Read aux memory
+              STA   RDCARDRAM              ; Read aux memory
               >>>   WRTAUX
               INY
               CPY   TXTWINRGT
@@ -823,7 +823,7 @@ SCR1LNDONE    DEC   TXTWINRGT
               PLA
               RTS
 SCR1LINEGS    LDX   TXTWINLFT
-              BIT   $C01F
+              BIT   RD80VID
               BPL   :FORTY                 ; 40-col mode
 :EIGHTY       
 :L1           TXA                          ; Column/2 into Y
@@ -834,20 +834,20 @@ SCR1LINEGS    LDX   TXTWINLFT
               STA   VDUBANK
               STA   VDUBANK2
               >>>   WRTMAIN
-              STA   $C002                  ; Read main memory
+              STA   RDMAINRAM              ; Read main memory
               LDA   [VDUADDR],Y            ; Even cols in bank $E1
               STA   [VDUADDR2],Y
-              STA   $C003                  ; Read aux memory
+              STA   RDCARDRAM              ; Read aux memory
               >>>   WRTAUX
               BRA   :SKIPE0
 :E0           LDA   #$E0
               STA   VDUBANK
               STA   VDUBANK2
               >>>   WRTMAIN
-              STA   $C002                  ; Read main memory
+              STA   RDMAINRAM              ; Read main memory
               LDA   [VDUADDR],Y            ; Odd cols in bank $E0
               STA   [VDUADDR2],Y
-              STA   $C003                  ; Read aux memory
+              STA   RDCARDRAM              ; Read aux memory
               >>>   WRTAUX
 :SKIPE0       INX
               CPX   TXTWINRGT
@@ -858,10 +858,10 @@ SCR1LINEGS    LDX   TXTWINLFT
               LDA   #$E0
               STA   VDUBANK
 :L2           >>>   WRTMAIN
-              STA   $C002                  ; Read main memory
+              STA   RDMAINRAM              ; Read main memory
               LDA   [VDUADDR],Y
               STA   [VDUADDR2],Y
-              STA   $C003                  ; Read aux memory
+              STA   RDCARDRAM              ; Read aux memory
               >>>   WRTAUX
               INY
               CPY   TXTWINRGT
@@ -884,14 +884,14 @@ VDU16         JMP   HSCRCLEAR
 VDU20
 * THE FOLLOWING TWO LINES ARE FOR GS ONLY & NOT SAFE ON //c
 *             LDA   #$F0
-*             STA   $C022                  ; Set text palette
+*             STA   TBCOLOR                ; Set text palette
               LDX   #VDUCOLEND-TXTFGD
               LDA   #$00
 VDU20LP       STA   TXTFGD,X               ; Clear all colours
               DEX                          ; and gcol actions
               BPL   VDU20LP
 * THE FOLLOWING LINE IS FOR GS ONLY & NOT SAFE ON //c
-*             STA   $C034                  ; Set border
+*             STA   CLOCKCTL               ; Set border
               LDA   #$80
               JSR   HSCRSETTCOL            ; Set txt background
               LDX   #$00
@@ -917,7 +917,7 @@ VDU17BORDER   AND   #$0F
               STA   VDUBORDER
               TAX
               LDA   CLRTRANS16,X
-              STA   $C034
+              STA   CLOCKCTL
               RTS
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action
@@ -1091,7 +1091,7 @@ VDU25BACKUP2  LDA   GFXPOSNX,X             ; POSN becomes LAST
               LDA   VDUPIXELS
               BEQ   :S2
               JSR   HGRPLOTTER
-:S2           LDA   $C000                  ; This and PRCHRC need to be
+:S2           LDA   KEYBOARD               ; This and PRCHRC need to be
               EOR   #$80                   ; made more generalised
               BMI   VDU25EXIT              ; No key pressed
               JSR   KBDCHKESC              ; Ask KBD to test if Escape

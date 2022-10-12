@@ -735,7 +735,7 @@ EXECNOTFND   JMP   ERRNOTFND            ; File not found
 * --------------------
 * Turn Apple II accelerators on
 CMDFAST      LDA   #$80                      ; Apple IIgs
-             TSB   $C036
+             TSB   CYAREG
              STA   GSSPEED
              JSR   ZIPUNLOCK                 ; ZipChip
              JSR   ZIPDETECT
@@ -749,7 +749,7 @@ CMDFAST      LDA   #$80                      ; Apple IIgs
 * --------------------
 * Turn Apple II accelerators off
 CMDSLOW      LDA   #$80                      ; Apple IIgs
-             TRB   $C036
+             TRB   CYAREG
              STZ   GSSPEED
              JSR   ZIPUNLOCK                 ; ZipChip
              JSR   ZIPDETECT
