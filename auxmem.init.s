@@ -32,11 +32,11 @@ MOSINIT     SEI                              ; Disable IRQ while initializing
             LDX   #$FF                       ; Initialize Alt SP to $1FF
             TXS
 
-            STA   $C005                      ; Make sure we are writing aux
-            STA   $C000                      ; Make sure 80STORE is off
+            STA   WRCARDRAM                  ; Make sure we are writing aux
+            STA   80STOREOFF                 ; Make sure 80STORE is off
 
-            LDA   $C08B                      ; LC RAM Rd/Wt, 1st 4K bank
-            LDA   $C08B
+            LDA   LCBANK1                    ; LC RAM Rd/Wt, 1st 4K bank
+            LDA   LCBANK1
 
 :MODBRA     BRA   :RELOC                     ; NOPped out on first run
             BRA   :NORELOC
@@ -104,9 +104,9 @@ MOSINIT     SEI                              ; Disable IRQ while initializing
 :S7         BRA   :L2
 
 :NORELOC
-:S8         STA   $C00D                      ; 80 col on
-            STA   $C003                      ; Alt charset off
-            STA   $C055                      ; PAGE2
+:S8         STA   SET80VID                   ; 80 col on
+            STA   CLRALTCHAR                 ; Alt charset off (?)
+            STA   PAGE2                      ; PAGE2
             JMP   MOSHIGH                    ; Ensure executing in high memory here
 
 MOSHIGH     SEI                              ; Disable IRQ while initializing
@@ -126,7 +126,7 @@ MOSHIGH     SEI                              ; Disable IRQ while initializing
             DEX
             BPL   :INITPG2
 
-            LDA   $C036                      ; GS speed register
+            LDA   CYAREG                     ; GS speed register
             AND   #$80                       ; Speed bit only
             STA   GSSPEED                    ; In Alt LC for IRQ/BRK hdlr
 
@@ -157,7 +157,7 @@ BYTE8E      PHP                              ; Save CLC=RESET, SEC=Not RESET
             JSR   OSNEWL
             PLP                              ; Get entry type back
             LDA   #$01
-            JMP   AUXADDR
+            JMP   ROMAUXADDR
 
 * OSBYTE $8F - Issue service call
 * X=service call, Y=parameter

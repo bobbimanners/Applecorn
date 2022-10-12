@@ -92,13 +92,13 @@ GSBRK        >>>   XF2AUX,GSBRKAUX
 *:S1          RTS
 *
 * Reset handler - invoked on Ctrl-Reset
-* XFER to AUXMOS ($C000) in aux, AuxZP on, LC on
+* XFER to AUXMOS ($D000) in aux, AuxZP on, LC on
 RESET        TSX
              STX   $0100
-             LDA   $C058             ; AN0 off
-             LDA   $C05A             ; AN1 off
-             LDA   $C05D             ; AN2 on
-             LDA   $C05F             ; AN3 on
+             LDA   AN0OFF            ; AN0 off
+             LDA   AN1OFF            ; AN1 off
+             LDA   AN2ON             ; AN2 on
+             LDA   AN3ON             ; AN3 on
              >>>   XF2AUX,AUXMOS
              RTS
 
