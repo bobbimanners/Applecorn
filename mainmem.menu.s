@@ -20,9 +20,9 @@ ROMMENU      JSR   HOME               ; Clear screen
              BNE   :LP0
 :LP1
 
-:KEYIN       LDA   $C000              ; Kdb data / strobe
+:KEYIN       LDA   KEYBOARD           ; Kdb data / strobe
              BPL   :KEYIN             ; Wait for keystroke
-             STA   $C010              ; Clear strobe
+             STA   KBDSTRB              ; Clear strobe
              AND   #$7F
              SEC
              SBC   #'1'               ; '1'->0, '2'->1 etc.

@@ -359,9 +359,9 @@ GBPB          >>>   ENTMAIN
               LDA   GBPBDAT+1
               STA   ZPMOS+1
               LDA   BLKBUF
-              STA   $C005              ; Write to aux
+              STA   WRCARDRAM          ; Write to aux
               STA   (ZPMOS)            ; Store byte in aux mem
-              STA   $C004              ; Write to main again
+              STA   WRMAINRAM          ; Write to main again
               BRA   :UPDCB
 :WRITE        LDA   #<BLKBUF           ; Start of destination
               STA   A4L
@@ -400,7 +400,7 @@ GBPB          >>>   ENTMAIN
 :ERR
 :ZERO         PLA                      ; Throw away A
               >>>   ALTZP              ; Control block can be in ZP!
-              STA   $C005              ; Write to aux
+              STA   WRCARDRAM          ; Write to aux
               LDA   GBPBAUXCB+0        ; Copy control block back to aux
               STA   $B0+0              ; $B0 in AltZP is temp FS workspace
               LDA   GBPBAUXCB+1
@@ -410,7 +410,7 @@ GBPB          >>>   ENTMAIN
               STA   ($B0),Y
               DEY
               BPL   :L2
-              STA   $C004              ; Write to main again
+              STA   WRMAINRAM          ; Write to main again
               >>>   MAINZP
               >>>   XF2AUX,OSGBPBRET
 
@@ -939,9 +939,9 @@ CHKNOTFND     CMP   #$44               ; Convert ProDOS 'not found'
 
 
 * Quit to ProDOS
-QUIT          INC   $03F4              ; Invalidate powerup byte
-              STA   $C054              ; PAGE2 off
-              STA   $C00E              ; Alt font off
+QUIT          INC   PWRDUP             ; Invalidate powerup byte
+              STA   PAGE1              ; PAGE2 off
+              STA   CLRALTCHAR         ; Alt font off
               JSR   MLI
               DB    QUITCMD
               DW    QUITPL
@@ -1196,8 +1196,8 @@ MULTIDEL      >>>   ENTMAIN
 
 
 * Read machid from auxmem
-MACHRD        LDA   $C081
-              LDA   $C081
+MACHRD        LDA   ROMIN
+              LDA   ROMIN
               LDA   $FBC0
               SEC
               JSR   $FE1F
@@ -1206,8 +1206,8 @@ MACHRD        LDA   $C081
 * Read mainmem from auxmem
 MAINRDMEM     STA   A1L
               STY   A1H
-              LDA   $C081
-              LDA   $C081
+              LDA   ROMIN
+              LDA   ROMIN
               LDA   (A1L)
 MAINRDEXIT    >>>   XF2AUX,NULLRTS     ; Back to an RTS
 

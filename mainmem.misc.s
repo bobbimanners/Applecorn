@@ -27,14 +27,14 @@ MEMCPY       LDA   (A1L)
 * Copy 512 bytes from BLKBUF to AUXBLK in aux LC
 COPYAUXBLK   >>>   ALTZP          ; Alt ZP & Alt LC on
              LDY   #$00
-             STA   $C005          ; Write aux mem
+             STA   WRCARDRAM      ; Write aux mem
 :L1          LDA   BLKBUF+$000,Y
              STA   AUXBLK+$000,Y
              LDA   BLKBUF+$100,Y
              STA   AUXBLK+$100,Y
              INY
              BNE   :L1
-             STA   $C004          ; Write main mem
+             STA   WRMAINRAM      ; Write main mem
 :S2          >>>   MAINZP         ; Alt ZP off, ROM back in
 RTSINSTR     RTS
 
@@ -98,12 +98,12 @@ EXISTS       LDA   #<MOSFILE
 * Preserves A
 COPYFB       PHA
              LDX   #$11           ; 18 bytes in FILEBLK
-             STA   $C005          ; Write to aux mem
+             STA   WRCARDRAM      ; Write to aux mem
 :L1          LDA   FILEBLK,X
              STA   OSFILECB,X
              DEX
              BPL   :L1
-             STA   $C004          ; Write to main mem again
+             STA   WRMAINRAM      ; Write to main mem again
              PLA
              RTS
 
