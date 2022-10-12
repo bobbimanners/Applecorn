@@ -34,8 +34,12 @@ A4H         EQU   $43
 STRTL       EQU   $3ED
 STRTH       EQU   $3EE
 
+* Apple II BREAK vector
+BREAKV      EQU   $3F0
+
 * Reset vector (2 bytes + 1 byte checksum)
 RSTV        EQU   $3F2
+PWRDUP      EQU   $3F4
 
 * IRQ vector
 A2IRQV      EQU   $3FE
@@ -66,6 +70,55 @@ P8BMAP282F  EQU   $BF5D
 P8BMAP3037  EQU   $BF5E
 P8BMAP383F  EQU   $BF5F
 
+*Hardware I/O locations
+KEYBOARD    EQU   $C000
+80STOREOFF  EQU   $C000
+80STOREON   EQU   $C001	      ; Currently not used
+RDMAINRAM   EQU   $C002
+RDCARDRAM   EQU   $C003
+WRMAINRAM   EQU   $C004
+WRCARDRAM   EQU   $C005
+SETSTDZP    EQU   $C008
+SETALTZP    EQU   $C009
+CLR80VID    EQU   $C00C
+SET80VID    EQU   $C00D
+CLRALTCHAR  EQU   $C00E
+SETALTCHAR  EQU   $C00F
+
+KBDSTRB     EQU   $C010
+RDVBL       EQU   $C019
+RD80VID     EQU   $C01F
+
+TBCOLOR     EQU   $C022       ; GS-specific, used but commented out
+
+SPKR        EQU   $C030
+CLOCKCTL    EQU   $C034       ; GS-specific, Clock control register
+CYAREG      EQU   $C036       ; GS-specific, CYA Register
+
+GRON        EQU   $C050
+TEXTON      EQU   $C051
+FULLGR      EQU   $C052
+MIXGRTXT    EQU   $C053       ; Currently not used
+PAGE1       EQU   $C054
+PAGE2       EQU   $C055
+LORES       EQU   $C056       ; Currently not used
+HIRES       EQU   $C057
+AN0OFF      EQU   $C058
+AN0ON       EQU   $C059
+AN1OFF      EQU   $C05A
+AN1ON       EQU   $C05B
+AN2OFF      EQU   $C05C
+AN2ON       EQU   $C05D
+AN3OFF      EQU   $C05E
+AN3ON       EQU   $C05F
+
+BUTTON0     EQU   $C061
+BUTTON1     EQU   $C062
+
+ROMIN       EQU   $C081
+LCBANK1     EQU   $C08B
+
+
 * IO Buffer for reading file (1024 bytes)
 IOBUF0      EQU   $0C00       ; For loading/saving, OSFILE, *.
 IOBUF1      EQU   $1000       ; Four open files for langs
@@ -88,7 +141,7 @@ FDRAWADDR   EQU   $9400
 FONTADDR    EQU   $A900
 
 * Address in aux memory where ROM will be loaded
-AUXADDR     EQU   $8000
+ROMAUXADDR  EQU   $8000
 
 * Address in aux memory where the MOS shim is located
 AUXMOS1     EQU   $2000       ; Temp staging area in Aux
@@ -99,8 +152,8 @@ AUXMOS      EQU   $D000       ; Final location in aux LC
 * routine in aux memory
 XF2AUX      MAC
             SEI               ; Disable IRQ before XFER
-            LDX   $C08B       ; R/W LC RAM, bank 1
-            LDX   $C08B
+            LDX   LCBANK1     ; R/W LC RAM, bank 1
+            LDX   LCBANK1
             LDX   #<]1
             STX   STRTL
             LDX   #>]1
@@ -146,8 +199,8 @@ ENTAUX      MAC
 * Careful: This enables IRQ - not for use in ISR
 ENTMAIN     MAC
             TXS               ; Main SP already in X
-            LDX   $C081       ; Bank in ROM
-            LDX   $C081
+            LDX   ROMIN       ; Bank in ROM
+            LDX   ROMIN
             CLI               ; Re-enable IRQ after XFER
             EOM
 
@@ -166,20 +219,20 @@ IENTAUX     MAC
 * For use in interrupt handlers (no CLI!)
 IENTMAIN    MAC
             TXS               ; Main SP already in X
-            LDX   $C081       ; Bank in ROM
-            LDX   $C081
+            LDX   ROMIN       ; Bank in ROM
+            LDX   ROMIN
             EOM
 
 * Enable writing to main memory (for code running in aux)
 WRTMAIN     MAC
             PHP
             SEI               ; Keeps IRQ handler easy
-            STA   $C004       ; Write to main memory
+            STA   WRMAINRAM   ; Write to main memory
             EOM
 
 * Go back to writing to aux (for code running in aux)
 WRTAUX      MAC
-            STA   $C005       ; Write to aux memory
+            STA   WRCARDRAM   ; Write to aux memory
             PLP               ; Normal service resumed
             EOM
 
@@ -187,16 +240,16 @@ WRTAUX      MAC
 ALTZP       MAC
             PHP
             SEI               ; Disable IRQ when AltZP on
-            LDA   $C08B       ; R/W LC bank 1
-            LDA   $C08B
-            STA   $C009       ; Alt ZP and LC
+            LDA   LCBANK1     ; R/W LC bank 1
+            LDA   LCBANK1
+            STA   SETALTZP    ; Alt ZP and LC
             EOM
 
 * Manually disable AltZP (for code running in main)
 MAINZP      MAC
-            STA   $C008       ; Main ZP and LC
-            LDA   $C081       ; Bank ROM back in
-            LDA   $C081
+            STA   SETSTDZP    ; Main ZP and LC
+            LDA   ROMIN       ; Bank ROM back in
+            LDA   ROMIN
             PLP               ; Turn IRQ back on
             EOM
 
