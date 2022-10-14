@@ -264,6 +264,7 @@ MAINZP      MAC
             PUT   AUXMEM.OSCLI
             PUT   AUXMEM.BYTWRD
             PUT   AUXMEM.CHARIO
+            PUT   AUXMEM.AUDIO
             PUT   AUXMEM.MISC
             PUT   MAINMEM.MENU
             PUT   MAINMEM.FSEQU
@@ -274,6 +275,8 @@ MAINZP      MAC
             PUT   MAINMEM.WILD
             PUT   MAINMEM.LISTS
             PUT   MAINMEM.MISC
+            PUT   MAINMEM.AUDIO
+            PUT   MAINMEM.FREQ
 
 * Automatically save the object file:
             SAV   APLCORN.SYSTEM
