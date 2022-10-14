@@ -426,14 +426,10 @@ KBDDONE      RTS
 BYTE7E       LDX   #$00                      ; $7E = ack detection of ESC
              BIT   ESCFLAG
              BPL   BYTE7DOK                  ; No Escape pending
-             LDY   FXEXEC                    ; See if *EXEC is active
-             BEQ   :NOEXEC
-             LDA   #0                        ; Close *EXEC file
-             STA   FXEXEC
-             JSR   OSFIND
-:NOEXEC      LDA   FXESCEFFECT               ; Process Escape effects
+             LDA   FXESCEFFECT               ; Process Escape effects
              BEQ   BYTE7E2
-             STA   FXLINES                   ; Clear scroll counter
+             STX   FXLINES                   ; Clear scroll counter
+             JSR   CMDEXEC0                  ; Close any EXEC file
 *            JSR   FLUSHALL                  ; Flush all buffers
 BYTE7E2      LDX   #$FF                      ; X=$FF, Escape was pending
 BYTE7C       CLC                             ; &7C = clear escape condition
