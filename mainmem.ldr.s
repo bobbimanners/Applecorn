@@ -110,9 +110,13 @@ DISCONN     LDA   MACHID
             LDA   DEVADR01+1
             STA   DEVADR32+1
             DEC   DEVCNT
-:S1
-*            JSR   ENSQINIT          ; INITIALIZE ENSONIQ
-            JSR   ROMMENU           ; This really needs to happen elsewhere
+
+:S1         SEC
+            JSR   IDROUTINE         ; See if we have a GS
+            BCS   :NOTGS
+            JSR   ENSQINIT          ; Initialize Ensoniq
+
+:NOTGS      JSR   ROMMENU           ; This really needs to happen elsewhere
 
             LDA   #<:FDFILE
             STA   OPENPL+1

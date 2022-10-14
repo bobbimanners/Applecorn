@@ -18,6 +18,7 @@ BELL        EQU   $FBDD
 PRBYTE      EQU   $FDDA
 COUT1       EQU   $FDED
 CROUT       EQU   $FD8E
+IDROUTINE   EQU   $FE1F
 HOME        EQU   $FC58
 AUXMOVE     EQU   $C311
 XFER        EQU   $C314
