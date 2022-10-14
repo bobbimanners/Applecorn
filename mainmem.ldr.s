@@ -111,6 +111,7 @@ DISCONN     LDA   MACHID
             STA   DEVADR32+1
             DEC   DEVCNT
 :S1
+*            JSR   ENSQINIT          ; INITIALIZE ENSONIQ
             JSR   ROMMENU           ; This really needs to happen elsewhere
 
             LDA   #<:FDFILE
