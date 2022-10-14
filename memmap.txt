@@ -47,8 +47,8 @@ IOBUF4    EQU   $1C00 ; $1C00-$1FFF
 *                     ; $2000-$3FFF Hi-Res screen 1 - used for transient .SYSTEM loader code
 *                     ; $4000-      Code, to do: make code move itself
 *                            -$6FFF
-BLKBUF    EQU   $7000 ; $7000-$73FF 512-byte buffer plus channel data
-BLKBUFEND EQU   $7200
+BLKBUF    EQU   $9000 ; $9000-$93FF 512-byte buffer plus channel data
+BLKBUFEND EQU   $9200
 *
 *                     ; $BF00-$BFFF ProDOS Global Page - reserved
 
