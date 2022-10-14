@@ -24,15 +24,12 @@ you must NOT enable the "Alternate Text Mode" CDA!
 ## How to Run the Software
 
 Boot the diskette `applecorn.po` which is an 800KB bootable ProDOS
-diskette.  I use version 2.4.2 of ProDOS for my testing, but the software
+diskette.  Applecorn is a .SYSTEM program and should start automatically
+when this disk is booted.
+You can optionally boot your system from other ProDOS media, and then simply
+select to start `APLCORN.SYSTEM` from your favorite ProDOS selector, such as
+Bitsy-Bye.  I use version 2.4.2 of ProDOS for my testing, but the software
 should run on other versions of ProDOS.
-
-Run `BASIC.SYSTEM` and at the Applesoft BASIC prompt type:
-```
-BRUN APPLECORN
-```
-to start the software.  Alternatively, you can simply select `APPLECORN`
-in the ProDOS 2.4.2 Bitsy Bye file browser.
 
 When first started, Applecorn will display a ROM selection menu.  Choose
 the language ROM you wish to load by pressing the associated number key.
