@@ -69,12 +69,12 @@ CHANCTR     DB    $00
 
 * Get address of sound buffer
 * On entry: X is buffer number
-* On exit: OSIRQWS points to start of buffer
+* On exit: A1L,A1H points to start of buffer
 * Called with interrupts disabled
 GETBUFADDR  LDA   :BUFADDRL,X
-            STA   OSINTWS+0
+            STA   A1L
             LDA   :BUFADDRH,X
-            STA   OSINTWS+1
+            STA   A1H
             RTS
 :BUFADDRL   DB    $00
             DB    $00
@@ -113,9 +113,9 @@ INS         PHP                              ; Save flags, turn off interrupts
             BEQ   :FULL
             LDY   ENDINDICES,X               ; Current position
             STA   ENDINDICES,X               ; Write updated input pointer
-            JSR   GETBUFADDR                 ; Buffer address into OSINTWS
+            JSR   GETBUFADDR                 ; Buffer address into A1L,A1H
             PLA                              ; Get value to write back
-            STA   (OSINTWS),Y                ; Write to buffer
+            STA   (A1L),Y                    ; Write to buffer
             PLY
             PLP                              ; Restore flags
             CLC                              ; Exit with carry clear
@@ -148,8 +148,8 @@ REM         PHP                              ; Save flags, turn off interrupts
             CMP   ENDINDICES,X
             BEQ   :EMPTY                     ; Buffer is empty
             TAY                              ; Buffer pointer into Y
-            JSR   GETBUFADDR                 ; Buffer address into OSINTWS
-            LDA   (OSINTWS),Y                ; Read byte from buffer
+            JSR   GETBUFADDR                 ; Buffer address into A1L,A1H
+            LDA   (A1L),Y                    ; Read byte from buffer
             PHA                              ; Stash for later
             BVS   :EXAM                      ; If only examination, done
             INY                              ; Next byte
@@ -288,10 +288,10 @@ CHORD       PHA
             TXA
             ORA   #$04                      ; Convert to buffer number
             TAX
-            JSR   GETBUFADDR                ; Audio buf addr -> OSINTWS
+            JSR   GETBUFADDR                ; Audio buf addr -> A1L,A1H
             PLX
             LDA   #$00
-            STA   (OSINTWS),Y               ; Zero sync nybble (+ hold nybble)
+            STA   (A1L),Y                   ; Zero sync nybble (+ hold nybble)
 :NEXT2      DEX
             BPL   :L2                       ; Next audio queue
             BRA   :DONE
