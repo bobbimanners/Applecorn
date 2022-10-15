@@ -56,9 +56,30 @@ WORD07      LDA   (OSCTRL),Y                 ; Get channel number/flush byte
 
 * OSWORD &08 - Envelope
 * On entry: (OSCTRL),Y points to 14 byte parameter block
-WORD08
-* TODO: IMPLEMENT THIS!!!
-            RTS
+* Supports 4 envelopes for now, could be extended for more
+WORD08      LDA   (OSCTRL),Y                 ; Get envelope number
+            DEC   A                          ; Make it zero-based
+            CMP   #$03                       ; Check in range
+            BPL   :RTS                       ; Ignore if out of range
+            TAX
+            LDA   #$00
+:L0         CPX   #$00                       ; Calculate EnvNum * 13
+            BEQ   :S1
+            CLC
+            ADC   #13
+            DEX
+            BRA   :L0
+:S1         TAX                              ; Dest offset in X
+            INY                              ; Skip over env number parm
+:L1         LDA   (OSCTRL),Y                 ; Copy CB to mainmem
+            >>>   WRTMAIN
+            STA   ENVBUF0,X
+            >>>   WRTAUX
+            INY
+            INX
+            CPY   #14
+            BNE   :L1
+:RTS        RTS
 
 
 * Insert value into buffer (INSV)

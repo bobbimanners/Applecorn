@@ -20,6 +20,12 @@ SND2STARTIDX DB   $00
 SND3STARTIDX DB   $00
 STARTINDICES EQU  SND0STARTIDX - 4
 
+* Envelope buffers
+ENVBUF0      DS   13                         ; 13 bytes not including env num
+ENVBUF1      DS   13
+ENVBUF2      DS   13
+ENVBUF3      DS   13
+
 SND0ENDIDX   DB   $00                        ; End indices for sound bufs
 SND1ENDIDX   DB   $00
 SND2ENDIDX   DB   $00
