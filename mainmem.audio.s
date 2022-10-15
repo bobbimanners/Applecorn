@@ -464,6 +464,7 @@ GETENVADDR  LDA   #<ENVBUF0                 ; Copy ENVBUF0 to A1L,A1H
             DEY                             ; Decr envelopes remaining
             BRA   :L1                       ; Go again
 :DONE       RTS
+
             
 * Process pitch envelope
 * On entry: X is audio channel #
@@ -517,8 +518,7 @@ PITCHENV    LDA   CHANENV,X                 ; Set envelope number
 UPDPITCH    CLC
             ADC   CURRPITCH,X               ; Add change to current
             STA   CURRPITCH,X               ; Update
-* TODO: Update Ensoniq too!
-*       Probably should have some ENSQxxx function for that
+            JSR   ENSQFREQ                  ; Update Ensoniq regs
             RTS
 
 
@@ -654,8 +654,31 @@ ENSQNOTE    PHA
             PLA
             RTS
 
+
+* Adjust frequency of note already playing
+* On entry: Y - frequency to set
+* Preserves X & Y
+ENSQFREQ    PHX
+            PHY                             ; Gonna need it again
+            LDA   FREQLOW,Y
+            TAY                             ; Frequency value LS byte
+            LDA   #$00                      ; DOC register base $00 (Freq Lo)
+            JSR   ADDOSC                    ; Actual register in X
+            JSR   ENSQWRTDOC
+            PLY                             ; Get freq back
+            PHY
+            LDA   FREQHIGH,Y
+            TAY                             ; Frequency value MS byte
+            LDA   #$20                      ; DOC register base $20 (Freq Hi)
+            JSR   ADDOSC                    ; Actual register in X
+            JSR   ENSQWRTDOC
+            PLY
+            PLX
+            RTS
+
+
 * Add oscillator number to value in A, return sum in X
-* Used by ENSQNOTE
+* Used by ENSQNOTE & ENSQFREQ
 ADDOSC      CLC
             ADC   OSCNUM
             TAX
