@@ -7,6 +7,11 @@
 COUNTER      DW    $0000                     ; Centisecond counter
 
 * Sound buffers
+* Four bytes are enqueued for each note, as follows:
+*  - MS byte of channel number
+*  - LS byte of channel number
+*  - Frequency
+*  - Duration
 SNDBUFSZ     EQU   21                        ; FOR 4 NOTES + spare byte
 SNDBUF0      DS    SNDBUFSZ
 SNDBUF1      DS    SNDBUFSZ
@@ -62,7 +67,27 @@ CHANENV     DB    $00
             DB    $00
 
 * Envelope step counter for current note.
+* This is used in order to invoke the envelope processing at the requested
+* rate in 1/100th of a second.
 CHANCTR     DB    $00
+            DB    $00
+            DB    $00
+            DB    $00
+
+* Pitch envelope section (0..4)
+PITCHSECT   DB    $00
+            DB    $00
+            DB    $00
+            DB    $00
+
+* Step within pitch envelope section
+PITCHSTEP   DB    $00
+            DB    $00
+            DB    $00
+            DB    $00
+
+* Current pitch
+CURRPITCH   DB    $00
             DB    $00
             DB    $00
             DB    $00
@@ -360,6 +385,8 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             BRA   :S2
 :HASENV     STA   CHANENV,X                 ; Store envelope number
             STZ   CHANCTR,X                 ; Reset envelope step counter
+            STZ   PITCHSECT,X               ; Start on pitch section 0
+            STZ   PITCHSTEP,X               ; Start on step 0
             LDA   #$00                      ; Initial amplitude is zero
             PHA                             ; Zero amplitude to stack
 
@@ -369,6 +396,7 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             TYA                             ; Duration
             STA   CHANTIMES,X
             PLA                             ; Recover frequency
+            STA   CURRPITCH,X               ; Store for pitch envelope
             PLY                             ; Recover amplitude
             JSR   ENSQNOTE                  ; Start note playing
 :NEXT 	    DEX
@@ -393,7 +421,8 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
 
 * Handle envelope tick counter
 * On entry: X is audio channel #
-* On return: CS if this cycle is a tick, CC otherwise.
+* On return: CS if this cycle is an envelope tick, CC otherwise.
+* X is preserved
 ENVTICKS    DEC   CHANCTR,X                 ; Decrement counter
             BEQ   :ZERO                     ; Expired
             CLC                             ; Not expired
@@ -405,10 +434,11 @@ ENVTICKS    DEC   CHANCTR,X                 ; Decrement counter
 
 * Reset envelope tick counter
 * On entry: X is audio channel #
+* On return: Sets CHANCTR,X to length of each step in 1/100ths
 RSTTICKS    LDA   CHANENV,X                 ; Get envelope number
             TAY
             JSR   GETENVADDR                ; Envelope address in A1L,A1H
-            LDY   ENVT                      ; Parm for length of each step
+            LDY   #ENVT                     ; Parm for length of each step
             LDA   (A1L),Y                   ; Get value of parm
             AND   #$7F                      ; Mask out MSB
             STA   CHANCTR,X                 ; Reset counter
@@ -417,6 +447,7 @@ RSTTICKS    LDA   CHANENV,X                 ; Get envelope number
 
 * On entry: Y is envelope number
 * On return: A1L,A1H point to start of buffer for this envelope
+* X is preserved
 GETENVADDR  LDA   #<ENVBUF0                 ; Copy ENVBUF0 to A1L,A1H
             STA   A1L
             LDA   #>ENVBUF0
@@ -435,14 +466,74 @@ GETENVADDR  LDA   #<ENVBUF0                 ; Copy ENVBUF0 to A1L,A1H
 :DONE       RTS
             
 * Process pitch envelope
-PITCHENV
+* On entry: X is audio channel #
+* X is preserved
+PITCHENV    LDA   CHANENV,X                 ; Set envelope number
+            TAY
+            JSR   GETENVADDR                ; Addr of envelope -> A1L,A1H
+            LDA   PITCHSECT,X               ; See what section we are in
+            BEQ   :SECT1                    ; Section 1, encoded as 0
+            CMP   #$01
+            BEQ   :SECT2                    ; Section 2, encoded as 1
+            CMP   #$02
+            BEQ   :SECT3                    ; Section 3, encoded as 2
+            RTS                             ; Other section, do nothing
+:SECT1      LDY   #ENVPI1                   ; Parm: change pitch/step section 1
+            LDA   (A1L),Y                   ; Get value of parm
+            JSR   UPDPITCH                  ; Update the pitch
+            LDY   #ENVPN1                   ; Parm: num steps in section 1
+            LDA   (A1L),Y                   ; Get value of parm
+            CMP   PITCHSTEP,X               ; Are we there yet?
+            BEQ   :NXTSECT                  ; Yes!
+            INC   PITCHSTEP,X               ; One more step
+            RTS
+:SECT2      LDY   #ENVPI2                   ; Parm: change pitch/step section 2
+            LDA   (A1L),Y                   ; Get value of parm
+            JSR   UPDPITCH                  ; Update the pitch
+            LDY   #ENVPN2                   ; Parm: num steps in section 2
+            LDA   (A1L),Y                   ; Get value of parm
+            CMP   PITCHSTEP,X               ; Are we there yet?
+            BEQ   :NXTSECT                  ; Yes!
+            INC   PITCHSTEP,X               ; One more step
+            RTS
+:SECT3      LDY   #ENVPI3                   ; Parm: change pitch/step section 3
+            LDA   (A1L),Y                   ; Get value of parm
+            JSR   UPDPITCH                  ; Update the pitch
+            LDY   #ENVPN3                   ; Parm: num steps in section 3
+            LDA   (A1L),Y                   ; Get value of parm
+            CMP   PITCHSTEP,X               ; Are we there yet?
+            BEQ   :LASTSECT                 ; Yes!
+            INC   PITCHSTEP,X               ; One more step
+            RTS
+:NXTSECT    INC   PITCHSECT,X               ; Next section
+            STZ   PITCHSTEP,X               ; Back to step 0 of section
+            RTS
+:LASTSECT   BRA   :NXTSECT                  ; TODO: HANDLE REPEATING PITCH ENVELOPES
+            
+
+* Update pitch value. Called by PITCHENV.
+* On entry: A - Change of pitch/step, X is audio channel #
+* X is preserved
+UPDPITCH    CLC
+            ADC   CURRPITCH,X               ; Add change to current
+            STA   CURRPITCH,X               ; Update
+* TODO: Update Ensoniq too!
+*       Probably should have some ENSQxxx function for that
             RTS
 
 
 * Process amplitude envelope
+* On entry: X is audio channel #
+* X is preserved
 ADSRENV
             RTS
 
+
+* Update volume. Called by ADSRENV.
+* On entry: A - Change of volume/step, X is audio channel #
+* X is preserved
+UPDVOL     
+            RTS
 
 *****************************************************************************
 * Ensoniq DOC Driver for Apple IIGS Follows ...
