@@ -422,19 +422,37 @@ KBDNOESC     TXA                             ; A=keycode
              CLC                             ; CLC=Ok
 KBDDONE      RTS
 
+
+* Poll the keyboard to update Escape state
+* On exit, MI=Escape state pending
+*           A,X,Y=preserved
+*
+ESCPOLL      PHA                       ; KBDTEST corrupts A
+             BIT   SETV                ; Set V
+             JSR   KBDTEST             ; VS - test keyboard
+             BCS   ESCPOLL9            ; No keypress pending
+             PHX                       ; KBDREAD corrupts A,X
+             JSR   KBDREAD2            ; Read key and check for Escape
+             PLX
+ESCPOLL9     PLA
+             BIT   ESCFLAG             ; Return with Escape state
+             RTS
+
 * Process pending Escape state
-BYTE7E       LDX   #$00                      ; $7E = ack detection of ESC
+BYTE7E       LDX   #$00                ; $7E = ack detection of ESC
              BIT   ESCFLAG
-             BPL   BYTE7DOK                  ; No Escape pending
-             LDA   FXESCEFFECT               ; Process Escape effects
+             BPL   BYTE7DOK            ; No Escape pending
+             LDA   FXESCEFFECT         ; Process Escape effects
              BEQ   BYTE7E2
-             STX   FXLINES                   ; Clear scroll counter
-             JSR   CMDEXEC0                  ; Close any EXEC file
-*            JSR   FLUSHALL                  ; Flush all buffers
-BYTE7E2      LDX   #$FF                      ; X=$FF, Escape was pending
-BYTE7C       CLC                             ; &7C = clear escape condition
-BYTE7D       ROR   ESCFLAG                   ; $7D = set escape condition
+             CLI                       ; Allow IRQs while flushing
+             STX   FXLINES             ; Clear scroll counter
+             JSR   CMDEXEC0            ; Close any EXEC file
+*             JSR   BUFFLUSHALL        ; Flush all buffers
+BYTE7E2      LDX   #$FF                ; X=$FF, Escape was pending
+BYTE7C       CLC                       ; &7C = clear escape condition
+BYTE7D       ROR   ESCFLAG             ; $7D = set escape condition
 BYTE7DOK     RTS
 
-BYTE76       LDX   #$00                      ; Update LEDs and return X=SHIFT
-             RTS                             ; Not possible with Apple
+BYTE76       LDX   #$00                ; Update LEDs and return X=SHIFT
+             RTS                       ; Not possible with Apple
+
