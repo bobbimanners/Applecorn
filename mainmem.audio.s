@@ -4,12 +4,14 @@
 * Applecorn audio code
 *
 
+COUNTER      DW    $0000                     ; Centisecond counter
+
 * Sound buffers
-SNDBUFSZ   EQU   21                          ; FOR 4 NOTES + spare byte
-SNDBUF0    DS    SNDBUFSZ
-SNDBUF1    DS    SNDBUFSZ
-SNDBUF2    DS    SNDBUFSZ
-SNDBUF3    DS    SNDBUFSZ
+SNDBUFSZ     EQU   21                        ; FOR 4 NOTES + spare byte
+SNDBUF0      DS    SNDBUFSZ
+SNDBUF1      DS    SNDBUFSZ
+SNDBUF2      DS    SNDBUFSZ
+SNDBUF3      DS    SNDBUFSZ
 
 * Pointers for circular buffers
 * Buffers 4-7 correspond to audio channels 0 to 3
@@ -20,17 +22,38 @@ SND2STARTIDX DB   $00
 SND3STARTIDX DB   $00
 STARTINDICES EQU  SND0STARTIDX - 4
 
-* Envelope buffers
-ENVBUF0      DS   13                         ; 13 bytes not including env num
-ENVBUF1      DS   13
-ENVBUF2      DS   13
-ENVBUF3      DS   13
-
 SND0ENDIDX   DB   $00                        ; End indices for sound bufs
 SND1ENDIDX   DB   $00
 SND2ENDIDX   DB   $00
 SND3ENDIDX   DB   $00
 ENDINDICES   EQU  SND0ENDIDX - 4
+
+* Envelope buffers 0-3
+ENVBUF0      DS   13                         ; 13 bytes not including env num
+ENVBUF1      DS   13
+ENVBUF2      DS   13
+ENVBUF3      DS   13
+
+* Offsets of parameters in each envelope buffer
+ENVT         EQU  0                          ; Len of step in 1/100 sec
+ENVPI1       EQU  1                          ; Change pitch/step section 1
+ENVPI2       EQU  2                          ; Change pitch/step section 2
+ENVPI3       EQU  3                          ; Change pitch/step section 3
+ENVPN1       EQU  4                          ; Num steps section 1
+ENVPN2       EQU  5                          ; Num steps section 2
+ENVPN3       EQU  6                          ; Num steps section 3
+ENVAA        EQU  7                          ; Attack: change/step
+ENVAD        EQU  8                          ; Decay: change/step
+ENVAS        EQU  9                          ; Sustain: change/step
+ENVAR        EQU  10                         ; Release: change/step
+ENVALA       EQU  11                         ; Target at end of attack
+ENVALD       EQU  12                         ; Target at end of decay
+
+* Time remaining for current note, in 1/20th of second
+OSCTIMES    DB    $00
+            DB    $00
+            DB    $00
+            DB    $00
 
 * Get address of sound buffer
 * On entry: X is buffer number
@@ -328,13 +351,6 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
 :SYNCSET    JSR   CHORD                     ; See if chord can be released
             BRA   :NEXT
 :CNT        DB    $05                       ; Used to determine 20Hz cycles
-COUNTER     DW    $0000                     ; Centisecond counter
-
-* Time remaining for current note, in 1/20th of second
-OSCTIMES    DB    $00
-            DB    $00
-            DB    $00
-            DB    $00
 
 
 * Ensoniq control registers
