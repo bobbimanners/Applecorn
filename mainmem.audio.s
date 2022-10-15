@@ -50,7 +50,19 @@ ENVALA       EQU  11                         ; Target at end of attack
 ENVALD       EQU  12                         ; Target at end of decay
 
 * Time remaining for current note, in 1/20th of second
-OSCTIMES    DB    $00
+CHANTIMES   DB    $00
+            DB    $00
+            DB    $00
+            DB    $00
+
+* Envelope number for current note.  $FF if no envelope.
+CHANENV     DB    $00
+            DB    $00
+            DB    $00
+            DB    $00
+
+* Envelope step counter for current note.
+CHANCTR     DB    $00
             DB    $00
             DB    $00
             DB    $00
@@ -209,7 +221,7 @@ CNP        PHP                               ; Preserve flags
            RTS
 :PURGE     LDA   ENDINDICES,X                ; Eat all buffer contents
            STA   STARTINDICES,X
-           STZ   OSCTIMES-4,X                ; Set to zero time remaining
+           STZ   CHANTIMES-4,X               ; Set to zero time remaining
            PLP                               ; Recover flags
            RTS
 
@@ -293,14 +305,14 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             BNE   :S1
             INC   COUNTER+1
 :S1         DEC   :CNT                      ; Find every 5th cycle
-            BNE   :NOT20HZ
+            BNE   :AT100HZ
             LDA   #5
             STA   :CNT
 
             LDX   #3                        ; Process four audio queues
-:L1         LDA   OSCTIMES,X                ; Time remaining on current note
+:L1         LDA   CHANTIMES,X               ; Time remaining on current note
             BEQ   :NONOTE                   ; No note playing
-            DEC   OSCTIMES,X
+            DEC   CHANTIMES,X
             BRA   :NEXT
 :NONOTE     LDY   #$00                      ; Zero volume
             LDA   #$00                      ; Zero freq
@@ -312,7 +324,7 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             AND   #$0F                      ; Mask out hold nybble
             BNE   :SYNCSET                  ; Do not play if sync != 0
 
-* The following is paranoid maybe. Perhaps can be removed once I am debugged.
+* The following is paranoid maybe. Perhaps can be removed once I am debugged. ***
             PHX
             PHY
             INX                             ; Convert audio channel to buf num
@@ -327,31 +339,93 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             PLX
             CMP   #3                        ; At least 4 bytes used?
             BMI   :NEXT
-* End paranoid section.
+* End paranoid section. ***
 
             JSR   REMAUDIO                  ; Remove byte from queue
             JSR   REMAUDIO                  ; Remove byte from queue
-            PHY                             ; Amplitude
-            JSR   REMAUDIO                  ; Remove byte from queue
+
+            TYA                             ; Amplitude or envelope -> A
+            DEC   A
+            BPL   :HASENV                   ; If +ve, value was 1,2,3..
+            INC   A
+            EOR   #$FF                      ; Negate A
+            INC   A                         ; ..
+            ASL                             ; Multiply by 16
+            ASL
+            ASL
+            ASL
+            PHA                             ; Amplitude to stack
+            LDA   #$FF                      ; $FF means 'no envelope'
+            STA   CHANENV,X
+            BRA   :S2
+:HASENV     STA   CHANENV,X                 ; Store envelope number
+            STZ   CHANCTR,X                 ; Reset envelope step counter
+            LDA   #$00                      ; Initial amplitude is zero
+            PHA                             ; Zero amplitude to stack
+
+:S2         JSR   REMAUDIO                  ; Remove byte from queue
             PHY                             ; Frequency
             JSR   REMAUDIO                  ; Remove byte from queue
             TYA                             ; Duration
-            STA   OSCTIMES,X
+            STA   CHANTIMES,X
             PLA                             ; Recover frequency
             PLY                             ; Recover amplitude
             JSR   ENSQNOTE                  ; Start note playing
 :NEXT 	    DEX
             BPL   :L1                       ; Next audio queue
-:NOT20HZ
-*
-* TODO: Envelope processing on all cycles (AT 100Hz)
-*
+
+:AT100HZ                                    ; Here on every call (100Hz)
+            LDX   #3                        ; Iterate through channels
+:L2         LDA   CHANENV,X                 ; Envelope for this channel?
+            BMI   :NOENV                    ; $FF means no envelope
+            JSR   ENVTICKS                  ; Handle envelope tick counter
+            BCC   :NOENV                    ; This cycle is not a tick
+            JSR   PITCHENV                  ; Process pitch envelope
+            JSR   ADSRENV                   ; Process amplitude envelope
+:NOENV      DEX
+            BPL   :L2                       ; Next audio queue
             CLC
             RTL
 :SYNCSET    JSR   CHORD                     ; See if chord can be released
             BRA   :NEXT
 :CNT        DB    $05                       ; Used to determine 20Hz cycles
 
+
+* Handle envelope tick counter
+* On entry: X is audio channel #
+* On exit: CS if this cycle is a tick, CC otherwise.
+ENVTICKS    DEC   CHANCTR,X                 ; Decrement counter
+            BEQ   :ZERO                     ; Expired
+            CLC                             ; Not expired
+            RTS
+:ZERO       JSR   RSTTICKS                  ; Reset counter
+            SEC                             ; Counter had expired
+            RTS
+
+
+* Reset envelope tick counter
+* On entry: X is audio channel #
+RSTTICKS    LDA   CHANENV,X                 ; Get envelope number
+* TODO: Just assume ENV0 for now ... need some indexing
+            LDA   ENVBUF0+ENVT              ; Length of each step
+            AND   #$7F                      ; Mask out MSB
+            STA   CHANCTR,X                 ; Reset counter
+            RTS
+
+
+* Process pitch envelope
+PITCHENV
+            RTS
+
+
+* Process amplitude envelope
+ADSRENV
+            RTS
+
+
+*****************************************************************************
+* Ensoniq DOC Driver for Apple IIGS Follows ...
+*****************************************************************************
 
 * Ensoniq control registers
 ENSQSNDCTL  EQU   $C03C
@@ -412,7 +486,7 @@ ENSQSILENT  LDY   #$00                      ; Amplitude
             LDA   #$80                      ; Frequency
             LDX   #$03
 :L1         JSR   ENSQNOTE                  ; Initialize channel Y
-            STZ   OSCTIMES,X                ; No note playing
+            STZ   CHANTIMES,X               ; No note playing
             DEX
             BPL   :L1
             RTS
