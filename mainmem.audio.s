@@ -393,7 +393,7 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
 
 * Handle envelope tick counter
 * On entry: X is audio channel #
-* On exit: CS if this cycle is a tick, CC otherwise.
+* On return: CS if this cycle is a tick, CC otherwise.
 ENVTICKS    DEC   CHANCTR,X                 ; Decrement counter
             BEQ   :ZERO                     ; Expired
             CLC                             ; Not expired
@@ -406,13 +406,34 @@ ENVTICKS    DEC   CHANCTR,X                 ; Decrement counter
 * Reset envelope tick counter
 * On entry: X is audio channel #
 RSTTICKS    LDA   CHANENV,X                 ; Get envelope number
-* TODO: Just assume ENV0 for now ... need some indexing
-            LDA   ENVBUF0+ENVT              ; Length of each step
+            TAY
+            JSR   GETENVADDR                ; Envelope address in A1L,A1H
+            LDY   ENVT                      ; Parm for length of each step
+            LDA   (A1L),Y                   ; Get value of parm
             AND   #$7F                      ; Mask out MSB
             STA   CHANCTR,X                 ; Reset counter
             RTS
 
 
+* On entry: Y is envelope number
+* On return: A1L,A1H point to start of buffer for this envelope
+GETENVADDR  LDA   #<ENVBUF0                 ; Copy ENVBUF0 to A1L,A1H
+            STA   A1L
+            LDA   #>ENVBUF0
+            STA   A1H
+:L1         CPY   #$00                      ; See if Y is zero
+            BEQ   :DONE                     ; If so, we are done
+            LDA   A1L                       ; Add 13 to A1L,A1H
+            CLC
+            ADC   #13
+            STA   A1L
+            LDA   A1H
+            ADC   #00
+            STA   A1H
+            DEY                             ; Decr envelopes remaining
+            BRA   :L1                       ; Go again
+:DONE       RTS
+            
 * Process pitch envelope
 PITCHENV
             RTS
