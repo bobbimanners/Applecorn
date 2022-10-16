@@ -339,7 +339,9 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             BEQ   :NONOTE                   ; No note playing
             DEC   CHANTIMES,X
             BRA   :NEXT
-:NONOTE     LDY   #$00                      ; Zero volume
+:NONOTE     LDA   #$FF                      ; $FF means 'no envelope'
+            STA   CHANENV,X
+            LDY   #$00                      ; Zero volume
             LDA   #$00                      ; Zero freq
             JSR   ENSQNOTE                  ; Silence channel Y
 
