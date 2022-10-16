@@ -516,9 +516,11 @@ PITCHENV    LDA   CHANENV,X                 ; Set envelope number
 * Update pitch value. Called by PITCHENV.
 * On entry: A - Change of pitch/step, X is audio channel #
 * X is preserved
-UPDPITCH    CLC
+UPDPITCH    STX   OSCNUM
+            CLC
             ADC   CURRPITCH,X               ; Add change to current
             STA   CURRPITCH,X               ; Update
+            TAY
             JSR   ENSQFREQ                  ; Update Ensoniq regs
             RTS
 
