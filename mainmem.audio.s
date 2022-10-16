@@ -511,7 +511,13 @@ PITCHENV    LDA   CHANENV,X                 ; Set envelope number
 :NXTSECT    INC   PITCHSECT,X               ; Next section
             STZ   PITCHSTEP,X               ; Back to step 0 of section
             RTS
-:LASTSECT   BRA   :NXTSECT                  ; TODO: HANDLE REPEATING PITCH ENVELOPES
+:LASTSECT   LDY   #ENVT                     ; Parm: length/step + autorepeat
+            LDA   (A1L),Y                   ; Get value of parm
+            AND   #$80                      ; MSB is auto-repeat flag
+            BEQ   :NXTSECT                  ; Not repeating
+            STZ   PITCHSECT,X               ; Go back to section 1
+            STZ   PITCHSTEP,X               ; Back to step 0 of section
+            RTS
             
 
 * Update pitch value. Called by PITCHENV.
