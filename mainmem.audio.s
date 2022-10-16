@@ -61,10 +61,10 @@ CHANTIMES   DB    $00
             DB    $00
 
 * Envelope number for current note.  $FF if no envelope.
-CHANENV     DB    $00
-            DB    $00
-            DB    $00
-            DB    $00
+CHANENV     DB    $FF
+            DB    $FF
+            DB    $FF
+            DB    $FF
 
 * Envelope step counter for current note.
 * This is used in order to invoke the envelope processing at the requested
@@ -388,6 +388,7 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             STZ   PITCHSECT,X               ; Start on pitch section 0
             STZ   PITCHSTEP,X               ; Start on step 0
             LDA   #$00                      ; Initial amplitude is zero
+            LDA   #$80                      ; TEMPORARY HACK!!!
             PHA                             ; Zero amplitude to stack
 
 :S2         JSR   REMAUDIO                  ; Remove byte from queue
