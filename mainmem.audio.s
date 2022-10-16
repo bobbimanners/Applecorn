@@ -384,7 +384,8 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             STA   CHANENV,X
             BRA   :S2
 :HASENV     STA   CHANENV,X                 ; Store envelope number
-            STZ   CHANCTR,X                 ; Reset envelope step counter
+            LDA   #$01
+            STA   CHANCTR,X                 ; Set envelope step counter to 1
             STZ   PITCHSECT,X               ; Start on pitch section 0
             STZ   PITCHSTEP,X               ; Start on step 0
             LDA   #$00                      ; Initial amplitude is zero
