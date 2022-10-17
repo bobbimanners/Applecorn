@@ -403,8 +403,8 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             STA   CHANCTR,X                 ; Set envelope step counter to 1
             STZ   PITCHSECT,X               ; Start on pitch section 0
             STZ   PITCHSTEP,X               ; Start on step 0
+            STZ   AMPSECT,X                 ; Start on amplitude section 0
             LDA   #$00                      ; Initial amplitude is zero
-            LDA   #$80                      ; TEMPORARY HACK!!!
             PHA                             ; Zero amplitude to stack
 
 :S2         JSR   REMAUDIO                  ; Remove byte from queue
@@ -562,42 +562,62 @@ ADSRENV     LDA   CHANENV,X                 ; Set envelope number
             BEQ   :SUSTAIN                  ; Sustain, encoded as 2
 * TODO: RELEASE logic here
             RTS
-:ATTACK     LDY   #ENVALA                   ; Parm: level at end of attack
+:ATTACK     LDY   #ENVAA                    ; Parm: attack change/step
             LDA   (A1L),Y                   ; Get value of parm
-            CMP   CURRAMP,X                 ; Compare with current level
-            BEQ   :NEXTSECT                 ; If we are target, decay
-            LDY   #ENVAA                    ; Parm: attack change/step
+            PHA
+            LDY   #ENVALA                   ; Parm: level at end of attack
             LDA   (A1L),Y                   ; Get value of parm
-            CLC
-            ADC   CURRAMP,X                 ; Add change to current amp
-            BCS   :CLAMPALA                 ; If wrapped, clamp sum to max
-            LDY   #ENVALA                   ; Parm: level of end of attack
-            CMP   (A1L),Y                   ; Compare sum with parm
-            BCS   :CLAMPALA                 ; If parm < sum, clamp sum to max
-            BRA   :UPDATT                   
-:CLAMPALA   LDA   (A1L),Y                   ; Clamp sum to max
-:UPDATT     STA   CURRAMP,X                 ; Store updated amplitude
-            TAY                             ; Tell the Ensoniq
-            JSR   ENSQAMP
+            PLY
+            JSR   ADSRPHASE                 ; Generic ADSR phase handler
+            BCS   :NEXTSECT                 ; Phase done -> decay
             RTS
-:DECAY
+:DECAY      LDY   #ENVAD                    ; Parm: delay change/step
+            LDA   (A1L),Y                   ; Get value of parm
+            PHA
+            LDY   #ENVALD                   ; Parm: level at end of delay
+            LDA   (A1L),Y                   ; Get value of parm
+            PLY
+*            JSR   ADSRPHASE                 ; Generic ADSR phase handler
+            BCS   :NEXTSECT                 ; Phase done -> sustain
             RTS
-:SUSTAIN
+:SUSTAIN    LDY   #ENVAS                    ; Parm: delay change/step
+            LDA   (A1L),Y                   ; Get value of parm
+            TAY
+            LDA   #$00                      ; Target level zero
+*            JSR   ADSRPHASE                 ; Generic ADSR phase handler
             RTS
 :NEXTSECT   INC   AMPSECT,X                 ; Next section
             RTS
 
 
-* Update volume. Called by ADSRENV.
-* On entry: A - Change of volume/step, X is audio channel #
-* X is preserved
-*UPDVOL      STX   OSCNUM
-*            CLC
-*            ADC   CURRAMP,X                 ; Add change to current
-*            STA   CURRAMP,X                 ; Update
-*            TAY
-*            JSR   ENSQAMP                   ; Update Ensoniq regs
-*            RTS
+* Handle any individual phase of the ADSR envelope. Called by ADSRENV.
+* On entry: A - level at end of phase, X - audio channel, Y - change/step
+* On return: CS if end of phase, CC otherwise.  X preserved.
+ADSRPHASE   CMP   CURRAMP,X                 ; Compare tgt with current level
+            BNE   :S1                       ; Not equal to target, keep going
+            SEC                             ; CS to indicate phase is done
+            RTS
+:S1         STA   :TARGET                   ; Target level
+            TYA                             ; Change/step -> A
+            CLC
+            ADC   CURRAMP,X                 ; Add change to current amp
+            BCS   :CLAMP                    ; If wrapped, clamp to target
+            CPY   #$00                      ; Check sign of change/step
+            BMI   :DESCEND                  ; Descending amplitude
+            CMP   :TARGET                   ; Compare with target
+            BCS   :CLAMP                    ; If target < sum, clamp to target
+            BRA   :UPDATE                   
+:DESCEND    CMP   :TARGET                   ; Compare with target
+            BCC   :CLAMP                    ; If target >= sum, clamp to target
+            BRA   :UPDATE                   
+:CLAMP      LDA   :TARGET                   ; Recover target level
+:UPDATE     STA   CURRAMP,X                 ; Store updated amplitude
+            TAY                             ; Tell the Ensoniq
+            JSR   ENSQAMP
+            CLC                             ; CC to indicate phase continues
+            RTS
+:TARGET     DB    $00
+
 
 *****************************************************************************
 * Ensoniq DOC Driver for Apple IIGS Follows ...
