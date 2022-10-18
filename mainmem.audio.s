@@ -487,7 +487,7 @@ GETENVADDR  LDA   #<ENVBUF0                 ; Copy ENVBUF0 to A1L,A1H
 * Process pitch envelope
 * On entry: X is audio channel #
 * X is preserved
-PITCHENV    LDA   CHANENV,X                 ; Set envelope number
+PITCHENV    LDA   CHANENV,X                 ; Get envelope number
             TAY
             JSR   GETENVADDR                ; Addr of envelope -> A1L,A1H
             LDA   PITCHSECT,X               ; See what section we are in
@@ -551,7 +551,7 @@ UPDPITCH    STX   OSCNUM
 * Process amplitude envelope
 * On entry: X is audio channel #
 * X is preserved
-ADSRENV     LDA   CHANENV,X                 ; Set envelope number
+ADSRENV     LDA   CHANENV,X                 ; Get envelope number
             TAY
             JSR   GETENVADDR                ; Addr of envelope -> A1L,A1H
             LDA   AMPSECT,X                 ; See what section we are in
@@ -577,14 +577,14 @@ ADSRENV     LDA   CHANENV,X                 ; Set envelope number
             LDY   #ENVALD                   ; Parm: level at end of delay
             LDA   (A1L),Y                   ; Get value of parm
             PLY
-*            JSR   ADSRPHASE                 ; Generic ADSR phase handler
+            JSR   ADSRPHASE                 ; Generic ADSR phase handler
             BCS   :NEXTSECT                 ; Phase done -> sustain
             RTS
 :SUSTAIN    LDY   #ENVAS                    ; Parm: delay change/step
             LDA   (A1L),Y                   ; Get value of parm
             TAY
             LDA   #$00                      ; Target level zero
-*            JSR   ADSRPHASE                 ; Generic ADSR phase handler
+            JSR   ADSRPHASE                 ; Generic ADSR phase handler
             RTS
 :NEXTSECT   INC   AMPSECT,X                 ; Next section
             RTS
@@ -593,21 +593,28 @@ ADSRENV     LDA   CHANENV,X                 ; Set envelope number
 * Handle any individual phase of the ADSR envelope. Called by ADSRENV.
 * On entry: A - level at end of phase, X - audio channel, Y - change/step
 * On return: CS if end of phase, CC otherwise.  X preserved.
-ADSRPHASE   CMP   CURRAMP,X                 ; Compare tgt with current level
+ADSRPHASE   STX   OSCNUM
+            STA   :TARGET                   ; Stash target level for later
+            CPY   #$00                      ; Check sign of change/step
+            BMI   :DESCEND                  ; Descending amplitude
+:ASCEND     CMP   CURRAMP,X                 ; Compare tgt with current level
             BNE   :S1                       ; Not equal to target, keep going
             SEC                             ; CS to indicate phase is done
             RTS
-:S1         STA   :TARGET                   ; Target level
-            TYA                             ; Change/step -> A
+:S1         TYA                             ; Change/step -> A
             CLC
             ADC   CURRAMP,X                 ; Add change to current amp
-            BCS   :CLAMP                    ; If wrapped, clamp to target
-            CPY   #$00                      ; Check sign of change/step
-            BMI   :DESCEND                  ; Descending amplitude
             CMP   :TARGET                   ; Compare with target
             BCS   :CLAMP                    ; If target < sum, clamp to target
             BRA   :UPDATE                   
-:DESCEND    CMP   :TARGET                   ; Compare with target
+:DESCEND    CMP   CURRAMP,X                 ; Compare tgt with current level
+            BNE   :S2                       ; Not equal to target, keep going
+            SEC                             ; CS to indicate phase is done
+            RTS
+:S2         TYA                             ; Change/step -> A
+            CLC
+            ADC   CURRAMP,X                 ; Add change to current amp
+            CMP   :TARGET                   ; Compare with target
             BCC   :CLAMP                    ; If target >= sum, clamp to target
             BRA   :UPDATE                   
 :CLAMP      LDA   :TARGET                   ; Recover target level
