@@ -371,7 +371,9 @@ ROMINIT     STZ   MAXROM           ; One sideways ROM only
 :X1         CMP   #7
             BNE   :X2
             STA   MAXROM
-:X2         RTS
+:X2         LDA   #$FF
+            STA   ROMID            ; Ensure invalid initial value
+            RTS
 
 
 **********************************************************
