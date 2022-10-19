@@ -9,7 +9,7 @@
 * 26-Oct-2021 Corrected entry parameters to OSRDRM.
 * 03-Nov-2021 Temp'y fix, if can't find SROM, ignores it.
 * 13-Nov-2021 ROMSELECT calls mainmem to load ROM.
-* 08-Oct-2022 ROMSEL doesn't call loder if already paged in.
+* 08-Oct-2022 ROMSEL doesn't call loader if already paged in.
 
 
 * OSBYTE $80 - ADVAL
@@ -35,18 +35,14 @@ ADVALBUF    INX
             BEQ   :ADVALOK         ; Serial input, return 0
             LDX   #$01             ; For outputs, return 1 char free
             RTS
-:ADVALKBD   BIT   KEYBOARD         ; Test keyboard data/strobe
+:ADVALKBD   BIT   KBDDATA          ; Test keyboard data/strobe
             BPL   :ADVALOK         ; No Strobe, return 0
             INX                    ; Strobe, return 1
 :ADVALOK    RTS
 
 
-******************
-* Helper functions
-******************
-
 * Beep
-*
+******
 * Sound measurement shows the tone formula is:
 *   1.230 MHz
 * ------------- = cycles
@@ -61,7 +57,7 @@ ADVALBUF    INX
 *         (------------- - 10 ) / 5
 *         (8 * frequency      )
 
-* BEEPX     EQU   #57        ; note=C5
+* BEEPX     EQU   #57              ; note=C5
 BEEPX       EQU   #116             ; note=C4
 BEEP        PHA
             PHX
@@ -79,23 +75,26 @@ BEEP        PHA
             PLY                    ;
             PLX
             PLA
-            RTS
+PRSTROK     RTS
 
 
-* Print string pointed to by X,Y to the screen
+* OSPRSTR - Print string at XY
+******************************
+* On exit, X,Y preserved, A=$00
 OUTSTR      TXA
 
 * Print string pointed to by A,Y to the screen
 PRSTR       STA   OSTEXT+0         ;  String in A,Y
             STY   OSTEXT+1
 :L1         LDA   (OSTEXT)         ; Ptr to string in OSTEXT
-            BEQ   PRSTROK
-            JSR   OSASCI
+            PHP                    ; Save EQ
             INC   OSTEXT
-            BNE   :L1
+            BNE   :L2
             INC   OSTEXT+1
+:L2         PLP                    ; Get EQ back
+            BEQ   PRSTROK          ; End of string
+            JSR   OSASCI
             BRA   :L1
-PRSTROK     RTS
 
 * Print NL if not already at column 0
 FORCENL     LDA   #$86
@@ -104,12 +103,14 @@ FORCENL     LDA   #$86
             BEQ   PRSTROK
             JMP   OSNEWL
 
-* Print XY in hex
+* OSPR2HEX - Print XY in hex
+****************************
 OUT2HEX     TYA
             JSR   OUTHEX
             TXA                    ; Continue into OUTHEX
 
-* Print hex byte in A
+* OSPR1HEX - Print hex byte in A
+********************************
 OUTHEX      PHA
             LSR
             LSR
@@ -130,19 +131,8 @@ PRNIB       CMP   #$0A
 :S1         ADC   #'0'             ; < $0A
             JMP   OSWRCH
 
-* TEMP ENTRY *
-* Print 16-bit value in XY in decimal
-OSNUM       EQU   OSTEXT+0
-OSPAD       EQU   OSTEXT+4
-*PRDECXY
-*PRDECPAD    STX   OSNUM+0
-*            STY   OSNUM+1
-*            STZ   OSNUM+2
-*            STZ   OSNUM+3
-*:PRDEC16    LDY   #$05       ; 5 digits
-*            LDX   #OSNUM     ; number stored in OSNUM
-
-* Print up to 32-bit decimal number
+* OSPRDEC - Print up to 32-bit decimal number
+*********************************************
 * See forum.6502.org/viewtopic.php?f=2&t=4894
 * and groups.google.com/g/comp.sys.apple2/c/_y27d_TxDHA
 *
@@ -318,27 +308,31 @@ GSREADOK    INY                    ; Step to next character
 * VC=not control character
 
 
-* Read a byte from sideways ROM
+* OSRDROM - Read a byte from sideways ROM
+*****************************************
 * On entry, Y=ROM to read from
+*           (ROMPTR)=>byte to read
 * On exit,  A=byte read, X=current ROM, Y=$00
 RDROM       LDA   ROMID
             PHA                    ; Save current ROM
             TYA
             TAX                    ; X=ROM to read from
             JSR   ROMSELECT        ; Page in the required ROM
-            LDY   #$00
+            LDY   #$00             ; NOTE BBC sets Y=0, Master preserves
             LDA   (ROMPTR),Y       ; Read the byte
             PLX
 
-* Select a sideways ROM
-* X=ROM to select
-* All registers must be preserved
+* ROMSELECT - Select a sideways ROM
+***********************************
+* On entry, X=ROM to select
+* On exit,  All registers must be preserved
+*
 ROMSELECT
 * Insert code here for faking sideways ROMs by loading or otherwise
 * fetching code to $8000. All registers must be preserved.
             PHP
             CPX   ROMID            ; Speed up by checking if
-*            BEQ   ROMSELOK         ; already paged in
+            BEQ   ROMSELOK         ; already paged in
 * BUG: This needs ROMID an invalid value on startup so first access works
             PHA
             PHX
@@ -354,11 +348,6 @@ ROMSELDONE  >>>   ENTAUX
 ROMSELOK    PLP
             RTS
 
-
-
-EVENT       RTS
-
-
 * Initialize ROMTAB according to user selection in menu
 ROMINIT     STZ   MAXROM           ; One sideways ROM only
             STA   RDMAINRAM        ; Read main mem
@@ -372,8 +361,11 @@ ROMINIT     STZ   MAXROM           ; One sideways ROM only
             BNE   :X2
             STA   MAXROM
 :X2         LDA   #$FF
-            STA   ROMID            ; Ensure invalid initial value
+            STA   ROMID            ; Ensure set to invalid value
             RTS
+
+
+EVENT       RTS
 
 
 **********************************************************
@@ -386,6 +378,7 @@ GSBRKAUX    >>>   IENTAUX          ; IENTAUX does not do CLI
 * TO DO: Check, IENTAUX modifies X
 
 * IRQ/BRK handler
+*****************
 IRQBRKHDLR  PHA
 * Mustn't enable IRQs within the IRQ handler
 * Do not use WRTMAIN/WRTAUX macros
@@ -430,6 +423,20 @@ IRQBRKRET
             PLA
 NULLRTI     RTI
 
+* Default BRK handler
+*********************
+MOSBRKHDLR  LDX   #<MSGBRK
+            LDY   #>MSGBRK
+            JSR   OSPRSTR
+            JSR   PRERR
+*            JSR   OSNEWL
+*            JSR   OSNEWL
+STOP        JMP   STOP             ; Cannot return from a BRK
+
+MSGBRK      DB    $0D
+            ASC   'ERROR: '
+            DB    $00
+
 PRERR       LDY   #$01
 PRERRLP     LDA   (FAULT),Y
             BEQ   PRERR1
@@ -439,20 +446,9 @@ PRERRLP     LDA   (FAULT),Y
 NULLRTS
 PRERR1      RTS
 
-MOSBRKHDLR  LDA   #<MSGBRK
-            LDY   #>MSGBRK
-            JSR   PRSTR
-            JSR   PRERR
-            JSR   OSNEWL
-            JSR   OSNEWL
-STOP        JMP   STOP             ; Cannot return from a BRK
-
-MSGBRK      DB    $0D
-            ASC   'ERROR: '
-            DB    $00
-
 
 * Default page 2 contents
+*************************
 DEFVEC      DW    NULLRTS          ; $200 USERV
             DW    MOSBRKHDLR       ; $202 BRKV
             DW    NULLRTI          ; $204 IRQ1V
@@ -502,7 +498,8 @@ OSSCANDEC   JMP   SCANDEC          ; FF9E SCANDEC
 OSSCANHEX   JMP   SCANHEX          ; FFA1 SCANHEX
 OSFFA4      JMP   NULLRTS          ; FFA4 (DISKACC)
 OSFFA7      JMP   NULLRTS          ; FFA7 (DISKCCP)
-PRHEX       JMP   OUTHEX           ; FFAA PRHEX
+PRHEX
+PR1HEX      JMP   OUTHEX           ; FFAA PRHEX
 PR2HEX      JMP   OUT2HEX          ; FFAD PR2HEX
 OSFFB0      JMP   PRINTDEC         ; FFB0 (USERINT)
 OSWRRM      JMP   NULLRTS          ; FFB3 OSWRRM
@@ -546,8 +543,6 @@ MOSVEND
 
 * Buffer for one 512 byte disk block in aux mem
 AUXBLK
-;ASC   '**ENDOFCODE**'
-;            DS    $200-13
-
-
+;           ASC   '**ENDOFCODE**'
+;           DS    $200-13
 
