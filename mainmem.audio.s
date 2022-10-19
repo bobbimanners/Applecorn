@@ -92,8 +92,21 @@ CURRPITCH   DB    $00
             DB    $00
             DB    $00
 
+* Amplitude envelope section (0..4)
+AMPSECT     DB    $00
+            DB    $00
+            DB    $00
+            DB    $00
+
+* Current amplitude
+CURRAMP     DB    $00
+            DB    $00
+            DB    $00
+            DB    $00
+
+
 * Get address of sound buffer
-* On entry: X is buffer number
+* On entry: X is buffer number (4..7)
 * On exit: A1L,A1H points to start of buffer
 * Called with interrupts disabled
 GETBUFADDR  LDA   :BUFADDRL,X
@@ -390,8 +403,8 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             STA   CHANCTR,X                 ; Set envelope step counter to 1
             STZ   PITCHSECT,X               ; Start on pitch section 0
             STZ   PITCHSTEP,X               ; Start on step 0
+            STZ   AMPSECT,X                 ; Start on amplitude section 0
             LDA   #$00                      ; Initial amplitude is zero
-            LDA   #$80                      ; TEMPORARY HACK!!!
             PHA                             ; Zero amplitude to stack
 
 :S2         JSR   REMAUDIO                  ; Remove byte from queue
@@ -401,6 +414,7 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             STA   CHANTIMES,X
             PLA                             ; Recover frequency
             STA   CURRPITCH,X               ; Store for pitch envelope
+            STZ   CURRAMP,X                 ; Amp envelope starts at zero
             PLY                             ; Recover amplitude
             JSR   ENSQNOTE                  ; Start note playing
 :NEXT 	    DEX
@@ -473,7 +487,7 @@ GETENVADDR  LDA   #<ENVBUF0                 ; Copy ENVBUF0 to A1L,A1H
 * Process pitch envelope
 * On entry: X is audio channel #
 * X is preserved
-PITCHENV    LDA   CHANENV,X                 ; Set envelope number
+PITCHENV    LDA   CHANENV,X                 ; Get envelope number
             TAY
             JSR   GETENVADDR                ; Addr of envelope -> A1L,A1H
             LDA   PITCHSECT,X               ; See what section we are in
@@ -537,15 +551,80 @@ UPDPITCH    STX   OSCNUM
 * Process amplitude envelope
 * On entry: X is audio channel #
 * X is preserved
-ADSRENV
+ADSRENV     LDA   CHANENV,X                 ; Get envelope number
+            TAY
+            JSR   GETENVADDR                ; Addr of envelope -> A1L,A1H
+            LDA   AMPSECT,X                 ; See what section we are in
+            BEQ   :ATTACK                   ; Attack, encoded as 0
+            CMP   #$01
+            BEQ   :DECAY                    ; Decay, encoded as 1
+            CMP   #$02
+            BEQ   :SUSTAIN                  ; Sustain, encoded as 2
+* TODO: RELEASE logic here
+            RTS
+:ATTACK     LDY   #ENVAA                    ; Parm: attack change/step
+            LDA   (A1L),Y                   ; Get value of parm
+            PHA
+            LDY   #ENVALA                   ; Parm: level at end of attack
+            LDA   (A1L),Y                   ; Get value of parm
+            PLY
+            JSR   ADSRPHASE                 ; Generic ADSR phase handler
+            BCS   :NEXTSECT                 ; Phase done -> decay
+            RTS
+:DECAY      LDY   #ENVAD                    ; Parm: delay change/step
+            LDA   (A1L),Y                   ; Get value of parm
+            PHA
+            LDY   #ENVALD                   ; Parm: level at end of delay
+            LDA   (A1L),Y                   ; Get value of parm
+            PLY
+            JSR   ADSRPHASE                 ; Generic ADSR phase handler
+            BCS   :NEXTSECT                 ; Phase done -> sustain
+            RTS
+:SUSTAIN    LDY   #ENVAS                    ; Parm: delay change/step
+            LDA   (A1L),Y                   ; Get value of parm
+            TAY
+            LDA   #$00                      ; Target level zero
+            JSR   ADSRPHASE                 ; Generic ADSR phase handler
+            RTS
+:NEXTSECT   INC   AMPSECT,X                 ; Next section
             RTS
 
 
-* Update volume. Called by ADSRENV.
-* On entry: A - Change of volume/step, X is audio channel #
-* X is preserved
-UPDVOL     
+* Handle any individual phase of the ADSR envelope. Called by ADSRENV.
+* On entry: A - level at end of phase, X - audio channel, Y - change/step
+* On return: CS if end of phase, CC otherwise.  X preserved.
+ADSRPHASE   STX   OSCNUM
+            STA   :TARGET                   ; Stash target level for later
+            CPY   #$00                      ; Check sign of change/step
+            BMI   :DESCEND                  ; Descending amplitude
+:ASCEND     CMP   CURRAMP,X                 ; Compare tgt with current level
+            BNE   :S1                       ; Not equal to target, keep going
+            SEC                             ; CS to indicate phase is done
             RTS
+:S1         TYA                             ; Change/step -> A
+            CLC
+            ADC   CURRAMP,X                 ; Add change to current amp
+            CMP   :TARGET                   ; Compare with target
+            BCS   :CLAMP                    ; If target < sum, clamp to target
+            BRA   :UPDATE                   
+:DESCEND    CMP   CURRAMP,X                 ; Compare tgt with current level
+            BNE   :S2                       ; Not equal to target, keep going
+            SEC                             ; CS to indicate phase is done
+            RTS
+:S2         TYA                             ; Change/step -> A
+            CLC
+            ADC   CURRAMP,X                 ; Add change to current amp
+            CMP   :TARGET                   ; Compare with target
+            BCC   :CLAMP                    ; If target >= sum, clamp to target
+            BRA   :UPDATE                   
+:CLAMP      LDA   :TARGET                   ; Recover target level
+:UPDATE     STA   CURRAMP,X                 ; Store updated amplitude
+            TAY                             ; Tell the Ensoniq
+            JSR   ENSQAMP
+            CLC                             ; CC to indicate phase continues
+            RTS
+:TARGET     DB    $00
+
 
 *****************************************************************************
 * Ensoniq DOC Driver for Apple IIGS Follows ...
@@ -686,6 +765,19 @@ ENSQFREQ    PHX
             JSR   ENSQWRTDOC
             PLY
             PLX
+            RTS
+
+
+* Adjust amplitude of note already playing
+* On entry: Y - amplitude to set
+* Preserves X & Y
+ENSQAMP     PHX
+            PHY                             ; Gonna need it again
+            LDA   #$40                      ; DOC register base $00 (Freq Lo)
+            JSR   ADDOSC                    ; Actual register in X
+            JSR   ENSQWRTDOC
+            PLY
+            PHY
             RTS
 
 
