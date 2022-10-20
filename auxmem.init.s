@@ -7,18 +7,18 @@
 * BBC Micro 'virtual machine' in Apple //e aux memory
 ***********************************************************
 
-MAXROM      EQU   $F9                        ; Max sideways ROM number
+MAXROM      EQU   $F9             ; Max sideways ROM number
 
-ZP1         EQU   $90                        ; $90-$9f are spare Econet space
-                                             ; so safe to use
+ZP1         EQU   $90             ; $90-$9f are spare Econet space
+                                  ; so safe to use
 ZP2         EQU   $92
 ZP3         EQU   $94
 
-STRTBCKL    EQU   $9D                        ; *TO DO* don't need to preserve
+STRTBCKL    EQU   $9D             ; *TO DO* No longer needed to preserve
 STRTBCKH    EQU   $9E
 
 MOSSHIM
-            ORG   AUXMOS                     ; MOS shim implementation
+            ORG   AUXMOS          ; MOS shim implementation
 
 *
 * Shim code to service Acorn MOS entry points using
@@ -28,8 +28,8 @@ MOSSHIM
 *
 * Initially executing at $3000 until copied to $D000
 
-MOSINIT     SEI                              ; Disable IRQ while initializing
-            LDX   #$FF                       ; Initialize Alt SP to $1FF
+MOSINIT     SEI                   ; Ensure IRQs disabled
+            LDX   #$FF            ; Initialize Alt SP to $1FF
             TXS
 
             STA   WRCARDRAM                  ; Make sure we are writing aux
@@ -105,11 +105,11 @@ MOSINIT     SEI                              ; Disable IRQ while initializing
 
 :NORELOC
 :S8         STA   SET80VID                   ; 80 col on
-            STA   CLRALTCHAR                 ; Alt charset off (?)
+            STA   CLRALTCHAR                 ; Alt charset off
             STA   PAGE2                      ; PAGE2
             JMP   MOSHIGH                    ; Ensure executing in high memory here
 
-MOSHIGH     SEI                              ; Disable IRQ while initializing
+MOSHIGH     SEI                              ; Ensure IRQs disabled
             LDX   #$FF
             TXS                              ; Initialise stack
             INX                              ; X=$00
@@ -137,70 +137,70 @@ MOSHIGH     SEI                              ; Disable IRQ while initializing
             LDA   #7
             JSR   OSWRCH
             JSR   OSNEWL
-            LDX   MAXROM                     ; TEMP X=language to enter
+            LDX   MAXROM          ; *TEMP* X=language to enter
             CLC
 
 * OSBYTE $8E - Enter language ROM
+*********************************
 * X=ROM number to select
 *
-BYTE8E      PHP                              ; Save CLC=RESET, SEC=Not RESET
-            JSR   ROMSELECT                  ; Bring ROM X into memory 
-            STX   BYTEVARBASE+$FC            ; Set current language ROM
+BYTE8E      PHP                   ; Save CLC=RESET, SEC=Not RESET
+            JSR   ROMSELECT       ; Bring ROM X into memory 
+            STX   BYTEVARBASE+$FC ; Set current language ROM
             LDA   #$00
             STA   FAULT+0
             LDA   #$80
             STA   FAULT+1
             LDY   #$09
-            JSR   PRERRLP                    ; Print ROM name with PRERR to set
-            STY   FAULT+0                    ;  FAULT pointing to version string
+            JSR   PRERRLP         ; Print ROM name with PRERR to set
+            STY   FAULT+0         ;  FAULT pointing to version string
             JSR   OSNEWL
             JSR   OSNEWL
-            PLP                              ; Get entry type back
-            LDA   #$01
+            PLP                   ; Get entry type back
+            LDA   #$01            ; $01=Entering code with a header
             JMP   ROMAUXADDR
 
+
 * OSBYTE $8F - Issue service call
+*********************************
 * X=service call, Y=parameter
 *
-SERVICE     TAX                              ; Enter here with A=Service Num
+SERVICE     TAX                   ; Enter here with A=Service Num
 BYTE8F
 SERVICEX    LDA   $F4
-            PHA                              ; Save current ROM
+            PHA                   ; Save current ROM
 
-*            LDA   $E0             ; *DEBUG*
-*            AND   #$20
-*            BEQ   :SERVDEBUG
-*            TXA
-*            JSR   PRHEX
-*            LDA   OSLPTR+1
-*            JSR   PRHEX
-*            LDA   OSLPTR+0
-*            JSR   PRHEX           ; *DEBUG*
-*:SERVDEBUG
-
+*DEBUG
+            LDA   $E0
+            AND   #$20            ; Test debug *OPT255,32
+            BEQ   :SERVDEBUG
+            CPX   #$06
+            BEQ   :SERVDONE       ; If debug on, ignore SERV06
+:SERVDEBUG
+*DEBUG
             TXA
-            LDX   MAXROM                     ; Start at highest ROM
-:SERVLP     JSR   ROMSELECT                  ; Bring it into memory
+            LDX   MAXROM          ; Start at highest ROM
+:SERVLP     JSR   ROMSELECT       ; Bring it into memory
             BIT   $8006
-            BPL   :SERVSKIP                  ; No service entry
-            JSR   $8003                      ; Call service entry
+            BPL   :SERVSKIP       ; No service entry
+            JSR   $8003           ; Call service entry
             TAX
             BEQ   :SERVDONE
-:SERVSKIP   LDX   $F4                        ; Restore X=current ROM
-            DEX                              ; Step down to next
-            BPL   :SERVLP                    ; Loop until ROM 0 done
-:SERVDONE   PLA                              ; Get caller's ROM back
-            PHX                              ; Save return from service call
+:SERVSKIP   LDX   $F4             ; Restore X=current ROM
+            DEX                   ; Step down to next
+            BPL   :SERVLP         ; Loop until ROM 0 done
+:SERVDONE   PLA                   ; Get caller's ROM back
+            PHX                   ; Save return from service call
             TAX
-            JSR   ROMSELECT                  ; Restore caller's ROM
-            PLX                              ; Get return value back
-            TXA                              ; Return in A and X and set EQ/NE
+            JSR   ROMSELECT       ; Restore caller's ROM
+            PLX                   ; Get return value back
+            TXA                   ; Return in A and X and set EQ/NE
             RTS
 
 
-PRHELLO     LDA   #<HELLO
+PRHELLO     LDX   #<HELLO
             LDY   #>HELLO
-            JSR   PRSTR
+            JSR   OSPRSTR
             JMP   OSNEWL
 
 BYTE00XX
@@ -211,12 +211,6 @@ BYTE00A     BRK
             DB    $F7
 HELLO       ASC   'Applecorn MOS 2022-10-15'
             DB    $00                        ; Unify MOS messages
+* TO DO: Move into RAM
 GSSPEED     DB    $00                        ; $80 if GS is fast, $00 for slow
-
-
-
-
-
-
-
 

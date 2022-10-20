@@ -176,9 +176,10 @@ MAININS     >>>   ENTMAIN
 
 
 * Remove value from buffer or examine buffer (API same as Acorn MOS REMV)
+* NOTE OS1.20 has a bug in the EXAMINE path
 * On entry: X is buffer number, V=1 if only examination is requested
-* On exit: If examination, A next byte, X preserved, Y=offset to next char
-*          If removal, A undef, X preserved, Y value of byte removed
+* On exit: If examination, A next byte, X preserved, Y=next byte
+*          If removal, A undef, X preserved, Y=value of byte removed
 *          If buffer already empty C=1, else C=0
 REM         PHP                              ; Save flags, turn off interrupts
             SEI
@@ -201,6 +202,7 @@ REM         PHP                              ; Save flags, turn off interrupts
             CLC                              ; Success
             RTS
 :EXAM       PLA                              ; Char read from buffer
+            TAY                              ; BUGFIX: Omitted on OS1.20
             PLP
             CLC                              ; Success
             RTS
