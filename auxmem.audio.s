@@ -7,7 +7,12 @@
 * OSWORD &07 - Make a sound
 * On entry: (OSCTRL),Y points to eight byte parameter block (2 bytes each for
 *           channel, amplitude, pitch, duration)
-WORD07      LDA   (OSCTRL),Y                 ; Get channel number/flush byte
+WORD07      INY
+            LDA   (OSCTRL),Y                 ; Get channel system bits
+            DEY
+            CMP   #$20                       ; Sound system is %000xxxxx:xxxxxxxx
+            BCS   :RTS                       ; *TO DO* Should pass to service call
+            LDA   (OSCTRL),Y                 ; Get channel number/flush byte
             ORA   #$04                       ; Convert to buffer number 4-7
             AND   #$0F                       ; Mask off flush nybble
             PHA                              ; Stash
@@ -25,6 +30,7 @@ WORD07      LDA   (OSCTRL),Y                 ; Get channel number/flush byte
             EOR   #$80
             JSR   KBDCHKESC                  ; Was Escape pressed?
             BIT   ESCFLAG
+*                                            ; *TO DO* Replace above with JSR ESCPOLL
             BMI   :ESCAPE                    ; If so, bail!
 :NOKEY      PLX                              ; Buffer num -> X
             PHX
@@ -64,7 +70,7 @@ WORD08      LDA   (OSCTRL),Y                 ; Get envelope number
             TAX
             LDA   #$00
 :L0         CPX   #$00                       ; Calculate EnvNum * 13
-            BEQ   :S1
+            BEQ   :S1                        ; Faster to do n*12+n to get n*13
             CLC
             ADC   #13
             DEX
