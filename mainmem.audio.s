@@ -354,13 +354,10 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             BEQ   :NONOTE                   ; No note playing
             DEC   CHANTIMES,X
             BRA   :NEXT
-:NONOTE     LDA   #$FF                      ; $FF means 'no envelope'
-            STA   CHANENV,X
-            LDY   #$00                      ; Zero volume
-            LDA   #$00                      ; Zero freq
-            JSR   ENSQNOTE                  ; Silence channel Y
 
-            JSR   PEEKAUDIO                 ; Inspect byte at head of queue
+:NONOTE     JSR   NONOTE                    ; Handle end note / release phase
+
+:PEEK       JSR   PEEKAUDIO                 ; Inspect byte at head of queue
             BCS   :NEXT                     ; Nothing in queue
                                             ; NOTE: A contains HS byte of &HSFC
             AND   #$0F                      ; Mask out hold nybble
@@ -437,6 +434,20 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
 :SYNCSET    JSR   CHORD                     ; See if chord can be released
             BRA   :NEXT
 :CNT        DB    $05                       ; Used to determine 20Hz cycles
+
+
+* Helper function for ENSQISR - called when no note playing
+* On entry: X is audio channel #
+NONOTE      LDA   CHANENV,X                 ; See if envelope is in effect
+            CMP   #$FF
+            BNE   :RELEASE                  ; Has envelope, start release phase
+            LDY   #$00                      ; Zero volume
+            LDA   #$00                      ; Zero freq
+            JSR   ENSQNOTE                  ; Silence channel Y
+            RTS
+:RELEASE    LDA   #3                        ; Phase 3 is release phase
+            STA   AMPSECT,X                 ; Force release phase
+            RTS
 
 
 * Handle envelope tick counter
@@ -562,8 +573,9 @@ ADSRENV     LDA   CHANENV,X                 ; Get envelope number
             BEQ   :DECAY                    ; Decay, encoded as 1
             CMP   #$02
             BEQ   :SUSTAIN                  ; Sustain, encoded as 2
-* TODO: RELEASE logic here
-            RTS
+            CMP   #$03
+            BEQ   :RELEASE                  ; Release, encoded as 3
+            RTS                             ; Otherwise nothing to do
 :ATTACK     LDY   #ENVAA                    ; Parm: attack change/step
             LDA   (A1L),Y                   ; Get value of parm
             PHA
@@ -588,7 +600,17 @@ ADSRENV     LDA   CHANENV,X                 ; Get envelope number
             LDA   #$00                      ; Target level zero
             JSR   ADSRPHASE                 ; Generic ADSR phase handler
             RTS
+:RELEASE    LDY   #ENVAR                    ; Parm: attack change/step
+            LDA   (A1L),Y                   ; Get value of parm
+            TAY
+            LDA   #$00                      ; Target level zero
+            JSR   ADSRPHASE                 ; Generic ADSR phase handler
+            BCS   :FINISH                   ; Level is zero
+            RTS
 :NEXTSECT   INC   AMPSECT,X                 ; Next section
+            RTS
+:FINISH     LDA   #$FF                      ; Finished with envelope
+            STA   CHANENV,X
             RTS
 
 
@@ -598,7 +620,7 @@ ADSRENV     LDA   CHANENV,X                 ; Get envelope number
 ADSRPHASE   STX   OSCNUM
             STA   :TARGET                   ; Stash target level for later
             CPY   #$00                      ; Check sign of change/step
-            BEQ   :DONE                     ; If change/step is zero
+            BEQ   :DONE                     ; Change/step is zero
             BMI   :DESCEND                  ; Descending amplitude
 :ASCEND     CMP   CURRAMP,X                 ; Compare tgt with current level
             BNE   :S1                       ; Not equal to target, keep going
