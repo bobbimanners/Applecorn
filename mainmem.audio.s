@@ -598,6 +598,7 @@ ADSRENV     LDA   CHANENV,X                 ; Get envelope number
 ADSRPHASE   STX   OSCNUM
             STA   :TARGET                   ; Stash target level for later
             CPY   #$00                      ; Check sign of change/step
+            BEQ   :DONE                     ; If change/step is zero
             BMI   :DESCEND                  ; Descending amplitude
 :ASCEND     CMP   CURRAMP,X                 ; Compare tgt with current level
             BNE   :S1                       ; Not equal to target, keep going
@@ -623,7 +624,7 @@ ADSRPHASE   STX   OSCNUM
 :UPDATE     STA   CURRAMP,X                 ; Store updated amplitude
             TAY                             ; Tell the Ensoniq
             JSR   ENSQAMP
-            CLC                             ; CC to indicate phase continues
+:DONE       CLC                             ; CC to indicate phase continues
             RTS
 :TARGET     DB    $00
 
