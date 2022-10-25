@@ -779,7 +779,7 @@ ENSQAMP     PHX
             JSR   ADDOSC                    ; Actual register in X
             JSR   ENSQWRTDOC
             PLY
-            PHY
+            PLX
             RTS
 
 
