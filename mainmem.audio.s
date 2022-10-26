@@ -33,11 +33,23 @@ SND2ENDIDX   DB   $00
 SND3ENDIDX   DB   $00
 ENDINDICES   EQU  SND0ENDIDX - 4
 
-* Envelope buffers 0-3
+* Envelope buffers 0-15
 ENVBUF0      DS   13                         ; 13 bytes not including env num
 ENVBUF1      DS   13
 ENVBUF2      DS   13
 ENVBUF3      DS   13
+ENVBUF4      DS   13
+ENVBUF5      DS   13
+ENVBUF6      DS   13
+ENVBUF7      DS   13
+ENVBUF8      DS   13
+ENVBUF9      DS   13
+ENVBUF10     DS   13
+ENVBUF11     DS   13
+ENVBUF12     DS   13
+ENVBUF13     DS   13
+ENVBUF14     DS   13
+ENVBUF15     DS   13
 
 * Offsets of parameters in each envelope buffer
 ENVT         EQU  0                          ; Len of step in 1/100 sec
@@ -55,6 +67,7 @@ ENVALA       EQU  11                         ; Target at end of attack
 ENVALD       EQU  12                         ; Target at end of decay
 
 * Time remaining for current note, in 1/20th of second
+* Does not include the release phase of the envelope (if any)
 CHANTIMES   DB    $00
             DB    $00
             DB    $00
@@ -92,7 +105,11 @@ CURRPITCH   DB    $00
             DB    $00
             DB    $00
 
-* Amplitude envelope section (0..4)
+* Amplitude envelope section (0..3)
+* 0: Attack
+* 1: Decay
+* 2: Sustain
+* 3: Release
 AMPSECT     DB    $00
             DB    $00
             DB    $00
