@@ -210,6 +210,7 @@ REM         PHP                              ; Save flags, turn off interrupts
             SEC                              ; Buffer already empty
             RTS
 
+
 * Remove value from buffer according to audio channel (0-4)
 * On entry: X is audio channel number
 * On exit: A undef, X preserved, Y value of byte removed
@@ -222,9 +223,10 @@ REMAUDIO   PHX                               ; Preserve X
            PLX                               ; Recover original X
            RTS
 
+
 * Inspect value in buffer according to audio channel (0-4)
 * On entry: X is audio channel number
-* On exit: A next byte, X preserved, Y offset to next char
+* On exit: A next byte, X preserved
 PEEKAUDIO  PHX                               ; Preserve X
            TXA                               ; Audio channel X->A
            ORA   #$04                        ; Convert to queue number
@@ -235,6 +237,22 @@ PEEKAUDIO  PHX                               ; Preserve X
 :RTS       RTS
 
 
+* Release a suspended note by overwriting its sequence number with zero
+* On entry: X is audio channel number
+* On exit: X preserved
+RELNOTE    PHX                               ; Preserve X
+           TXA                               ; Audio channel X->A
+           ORA   #$04                        ; Convert to queue number
+           TAX                               ; Queue number ->X
+           JSR   GETBUFADDR                  ; Buffer address into A1L,A1H
+           LDA   STARTINDICES,X              ; Output pointer for buf X
+           TAY
+           LDA   #$00                        ; Release note ..
+           STA   (A1L),Y                     ; .. by overwriting seq # with zero
+           PLX                               ; Recover original X
+:RTS       RTS
+
+ 
 * Count space in buffer or purge buffer (API same as Acorn MOS CNPV)
 * On entry: X is buffer number. V set means purge, V clear means count.
 *           C set means space left, C clear means entries used
@@ -324,14 +342,7 @@ CHORD       PHA
             AND   #$0F                      ; Mask out hold nybble
             CMP   :SEQ                      ; See if matches
             BNE   :NEXT2                    ; Nope, skip
-            PHX
-            TXA
-            ORA   #$04                      ; Convert to buffer number
-            TAX
-            JSR   GETBUFADDR                ; Audio buf addr -> A1L,A1H
-            PLX
-            LDA   #$00
-            STA   (A1L),Y                   ; Zero sync nybble (+ hold nybble)
+            JSR   RELNOTE                   ; Release the note
 :NEXT2      DEX
             BPL   :L2                       ; Next audio queue
             BRA   :DONE
