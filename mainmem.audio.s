@@ -264,8 +264,9 @@ RELNOTE    PHX                               ; Preserve X
            JSR   GETBUFADDR                  ; Buffer address into A1L,A1H
            LDA   STARTINDICES,X              ; Output pointer for buf X
            TAY
-           LDA   #$00                        ; Release note ..
-           STA   (A1L),Y                     ; .. by overwriting seq # with zero
+           LDA   (A1L),Y                     ; Obtain Hold/Sync byte
+           AND   #$F0                        ; Set sync nybble to zero ..
+           STA   (A1L),Y                     ; .. to release the note
            PLX                               ; Recover original X
 :RTS       RTS
 
