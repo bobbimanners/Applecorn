@@ -442,7 +442,6 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             STA   CHANTIMES,X
             PLA                             ; Recover frequency
             STA   CURRPITCH,X               ; Store for pitch envelope
-            STZ   CURRAMP,X                 ; Amp envelope starts at zero
             PLY                             ; Recover amplitude
             JSR   ENSQNOTE                  ; Start note playing
 :NEXT 	    DEX
@@ -469,7 +468,8 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
 * On entry: X is audio channel #
 NONOTE      LDA   CHANENV,X                 ; See if envelope is in effect
             CMP   #$FF
-            BNE   :RELEASE                  ; Has envelope, start release phase
+            BNE   :RELEASE                  ; If envelope -> start rel phase
+            STZ   CURRAMP,X                 ; Next env will start at zero vol
             LDY   #$00                      ; Zero volume
             LDA   #$00                      ; Zero freq
             JSR   ENSQNOTE                  ; Silence channel Y
