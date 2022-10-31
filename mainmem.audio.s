@@ -394,7 +394,6 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
 
 * The following is paranoid maybe. Perhaps can be removed once I am debugged. ***
             PHX
-            PHY
             INX                             ; Convert audio channel to buf num
             INX
             INX
@@ -403,7 +402,6 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             CLC                             ; Ask for space used
             JSR   CNP                       ; Go count it
             TXA
-            PLY
             PLX
             CMP   #3                        ; At least 4 bytes used?
             BMI   :NEXT
