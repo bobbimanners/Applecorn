@@ -389,26 +389,18 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
 :PEEK       JSR   PEEKAUDIO                 ; Inspect byte at head of queue
             BCS   :NEXT                     ; Nothing in queue
                                             ; NOTE: A contains HS byte of &HSFC
+            TAY                             ; Stash for later
             AND   #$0F                      ; Mask out hold nybble
             BNE   :SYNCSET                  ; Do not play if sync != 0
+            TYA                             ; HS byte
+            AND   #$F0                      ; Mask out sync nybble
+            BNE   :HOLDSET                  ; Handle hold function
 
-* The following is paranoid maybe. Perhaps can be removed once I am debugged. ***
-            PHX
-            INX                             ; Convert audio channel to buf num
-            INX
-            INX
-            INX
-            CLV                             ; Ask to count buffer
-            CLC                             ; Ask for space used
-            JSR   CNP                       ; Go count it
-            TXA
-            PLX
-            CMP   #3                        ; At least 4 bytes used?
-            BMI   :NEXT
-* End paranoid section. ***
+            JSR   CHECK4BYTES               ; Check queue has a note
+            BCS   :NEXT                     ; Less than 4 bytes, skip
 
-            JSR   REMAUDIO                  ; Remove byte from queue
-            JSR   REMAUDIO                  ; Remove byte from queue
+            JSR   REMAUDIO                  ; Remove HS byte from queue
+            JSR   REMAUDIO                  ; Remove amplitude byte from queue
 
             TYA                             ; Amplitude or envelope -> A
             DEC   A
@@ -433,9 +425,9 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             LDA   #$00                      ; Initial amplitude is zero
             PHA                             ; Zero amplitude to stack
 
-:S2         JSR   REMAUDIO                  ; Remove byte from queue
+:S2         JSR   REMAUDIO                  ; Remove freq byte from queue
             PHY                             ; Frequency
-            JSR   REMAUDIO                  ; Remove byte from queue
+            JSR   REMAUDIO                  ; Remove dur byte from queue
             TYA                             ; Duration
             STA   CHANTIMES,X
             PLA                             ; Recover frequency
@@ -457,6 +449,13 @@ ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
             BPL   :L2                       ; Next audio queue
             CLC
             RTL
+:HOLDSET    LDA   CURRAMP,X                 ; Get current amplitude
+            BNE   :NEXT                     ; If non zero, hold
+            JSR   REMAUDIO                  ; Dequeue four bytes
+            JSR   REMAUDIO
+            JSR   REMAUDIO
+            JSR   REMAUDIO
+            BRA   :NEXT
 :SYNCSET    JSR   CHORD                     ; See if chord can be released
             BRA   :NEXT
 :CNT        DB    $05                       ; Used to determine 20Hz cycles
@@ -474,6 +473,28 @@ NONOTE      LDA   CHANENV,X                 ; See if envelope is in effect
             RTS
 :RELEASE    LDA   #3                        ; Phase 3 is release phase
             STA   AMPSECT,X                 ; Force release phase
+            RTS
+
+
+* Helper function for ENSQISR
+* On entry: X is audio channel #
+* On return: CS if there are <= 4 bytes in queue, CC otherwise
+* X is preserved
+CHECK4BYTES PHX
+            INX                             ; Convert audio channel to buf num
+            INX
+            INX
+            INX
+            CLV                             ; Ask to count buffer
+            CLC                             ; Ask for space used
+            JSR   CNP                       ; Go count it
+            TXA
+            PLX
+            CMP   #3                        ; At least 4 bytes used?
+            BMI   :NO
+            CLC
+            RTS
+:NO         SEC
             RTS
 
 
