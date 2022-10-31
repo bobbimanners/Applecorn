@@ -315,11 +315,18 @@ WORD00       IF    MAXLEN-OSTEXT-2
 * On entry, (OSCTRL)=>control block
 *           Y=0
 
-WORD01       TYA                          ; Dummy, just return zero
-:WORD01LP    STA   (OSCTRL),Y
+WORD01       PHP                          ; Disable interrupts
+             SEI
+             STA   RDMAINRAM              ; Read from main memory
+:WORD01LP    LDA   SYSCLOCK,Y             ; Read sys clock in main mem
+             STA   (OSCTRL),Y             ; Store in buffer
              INY
              CPY   #$05
              BCC   :WORD01LP
+             STA   RDCARDRAM              ; Read from aux memory
+             PLP                          ; Restore interrupt state
+             RTS
+
 WORD04
 WORD03
 WORD02       RTS                          ; Dummy, do nothing

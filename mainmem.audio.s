@@ -4,7 +4,11 @@
 * Applecorn audio code
 *
 
-COUNTER      DW    $0000                     ; Centisecond counter
+SYSCLOCK     DB    $00                       ; Centisecond counter (5 bytes)
+             DB    $00
+             DB    $00
+             DB    $00
+             DB    $00
 
 * Sound buffers
 * Four bytes are enqueued for each note, as follows:
@@ -370,9 +374,16 @@ CHORD       PHA
 
 * Called from Ensoniq interrupt handler - process audio queue
 * Should be called at 100Hz
-ENSQISR     INC   COUNTER+0                 ; Increment centisecond timer
+ENSQISR     INC   SYSCLOCK+0                ; Increment system clock
             BNE   :S1
-            INC   COUNTER+1
+            INC   SYSCLOCK+1
+            BNE   :S1
+            INC   SYSCLOCK+2
+            BNE   :S1
+            INC   SYSCLOCK+3
+            BNE   :S1
+            INC   SYSCLOCK+4
+
 :S1         DEC   :CNT                      ; Find every 5th cycle
             BNE   :AT100HZ
             LDA   #5
