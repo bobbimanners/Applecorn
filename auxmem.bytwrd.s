@@ -327,9 +327,22 @@ WORD01       PHP                          ; Disable interrupts
              PLP                          ; Restore interrupt state
              RTS
 
-WORD04
+WORD02       PHP                          ; Disable interrupts
+             SEI
+             >>>   WRTMAIN
+:WORD02LP    LDA   (OSCTRL),Y             ; Read from buffer
+:WORD02LP    STA   SYSCLOCK,Y             ; Store to sys clock in main mem
+             INY
+             CPY   #$05
+             BCC   :WORD02LP
+             >>>   WRTAUX
+             PLP                          ; Restore interrupt state
+             RTS
+
 WORD03
-WORD02       RTS                          ; Dummy, do nothing
+WORD04
+             RTS
+
 
 * OSWORD &05 - Read I/O memory
 * OSWORD &06 - Write I/O memory
