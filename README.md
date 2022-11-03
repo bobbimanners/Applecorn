@@ -354,7 +354,7 @@ the `*COPY` command:
 
 `*BUILD <objspec>` - provides a quick and dirty way to create small text
 files, one line at a time.  This is quite useful for making small files
-for use with `*EXEC`.
+for use with `*EXEC`.  Press Escape to finish editing and close the file.
 
 `*SPOOL <objspec>` - copies all screen output to the filename given.
 Issuing the `*SPOOL` command with no filename stops spooling and closes any
