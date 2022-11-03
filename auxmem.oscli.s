@@ -28,6 +28,9 @@ CMDTABLE
 CMDFILE     ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $85
             DW    STARFSC-1          ; CAT    -> FSC 5, XY=>params
+            ASC   'BUILD'
+            DB    $81 ; TO DO
+            DW    CMDBUILD-1         ; BUILD  -> XY=>params
             ASC   'CDIR'
             DB    $88
             DW    STARFILE-1         ; CDIR   -> OSFILE 08, CBLK=>filename
@@ -682,6 +685,60 @@ CMDDUMP      BEQ   ERRDUMP           ; No filename
              PLP
              BCC   :LOOP1
              JMP   TYPCLOSE          ; Close and finish
+
+* *BUILD (<afsp>)
+* ---------------
+* XY=>parameters string
+*
+CMDBUILD     LDA   #$80                 ; A=OPENOUT, for writing
+             JSR   OPENAFILE            ; Try to open file
+             STA   :FILENUM             ; Stash file number
+             LDA   #<:LINEBUF           ; Pointer to line buffer
+             STA   OSTEXT+0
+             LDA   #>:LINEBUF
+             STA   OSTEXT+1
+             LDA   #80                  ; Maximum line length
+             STA   MAXLEN
+             LDA   #32                  ; Minimum allowable char 
+             STA   MINCHAR
+             LDA   #126                 ; Maximum allowable char
+             STA   MAXCHAR
+:RDLINE      LDX   #<:TEXT              ; Display prompt
+             LDY   #>:TEXT
+             JSR   OSPRSTR
+             LDA   #$00                 ; OSWORD &00 input line from console 
+             LDX   #<OSTEXT             ; XY -> control block
+             LDY   #>OSTEXT
+             JSR   OSWORD               ; Read line from console
+             BCS   :CLOSE               ; Escape pressed
+             INY                        ; Include the carriage return
+             STY   :LINELEN             ; Number of chars read
+             JSR   :BUILDLN             ; Write one line to disk
+             BRA   :RDLINE
+:CLOSE
+*            JSR   :BUILDLN             ; Write one line to disk
+             JSR   OSNEWL
+             LDA   #$00                 ; A=CLOSE
+             LDY   :FILENUM             ; Recover file number
+             JSR   OSFIND               ; Close build file
+             RTS
+
+* Helper function for CMDBUILD
+* Writes a single line from LINEBUF -> disk
+:BUILDLN     LDX   #$00
+:L1          CPX   :LINELEN
+             BEQ   :DONELN
+             LDA   :LINEBUF+1,X
+             LDY   :FILENUM             ; Recover file number
+             JSR   OSBPUT               ; Write char to file
+             INX
+             BRA   :L1
+:DONELN      RTS
+
+:TEXT        ASC   'Build> '
+:LINEBUF     DS    81                   ; 80 char line plus CR
+:LINELEN     DB    $00                  ; Line length excluding CR
+:FILENUM     DB    $00                  ; File handle
 
 * *SPOOL (<afsp>)
 * ---------------

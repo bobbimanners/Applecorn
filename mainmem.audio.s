@@ -440,6 +440,7 @@ ENSQISR     INC   SYSCLOCK+0                ; Increment system clock
             PHY                             ; Frequency
             JSR   REMAUDIO                  ; Remove dur byte from queue
             TYA                             ; Duration
+            DEC   A                         ; EXPERIMENT
             STA   CHANTIMES,X
             PLA                             ; Recover frequency
             STA   CURRPITCH,X               ; Store for pitch envelope
