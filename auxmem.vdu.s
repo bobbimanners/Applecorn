@@ -321,6 +321,23 @@ VDU127        JSR   VDU08                  ; Move cursor back
 
 * Display character at current (TEXTX,TEXTY)
 PRCHRC        PHA                          ; Save character
+  BIT ESCFLAG
+  BMI :RESUME
+  JSR ESCPOLL
+*  BRA :RESUME
+
+  BCS :RESUME
+  BMI :RESUME
+  CMP #$13
+  BNE :RESUME
+:PAUSE0
+  JSR ESCPOLL
+  BMI :RESUME
+  BCS :PAUSE0
+  CMP #$11
+  BNE :PAUSE0
+  BRA :RESUME
+
               LDA   KEYBOARD
               BPL   :RESUME                ; No key pressed
               EOR   #$80
