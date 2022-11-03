@@ -710,17 +710,20 @@ CMDBUILD     LDA   #$80                 ; A=OPENOUT, for writing
              LDX   #<OSTEXT             ; XY -> control block
              LDY   #>OSTEXT
              JSR   OSWORD               ; Read line from console
-             BCS   :CLOSE               ; Escape pressed
+             PHP
+             LDA   #$0D                 ; Carriage return
+             STA   :LINEBUF+1,Y         ; Force carriage return
              INY                        ; Include the carriage return
              STY   :LINELEN             ; Number of chars read
              JSR   :BUILDLN             ; Write one line to disk
+             PLP
+             BCS   :CLOSE               ; Escape pressed
              BRA   :RDLINE
-:CLOSE
-*            JSR   :BUILDLN             ; Write one line to disk
-             JSR   OSNEWL
+:CLOSE       JSR   OSNEWL
              LDA   #$00                 ; A=CLOSE
              LDY   :FILENUM             ; Recover file number
              JSR   OSFIND               ; Close build file
+             STZ   ESCFLAG
              RTS
 
 * Helper function for CMDBUILD
