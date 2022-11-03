@@ -352,6 +352,10 @@ the `*COPY` command:
 
 `*DUMP <*objspec*>` - print a hexdump of a file to the screen.
 
+`*BUILD <objspec>` - provides a quick and dirty way to create small text
+files, one line at a time.  This is quite useful for making small files
+for use with `*EXEC`.
+
 `*SPOOL <objspec>` - copies all screen output to the filename given.
 Issuing the `*SPOOL` command with no filename stops spooling and closes any
 open spool file.
