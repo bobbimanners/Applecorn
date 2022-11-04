@@ -9,10 +9,14 @@
 
 MAXROM      EQU   $F9             ; Max sideways ROM number
 
-ZP1         EQU   $90             ; $90-$9f are spare Econet space
-                                  ; so safe to use
+*
+* $90-$9f are spare Econet space so safe to use
+*
+ZP1         EQU   $90
 ZP2         EQU   $92
 ZP3         EQU   $94
+
+TEMP32      EQU   $96             ; $96-$99 inclusive
 
 STRTBCKL    EQU   $9D             ; *TO DO* No longer needed to preserve
 STRTBCKH    EQU   $9E
