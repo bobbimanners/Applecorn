@@ -715,8 +715,15 @@ CMDBUILD     LDA   #$80                 ; A=OPENOUT, for writing
              STA   :LINEBUF+1,Y         ; Force carriage return
              INY                        ; Include the carriage return
              STY   :LINELEN             ; Number of chars read
-             JSR   :BUILDLN             ; Write one line to disk
-             PLP
+             LDX   #$00
+:L1          CPX   :LINELEN
+             BEQ   :S1
+             LDA   :LINEBUF+1,X
+             LDY   :FILENUM             ; Recover file number
+             JSR   OSBPUT               ; Write char to file
+             INX
+             BRA   :L1
+:S1          PLP
              BCS   :CLOSE               ; Escape pressed
              BRA   :RDLINE
 :CLOSE       JSR   OSNEWL
@@ -725,19 +732,6 @@ CMDBUILD     LDA   #$80                 ; A=OPENOUT, for writing
              JSR   OSFIND               ; Close build file
              STZ   ESCFLAG
              RTS
-
-* Helper function for CMDBUILD
-* Writes a single line from LINEBUF -> disk
-:BUILDLN     LDX   #$00
-:L1          CPX   :LINELEN
-             BEQ   :DONELN
-             LDA   :LINEBUF+1,X
-             LDY   :FILENUM             ; Recover file number
-             JSR   OSBPUT               ; Write char to file
-             INX
-             BRA   :L1
-:DONELN      RTS
-
 :TEXT        ASC   'Build> '
 :LINEBUF     DS    81                   ; 80 char line plus CR
 :LINELEN     DB    $00                  ; Line length excluding CR
