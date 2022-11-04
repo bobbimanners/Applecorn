@@ -29,6 +29,9 @@
 * 30-Nov-2021 With *FX4,<>0 TAB returns $09, allows eg VIEW to work.
 * 15-Oct-2022 Replace calling KBDCHKESC with ESCPOLL, does translations, etc.
 *             Fixed bug with cursor keys after *FX4,2. OSRDCH enables IRQs.
+* 23-Oct-2022 Escape: BYTE7E needed to ESCPOLL, INKEYESC unbalanced stack.
+* 03-Nov-2022 Escape: Fixed INKEY loop failing if entering with previous Escape,
+*             combined with EscAck clearing keyboard.
 
 
 * Hardware locations
@@ -162,8 +165,10 @@ INKEY1       LDA   CURSOR              ; Add cursor
              BVC   INKEY2
              LDA   CURSORCP
 INKEY2       JSR   PUTCHRC             ; Toggle cursor
-INKEY3       LDA   ESCFLAG
-             BMI   INKEYOK             ; Escape pending, return it
+INKEY3       LDA   #$27                ; Prepare to return CHR$27 if Escape state
+             CLC
+             BIT   ESCFLAG             ; Check Escape state
+             BMI   INKEYESC            ; Escape pending, return it with A=27
 INKEY4       JSR   KEYREAD             ; Test for input, all can be trashed
              PLY
              BCC   INKEYOK             ; Char returned, return it
@@ -186,8 +191,8 @@ INKEY8       BIT   KBDDATA
              BPL   INKEY8              ; Wait for VBLK change
              BMI   INKEYLP             ; Loop back to key test
 
-INKEYOUT     PLA                       ; Drop stacked Y
-             LDA   #$FF                ; Prepare to stack $FF
+INKEYOUT     LDA   #$FF                ; Prepare to stack $FF
+INKEYESC     PLY                       ; Drop stacked Y
 INKEYOK      PHA                       ; Save key or timeout
              PHP                       ; Save CC=key, CS=timeout
              LDA   OLDCHAR             ; Prepare for main cursor
@@ -197,7 +202,6 @@ INKEYOK      PHA                       ; Save key or timeout
              JSR   COPYSWAP1           ; Swap cursor back
              LDA   COPYCHAR            ; Remove main cursor
 INKEYOFF2    JSR   PUTCHRC             ; Remove cursor
-*
              PLP
              BCS   INKEYOK3            ; Timeout
              LDA   ESCFLAG             ; Keypress, test for Escape
@@ -427,21 +431,22 @@ KBDDONE      RTS
 
 * Poll the keyboard to update Escape state
 * On exit, MI=Escape state pending
-*           A,X,Y=preserved
+*          CC=key pressed, CS=no key pressed
+*          A=character
+*          X,Y=preserved
 *
-ESCPOLL      PHA                       ; KBDTEST corrupts A
-             BIT   SETV                ; Set V
+ESCPOLL      BIT   SETV                ; Set V
              JSR   KBDTEST             ; VS - test keyboard
              BCS   ESCPOLL9            ; No keypress pending
              PHX                       ; KBDREAD corrupts A,X
-             JSR   KBDREAD2            ; Read key and check for Escape
+             JSR   KBDREAD2            ; Read key and check for Escape, returns CC
              PLX
-ESCPOLL9     PLA
-             BIT   ESCFLAG             ; Return with Escape state
+ESCPOLL9     BIT   ESCFLAG             ; Return with Escape state
              RTS
 
 * Process pending Escape state
-BYTE7E       LDX   #$00                ; $7E = ack detection of ESC
+BYTE7E       STA KBDACK                ; Flush keyboard
+             LDX   #$00                ; $7E = ack detection of ESC
              BIT   ESCFLAG
              BPL   BYTE7DOK            ; No Escape pending
              LDA   FXESCEFFECT         ; Process Escape effects
