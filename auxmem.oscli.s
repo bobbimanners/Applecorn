@@ -693,6 +693,24 @@ CMDDUMP      BEQ   ERRDUMP           ; No filename
 CMDBUILD     LDA   #$80                 ; A=OPENOUT, for writing
              JSR   OPENAFILE            ; Try to open file
              STA   :FILENUM             ; Stash file number
+             STZ   :LINENUM+0           ; Zero line counter
+             STZ   :LINENUM+1
+             STZ   TEMP32+0             ; Zero buffer used by PRINTDEC
+             STZ   TEMP32+1
+             STZ   TEMP32+2
+             STZ   TEMP32+3
+:RDLINE      INC   :LINENUM+0           ; Increment line counter
+             BCC   :S0
+             INC   :LINENUM+1
+:S0          LDA   :LINENUM+0           ; Print line number
+             STA   TEMP32+0
+             LDA   :LINENUM+1
+             STA   TEMP32+1
+             LDX   #TEMP32
+             LDY   #$04                 ; Pad to length 4
+             JSR   PRINTDEC
+             LDA   #' '                 ; Print space
+             JSR   OSWRCH
              LDA   #<:LINEBUF           ; Pointer to line buffer
              STA   OSTEXT+0
              LDA   #>:LINEBUF
@@ -703,22 +721,19 @@ CMDBUILD     LDA   #$80                 ; A=OPENOUT, for writing
              STA   MINCHAR
              LDA   #126                 ; Maximum allowable char
              STA   MAXCHAR
-:RDLINE      LDX   #<:TEXT              ; Display prompt
-             LDY   #>:TEXT
-             JSR   OSPRSTR
              LDA   #$00                 ; OSWORD &00 input line from console 
              LDX   #<OSTEXT             ; XY -> control block
              LDY   #>OSTEXT
              JSR   OSWORD               ; Read line from console
              PHP
              LDA   #$0D                 ; Carriage return
-             STA   :LINEBUF+1,Y         ; Force carriage return
+             STA   :LINEBUF,Y           ; Force carriage return
              INY                        ; Include the carriage return
              STY   :LINELEN             ; Number of chars read
              LDX   #$00
 :L1          CPX   :LINELEN
              BEQ   :S1
-             LDA   :LINEBUF+1,X
+             LDA   :LINEBUF,X
              LDY   :FILENUM             ; Recover file number
              JSR   OSBPUT               ; Write char to file
              INX
@@ -732,10 +747,10 @@ CMDBUILD     LDA   #$80                 ; A=OPENOUT, for writing
              JSR   OSFIND               ; Close build file
              STZ   ESCFLAG
              RTS
-:TEXT        ASC   'Build> '
 :LINEBUF     DS    81                   ; 80 char line plus CR
 :LINELEN     DB    $00                  ; Line length excluding CR
 :FILENUM     DB    $00                  ; File handle
+:LINENUM     DW    $00                  ; Line number
 
 * *SPOOL (<afsp>)
 * ---------------
