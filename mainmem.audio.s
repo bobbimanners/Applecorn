@@ -467,7 +467,7 @@ ENSQISR     INC   SYSCLOCK+0                ; Increment system clock
             JSR   REMAUDIO
             JSR   REMAUDIO
             JSR   REMAUDIO
-            BRA   :NEXT
+            JMP   :PEEK                     ; Immediately dispatch next note
 :SYNCSET    JSR   CHORD                     ; See if chord can be released
             BRA   :NEXT
 :CNT        DB    $05                       ; Used to determine 20Hz cycles
