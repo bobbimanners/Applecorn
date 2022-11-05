@@ -13,11 +13,12 @@
 * 08-Oct-2022 Rewrote *TYPE, *DUMP, *SPOOL, shares code with *EXEC.
 *             Sorted command table, added *HELP FILE.
 *             Optimised CLILOOK dispatcher.
+* 05-Nov-2022 Added ROM, TAPE, TV to command table -> OSBYTE calls.
 
 
 * COMMAND TABLE
 ***************
-* Table structure is: { string, byte OR $80, destword-1 } $00
+* Table structure is: { string, byte OR $80, destword-1 } $FF
 * Commands are entered with A=command byte with b7=1
 *                          EQ=no parameter
 *                          b6=0 - Enter with XY=>parameters
@@ -28,9 +29,6 @@ CMDTABLE
 CMDFILE     ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $85
             DW    STARFSC-1          ; CAT    -> FSC 5, XY=>params
-            ASC   'BUILD'
-            DB    $81 ; TO DO
-            DW    CMDBUILD-1         ; BUILD  -> XY=>params
             ASC   'CDIR'
             DB    $88
             DW    STARFILE-1         ; CDIR   -> OSFILE 08, CBLK=>filename
@@ -100,9 +98,18 @@ CMDMOS      ASC   'BASIC'
             ASC   'QUIT'
             DB    $FF
             DW    STARQUIT-1         ; QUIT   -> (LPTR)=>params
+            ASC   'ROM'
+            DB    $8D
+            DW    STARBYTE-1         ; ROM    -> OSBYTE &8D,X,Y  XY=>params
             ASC   'SLOW'
             DB    $FF
             DW    CMDSLOW-1          ; SLOW   -> (LPTR)=>params
+            ASC   'TAPE'
+            DB    $8C
+            DW    STARBYTE-1         ; TAPE   -> OSBYTE &8C,X,Y  XY=>params
+            ASC   'TV'
+            DB    $90
+            DW    STARBYTE-1         ; TV     -> OSBYTE &90,X,Y  XY=>params
 * Table terminator
             DB    $FF
 
@@ -405,7 +412,7 @@ STARHELP9   RTS
 * *BASIC
 * ------
 STARBASIC   LDX   MAXROM
-:BASICLP    JSR   ROMSELECT
+:BASICLP    JSR   ROMSELECT          ; Step through ROMs
             BIT   $8006
             BPL   :BASICGO           ; No service, must be BASIC
             DEX
@@ -434,8 +441,8 @@ STARHELP    JSR   XYtoLPTR           ; Update OSLPTR=>parameters
             BMI   STARHELP6          ; Yes, skip to send service call
             JSR   OSNEWL
             LDX   #$09               ; Language name
-            LDY   #$80               ; *TO DO* make this and BYTE8E
-            JSR   OSPRSTR            ;  use same code
+            LDY   #$80
+            JSR   OSPRSTR
             JSR   OSNEWL
 STARHELP6   LDY   #0                 ; (OSLPTR),Y=>parameters
             LDA   #9
@@ -685,72 +692,6 @@ CMDDUMP      BEQ   ERRDUMP           ; No filename
              PLP
              BCC   :LOOP1
              JMP   TYPCLOSE          ; Close and finish
-
-* *BUILD (<afsp>)
-* ---------------
-* XY=>parameters string
-*
-CMDBUILD     LDA   #$80                 ; A=OPENOUT, for writing
-             JSR   OPENAFILE            ; Try to open file
-             STA   :FILENUM             ; Stash file number
-             STZ   :LINENUM+0           ; Zero line counter
-             STZ   :LINENUM+1
-             STZ   TEMP32+0             ; Zero buffer used by PRINTDEC
-             STZ   TEMP32+1
-             STZ   TEMP32+2
-             STZ   TEMP32+3
-:RDLINE      INC   :LINENUM+0           ; Increment line counter
-             BCC   :S0
-             INC   :LINENUM+1
-:S0          LDA   :LINENUM+0           ; Print line number
-             STA   TEMP32+0
-             LDA   :LINENUM+1
-             STA   TEMP32+1
-             LDX   #TEMP32
-             LDY   #$04                 ; Pad to length 4
-             JSR   PRINTDEC
-             LDA   #' '                 ; Print space
-             JSR   OSWRCH
-             LDA   #<:LINEBUF           ; Pointer to line buffer
-             STA   OSTEXT+0
-             LDA   #>:LINEBUF
-             STA   OSTEXT+1
-             LDA   #80                  ; Maximum line length
-             STA   MAXLEN
-             LDA   #32                  ; Minimum allowable char 
-             STA   MINCHAR
-             LDA   #126                 ; Maximum allowable char
-             STA   MAXCHAR
-             LDA   #$00                 ; OSWORD &00 input line from console 
-             LDX   #<OSTEXT             ; XY -> control block
-             LDY   #>OSTEXT
-             JSR   OSWORD               ; Read line from console
-             PHP
-             LDA   #$0D                 ; Carriage return
-             STA   :LINEBUF,Y           ; Force carriage return
-             INY                        ; Include the carriage return
-             STY   :LINELEN             ; Number of chars read
-             LDX   #$00
-:L1          CPX   :LINELEN
-             BEQ   :S1
-             LDA   :LINEBUF,X
-             LDY   :FILENUM             ; Recover file number
-             JSR   OSBPUT               ; Write char to file
-             INX
-             BRA   :L1
-:S1          PLP
-             BCS   :CLOSE               ; Escape pressed
-             BRA   :RDLINE
-:CLOSE       JSR   OSNEWL
-             LDA   #$00                 ; A=CLOSE
-             LDY   :FILENUM             ; Recover file number
-             JSR   OSFIND               ; Close build file
-             STZ   ESCFLAG
-             RTS
-:LINEBUF     DS    81                   ; 80 char line plus CR
-:LINELEN     DB    $00                  ; Line length excluding CR
-:FILENUM     DB    $00                  ; File handle
-:LINENUM     DW    $00                  ; Line number
 
 * *SPOOL (<afsp>)
 * ---------------
