@@ -29,6 +29,9 @@ CMDTABLE
 CMDFILE     ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $85
             DW    STARFSC-1          ; CAT    -> FSC 5, XY=>params
+            ASC   'BUILD'
+            DB    $81 ; TO DO
+            DW    CMDBUILD-1         ; BUILD  -> XY=>params
             ASC   'CDIR'
             DB    $88
             DW    STARFILE-1         ; CDIR   -> OSFILE 08, CBLK=>filename
@@ -736,6 +739,91 @@ OPENAFILE    JSR   OSFIND               ; Try to open file
              TAY                        ; Was file opened?
              BNE   EXECDONE             ; File opened
 EXECNOTFND   JMP   ERRNOTFND            ; File not found
+
+
+* *BUILD (<afsp>)
+* ---------------
+* XY=>parameters string
+*
+CMDBUILD     LDA   #$80                 ; A=OPENOUT, for writing
+             JSR   OPENAFILE            ; Try to open file
+             STA   :FILENUM             ; Stash file number
+             JSR   LNCTRRESET           ; Reset line counter
+:RDLINE      JSR   LNCTRINCR            ; Increment line counter
+             JSR   LNCTRPRT             ; Print line counter
+             LDA   #<:LINEBUF           ; Pointer to line buffer
+             STA   OSTEXT+0
+             LDA   #>:LINEBUF
+             STA   OSTEXT+1
+             LDA   #80                  ; Maximum line length
+             STA   MAXLEN
+             LDA   #32                  ; Minimum allowable char 
+             STA   MINCHAR
+             LDA   #126                 ; Maximum allowable char
+             STA   MAXCHAR
+             LDA   #$00                 ; OSWORD &00 input line from console 
+             LDX   #<OSTEXT             ; XY -> control block
+             LDY   #>OSTEXT
+             JSR   OSWORD               ; Read line from console
+             PHP
+             LDA   #$0D                 ; Carriage return
+             STA   :LINEBUF,Y           ; Force carriage return
+             INY                        ; Include the carriage return
+             STY   :LINELEN             ; Number of chars read
+             LDX   #$00
+:L1          CPX   :LINELEN
+             BEQ   :S1
+             LDA   :LINEBUF,X
+             LDY   :FILENUM             ; Recover file number
+             JSR   OSBPUT               ; Write char to file
+             INX
+             BRA   :L1
+:S1          PLP
+             BCS   :CLOSE               ; Escape pressed
+             BRA   :RDLINE
+:CLOSE       JSR   OSNEWL
+             LDA   #$00                 ; A=CLOSE
+             LDY   :FILENUM             ; Recover file number
+             JSR   OSFIND               ; Close build file
+             STZ   ESCFLAG
+             RTS
+:LINEBUF     DS    81                   ; 80 char line plus CR
+:LINELEN     DB    $00                  ; Line length excluding CR
+:FILENUM     DB    $00                  ; File handle
+
+
+
+* Reset line counter
+* Helper function used for *BUILD and *LIST line counter
+LNCTRRESET   STZ   LINENUM+0            ; Zero line counter
+             STZ   LINENUM+1
+             STZ   TEMP32+0             ; Zero buffer used by PRINTDEC
+             STZ   TEMP32+1
+             STZ   TEMP32+2
+             STZ   TEMP32+3
+             RTS
+
+* Increment line counter
+* Helper function used for *BUILD and *LIST line counter
+LNCTRINCR    INC   LINENUM+0            ; Increment line counter
+             BNE   :DONE
+             INC   LINENUM+1
+:DONE        RTS
+
+* Print line counter
+* Helper function used for *BUILD and *LIST line counter
+LNCTRPRT     LDA   LINENUM+0            ; Print line number
+             STA   TEMP32+0
+             LDA   LINENUM+1
+             STA   TEMP32+1
+             LDX   #TEMP32
+             LDY   #$04                 ; Pad to length 4
+             JSR   PRINTDEC
+             LDA   #' '                 ; Print space
+             JSR   OSWRCH
+             RTS
+
+LINENUM      DW    $00                  ; Line number
 
 
 * ZIP SPEED COMMANDS
