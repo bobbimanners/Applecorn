@@ -16,7 +16,7 @@ SYSCLOCK     DB    $00                       ; Centisecond counter (5 bytes)
 *  - LS byte of channel number
 *  - Frequency
 *  - Duration
-SNDBUFSZ     EQU   21                        ; FOR 4 NOTES + spare byte
+SNDBUFSZ     EQU   21                        ; 5 notes, plus a spare byte
 SNDBUF0      DS    SNDBUFSZ
 SNDBUF1      DS    SNDBUFSZ
 SNDBUF2      DS    SNDBUFSZ
@@ -762,7 +762,7 @@ ENSQINIT    LDX   #3
             LDY   #10                       ; Five oscillators enabled
             JSR   ENSQWRTDOC
             LDY   #$00                      ; Amplitude for osc #4 (timer)
-            LDA   #00                       ; EMPIRICAL
+            LDA   #00                       ; EMPIRICAL - durations approx correct
 *            LDA   #33+1                     ; Freq G2+1/8 tone = 99.46Hz
             LDX   #$04
             JSR   ENSQNOTE                  ; Start oscillator 4
