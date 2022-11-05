@@ -111,12 +111,9 @@ DISCONN     LDA   MACHID
             STA   DEVADR32+1
             DEC   DEVCNT
 
-:S1         SEC
-            JSR   IDROUTINE         ; See if we have a GS
-            BCS   :NOTGS
-            JSR   ENSQINIT          ; Initialize Ensoniq
+:S1         JSR   ROMMENU           ; This really needs to happen elsewhere
 
-:NOTGS      JSR   ROMMENU           ; This really needs to happen elsewhere
+            JSR   RESETHW           ; Reset any hardware required
 
             LDA   #<:FDFILE
             STA   OPENPL+1
