@@ -15,6 +15,7 @@ A2IRQ        >>>   IENTMAIN          ; IENTMAIN does not do CLI
 A2IRQ2       PHP                     ; Fake things to look like IRQ
              JMP   (A2IRQV)          ; Call Apple II ProDOS ISR
 
+
 * BRK handler in main memory. Used on Apple IIgs only.
 GSBRK        >>>   XF2AUX,GSBRKAUX
 
@@ -27,8 +28,14 @@ RESET        TSX
              LDA   AN1OFF            ; AN1 off
              LDA   AN2ON             ; AN2 on
              LDA   AN3ON             ; AN3 on
+             JSR   RESETHW           ; Reset hardware
              >>>   XF2AUX,AUXMOS
-             RTS
 
 
+* Reset hardware
+RESETHW      SEC
+             JSR   IDROUTINE         ; See if this is a GS
+             BCS   :NOTGS
+             JSR   ENSQINIT          ; Initialize Ensoniq
+:NOTGS       RTS
 
