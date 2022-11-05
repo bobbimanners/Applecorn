@@ -7,6 +7,7 @@
 * 02-Sep-2021 OSWORD 5 can read from Main Memory ROM.
 * 04-Sep-2021 Extended VDU table to add $75 and $A0 for VDU driver.
 * 09-Sep-2021 Moved keyboard and VDU OSBYTEs to Keyboard and VDU.
+* 05-Nov-2022 Added rest of OSBYTE dispatch entries, null for the moment.
 
 
              XC                           ; 65c02
@@ -23,13 +24,23 @@ BYTWRDADDR   DW    BYTE00                 ; OSBYTE   0 - Machine host    - INIT.
              DW    BYTE06                 ; OSBYTE   6 - Printer ignore
              DW    BYTENULL               ; OSBYTE   7 - Serial Rx Speed
              DW    BYTENULL               ; OSBYTE   8 - Serial Tx Speed
-             DW    BYTENULL               ; OSBYTE   9 - Flash period space
-             DW    BYTENULL               ; OSBYTE  10 - Flash period mark
-             DW    BYTENULL               ; OSBYTE  11 - Autorepeat delay
-             DW    BYTENULL               ; OSBYTE  12 - Autorepeat repeat
+             DW    BYTE09                 ; OSBYTE   9 - Flash period space
+             DW    BYTE0A                 ; OSBYTE  10 - Flash period mark
+             DW    BYTE0B                 ; OSBYTE  11 - Autorepeat delay
+             DW    BYTE0C                 ; OSBYTE  12 - Autorepeat repeat
              DW    BYTENULL               ; OSBYTE  13 - Disable event
              DW    BYTENULL               ; OSBYTE  14 - Enable event
              DW    BYTENULL               ; OSBYTE  15 - Flush buffer
+             DW    BYTENULL               ; OSBYTE  16
+             DW    BYTENULL               ; OSBYTE  17
+             DW    BYTENULL               ; OSBYTE  18
+             DW    BYTENULL               ; OSBYTE  19 - Wait for VSync
+             DW    BYTENULL               ; OSBYTE  20
+             DW    BYTENULL               ; OSBYTE  21
+             DW    BYTENULL               ; OSBYTE  22
+             DW    BYTENULL               ; OSBYTE  23
+             DW    BYTENULL               ; OSBYTE  24
+             DW    BYTENULL               ; OSBYTE  25
 BYTWRDLOW
 BYTESZLO     EQU   BYTWRDLOW-BYTWRDADDR
 BYTELOW      EQU   BYTESZLO/2-1           ; Maximum low OSBYTE
@@ -94,13 +105,13 @@ OSWBASE      DW    WORD00                 ; OSWORD  0 - Read input line
              DW    WORD04                 ; OSWORD  4 - Write interval timer
              DW    WORD05                 ; OSWORD  5 - Read I/O memory
              DW    WORD06                 ; OSWORD  6 - Write I/O memory
-             DW    WORD07                 ; OSWORD  7 - SOUND
-             DW    WORD08                 ; OSWORD  8 - ENVELOPE
-             DW    WORD09                 ; OSWORD  9 - POINT
-             DW    WORD0A                 ; OSWORD 10 - Read character bitmap
-             DW    WORD0B                 ; OSWORD 11 - Read palette
-             DW    WORD0C                 ; OSWORD 12 - Write palette
-             DW    WORD0D                 ; OSWORD 13 - Read coordinates
+             DW    WORD07                 ; OSWORD  7 - SOUND                 - AUDIO.s
+             DW    WORD08                 ; OSWORD  8 - ENVELOPE              - AUDIO.s
+             DW    WORD09                 ; OSWORD  9 - POINT                 - VDU.s
+             DW    WORD0A                 ; OSWORD 10 - Read character bitmap - VDU.s
+             DW    WORD0B                 ; OSWORD 11 - Read palette          - VDU.s
+             DW    WORD0C                 ; OSWORD 12 - Write palette         - VDU.s
+             DW    WORD0D                 ; OSWORD 13 - Read coordinates      - VDU.s
 OSWEND
              DW    WORDE0                 ; OSWORD &E0+ - User OSWORD
 
@@ -124,6 +135,7 @@ WORDMAX      EQU   WORDSZ/2-1
 *
 WORDHND      PHA
              PHP
+             SEI
              STA   OSAREG                 ; Store registers
              STX   OSCTRL+0               ; Point to control block
              STY   OSCTRL+1
@@ -148,6 +160,7 @@ WORDGO1      LDA   #WORDOFF+WORDMAX+1
 *
 BYTEHND      PHA
              PHP
+             SEI
              STA   OSAREG                 ; Store registers
              STX   OSXREG
              STY   OSYREG
@@ -167,7 +180,7 @@ BYTEGO1      LDA   #BYTEMAX+1             ; Index for BYTEVAR
 BYTEGO2      SBC   #BYTEHIGH-BYTELOW-1    ; Reduce OSBYTE number
 BYTEGO3      ORA   #$80                   ; Will become CS=OSBYTE call
 
-BYTWRDCALL   ASL   A                      ; Index into dispatch table
+BYTWRDCALL   ASL   A                      ; Index into dispatch table, CC=OSWORD call
              TAY                          ; Y=offset into dispatch table
 *          BIT   FXNETCLAIM      ; Check Econet intercept flag
 *          BPL   BYTWRDNONET     ; No intercept, skip past
@@ -199,7 +212,7 @@ BYTWRDGO     JSR   JMPADDR                ; Call the routine
 * X,Y,Cy from routine returned to caller
 
 BYTWRDEXIT   ROR   A                      ; Move Carry to A
-             PLP                          ; Restore original flags
+             PLP                          ; Restore original flags and IRQs
              ROL   A                      ; Move Carry back to flags
              PLA                          ; Restore A
              CLV                          ; Clear V = Actioned
@@ -215,7 +228,7 @@ BYTWRDFAIL   PHX                          ; *DEBUG*
              BVC   BYTEFAIL1              ; Debug turned off
              JSR   UNSUPBYTWRD            ; *DEBUG*
 BYTEFAIL1    LDX   #$FF                   ; X=&FF if unclaimed
-             PLP                          ; Restore original flags
+             PLP                          ; Restore original flags and IRQs
              PLA                          ; Restore A
              BIT   SETV                   ; Set V = Not actioned
              RTS
@@ -253,7 +266,8 @@ WORD00       IF    MAXLEN-OSTEXT-2
              BPL   :WORD00LP3             ;  4  = MAXCHAR
              INY                          ; Initial line length = zero
              FIN
-*             STY   FXLINES                ; Reset line counter
+             STY   FXLINES                ; Reset line counter
+             CLI                          ; Ensure IRQs are on
              BEQ   :WORD00LP              ; Enter main loop
 
 :WORD00BELL  LDA   #$07                   ; $07=BELL
@@ -314,35 +328,28 @@ WORD00       IF    MAXLEN-OSTEXT-2
 ************************************
 * On entry, (OSCTRL)=>control block
 *           Y=0
+* IRQs are disabled while we access the timers
 
-WORD01       PHP                          ; Disable interrupts
-             SEI
-             STA   RDMAINRAM              ; Read from main memory
+WORD01       STA   RDMAINRAM              ; Read from main memory
 :WORD01LP    LDA   SYSCLOCK,Y             ; Read sys clock in main mem
              STA   (OSCTRL),Y             ; Store in buffer
              INY
              CPY   #$05
              BCC   :WORD01LP
              STA   RDCARDRAM              ; Read from aux memory
-             PLP                          ; Restore interrupt state
              RTS
 
-WORD02       PHP                          ; Disable interrupts
-             SEI
-             >>>   WRTMAIN
+WORD02       >>>   WRTMAIN
 :WORD02LP    LDA   (OSCTRL),Y             ; Read from buffer
-:WORD02LP    STA   SYSCLOCK,Y             ; Store to sys clock in main mem
+             STA   SYSCLOCK,Y             ; Store to sys clock in main mem
              INY
              CPY   #$05
              BCC   :WORD02LP
              >>>   WRTAUX
-             PLP                          ; Restore interrupt state
              RTS
 
 WORD03
-WORD04
-             RTS
-
+WORD04       RTS                          ; Dummy, do nothing
 
 * OSWORD &05 - Read I/O memory
 * OSWORD &06 - Write I/O memory
@@ -364,8 +371,7 @@ WORD05IO     LDA   OSINTWS+0              ; X CORRUPTED BY XF2MAIN
 WORD05IO1    >>>   XF2MAIN,MAINRDMEM
 
 * <8000xxxx language memory
-*  ????xxxx MAIN RAM is activated by writing to RDMAINRAM ($C002)
-*           AUX  RAM us activated by writing to RDCARDRAM ($C003)
+*  ????xxxx main memory RAM paged in via STA RDMAINRAM
 *  ????xxxx main memory ROM paged in via XFER
 
              STA   RDMAINRAM              ; Switch to main memory
@@ -379,9 +385,9 @@ WORD06       JSR   GETADDR                ; Point to address, set Y=>data
              LDA   (OSCTRL),Y             ; Get byte
              PLP
              BNE   WORD06A
-             >>>   WRTMAIN
+             STA   WRMAINRAM              ; Switch to main memory
 WORD06A      STA   (OSINTWS)              ; Store it
-             >>>   WRTAUX
+             STA   WRCARDRAM              ; Back to aux memory
              RTS
 
 GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
@@ -485,9 +491,3 @@ OSWORDM      ASC   'OSWORD($'
              DB    $00
 OSBM2        ASC   ').'
              DB    $00
-
-
-
-
-
-
