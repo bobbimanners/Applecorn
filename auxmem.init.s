@@ -111,7 +111,7 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
 :S8         STA   SET80VID                   ; 80 col on
             STA   CLRALTCHAR                 ; Alt charset off
             STA   PAGE2                      ; PAGE2
-            JMP   MOSHIGH                    ; Ensure executing in high memory here
+*            JMP   MOSHIGH                    ; Ensure executing in high memory here
 
 MOSHIGH     SEI                              ; Ensure IRQs disabled
             LDX   #$FF
