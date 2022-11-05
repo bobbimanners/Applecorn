@@ -1,2 +1,2 @@
 #mame -w apple2ee -debug -sl5 mouse -sl7 cffa2 -harddisk1 ~/Personal/Development/Applecorn/applecorn.po
-mame -w apple2gs -debug -sl7 cffa2 -harddisk1 ~/Personal/Development/Applecorn/applecorn.po -harddisk2 tests/Shawty1.po
+mame -w apple2gs -debug -sl7 cffa2 -harddisk1 ~/Personal/Development/Applecorn/applecorn.po -harddisk2 tests/JGHMusic1.po
