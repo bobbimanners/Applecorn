@@ -762,7 +762,8 @@ ENSQINIT    LDX   #3
             LDY   #10                       ; Five oscillators enabled
             JSR   ENSQWRTDOC
             LDY   #$00                      ; Amplitude for osc #4 (timer)
-            LDA   #33+1                     ; Freq G2+1/8 tone = 99.46Hz
+            LDA   #00                       ; EMPIRICAL
+*            LDA   #33+1                     ; Freq G2+1/8 tone = 99.46Hz
             LDX   #$04
             JSR   ENSQNOTE                  ; Start oscillator 4
             LDX   #$A4                      ; Control register for osc #4
