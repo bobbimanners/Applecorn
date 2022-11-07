@@ -98,7 +98,7 @@ INSHND      PHA                              ; Preserve all regs
             PHX                              ; X->Y for transfer
             PLY
             >>>   XF2MAIN,MAININS
-INSHNDRET   >>>   ENTAUX
+INSHNDRET   >>>   IENTAUX                    ; Do NOT enable interrupts
             PHA                              ; A->Flags after transfer
             PLP
             PLY                              ; Recover all regs
@@ -122,7 +122,7 @@ CNPHND      PHP
             PHX                              ; X->Y for transfer
             PLY
             >>>   XF2MAIN,MAINCNP
-CNPHNDRET1  >>>   ENTAUX                     ; Return after count
+CNPHNDRET1  >>>   IENTAUX                    ; Return after count
             PHY                              ; Y->X after transfer
             PLX
             PLY                              ; Discard stacked Y
@@ -130,7 +130,7 @@ CNPHNDRET1  >>>   ENTAUX                     ; Return after count
             LDY   #$00                       ; Y=0 for count
             PLP
             RTS
-CNPHNDRET2  >>>   ENTAUX                     ; Return after purge
+CNPHNDRET2  >>>   IENTAUX                    ; Return after purge
             PLY                              ; Recover X,Y and flags
             PLX
             PLP

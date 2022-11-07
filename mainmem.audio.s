@@ -187,7 +187,7 @@ INS         PHP                              ; Save flags, turn off interrupts
 
 
 * Entry point to INS for code running in aux
-MAININS     >>>   ENTMAIN
+MAININS     >>>   IENTMAIN                   ; Do NOT enable interrupts!!
             PHY                              ; Y->X after transfer
             PLX
             JSR   INS
@@ -307,7 +307,7 @@ CNP        PHP                               ; Preserve flags
 
 
 * Entry point to CNP for code running in aux
-MAINCNP     >>>   ENTMAIN
+MAINCNP     >>>   IENTMAIN                   ; Do NOT enable interrupts
             PHY                              ; Y->X after transfer
             PLX
             PHA                              ; A->flags after transfer
