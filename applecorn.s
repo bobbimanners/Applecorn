@@ -210,10 +210,10 @@ ENTMAIN     MAC
 IENTAUX     MAC
             LDX   $0101       ; Recover alt SP
             TXS
-            LDX   STRTBCKL
-            STX   STRTL
-            LDX   STRTBCKH
-            STX   STRTH
+*            LDX   STRTBCKL   ; No longer needed
+*            STX   STRTL
+*            LDX   STRTBCKH
+*            STX   STRTH
             EOM
 
 * Macro called on re-entry to main memory
