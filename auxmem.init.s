@@ -9,17 +9,13 @@
 
 MAXROM      EQU   $F9             ; Max sideways ROM number
 
-*
-* $90-$9f are spare Econet space so safe to use
-*
-ZP1         EQU   $90
+ZP1         EQU   $90             ; $90-$9f are spare Econet space
+                                  ; so safe to use
 ZP2         EQU   $92
 ZP3         EQU   $94
 
-TEMP32      EQU   $96             ; $96-$99 inclusive
-
-STRTBCKL    EQU   $9D             ; *TO DO* No longer needed to preserve
-STRTBCKH    EQU   $9E
+*STRTBCKL    EQU   $9D             ; *TO DO* No longer needed to preserve
+*STRTBCKH    EQU   $9E
 
 MOSSHIM
             ORG   AUXMOS          ; MOS shim implementation
@@ -111,7 +107,7 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
 :S8         STA   SET80VID                   ; 80 col on
             STA   CLRALTCHAR                 ; Alt charset off
             STA   PAGE2                      ; PAGE2
-*            JMP   MOSHIGH                    ; Ensure executing in high memory here
+            JMP   MOSHIGH                    ; Ensure executing in high memory here
 
 MOSHIGH     SEI                              ; Ensure IRQs disabled
             LDX   #$FF
@@ -169,11 +165,10 @@ BYTE8E      PHP                   ; Save CLC=RESET, SEC=Not RESET
 *********************************
 * X=service call, Y=parameter
 *
-SERVICE     TAX                   ; Enter here with A=Service Num
+* SERVICE     TAX                   ; Enter here with A=Service Num
 BYTE8F
-SERVICEX    LDA   $F4
+SERVICEX    LDA   $F4             ; Enter here with X=Service Number
             PHA                   ; Save current ROM
-
 *DEBUG
             LDA   $E0
             AND   #$20            ; Test debug *OPT255,32
@@ -182,7 +177,7 @@ SERVICEX    LDA   $F4
             BEQ   :SERVDONE       ; If debug on, ignore SERV06
 :SERVDEBUG
 *DEBUG
-            TXA
+            TXA                   ; A=service number
             LDX   MAXROM          ; Start at highest ROM
 :SERVLP     JSR   ROMSELECT       ; Bring it into memory
             BIT   $8006
@@ -207,13 +202,13 @@ PRHELLO     LDX   #<HELLO
             JSR   OSPRSTR
             JMP   OSNEWL
 
-BYTE00XX
+* BYTE00XX
 BYTE00      BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
             LDX   #$0A                       ; Identify Host
             RTS                              ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2022-11-06'
+HELLO       ASC   'Applecorn MOS 2022-11-04'
             DB    $00                        ; Unify MOS messages
 * TO DO: Move into RAM
 GSSPEED     DB    $00                        ; $80 if GS is fast, $00 for slow
