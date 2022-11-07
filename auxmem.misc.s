@@ -139,38 +139,38 @@ PRNIB       CMP   #$0A
 * X=>four byte zero page locations
 * Y= number of digits to pad to, 0 for no padding
 *
-PRINTDEC    sty   OSPAD            ; Number of padding+digits
-            ldy   #0               ; Digit counter
-PRDECDIGIT  lda   #32              ; 32-bit divide
-            sta   OSTEMP
-            lda   #0               ; Remainder=0
-            clv                    ; V=0 means div result = 0
-PRDECDIV10  cmp   #10/2            ; Calculate OSNUM/10
-            bcc   PRDEC10
-            sbc   #10/2+$80        ; Remove digit & set V=1 to show div result > 0
-            sec                    ; Shift 1 into div result
-PRDEC10     rol   0,x              ; Shift /10 result into OSNUM
-            rol   1,x
-            rol   2,x
-            rol   3,x
-            rol   a                ; Shift bits of input into acc (input mod 10)
-            dec   OSTEMP
-            bne   PRDECDIV10       ; Continue 32-bit divide
-            ora   #48
-            pha                    ; Push low digit 0-9 to print
-            iny
-            bvs   PRDECDIGIT       ; If V=1, result of /10 was > 0 & do next digit
-            lda   #32
-PRDECLP1    cpy   OSPAD
-            bcs   PRDECLP2         ; Enough padding pushed
-            pha                    ; Push leading space characters
-            iny
-            bne   PRDECLP1
-PRDECLP2    pla                    ; Pop character left to right
-            jsr   OSWRCH           ; Print it
-            dey
-            bne   PRDECLP2
-            rts
+PRINTDEC    STY   OSPAD            ; Number of padding+digits
+            LDY   #0               ; Digit counter
+PRDECDIGIT  LDA   #32              ; 32-bit divide
+            STA   OSTEMP
+            LDA   #0               ; Remainder=0
+            CLV                    ; V=0 means div result = 0
+PRDECDIV10  CMP   #10/2            ; Calculate OSNUM/10
+            BCC   PRDEC10
+            SBC   #10/2+$80        ; Remove digit & set V=1 to show div result > 0
+            SEC                    ; Shift 1 into div result
+PRDEC10     ROL   0,X              ; Shift /10 result into OSNUM
+            ROL   1,X
+            ROL   2,X
+            ROL   3,X
+            ROL   A                ; Shift bits of input into acc (input mod 10)
+            DEC   OSTEMP
+            BNE   PRDECDIV10       ; Continue 32-bit divide
+            ORA   #48
+            PHA                    ; Push low digit 0-9 to print
+            INY
+            BVS   PRDECDIGIT       ; If V=1, result of /10 was > 0 & do next digit
+            LDA   #32
+PRDECLP1    CPY   OSPAD
+            BCS   PRDECLP2         ; Enough padding pushed
+            PHA                    ; Push leading space characters
+            INY
+            BNE   PRDECLP1
+PRDECLP2    PLA                    ; Pop character left to right
+            JSR   OSWRCH           ; Print it
+            DEY
+            BNE   PRDECLP2
+            RTS
 
 
 * GSINIT - Initialise for GSTRANS string parsing
