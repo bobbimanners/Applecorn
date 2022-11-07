@@ -6,7 +6,7 @@
 # SOUND statements.
 #
 
-base=123.47 / 16.0 * 1.573
+base=123.47 / 16.0 * 1.573 * 440.0 / 739.99
 
 print("\nFREQHIGH");
 for i in range(0,256):
