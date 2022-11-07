@@ -25,7 +25,9 @@ WORD07      INY
             BIT   :RTS                       ; Set V, means flush buffer
             JSR   CNPHND                     ; Go flush buffer
             PLY
-:WAITLOOP   LDA   $C000                      ; See if key pressed
+:WAITLOOP   CLI                              ; Allow IRQS for a few cycles
+            SEI                              ; (So queue can be emptied)
+            LDA   $C000                      ; See if key pressed
             BPL   :NOKEY
             EOR   #$80
             JSR   KBDCHKESC                  ; Was Escape pressed?
