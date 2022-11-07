@@ -445,7 +445,7 @@ ESCPOLL9     BIT   ESCFLAG             ; Return with Escape state
              RTS
 
 * Process pending Escape state
-BYTE7E       STA KBDACK                ; Flush keyboard
+BYTE7E       STA   KBDACK              ; Flush keyboard
              LDX   #$00                ; $7E = ack detection of ESC
              BIT   ESCFLAG
              BPL   BYTE7DOK            ; No Escape pending
