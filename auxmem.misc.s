@@ -103,14 +103,14 @@ FORCENL     LDA   #$86
             BEQ   PRSTROK
             JMP   OSNEWL
 
-* OSPR2HEX - Print XY in hex
-****************************
+* PR2HEX - Print XY in hex
+**************************
 OUT2HEX     TYA
             JSR   OUTHEX
             TXA                    ; Continue into OUTHEX
 
-* OSPR1HEX - Print hex byte in A
-********************************
+* PR1HEX - Print hex byte in A
+******************************
 OUTHEX      PHA
             LSR
             LSR
@@ -139,38 +139,38 @@ PRNIB       CMP   #$0A
 * X=>four byte zero page locations
 * Y= number of digits to pad to, 0 for no padding
 *
-PRINTDEC    STY   OSPAD            ; Number of padding+digits
-            LDY   #0               ; Digit counter
-PRDECDIGIT  LDA   #32              ; 32-bit divide
-            STA   OSTEMP
-            LDA   #0               ; Remainder=0
-            CLV                    ; V=0 means div result = 0
-PRDECDIV10  CMP   #10/2            ; Calculate OSNUM/10
-            BCC   PRDEC10
-            SBC   #10/2+$80        ; Remove digit & set V=1 to show div result > 0
-            SEC                    ; Shift 1 into div result
-PRDEC10     ROL   0,X              ; Shift /10 result into OSNUM
-            ROL   1,X
-            ROL   2,X
-            ROL   3,X
-            ROL   A                ; Shift bits of input into acc (input mod 10)
-            DEC   OSTEMP
-            BNE   PRDECDIV10       ; Continue 32-bit divide
-            ORA   #48
-            PHA                    ; Push low digit 0-9 to print
-            INY
-            BVS   PRDECDIGIT       ; If V=1, result of /10 was > 0 & do next digit
-            LDA   #32
-PRDECLP1    CPY   OSPAD
-            BCS   PRDECLP2         ; Enough padding pushed
-            PHA                    ; Push leading space characters
-            INY
-            BNE   PRDECLP1
-PRDECLP2    PLA                    ; Pop character left to right
-            JSR   OSWRCH           ; Print it
-            DEY
-            BNE   PRDECLP2
-            RTS
+PRINTDEC    sty   OSPAD            ; Number of padding+digits
+            ldy   #0               ; Digit counter
+PRDECDIGIT  lda   #32              ; 32-bit divide
+            sta   OSTEMP
+            lda   #0               ; Remainder=0
+            clv                    ; V=0 means div result = 0
+PRDECDIV10  cmp   #10/2            ; Calculate OSNUM/10
+            bcc   PRDEC10
+            sbc   #10/2+$80        ; Remove digit & set V=1 to show div result > 0
+            sec                    ; Shift 1 into div result
+PRDEC10     rol   0,x              ; Shift /10 result into OSNUM
+            rol   1,x
+            rol   2,x
+            rol   3,x
+            rol   a                ; Shift bits of input into acc (input mod 10)
+            dec   OSTEMP
+            bne   PRDECDIV10       ; Continue 32-bit divide
+            ora   #48
+            pha                    ; Push low digit 0-9 to print
+            iny
+            bvs   PRDECDIGIT       ; If V=1, result of /10 was > 0 & do next digit
+            lda   #32
+PRDECLP1    cpy   OSPAD
+            bcs   PRDECLP2         ; Enough padding pushed
+            pha                    ; Push leading space characters
+            iny
+            bne   PRDECLP1
+PRDECLP2    pla                    ; Pop character left to right
+            jsr   OSWRCH           ; Print it
+            dey
+            bne   PRDECLP2
+            rts
 
 
 * GSINIT - Initialise for GSTRANS string parsing
@@ -247,7 +247,7 @@ GSREADLP    STA   GSCHAR           ; Update accumulator
             BNE   GSREAD2          ; No, check character
             BIT   GSFLAG
             BPL   GSREADEND        ; We aren't waiting for a closing quote
-*                                ; End of line before closing quote
+*                                  ; End of line before closing quote
 ERRBADSTR   BRK
             DB    $FD
             ASC   'Bad string'
@@ -258,7 +258,7 @@ GSREAD2     CMP   #' '
             BNE   GSREAD3          ; Not a space, process it
             BIT   GSFLAG           ; Can space terminate string?
             BMI   GSREADCHAR       ; We're waiting for a terminating quote
-*                                ;  so return the space character
+*                                  ;  so return the space character
             BVC   GSREADEND        ; Space is a terminator, finish
 GSREAD3     CMP   #$22             ; Is it a quote?
             BNE   GSREADESC        ; Not quote, check for escapes
@@ -333,10 +333,11 @@ ROMSELECT
             PHP
             CPX   ROMID            ; Speed up by checking if
             BEQ   ROMSELOK         ; already paged in
-* BUG: This needs ROMID an invalid value on startup so first access works
             PHA
             PHX
             PHY
+* LDA $FF
+* JSR PR1HEX
             SEI
             TXA                    ; A=ROM to select
             >>>   XF2MAIN,SELECTROM
@@ -362,9 +363,6 @@ ROMINIT     STZ   MAXROM           ; One sideways ROM only
             STA   MAXROM
 :X2         LDA   #$FF
             STA   ROMID            ; Ensure set to invalid value
-            RTS
-
-
 EVENT       RTS
 
 
@@ -400,15 +398,13 @@ IRQBRKHDLR  PHA
             LDA   $0105,X
             SBC   #$00
             STA   FAULT+1
-
-            LDA   $F4              ; Get current ROM
+            LDA   ROMID            ; Get current ROM
             STA   BYTEVARBASE+$BA  ; Set ROM at last BRK
             STX   OSXREG           ; Pass stack pointer
-            LDA   #$06             ; Service Call 6 = BRK occured
-            JSR   SERVICE
+            LDX   #$06             ; Service Call 6 = BRK occured
+            JSR   SERVICEX
             LDX   BYTEVARBASE+$FC  ; Get current language
             JSR   ROMSELECT        ; Bring it into memory
-
             PLA
             TAX
             PLA
@@ -443,8 +439,8 @@ PRERRLP     LDA   (FAULT),Y
             JSR   OSWRCH
             INY
             BNE   PRERRLP
-NULLRTS
-PRERR1      RTS
+PRERR1
+NULLRTS     RTS
 
 
 * Default page 2 contents
@@ -491,7 +487,7 @@ MOSAPI      EQU   $FF95
 
 * OPTIONAL ENTRIES
 * ----------------
-OSSERV      JMP   SERVICE          ; FF95 OSSERV
+OSSERV      JMP   SERVICEX         ; FF95 OSSERV
 OSCOLD      JMP   NULLRTS          ; FF98 OSCOLD
 OSPRSTR     JMP   OUTSTR           ; FF9B OSPRSTR
 OSSCANDEC   JMP   SCANDEC          ; FF9E SCANDEC

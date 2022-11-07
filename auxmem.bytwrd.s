@@ -1,5 +1,5 @@
 * AUXMEM.BYTWRD.S
-* (c) Bobbi 2021 GPLv3
+* (c) Bobbi 2021,2022 GPLv3
 *
 * Applecorn OSBYTE and OSWORD handlers
 *
@@ -266,8 +266,8 @@ WORD00       IF    MAXLEN-OSTEXT-2
              BPL   :WORD00LP3             ;  4  = MAXCHAR
              INY                          ; Initial line length = zero
              FIN
+             CLI                          ; Set IRQs going again
              STY   FXLINES                ; Reset line counter
-             CLI                          ; Ensure IRQs are on
              BEQ   :WORD00LP              ; Enter main loop
 
 :WORD00BELL  LDA   #$07                   ; $07=BELL
@@ -328,24 +328,24 @@ WORD00       IF    MAXLEN-OSTEXT-2
 ************************************
 * On entry, (OSCTRL)=>control block
 *           Y=0
-* IRQs are disabled while we access the timers
+* IRQs are disabled while we access the timers and main memory
 
-WORD01       STA   RDMAINRAM              ; Read from main memory
+WORD01       STA   RDMAINRAM              ; Read from main mem (IRQs are off)
 :WORD01LP    LDA   SYSCLOCK,Y             ; Read sys clock in main mem
-             STA   (OSCTRL),Y             ; Store in buffer
+             STA   (OSCTRL),Y             ; Store in buffer in aux mem
              INY
              CPY   #$05
              BCC   :WORD01LP
-             STA   RDCARDRAM              ; Read from aux memory
+             STA   RDCARDRAM              ; Reads back to aux memory
              RTS
 
-WORD02       >>>   WRTMAIN
-:WORD02LP    LDA   (OSCTRL),Y             ; Read from buffer
+WORD02       STA   WRMAINRAM              ; Write to main mem (IRQs are off)
+:WORD02LP    LDA   (OSCTRL),Y             ; Read from buffer in aux mem
              STA   SYSCLOCK,Y             ; Store to sys clock in main mem
              INY
              CPY   #$05
              BCC   :WORD02LP
-             >>>   WRTAUX
+             STA   WRCARDRAM              ; Writes back to aux memory
              RTS
 
 WORD03
@@ -359,35 +359,46 @@ WORD04       RTS                          ; Dummy, do nothing
 *           Y=0, A=(OSCTRL)
 * IRQs are disabled, so we don't have to preserve IRQ state
 *
-WORD05       JSR   GETADDR                ; Point to address, set Y=>data
-             BNE   WORD05A
-             JSR   WORD05IO
-             LDY   #$04
-             STA   (OSCTRL),Y             ; Store it
-WORD05RET    RTS
-
-WORD05IO     LDA   OSINTWS+0              ; X CORRUPTED BY XF2MAIN
-             LDY   OSINTWS+1
-WORD05IO1    >>>   XF2MAIN,MAINRDMEM
-
-* <8000xxxx language memory
-*  ????xxxx main memory RAM paged in via STA RDMAINRAM
-*  ????xxxx main memory ROM paged in via XFER
-
-             STA   RDMAINRAM              ; Switch to main memory
-WORD05A      LDA   (OSINTWS)              ; Get byte
-             STA   RDCARDRAM              ; Back to aux memory
+* <8000xxxx language memory - aux memory
+*  FFxxxxxx I/O memory      - aux memory
+*  A0xxxxxx use this to specify 'A'pple main memory
+*
+WORD05       JSR   GETADDR                ; Point to address, set Y=>data byte
+             BEQ   WORD5A                 ; Skip to read from main memory
+             LDA   (OSINTWS)              ; Get byte
              STA   (OSCTRL),Y             ; Store it
              RTS
 
-WORD06       JSR   GETADDR                ; Point to address, set Y=>data
+* We want to read from anywhere in main memory. We can't just set
+* 'all reads from main' as we'd page out our own code. We need to call
+* mainmem and read from there.
+WORD5A       JSR   WORD05IO               ; Call as a subroutine to return here
+             STA   (OSCTRL),Y             ; Store it
+             RTS
+
+WORD05IO     LDA   OSINTWS+0              ; X CORRUPTED BY XF2MAIN
+             LDY   OSINTWS+1              ; &YYAA=address to read
+WORD05IO1    >>>   XF2MAIN,MAINRDMEM
+
+WORD06       JSR   GETADDR                ; Point to address, set Y=>data byte
              PHP
-             LDA   (OSCTRL),Y             ; Get byte
+             LDA   (OSCTRL),Y             ; Get byte from our memory
              PLP
-             BNE   WORD06A
-             STA   WRMAINRAM              ; Switch to main memory
-WORD06A      STA   (OSINTWS)              ; Store it
-             STA   WRCARDRAM              ; Back to aux memory
+             BEQ   WORD06A                ; Skip to write to main memory
+             STA   (OSINTWS)              ; Store it
+             RTS
+
+* We want to be able to write to anywhere in main memory.
+* As we are within the OSWORD handler, IRQs are off, so we can just
+* 'write through' all memory.
+WORD06A      STA   $C008                  ; &0000-&01FF writes to main memory
+             STA   WRMAINRAM              ; &0200-&BFFF writes to main memory
+*                                         ; &C000-&CFFF is always I/O
+*                                         ; &D000-&FFFF how do we write to this?
+             STA   (OSINTWS)              ; Store it
+             STA   $C009                  ; &0000-&01FF writes to aux memory
+             STA   WRCARDRAM              ; &0200-&BFFF writes to aux memory
+*                                         ; &D000-&FFFF
              RTS
 
 GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
@@ -398,7 +409,7 @@ GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
              INY
              LDA   (OSCTRL),Y             ; Get address high byte
              INY                          ; Point Y to data byte
-             CMP   #$80                   ; *TO DO* Needs an appropriate value
+             CMP   #$A0                   ; Let's use A0xxxxxx for 'A'pple memory
              RTS
 
 

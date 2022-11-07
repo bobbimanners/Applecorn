@@ -14,6 +14,7 @@
 *             Sorted command table, added *HELP FILE.
 *             Optimised CLILOOK dispatcher.
 * 05-Nov-2022 Added ROM, TAPE, TV to command table -> OSBYTE calls.
+* 06-Nov-2022 Rewrote *BUILD, avoids using code memory.
 
 
 * COMMAND TABLE
@@ -24,13 +25,17 @@
 *                          b6=0 - Enter with XY=>parameters
 *                          b6=1 - Enter with LPTR,Y=>parameters
 *
-* Ok, let's get around to sorting these
-CMDTABLE
-CMDFILE     ASC   'CAT'              ; Must be first command so matches '*.'
+CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
+            DB    $85
+            DW    STARFSC-1          ; CAT    -> FSC 5, XY=>params
+            ASC   'BASIC'            ; Bodge to allow *B. priority over *BUILD
+            DB    $FF
+            DW    STARBASIC-1        ; BASIC  -> (LPTR)=>params
+CMDFILE     ASC   'CAT'
             DB    $85
             DW    STARFSC-1          ; CAT    -> FSC 5, XY=>params
             ASC   'BUILD'
-            DB    $81 ; TO DO
+            DB    $80 ; $81 ; TO DO
             DW    CMDBUILD-1         ; BUILD  -> XY=>params
             ASC   'CDIR'
             DB    $88
@@ -42,10 +47,10 @@ CMDFILE     ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $86
             DW    STARFILE-1         ; DELETE -> OSFILE 06, CBLK=>filename
             ASC   'DUMP'
-            DB    $81 ; TO DO
+            DB    $80 ; $81 ; TO DO
             DW    CMDDUMP-1          ; DUMP   -> XY=>params
             ASC   'EXEC'
-            DB    $81 ; TO DO
+            DB    $80 ; $81 ; TO DO
             DW    CMDEXEC-1          ; EXEC   -> XY=>params
             ASC   'EX'
             DB    $89
@@ -72,10 +77,10 @@ CMDFILE     ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $81
             DW    STARSAVE-1         ; SAVE   -> OSFILE 00, CBLK=>filename
             ASC   'SPOOL'
-            DB    $81 ; TO DO
+            DB    $80 ; $81 ; TO DO
             DW    CMDSPOOL-1         ; SPOOL  -> XY=>params
             ASC   'TYPE'
-            DB    $81 ; TO DO
+            DB    $80 ; $81 ; TO DO
             DW    CMDTYPE-1          ; TYPE   -> XY=>params
 * Split between HELP lists
             DB    $00
@@ -93,7 +98,7 @@ CMDMOS      ASC   'BASIC'
             DB    $FF
             DW    CMDFAST-1          ; FAST   -> (LPTR)=>params
             ASC   'HELP'
-            DB    $81
+            DB    $80
             DW    STARHELP-1         ; HELP   -> XY=>params
             ASC   'KEY'
             DB    $FF
@@ -120,13 +125,13 @@ CMDMOS      ASC   'BASIC'
 * *HELP TABLE
 *************
 HLPTABLE    ASC   'MOS'
-            DB    $80
+            DB    $FF
             DW    HELPMOS-1          ; *HELP MOS
             ASC   'FILE'
-            DB    $80
+            DB    $FF
             DW    HELPFILE-1         ; *HELP FILE
             ASC   'HOSTFS'
-            DB    $80
+            DB    $FF
             DW    HELPHOSTFS-1       ; *HELP HOSTFS
             DB    $FF
 
@@ -193,12 +198,12 @@ CLIMATCH3   JSR   SKIPSPC            ; (OSLPTR),Y=>parameters
             PHX                      ; SP->high
             PHA                      ; SP->low, high
             PHP                      ; SP->flg, low, high
-* BIT OSTEMP
-* BVS CLICALL
-            LDA   OSTEMP
-            ASL   A                  ; Move bit 6 into bit 7
-            BMI   CLICALL            ; If b6=1 don't convert LPTR
-            BEQ   CLICALL  ; *TEMP* If $80, skip - remove when HOSTFS updated
+            BIT OSTEMP               ; Test command parameter
+            BVS CLICALL              ; If b6=1 don't convert LPTR
+;            LDA   OSTEMP
+;            ASL   A                  ; Move bit 6 into bit 7
+;            BMI   CLICALL            ; If b6=1 don't convert LPTR
+;            BEQ   CLICALL  ; *TEMP* If $80, skip - remove when HOSTFS updated
 *
             JSR   LPTRtoXY           ; XY=>parameters
 CLICALL     LDA   OSTEMP             ; A=command parameter
@@ -213,6 +218,7 @@ CLISTEP2    LDA   (OSTEXT,X)         ; Get next byte
 
 
 * OSCLI HANDLER
+***************
 * On entry, XY=>command string
 * On exit,  AXY corrupted or error generated
 *
@@ -246,8 +252,8 @@ CLISLASH    JSR   SKIPSPC1
             LDA   #$02
             BNE   STARFSC2           ; FSC 2 = */filename
 *
-CLIUNKNOWN  LDA   #$04
-            JSR   SERVICE            ; Offer to sideways ROM(s)
+CLIUNKNOWN  LDX   #$04
+            JSR   SERVICEX           ; Offer to sideways ROM(s)
             BEQ   CLIDONE            ; Claimed
             LDA   #$03               ; FSC 3 = unknown command
 STARFSC2    PHA
@@ -303,9 +309,15 @@ STARBYTE2   LDY   OSYREG
 
 * Line scanning
 * -------------
-
 * Scan decimal number
-SCANDEC     JSR   SKIPSPC
+*********************
+* On entry, (OSLPTR),Y=>first character
+* On exit,  A         =8-bit decimal value
+*           X         =preserved
+*           (OSLPTR),Y=>skipped spaces after number
+*           
+SCANDEC
+*           JSR   SKIPSPC
             JSR   SCANDIGIT          ; Check first digit
             BCS   ERRBADNUM          ; Doesn't start with a digit
 SCANDECLP   STA   OSTEMP             ; Store as current number
@@ -325,7 +337,8 @@ SCANDECLP   STA   OSTEMP             ; Store as current number
             BCC   SCANDECLP
             BCS   ERRBADNUM          ; Overflowed
 
-SCANDECOK   LDA   OSTEMP             ; Return A=number
+SCANDECOK   JSR   SKIPSPC            ; Ensure trailing spaces skipped
+            LDA   OSTEMP             ; Return A=number
 SCANDIG2    SEC
             RTS
 
@@ -351,8 +364,15 @@ HEXDIGIT    JSR   SCANDIGIT
 HEXDIGIT2   RTS
 
 * Scan hex address
-* (OSLPTR),Y=>first character
-* $200,X    = 4-byte accumulator 
+******************
+* On entry, (OSLPTR),Y=>first character
+*           $0200,X = 4-byte accumulator 
+* On exit,  $0200,X = 4-byte accumulator 
+*           (OSLPTR),Y=>skipped spaces after number
+*           X         =preserved
+*           A         =next character
+*           EQ        =end of line, no more parameters
+*
 SCANHEX     JSR   HEXDIGIT           ; Get first digit
             BCS   ERRBADADD1         ; Not a hex character
             STA   $200,X             ; Store first digit
@@ -438,7 +458,7 @@ STARHELP    JSR   XYtoLPTR           ; Update OSLPTR=>parameters
             JSR   PRHELLO            ; Unify version message
             LDX   #<HLPTABLE         ; XY=>command table
             LDY   #>HLPTABLE
-            JSR   CLILOOKUP          ; Look for *HELP subject
+            JSR   CLILOOKUP          ; Look for *HELP subject at OSLPTR
             BEQ   STARHELP9          ; Matched
             LDA   $8006              ; Does ROM have service entry?
             BMI   STARHELP6          ; Yes, skip to send service call
@@ -448,8 +468,8 @@ STARHELP    JSR   XYtoLPTR           ; Update OSLPTR=>parameters
             JSR   OSPRSTR
             JSR   OSNEWL
 STARHELP6   LDY   #0                 ; (OSLPTR),Y=>parameters
-            LDA   #9
-            JMP   SERVICE            ; Pass to sideways ROM(s)
+            LDX   #9
+            JMP   SERVICEX           ; Pass to sideways ROM(s)
 
 * Print *HELP text
 HELPHOSTFS  LDX   #<FSCCOMMAND       ; *HELP HOSTFS
@@ -624,8 +644,8 @@ ERRDUMP      BRK
              ASC   'Syntax: DUMP <afsp>'
              BRK
 
-* Handle *DUMP command
-* --------------------
+* *DUMP <afsp>
+* ------------
 * XY=>parameters string, EQ=no parameters
 *
 CMDDUMP      BEQ   ERRDUMP           ; No filename
@@ -696,7 +716,64 @@ CMDDUMP      BEQ   ERRDUMP           ; No filename
              BCC   :LOOP1
              JMP   TYPCLOSE          ; Close and finish
 
-* *SPOOL (<afsp>)
+* *BUILD <fsp>
+* ------------
+* XY=>parameters string, EQ=no parameters
+*
+BUILDLINE    EQU   $0700
+ERRBUILD     BRK
+             DB    $DC
+             ASC   'Syntax: BUILD <fsp>'
+             BRK
+BUILDBUF     DW    BUILDLINE            ; Control block to read a line
+             DB    $80                  ; 128 characters max
+             DB    32                   ; Min char
+             DB    126                  ; Max char
+             
+CMDBUILD     BEQ   ERRBUILD             ; No filename
+             LDA   #$80                 ; A=OPENOUT, for writing
+             JSR   OPENAFILE            ; Try to open file
+             PHA
+             LDA   #0                   ; Line number
+             PHA
+             PHA
+:BUILDLP1    PLA                        ; Get line number
+             PLY
+             CLC
+             SED                        ; Use BCD arithmetic
+             ADC   #$01                 ; Add one to line number
+             BCC   :BUILD2
+             INY
+:BUILD2      CLD
+             PHY
+             PHA
+             TAX
+             JSR   PR2HEX               ; Print line number
+             JSR   PRSPACE              ; Followed by a space
+             LDX   #<BUILDBUF           ; XY -> control block
+             LDY   #>BUILDBUF
+             LDA   #$00
+             JSR   OSWORD               ; OSWORD &00 input line
+             BCS   :BUILDDONE
+             TSX
+             LDY   $103,X               ; Get handle
+             LDX   #$00
+:BUILDLP2    LDA   BUILDLINE,X          ; Get char from line
+             JSR   OSBPUT               ; Write it to the file
+             INX
+             CMP   #$0D
+             BNE   :BUILDLP2            ; Loop until terminating CR
+             BEQ   :BUILDLP1            ; Go for another line
+:BUILDDONE   LDA   #$7C
+             JSR   OSBYTE               ; Clear Escape state
+             PLA                        ; Drop line number
+             PLA
+             PLY                        ; Get handle
+             LDA   #$00
+             JSR   OSFIND               ; Close the file
+             JMP   OSNEWL               ; Print newline and exit
+
+* *SPOOL (<fsp>)
 * ---------------
 * XY=>parameters string, EQ=no parameters
 *
@@ -739,91 +816,6 @@ OPENAFILE    JSR   OSFIND               ; Try to open file
              TAY                        ; Was file opened?
              BNE   EXECDONE             ; File opened
 EXECNOTFND   JMP   ERRNOTFND            ; File not found
-
-
-* *BUILD (<afsp>)
-* ---------------
-* XY=>parameters string
-*
-CMDBUILD     LDA   #$80                 ; A=OPENOUT, for writing
-             JSR   OPENAFILE            ; Try to open file
-             STA   :FILENUM             ; Stash file number
-             JSR   LNCTRRESET           ; Reset line counter
-:RDLINE      JSR   LNCTRINCR            ; Increment line counter
-             JSR   LNCTRPRT             ; Print line counter
-             LDA   #<:LINEBUF           ; Pointer to line buffer
-             STA   OSTEXT+0
-             LDA   #>:LINEBUF
-             STA   OSTEXT+1
-             LDA   #80                  ; Maximum line length
-             STA   MAXLEN
-             LDA   #32                  ; Minimum allowable char 
-             STA   MINCHAR
-             LDA   #126                 ; Maximum allowable char
-             STA   MAXCHAR
-             LDA   #$00                 ; OSWORD &00 input line from console 
-             LDX   #<OSTEXT             ; XY -> control block
-             LDY   #>OSTEXT
-             JSR   OSWORD               ; Read line from console
-             PHP
-             LDA   #$0D                 ; Carriage return
-             STA   :LINEBUF,Y           ; Force carriage return
-             INY                        ; Include the carriage return
-             STY   :LINELEN             ; Number of chars read
-             LDX   #$00
-:L1          CPX   :LINELEN
-             BEQ   :S1
-             LDA   :LINEBUF,X
-             LDY   :FILENUM             ; Recover file number
-             JSR   OSBPUT               ; Write char to file
-             INX
-             BRA   :L1
-:S1          PLP
-             BCS   :CLOSE               ; Escape pressed
-             BRA   :RDLINE
-:CLOSE       JSR   OSNEWL
-             LDA   #$00                 ; A=CLOSE
-             LDY   :FILENUM             ; Recover file number
-             JSR   OSFIND               ; Close build file
-             STZ   ESCFLAG
-             RTS
-:LINEBUF     DS    81                   ; 80 char line plus CR
-:LINELEN     DB    $00                  ; Line length excluding CR
-:FILENUM     DB    $00                  ; File handle
-
-
-
-* Reset line counter
-* Helper function used for *BUILD and *LIST line counter
-LNCTRRESET   STZ   LINENUM+0            ; Zero line counter
-             STZ   LINENUM+1
-             STZ   TEMP32+0             ; Zero buffer used by PRINTDEC
-             STZ   TEMP32+1
-             STZ   TEMP32+2
-             STZ   TEMP32+3
-             RTS
-
-* Increment line counter
-* Helper function used for *BUILD and *LIST line counter
-LNCTRINCR    INC   LINENUM+0            ; Increment line counter
-             BNE   :DONE
-             INC   LINENUM+1
-:DONE        RTS
-
-* Print line counter
-* Helper function used for *BUILD and *LIST line counter
-LNCTRPRT     LDA   LINENUM+0            ; Print line number
-             STA   TEMP32+0
-             LDA   LINENUM+1
-             STA   TEMP32+1
-             LDX   #TEMP32
-             LDY   #$04                 ; Pad to length 4
-             JSR   PRINTDEC
-             LDA   #' '                 ; Print space
-             JSR   OSWRCH
-             RTS
-
-LINENUM      DW    $00                  ; Line number
 
 
 * ZIP SPEED COMMANDS
