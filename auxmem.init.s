@@ -119,6 +119,8 @@ MOSHIGH     SEI                              ; Ensure IRQs disabled
             STA   $0300,X
             INX
             BNE   :SCLR
+            INC   BYTEVARBASE+$FD            ; Last reset=Hard
+* TO DO: Do this properly
 
             LDX   #ENDVEC-DEFVEC-1
 :INITPG2    LDA   DEFVEC,X                   ; Set up vectors
@@ -208,7 +210,7 @@ BYTE00      BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
             RTS                              ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2022-11-07'
+HELLO       ASC   'Applecorn MOS 2022-11-04'
             DB    $00                        ; Unify MOS messages
 * TO DO: Move into RAM
 GSSPEED     DB    $00                        ; $80 if GS is fast, $00 for slow
