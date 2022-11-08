@@ -30,7 +30,7 @@ MOSSHIM
 *
 * Initially executing at $2000 until copied to $D000
 *
-* When running with BRUN APPLECORN:
+* When running APLCORN.SYSTEM:
 *  Code will be at $2000-$4FFF, then copied to $D000-$FFFF
 * When Ctrl-Reset pressed:
 *  AUX RESET code jumps to MAIN $D000
@@ -226,7 +226,7 @@ BYTE00      BEQ   BYTE00A         ; OSBYTE 0,0 - generate error
             RTS                   ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2022-11-04'
+HELLO       ASC   'Applecorn MOS 2022-11-08'
             DB    $00             ; Unify MOS messages
 * TO DO: Move into RAM
 GSSPEED     DB    $00             ; $80 if GS is fast, $00 for slow
