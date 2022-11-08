@@ -2,6 +2,8 @@
 * (c) Bobbi 2021 GPL v3
 *
 * Initialization code running in Apple //e aux memory
+* 08-Nov-2022 ResetType OSBYTE set
+
 
 ***********************************************************
 * BBC Micro 'virtual machine' in Apple //e aux memory
@@ -26,26 +28,27 @@ MOSSHIM
 * This code is initially loaded into aux mem at AUXMOS1
 * Then relocated into aux LC at AUXMOS by MOSINIT
 *
-* Initially executing at $3000 until copied to $D000
-
+* Initially executing at $2000 until copied to $D000
+*
+* When running with BRUN APPLECORN:
+*  Code will be at $2000-$4FFF, then copied to $D000-$FFFF
+* When Ctrl-Reset pressed:
+*  AUX RESET code jumps to MAIN $D000
+*
 MOSINIT     SEI                   ; Ensure IRQs disabled
             LDX   #$FF            ; Initialize Alt SP to $1FF
             TXS
 
-            STA   WRCARDRAM                  ; Make sure we are writing aux
-            STA   80STOREOFF                 ; Make sure 80STORE is off
+            STA   WRCARDRAM       ; Make sure we are writing aux
+            STA   80STOREOFF      ; Make sure 80STORE is off
 
-            LDA   LCBANK1                    ; LC RAM Rd/Wt, 1st 4K bank
+            LDA   LCBANK1         ; LC RAM Rd/Wt, 1st 4K bank
             LDA   LCBANK1
-
-:MODBRA     BRA   :RELOC                     ; NOPped out on first run
+            LDY   #$00            ; $02=Soft Reset
+:MODBRA     BRA   :RELOC          ; NOPped out on first run
             BRA   :NORELOC
 
-            LDA   #$EA                       ; NOP opcode
-            STA   :MODBRA
-            STA   :MODBRA+1
-
-:RELOC      LDA   #<AUXMOS1                  ; Relocate MOS shim
+:RELOC      LDA   #<AUXMOS1       ; Relocate MOS shim
             STA   A1L
             LDA   #>AUXMOS1
             STA   A1H
@@ -103,52 +106,66 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
             INC   A4H
 :S7         BRA   :L2
 
-:NORELOC
-:S8         STA   SET80VID                   ; 80 col on
-            STA   CLRALTCHAR                 ; Alt charset off
-            STA   PAGE2                      ; PAGE2
-            JMP   MOSHIGH                    ; Ensure executing in high memory here
+:S8
+            LDA   #$EA            ; NOP opcode
+            STA   :MODBRA+0       ; Next time around, we're already
+            STA   :MODBRA+1       ; in high memory
+            LDY   #$02            ; $02=PowerOn
 
-MOSHIGH     SEI                              ; Ensure IRQs disabled
+:NORELOC    STA   SET80VID        ; 80 col on
+            STA   CLRALTCHAR      ; Alt charset off
+            STA   PAGE2           ; PAGE2
+            JMP   MOSHIGH         ; Ensure executing in high memory from here
+
+* From here onwards we are always executing at $D000 onwards
+* Y=ResetType
+
+MOSHIGH     SEI                   ; Ensure IRQs disabled
             LDX   #$FF
-            TXS                              ; Initialise stack
-            INX                              ; X=$00
+            TXS                   ; Initialise stack
+            INX                   ; X=$00
             TXA
-:SCLR       STA   $0000,X                    ; Clear Kernel memory
+:SCLR       STA   $0000,X         ; Clear Kernel memory
             STA   $0200,X
             STA   $0300,X
             INX
             BNE   :SCLR
-            INC   BYTEVARBASE+$FD            ; Last reset=Hard
-* TO DO: Do this properly
+            STY   BYTEVARBASE+$FD ; Set ResetType
 
             LDX   #ENDVEC-DEFVEC-1
-:INITPG2    LDA   DEFVEC,X                   ; Set up vectors
+:INITPG2    LDA   DEFVEC,X        ; Set up vectors
             STA   $200,X
             DEX
             BPL   :INITPG2
 
-            LDA   CYAREG                     ; GS speed register
-            AND   #$80                       ; Speed bit only
-            STA   GSSPEED                    ; In Alt LC for IRQ/BRK hdlr
+            LDA   CYAREG          ; GS speed register
+            AND   #$80            ; Speed bit only
+            STA   GSSPEED         ; In Alt LC for IRQ/BRK hdlr
 
-            JSR   ROMINIT                    ; Build list of sideways ROMs
-            JSR   KBDINIT                    ; Returns A=startup MODE
-            JSR   VDUINIT                    ; Initialise VDU driver
+            JSR   ROMINIT         ; Build list of sideways ROMs
+            JSR   KBDINIT         ; Returns A=startup MODE
+            JSR   VDUINIT         ; Initialise VDU driver
             JSR   PRHELLO
-            LDA   #7
+            LDA   BYTEVARBASE+$FD ; Get ResetType
+            BEQ   :INITSOFT
+            LDA   #7              ; Beep on HardReset
             JSR   OSWRCH
-            JSR   OSNEWL
+* AppleII MOS beeps anyway, so always get a Beep
+* BRUN APPLECORN -> BBC Beep
+* Ctrl-Reset -> AppleII Beep
+*
+:INITSOFT   JSR   OSNEWL
             LDX   MAXROM          ; *TEMP* X=language to enter
-            CLC
+* TO DO: SoftReset->Use CURRLANG, HardReset->Search for language
+*
+            CLC                   ; CLC=Entering from RESET
 
 * OSBYTE $8E - Enter language ROM
 *********************************
-* X=ROM number to select
+* X=ROM number to select, CC=RESET, CS=*COMMAND/OSBYTE
 *
 BYTE8E      PHP                   ; Save CLC=RESET, SEC=Not RESET
-            JSR   ROMSELECT       ; Bring ROM X into memory 
-            STX   BYTEVARBASE+$FC ; Set current language ROM
+            JSR   ROMSELECT       ; Bring ROM X into memory
             LDA   #$00
             STA   FAULT+0
             LDA   #$80
@@ -158,6 +175,7 @@ BYTE8E      PHP                   ; Save CLC=RESET, SEC=Not RESET
             STY   FAULT+0         ;  FAULT pointing to version string
             JSR   OSNEWL
             JSR   OSNEWL
+            STX   BYTEVARBASE+$FC ; Set current language ROM
             PLP                   ; Get entry type back
             LDA   #$01            ; $01=Entering code with a header
             JMP   ROMAUXADDR
@@ -198,20 +216,18 @@ SERVICEX    LDA   $F4             ; Enter here with X=Service Number
             TXA                   ; Return in A and X and set EQ/NE
             RTS
 
-
 PRHELLO     LDX   #<HELLO
             LDY   #>HELLO
             JSR   OSPRSTR
             JMP   OSNEWL
 
-* BYTE00XX
-BYTE00      BEQ   BYTE00A                    ; OSBYTE 0,0 - generate error
-            LDX   #$0A                       ; Identify Host
-            RTS                              ; %000x1xxx host type, 'A'pple
+BYTE00      BEQ   BYTE00A         ; OSBYTE 0,0 - generate error
+            LDX   #$0A            ; Identify Host
+            RTS                   ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2022-11-07'
-            DB    $00                        ; Unify MOS messages
+HELLO       ASC   'Applecorn MOS 2022-11-04'
+            DB    $00             ; Unify MOS messages
 * TO DO: Move into RAM
-GSSPEED     DB    $00                        ; $80 if GS is fast, $00 for slow
+GSSPEED     DB    $00             ; $80 if GS is fast, $00 for slow
 
