@@ -570,31 +570,34 @@ PITCHENV    LDA   CHANENV,X                 ; Get envelope number
             CMP   #$02
             BEQ   :SECT3                    ; Section 3, encoded as 2
             RTS                             ; Other section, do nothing
-:SECT1      LDY   #ENVPI1                   ; Parm: change pitch/step section 1
-            LDA   (A1L),Y                   ; Get value of parm
-            JSR   UPDPITCH                  ; Update the pitch
+:SECT1      
             LDY   #ENVPN1                   ; Parm: num steps in section 1
             LDA   (A1L),Y                   ; Get value of parm
             CMP   PITCHSTEP,X               ; Are we there yet?
             BEQ   :NXTSECT                  ; Yes!
-            INC   PITCHSTEP,X               ; One more step
-            RTS
-:SECT2      LDY   #ENVPI2                   ; Parm: change pitch/step section 2
+            LDY   #ENVPI1                   ; Parm: change pitch/step section 1
             LDA   (A1L),Y                   ; Get value of parm
             JSR   UPDPITCH                  ; Update the pitch
+            INC   PITCHSTEP,X               ; One more step
+            RTS
+:SECT2      
             LDY   #ENVPN2                   ; Parm: num steps in section 2
             LDA   (A1L),Y                   ; Get value of parm
             CMP   PITCHSTEP,X               ; Are we there yet?
             BEQ   :NXTSECT                  ; Yes!
-            INC   PITCHSTEP,X               ; One more step
-            RTS
-:SECT3      LDY   #ENVPI3                   ; Parm: change pitch/step section 3
+            LDY   #ENVPI2                   ; Parm: change pitch/step section 2
             LDA   (A1L),Y                   ; Get value of parm
             JSR   UPDPITCH                  ; Update the pitch
+            INC   PITCHSTEP,X               ; One more step
+            RTS
+:SECT3      
             LDY   #ENVPN3                   ; Parm: num steps in section 3
             LDA   (A1L),Y                   ; Get value of parm
             CMP   PITCHSTEP,X               ; Are we there yet?
             BEQ   :LASTSECT                 ; Yes!
+            LDY   #ENVPI3                   ; Parm: change pitch/step section 3
+            LDA   (A1L),Y                   ; Get value of parm
+            JSR   UPDPITCH                  ; Update the pitch
             INC   PITCHSTEP,X               ; One more step
             RTS
 :NXTSECT    INC   PITCHSECT,X               ; Next section
@@ -603,7 +606,7 @@ PITCHENV    LDA   CHANENV,X                 ; Get envelope number
 :LASTSECT   LDY   #ENVT                     ; Parm: length/step + autorepeat
             LDA   (A1L),Y                   ; Get value of parm
             AND   #$80                      ; MSB is auto-repeat flag
-            BEQ   :NXTSECT                  ; Not repeating
+            BNE   :NXTSECT                  ; Not repeating
             STZ   PITCHSECT,X               ; Go back to section 1
             STZ   PITCHSTEP,X               ; Back to step 0 of section
             RTS
