@@ -61,8 +61,8 @@ is set to `&0E00`.
   - Acornsoft ISO-Pascal (supplied on two 16KB ROMs)
   - Acornsoft View (word processor)
 
-All of the language manuals are provided.  They may be found in the `Manuals`
-subdirectory.
+All of the language manuals are provided in a separate GitHub repo:
+https://https://github.com/bobbimanners/Applecorn-Manuals
 
 The Applecorn diskette includes all of the example programs
 which were provided on diskette with COMAL, Forth, Lisp and ISO Pascal.  The
