@@ -403,16 +403,16 @@ ENSQISR     INC   SYSCLOCK+0                ; Increment system clock
             TAY                             ; Stash for later
             AND   #$0F                      ; Mask out hold nybble
             BNE   :SYNCSET                  ; Do not play if sync != 0
-            TYA                             ; HS byte
-            AND   #$F0                      ; Mask out sync nybble
-            BNE   :HOLDSET                  ; Handle hold function
 
             JSR   CHECK4BYTES               ; Check queue has a note
             BCS   :NEXT                     ; Less than 4 bytes, skip
 
             JSR   REMAUDIO                  ; Remove HS byte from queue
-            JSR   REMAUDIO                  ; Remove amplitude byte from queue
+            TYA                             ; HS byte
+            AND   #$F0                      ; Mask out sync nybble
+            BNE   :HOLDSET                  ; Handle hold function
 
+            JSR   REMAUDIO                  ; Remove amplitude byte from queue
             TYA                             ; Amplitude or envelope -> A
             DEC   A
             BPL   :HASENV                   ; If +ve, value was 1,2,3..
@@ -461,13 +461,12 @@ ENSQISR     INC   SYSCLOCK+0                ; Increment system clock
             BPL   :L2                       ; Next audio queue
             CLC
             RTL
-:HOLDSET    LDA   CURRAMP,X                 ; Get current amplitude
-            BNE   :NEXT                     ; If non zero, hold
-            JSR   REMAUDIO                  ; Dequeue four bytes
-            JSR   REMAUDIO
-            JSR   REMAUDIO
-            JSR   REMAUDIO
-            JMP   :PEEK                     ; Immediately dispatch next note
+:HOLDSET    JSR   REMAUDIO                  ; Dequeue amplitude/env (ignored)
+            JSR   REMAUDIO                  ; Dequeue frequency (ignored)
+            JSR   REMAUDIO                  ; Dequeue duration
+            TYA
+            STA   CHANTIMES,X
+            BRA   :NEXT
 :SYNCSET    JSR   CHORD                     ; See if chord can be released
             BRA   :NEXT
 :CNT        DB    $05                       ; Used to determine 20Hz cycles
