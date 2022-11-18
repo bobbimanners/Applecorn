@@ -57,10 +57,13 @@ MOCKINIT    LDA   #$FF                      ; All VIA pins output
             LDA   #MOCK_AY_INACTIVE
             STA   MOCK_6522_ORB2
 
-            LDA   #<MOCKISR                 ; Setup interrupt handler
-            STA   A2IRQV+0                  ; TODO: Should chain existing handler
+            LDA   #<MOCKISR                 ; Set up ISR with ALLOC_INTERRUPT
+            STA   ALLOCPL+2
             LDA   #>MOCKISR
-            STA   A2IRQV+1
+            STA   ALLOCPL+3
+            JSR   MLI
+            DB    ALLOCCMD
+            DW    ALLOCPL
 
             PHP
             SEI
@@ -87,32 +90,47 @@ MOCKSILENT  LDX  #13                        ; Clear all 14 AY-3 regs
 
 
 * Configure a Mockingboard oscillator to play a note
-* On entry: X - oscillator number 0-3 , A - frequency, Y - amplitude
+* On entry: X - oscillator number 0-3, A - frequency, Y - amplitude
 * Preserves all registers
 MOCKNOTE                                    ; TODO
             RTS
 
 
 * Adjust frequency of note already playing
-* On entry: Y - frequency to set
+* On entry: X - oscillator number 0-3, Y - frequency to set
 * Preserves X & Y
-MOCKFREQ                                    ; TODO
-            RTS
-
-
-* Adjust amplitude of note already playing
-* On entry: Y - amplitude to set
-* Preserves X & Y
-MOCKAMP     PHX
-            PHY                             ; Gonna need it again
+MOCKFREQ    PHX
+            PHY
                                             ; TODO
             PLY
             PLX
             RTS
 
 
+* Adjust amplitude of note already playing
+* On entry: X - oscillator number 0-3, Y - amplitude to set
+* Preserves X & Y
+MOCKAMP     PHX
+            PHY
+            CPX   #$00                      ; Noise channel
+            BEQ   :DONE                     ; Has no amplitude
+            TXA                             ; Add 7 to get register
+            CLC
+            ADC   #7
+            TAX
+            TYA                             ; Amplitude 0..127
+            LSR                             ; Divide by 8
+            LSR
+            LSR                             ; Now 0..15
+            JSR   MOCKWRT                   ; Write value to AY-3 register
+            PLY
+            PLX
+:DONE       RTS
+
+
 * Mockingboard interrupt service routine - just calls generic audio ISR
-MOCKISR     JMP   AUDIOISR
+MOCKISR     CLD
+            JMP   AUDIOISR
 
 
 **

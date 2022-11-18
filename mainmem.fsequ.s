@@ -37,6 +37,7 @@ FBATTR      EQU   FILEBLK+14  ; Attributes
 FBEND       EQU   FILEBLK+14  ; End address for SAVE
 
 * ProDOS MLI command numbers
+ALLOCCMD    EQU   $40
 QUITCMD     EQU   $65
 GTIMECMD    EQU   $82
 CREATCMD    EQU   $C0

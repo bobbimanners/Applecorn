@@ -110,33 +110,7 @@ QUITPL      HEX   04          ; Number of parameters
             DB    $00
             DW    $0000
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ALLOCPL     HEX   02          ; Number of parameters
+            DB    $00         ; Interrupt number returned here
+            DW    $0000       ; Pointer to ISR
 

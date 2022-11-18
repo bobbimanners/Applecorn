@@ -121,7 +121,7 @@ ENSQNOTE    PHA
 
 
 * Adjust frequency of note already playing
-* On entry: Y - frequency to set
+* On entry: X - oscillator number 0-3, Y - frequency to set
 * Preserves X & Y
 ENSQFREQ    PHX
             PHY                             ; Gonna need it again
@@ -143,7 +143,7 @@ ENSQFREQ    PHX
 
 
 * Adjust amplitude of note already playing
-* On entry: Y - amplitude to set
+* On entry: X - oscillator number 0-3, Y - amplitude to set
 * Preserves X & Y
 ENSQAMP     PHX
             PHY                             ; Gonna need it again
@@ -155,7 +155,8 @@ ENSQAMP     PHX
             RTS
 
 * Ensoniq interrupt service routine - just calls generic audio ISR
-ENSQISR     JMP   AUDIOISR
+ENSQISR     CLD
+            JMP   AUDIOISR
 
 
 **
