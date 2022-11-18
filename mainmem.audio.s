@@ -372,9 +372,8 @@ CHORD       PHA
 :CNT        DB    $00                       ; Counter
 
 
-* Called from Ensoniq interrupt handler - process audio queue
-* Should be called at 100Hz
-ENSQISR     INC   SYSCLOCK+0                ; Increment system clock
+* Called at 100Hz.  Process audio queue.
+AUDIOISR    INC   SYSCLOCK+0                ; Increment system clock
             BNE   :S1
             INC   SYSCLOCK+1
             BNE   :S1

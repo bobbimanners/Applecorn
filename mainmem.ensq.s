@@ -154,6 +154,10 @@ ENSQAMP     PHX
             PLX
             RTS
 
+* Ensoniq interrupt service routine - just calls generic audio ISR
+ENSQISR     JMP   AUDIOISR
+
+
 **
 ** Private functions follow (ie: not part of driver API)
 **
