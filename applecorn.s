@@ -277,6 +277,7 @@ MAINZP      MAC
             PUT   MAINMEM.LISTS
             PUT   MAINMEM.MISC
             PUT   MAINMEM.AUDIO
+            PUT   MAINMEM.ENSQ
             PUT   MAINMEM.FREQ
 
 * Automatically save the object file:
