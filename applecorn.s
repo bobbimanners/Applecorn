@@ -278,7 +278,8 @@ MAINZP      MAC
             PUT   MAINMEM.MISC
             PUT   MAINMEM.AUDIO
             PUT   MAINMEM.ENSQ
-            PUT   MAINMEM.FREQ
+            PUT   MAINMEM.ENSQFREQ
+            PUT   MAINMEM.MOCK
 
 * Automatically save the object file:
             SAV   APLCORN.SYSTEM

@@ -154,6 +154,9 @@ ENSQAMP     PHX
             PLX
             RTS
 
+**
+** Private functions follow (ie: not part of driver API)
+**
 
 * Add oscillator number to value in A, return sum in X
 * Used by ENSQNOTE & ENSQFREQ
