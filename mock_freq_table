@@ -7,7 +7,7 @@
 #
 
 d7       = 2349.32   # D7 is pitch value 253
-clk      = 63216.64  # AY-3 clock
+clk      = 63780.27  # AY-3 clock (1.023MHz / 16)
 freqs    = [0] * 256
 divider  = [0] * 256
 
