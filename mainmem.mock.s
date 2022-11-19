@@ -88,6 +88,9 @@ MOCKSILENT  LDX  #13                        ; Clear all 14 AY-3 regs
 :L0         JSR  MOCKWRT
             DEX
             BPL  :L0
+            LDA  #$38                       ; Turn off noise
+            LDX  #07
+            JSR  MOCKWRT
             RTS
 
 
@@ -133,8 +136,9 @@ MOCKAMP     PHX
             CLC
             ADC   #7
             TAX
-            TYA                             ; Amplitude 0..127
-            LSR                             ; Divide by 8
+            TYA                             ; Amplitude 0..255
+            LSR                             ; Divide by 16
+            LSR
             LSR
             LSR                             ; Now 0..15
             JSR   MOCKWRT                   ; Write value to AY-3 register
