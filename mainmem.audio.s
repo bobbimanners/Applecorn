@@ -514,7 +514,7 @@ CHECK4BYTES PHX
 * On entry: X - oscillator number 0-3 , A - frequency, Y - amplitude
 * Preserves all registers
 AUDIONOTE
-*            JMP  ENSQNOTE
+            JMP  ENSQNOTE
 *            JMP  MOCKNOTE
             RTS
 
@@ -523,7 +523,7 @@ AUDIONOTE
 * On entry: X - oscillator number 0-3 , Y - frequency to set
 * Preserves X & Y
 AUDIOFREQ
-*            JMP  ENSQFREQ
+            JMP  ENSQFREQ
 *            JMP  MOCKFREQ
             RTS
 
@@ -532,7 +532,7 @@ AUDIOFREQ
 * On entry: X - oscillator number 0-3 , Y - amplitude to set
 * Preserves X & Y
 AUDIOAMP
-*            JMP  ENSQAMP
+            JMP  ENSQAMP
 *            JMP  MOCKAMP
             RTS
 

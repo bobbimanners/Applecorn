@@ -57,6 +57,8 @@ MOCKINIT    LDA   #$FF                      ; All VIA pins output
             LDA   #MOCK_AY_INACTIVE
             STA   MOCK_6522_ORB2
 
+* TODO: DEALLOC_INTERRUPT before we QUIT
+
             LDA   #<MOCKISR                 ; Set up ISR with ALLOC_INTERRUPT
             STA   ALLOCPL+2
             LDA   #>MOCKISR
@@ -92,7 +94,13 @@ MOCKSILENT  LDX  #13                        ; Clear all 14 AY-3 regs
 * Configure a Mockingboard oscillator to play a note
 * On entry: X - oscillator number 0-3, A - frequency, Y - amplitude
 * Preserves all registers
-MOCKNOTE                                    ; TODO
+MOCKNOTE    PHA
+            PHY
+            TAY
+            JSR   MOCKFREQ                  ; Set frequency
+            PLY
+            JSR   MOCKAMP                   ; Set amplitude
+            PLA
             RTS
 
 
@@ -100,10 +108,18 @@ MOCKNOTE                                    ; TODO
 * On entry: X - oscillator number 0-3, Y - frequency to set
 * Preserves X & Y
 MOCKFREQ    PHX
-            PHY
-                                            ; TODO
-            PLY
-            PLX
+            CPX   #$00                      ; Noise channel
+            BEQ   :DONE                     ; TODO: IGNORE NOISE FOR NOW
+            TXA
+            DEC   A                         ; Subtract 1
+            ASL                             ; Double to get fine register
+            TAX
+            LDA   MFREQLOW,Y                ; LSB of divider
+            JSR   MOCKWRT                   ; Write value to AY-3 register
+            INX                             ; Add one for course register
+            LDA   MFREQHIGH,Y               ; MSB of divider
+            JSR   MOCKWRT                   ; Write value to AY-3 register
+:DONE       PLX
             RTS
 
 
@@ -111,7 +127,6 @@ MOCKFREQ    PHX
 * On entry: X - oscillator number 0-3, Y - amplitude to set
 * Preserves X & Y
 MOCKAMP     PHX
-            PHY
             CPX   #$00                      ; Noise channel
             BEQ   :DONE                     ; Has no amplitude
             TXA                             ; Add 7 to get register
@@ -123,9 +138,8 @@ MOCKAMP     PHX
             LSR
             LSR                             ; Now 0..15
             JSR   MOCKWRT                   ; Write value to AY-3 register
-            PLY
-            PLX
-:DONE       RTS
+:DONE       PLX
+            RTS
 
 
 * Mockingboard interrupt service routine - just calls generic audio ISR
@@ -143,8 +157,9 @@ MOCKISR     CLD
 
 * Write to both AY-3s
 * On entry: A - value, X - register
-* On exit: A and X unchanged, Y trashed.
-MOCKWRT     STX   MOCK_6522_ORA1            ; Latch the address
+* On exit: All regs preserved.
+MOCKWRT     PHY
+            STX   MOCK_6522_ORA1            ; Latch the address
             STX   MOCK_6522_ORA2
             LDY   #MOCK_AY_LATCH_ADDR
             STY   MOCK_6522_ORB1
@@ -163,5 +178,6 @@ MOCKWRT     STX   MOCK_6522_ORA1            ; Latch the address
             LDY   #MOCK_AY_INACTIVE         ; Go inactive
             STY   MOCK_6522_ORB1
             STY   MOCK_6522_ORB2
+            PLY
             RTS
 
