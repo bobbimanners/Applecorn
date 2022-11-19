@@ -156,7 +156,8 @@ ENSQAMP     PHX
 
 * Ensoniq interrupt service routine - just calls generic audio ISR
 ENSQISR     CLD
-            JMP   AUDIOISR
+            JSR   AUDIOISR
+            RTL
 
 
 **

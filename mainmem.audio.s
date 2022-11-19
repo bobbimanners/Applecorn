@@ -444,7 +444,7 @@ AUDIOISR    INC   SYSCLOCK+0                ; Increment system clock
             PLA                             ; Recover frequency
             STA   CURRPITCH,X               ; Store for pitch envelope
             PLY                             ; Recover amplitude
-            JSR   ENSQNOTE                  ; Start note playing
+            JSR   AUDIONOTE                 ; Start note playing
 :NEXT 	    DEX
             BPL   :L1                       ; Next audio queue
 
@@ -459,7 +459,7 @@ AUDIOISR    INC   SYSCLOCK+0                ; Increment system clock
 :NOENV      DEX
             BPL   :L2                       ; Next audio queue
             CLC
-            RTL
+            RTS
 :HOLDSET    JSR   REMAUDIO                  ; Dequeue amplitude/env (ignored)
             JSR   REMAUDIO                  ; Dequeue frequency (ignored)
             JSR   REMAUDIO                  ; Dequeue duration
@@ -471,7 +471,7 @@ AUDIOISR    INC   SYSCLOCK+0                ; Increment system clock
 :CNT        DB    $05                       ; Used to determine 20Hz cycles
 
 
-* Helper function for ENSQISR - called when no note playing
+* Helper function for AUDIOISR - called when no note playing
 * On entry: X is audio channel #
 NONOTE      LDA   CHANENV,X                 ; See if envelope is in effect
             CMP   #$FF
@@ -479,14 +479,14 @@ NONOTE      LDA   CHANENV,X                 ; See if envelope is in effect
             STZ   CURRAMP,X                 ; Next env will start at zero vol
             LDY   #$00                      ; Zero volume
             LDA   #$00                      ; Zero freq
-            JSR   ENSQNOTE                  ; Silence channel Y
+            JSR   AUDIONOTE                 ; Silence channel Y
             RTS
 :RELEASE    LDA   #3                        ; Phase 3 is release phase
             STA   AMPSECT,X                 ; Force release phase
             RTS
 
 
-* Helper function for ENSQISR
+* Helper function for AUDIOISR
 * On entry: X is audio channel #
 * On return: CS if there are <= 4 bytes in queue, CC otherwise
 * X is preserved
@@ -506,6 +506,30 @@ CHECK4BYTES PHX
             RTS
 :NO         SEC
             RTS
+
+
+* Configure an oscillator to play a note
+* On entry: X - oscillator number 0-3 , A - frequency, Y - amplitude
+* Preserves all registers
+AUDIONOTE
+            JMP  ENSQNOTE
+*            JMP  MOCKNOTE
+
+
+* Adjust frequency of  oscillator
+* On entry: X - oscillator number 0-3 , Y - frequency to set
+* Preserves X & Y
+AUDIOFREQ
+            JMP  ENSQFREQ
+*            JMP  MOCKFREQ
+
+
+* Adjust amplitude of  oscillator
+* On entry: X - oscillator number 0-3 , Y - amplitude to set
+* Preserves X & Y
+AUDIOAMP
+            JMP  ENSQAMP
+*            JMP  MOCKAMP
 
 
 * Handle envelope tick counter
@@ -618,7 +642,7 @@ UPDPITCH    STX   OSCNUM
             ADC   CURRPITCH,X               ; Add change to current
             STA   CURRPITCH,X               ; Update
             TAY
-            JSR   ENSQFREQ                  ; Update Ensoniq regs
+            JSR   AUDIOFREQ                 ; Update Ensoniq regs
             RTS
 
 
@@ -706,7 +730,7 @@ ADSRPHASE   STX   OSCNUM
 :CLAMP      LDA   :TARGET                   ; Recover target level
 :UPDATE     STA   CURRAMP,X                 ; Store updated amplitude
             TAY                             ; Tell the Ensoniq
-            JSR   ENSQAMP
+            JSR   AUDIOAMP
 :DONE       CLC                             ; CC to indicate phase continues
             RTS
 :TARGET     DB    $00

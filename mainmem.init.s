@@ -37,5 +37,7 @@ RESETHW      SEC
              JSR   IDROUTINE         ; See if this is a GS
              BCS   :NOTGS
              JSR   ENSQINIT          ; Initialize Ensoniq
-:NOTGS       RTS
+:NOTGS
+*             JSR   MOCKINIT          ; Initialize Mockingboard (sl4)
+             RTS
 
