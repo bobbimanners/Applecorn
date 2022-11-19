@@ -1,0 +1,32 @@
+#!/usr/bin/python3
+
+#
+# Make a table of Mockingboard wavelength values (high and low bytes)
+# Corresponding to the frequency values used in BBC Micro
+# SOUND statements.
+#
+
+d7       = 2349.32   # D7 is pitch value 253
+clk      = 63216.64  # AY-3 clock
+freqs    = [0] * 256
+divider  = [0] * 256
+
+freqs[253] = d7
+
+for i in range(254,256):
+  freqs[i] = freqs[i-1] * (2 ** (1 / 48))
+
+for i in range(252,-1,-1):
+  freqs[i] = freqs[i+1] / (2 ** (1 / 48))
+
+for i in range(0,256):
+  divider[i] = clk / freqs[i] - 16
+# print(i, freqs[i], divider[i])
+
+print("\nMFREQHIGH");
+for i in range(0,256):
+  print("          DB >{:.0f}".format(divider[i]))
+
+print("\nMFREQLOW");
+for i in range(0,256):
+  print("          DB <{:.0f}".format(divider[i]))

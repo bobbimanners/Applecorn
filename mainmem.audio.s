@@ -477,9 +477,11 @@ NONOTE      LDA   CHANENV,X                 ; See if envelope is in effect
             CMP   #$FF
             BNE   :RELEASE                  ; If envelope -> start rel phase
             STZ   CURRAMP,X                 ; Next env will start at zero vol
+            PHY                             ; NEEDED FOR MOCKINGBOARD (NOT SURE WHY)
             LDY   #$00                      ; Zero volume
             LDA   #$00                      ; Zero freq
             JSR   AUDIONOTE                 ; Silence channel Y
+            PLY                             ; NEEDED FOR MOCKINGBOARD (NOT SURE WHY)
             RTS
 :RELEASE    LDA   #3                        ; Phase 3 is release phase
             STA   AMPSECT,X                 ; Force release phase
@@ -512,24 +514,27 @@ CHECK4BYTES PHX
 * On entry: X - oscillator number 0-3 , A - frequency, Y - amplitude
 * Preserves all registers
 AUDIONOTE
-            JMP  ENSQNOTE
+*            JMP  ENSQNOTE
 *            JMP  MOCKNOTE
+            RTS
 
 
 * Adjust frequency of  oscillator
 * On entry: X - oscillator number 0-3 , Y - frequency to set
 * Preserves X & Y
 AUDIOFREQ
-            JMP  ENSQFREQ
+*            JMP  ENSQFREQ
 *            JMP  MOCKFREQ
+            RTS
 
 
 * Adjust amplitude of  oscillator
 * On entry: X - oscillator number 0-3 , Y - amplitude to set
 * Preserves X & Y
 AUDIOAMP
-            JMP  ENSQAMP
+*            JMP  ENSQAMP
 *            JMP  MOCKAMP
+            RTS
 
 
 * Handle envelope tick counter
