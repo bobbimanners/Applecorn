@@ -391,12 +391,12 @@ WORD06       JSR   GETADDR                ; Point to address, set Y=>data byte
 * We want to be able to write to anywhere in main memory.
 * As we are within the OSWORD handler, IRQs are off, so we can just
 * 'write through' all memory.
-WORD06A      STA   $C008                  ; &0000-&01FF writes to main memory
+WORD06A      STA   SETSTDZP               ; &0000-&01FF writes to main memory
              STA   WRMAINRAM              ; &0200-&BFFF writes to main memory
 *                                         ; &C000-&CFFF is always I/O
 *                                         ; &D000-&FFFF how do we write to this?
              STA   (OSINTWS)              ; Store it
-             STA   $C009                  ; &0000-&01FF writes to aux memory
+             STA   SETALTZP               ; &0000-&01FF writes to aux memory
              STA   WRCARDRAM              ; &0200-&BFFF writes to aux memory
 *                                         ; &D000-&FFFF
              RTS

@@ -58,7 +58,7 @@ WORD07      INY
             JSR   INSHND                     ; Insert into queue X
 :RTS        RTS
 :ESCAPE     PLX                              ; Fix up stack
-            STA   $C010                      ; Ack keypress
+            STA   KBDSTRB                    ; Ack keypress
             RTS
 
 
