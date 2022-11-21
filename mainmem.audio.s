@@ -513,28 +513,33 @@ CHECK4BYTES PHX
 * Configure an oscillator to play a note
 * On entry: X - oscillator number 0-3 , A - frequency, Y - amplitude
 * Preserves all registers
-AUDIONOTE
+AUDIONOTE   PHA
+            LDA   AUDIOCARD
+            BEQ   :MOCK
+            PLA
             JMP  ENSQNOTE
-*            JMP  MOCKNOTE
-            RTS
+:MOCK       PLA
+            JMP  MOCKNOTE
 
 
 * Adjust frequency of  oscillator
 * On entry: X - oscillator number 0-3 , Y - frequency to set
 * Preserves X & Y
 AUDIOFREQ
+            LDA   AUDIOCARD
+            BEQ   :MOCK
             JMP  ENSQFREQ
-*            JMP  MOCKFREQ
-            RTS
+:MOCK       JMP  MOCKFREQ
 
 
 * Adjust amplitude of  oscillator
 * On entry: X - oscillator number 0-3 , Y - amplitude to set
 * Preserves X & Y
 AUDIOAMP
+            LDA   AUDIOCARD
+            BEQ   :MOCK
             JMP  ENSQAMP
-*            JMP  MOCKAMP
-            RTS
+:MOCK       JMP  MOCKAMP
 
 
 * Handle envelope tick counter

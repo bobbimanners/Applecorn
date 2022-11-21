@@ -6,6 +6,7 @@
 
 * 14-Nov-2021 If started from CSD, gets prefix to CMDBUF.
 
+AUDIOCARD    DB   $00                ; $00 = Mockingboard, $01 = Ensoniq
 
 * Trampoline in main memory used by aux memory IRQ handler
 * to invoke Apple II / ProDOS IRQs in main memory
@@ -34,10 +35,13 @@ RESET        TSX
 
 * Reset hardware
 RESETHW      SEC
+             STZ   AUDIOCARD
              JSR   IDROUTINE         ; See if this is a GS
              BCS   :NOTGS
              JSR   ENSQINIT          ; Initialize Ensoniq
+             INC   AUDIOCARD
+             RTS                     ; AUDIOCARD=1
 :NOTGS
-*             JSR   MOCKINIT          ; Initialize Mockingboard (sl4)
-             RTS
+             JSR   MOCKINIT          ; Initialize Mockingboard (sl4)
+             RTS                     ; AUDIOCARD=0
 
