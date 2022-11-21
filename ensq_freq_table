@@ -8,12 +8,12 @@
 
 base=123.47 / 16.0 * 1.573 * 440.0 / 739.99
 
-print("\nFREQHIGH");
+print("\nEFREQHIGH");
 for i in range(0,256):
   v = 2**(i/48)*base
   print("          DB >{:.0f}".format(v * 10))
 
-print("\nFREQLOW");
+print("\nEFREQLOW");
 for i in range(0,256):
   v = 2**(i/48)*base
   print("          DB <{:.0f}".format(v * 10))

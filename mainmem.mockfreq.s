@@ -6,93 +6,97 @@
 *
 
 MFREQHIGH
-          DB >1032
-          DB >1017
-          DB >1002
-          DB >988
-          DB >973
-          DB >959
-          DB >945
-          DB >931
-          DB >918
-          DB >904
-          DB >891
-          DB >878
-          DB >865
-          DB >853
-          DB >840
-          DB >828
-          DB >816
-          DB >804
-          DB >792
-          DB >781
-          DB >769
-          DB >758
-          DB >747
-          DB >736
-          DB >725
-          DB >715
-          DB >704
-          DB >694
-          DB >684
-          DB >674
-          DB >664
-          DB >654
-          DB >644
-          DB >635
-          DB >625
-          DB >616
-          DB >607
-          DB >598
-          DB >589
-          DB >581
+          DB >1048
+          DB >1033
+          DB >1018
+          DB >1004
+          DB >989
+          DB >975
+          DB >961
+          DB >947
+          DB >934
+          DB >920
+          DB >907
+          DB >894
+          DB >881
+          DB >869
+          DB >856
+          DB >844
+          DB >832
+          DB >820
+          DB >808
+          DB >797
+          DB >785
+          DB >774
+          DB >763
+          DB >752
+          DB >741
+          DB >731
+          DB >720
+          DB >710
+          DB >700
+          DB >690
+          DB >680
+          DB >670
+          DB >660
+          DB >651
+          DB >641
+          DB >632
+          DB >623
+          DB >614
+          DB >605
+          DB >597
+          DB >588
+          DB >580
           DB >572
-          DB >564
-          DB >556
+          DB >563
+          DB >555
           DB >547
           DB >539
-          DB >531
-          DB >523
-          DB >516
-          DB >508
-          DB >501
-          DB >493
-          DB >486
-          DB >479
-          DB >472
-          DB >465
-          DB >458
-          DB >451
-          DB >444
-          DB >438
-          DB >431
-          DB >425
-          DB >418
-          DB >412
-          DB >406
-          DB >400
-          DB >394
-          DB >388
-          DB >382
-          DB >377
+          DB >532
+          DB >524
+          DB >517
+          DB >509
+          DB >502
+          DB >495
+          DB >488
+          DB >481
+          DB >474
+          DB >467
+          DB >460
+          DB >454
+          DB >447
+          DB >441
+          DB >434
+          DB >428
+          DB >422
+          DB >416
+          DB >410
+          DB >404
+          DB >398
+          DB >393
+          DB >387
+          DB >381
+          DB >376
           DB >371
           DB >365
           DB >360
           DB >355
-          DB >349
-          DB >344
-          DB >339
-          DB >334
-          DB >329
-          DB >324
-          DB >319
-          DB >314
-          DB >309
-          DB >305
-          DB >300
-          DB >296
-          DB >291
-          DB >287
+          DB >350
+          DB >345
+          DB >340
+          DB >335
+          DB >330
+          DB >325
+          DB >321
+          DB >316
+          DB >312
+          DB >307
+          DB >303
+          DB >298
+          DB >294
+          DB >290
+          DB >286
           DB >282
           DB >278
           DB >274
@@ -100,89 +104,101 @@ MFREQHIGH
           DB >266
           DB >262
           DB >258
-          DB >254
-          DB >250
-          DB >246
-          DB >242
-          DB >239
-          DB >235
-          DB >231
-          DB >228
+          DB >255
+          DB >251
+          DB >247
+          DB >244
+          DB >240
+          DB >237
+          DB >233
+          DB >230
+          DB >227
           DB >224
-          DB >221
+          DB >220
           DB >217
           DB >214
           DB >211
           DB >208
-          DB >204
-          DB >201
-          DB >198
-          DB >195
-          DB >192
-          DB >189
-          DB >186
+          DB >205
+          DB >202
+          DB >199
+          DB >196
+          DB >193
+          DB >191
+          DB >188
+          DB >185
           DB >183
           DB >180
           DB >177
           DB >175
           DB >172
-          DB >169
+          DB >170
           DB >167
-          DB >164
-          DB >161
-          DB >159
+          DB >165
+          DB >163
+          DB >160
+          DB >158
           DB >156
           DB >154
           DB >151
           DB >149
           DB >147
-          DB >144
-          DB >142
-          DB >140
-          DB >138
+          DB >145
+          DB >143
+          DB >141
+          DB >139
+          DB >137
           DB >135
           DB >133
           DB >131
           DB >129
           DB >127
           DB >125
-          DB >123
-          DB >121
-          DB >119
+          DB >124
+          DB >122
+          DB >120
+          DB >118
           DB >117
           DB >115
           DB >113
-          DB >111
+          DB >112
+          DB >110
           DB >109
-          DB >108
+          DB >107
           DB >106
           DB >104
           DB >102
           DB >101
-          DB >99
+          DB >100
+          DB >98
           DB >97
-          DB >96
+          DB >95
           DB >94
           DB >93
           DB >91
           DB >90
-          DB >88
+          DB >89
+          DB >87
           DB >86
           DB >85
           DB >84
-          DB >82
+          DB >83
           DB >81
+          DB >80
           DB >79
           DB >78
           DB >77
+          DB >76
           DB >75
           DB >74
-          DB >73
+          DB >72
           DB >71
           DB >70
           DB >69
           DB >68
           DB >67
+          DB >66
+          DB >66
           DB >65
           DB >64
           DB >63
@@ -191,166 +207,154 @@ MFREQHIGH
           DB >60
           DB >59
           DB >58
+          DB >58
+          DB >57
           DB >56
           DB >55
+          DB >54
           DB >54
           DB >53
           DB >52
           DB >51
-          DB >50
+          DB >51
           DB >50
           DB >49
           DB >48
+          DB >48
           DB >47
           DB >46
+          DB >46
           DB >45
+          DB >44
           DB >44
           DB >43
           DB >42
           DB >42
           DB >41
+          DB >41
+          DB >40
           DB >40
           DB >39
           DB >38
           DB >38
           DB >37
+          DB >37
+          DB >36
           DB >36
           DB >35
           DB >35
           DB >34
+          DB >34
+          DB >33
           DB >33
           DB >32
           DB >32
           DB >31
+          DB >31
+          DB >30
           DB >30
           DB >30
           DB >29
+          DB >29
+          DB >28
           DB >28
           DB >28
           DB >27
+          DB >27
           DB >26
-          DB >26
-          DB >25
-          DB >25
-          DB >24
-          DB >24
-          DB >23
-          DB >22
-          DB >22
-          DB >21
-          DB >21
-          DB >20
-          DB >20
-          DB >19
-          DB >19
-          DB >18
-          DB >18
-          DB >17
-          DB >17
-          DB >16
-          DB >16
-          DB >15
-          DB >15
-          DB >14
-          DB >14
-          DB >14
-          DB >13
-          DB >13
-          DB >12
-          DB >12
-          DB >12
-          DB >11
-          DB >11
-          DB >10
 
 MFREQLOW
-          DB <1032
-          DB <1017
-          DB <1002
-          DB <988
-          DB <973
-          DB <959
-          DB <945
-          DB <931
-          DB <918
-          DB <904
-          DB <891
-          DB <878
-          DB <865
-          DB <853
-          DB <840
-          DB <828
-          DB <816
-          DB <804
-          DB <792
-          DB <781
-          DB <769
-          DB <758
-          DB <747
-          DB <736
-          DB <725
-          DB <715
-          DB <704
-          DB <694
-          DB <684
-          DB <674
-          DB <664
-          DB <654
-          DB <644
-          DB <635
-          DB <625
-          DB <616
-          DB <607
-          DB <598
-          DB <589
-          DB <581
+          DB <1048
+          DB <1033
+          DB <1018
+          DB <1004
+          DB <989
+          DB <975
+          DB <961
+          DB <947
+          DB <934
+          DB <920
+          DB <907
+          DB <894
+          DB <881
+          DB <869
+          DB <856
+          DB <844
+          DB <832
+          DB <820
+          DB <808
+          DB <797
+          DB <785
+          DB <774
+          DB <763
+          DB <752
+          DB <741
+          DB <731
+          DB <720
+          DB <710
+          DB <700
+          DB <690
+          DB <680
+          DB <670
+          DB <660
+          DB <651
+          DB <641
+          DB <632
+          DB <623
+          DB <614
+          DB <605
+          DB <597
+          DB <588
+          DB <580
           DB <572
-          DB <564
-          DB <556
+          DB <563
+          DB <555
           DB <547
           DB <539
-          DB <531
-          DB <523
-          DB <516
-          DB <508
-          DB <501
-          DB <493
-          DB <486
-          DB <479
-          DB <472
-          DB <465
-          DB <458
-          DB <451
-          DB <444
-          DB <438
-          DB <431
-          DB <425
-          DB <418
-          DB <412
-          DB <406
-          DB <400
-          DB <394
-          DB <388
-          DB <382
-          DB <377
+          DB <532
+          DB <524
+          DB <517
+          DB <509
+          DB <502
+          DB <495
+          DB <488
+          DB <481
+          DB <474
+          DB <467
+          DB <460
+          DB <454
+          DB <447
+          DB <441
+          DB <434
+          DB <428
+          DB <422
+          DB <416
+          DB <410
+          DB <404
+          DB <398
+          DB <393
+          DB <387
+          DB <381
+          DB <376
           DB <371
           DB <365
           DB <360
           DB <355
-          DB <349
-          DB <344
-          DB <339
-          DB <334
-          DB <329
-          DB <324
-          DB <319
-          DB <314
-          DB <309
-          DB <305
-          DB <300
-          DB <296
-          DB <291
-          DB <287
+          DB <350
+          DB <345
+          DB <340
+          DB <335
+          DB <330
+          DB <325
+          DB <321
+          DB <316
+          DB <312
+          DB <307
+          DB <303
+          DB <298
+          DB <294
+          DB <290
+          DB <286
           DB <282
           DB <278
           DB <274
@@ -358,89 +362,101 @@ MFREQLOW
           DB <266
           DB <262
           DB <258
-          DB <254
-          DB <250
-          DB <246
-          DB <242
-          DB <239
-          DB <235
-          DB <231
-          DB <228
+          DB <255
+          DB <251
+          DB <247
+          DB <244
+          DB <240
+          DB <237
+          DB <233
+          DB <230
+          DB <227
           DB <224
-          DB <221
+          DB <220
           DB <217
           DB <214
           DB <211
           DB <208
-          DB <204
-          DB <201
-          DB <198
-          DB <195
-          DB <192
-          DB <189
-          DB <186
+          DB <205
+          DB <202
+          DB <199
+          DB <196
+          DB <193
+          DB <191
+          DB <188
+          DB <185
           DB <183
           DB <180
           DB <177
           DB <175
           DB <172
-          DB <169
+          DB <170
           DB <167
-          DB <164
-          DB <161
-          DB <159
+          DB <165
+          DB <163
+          DB <160
+          DB <158
           DB <156
           DB <154
           DB <151
           DB <149
           DB <147
-          DB <144
-          DB <142
-          DB <140
-          DB <138
+          DB <145
+          DB <143
+          DB <141
+          DB <139
+          DB <137
           DB <135
           DB <133
           DB <131
           DB <129
           DB <127
           DB <125
-          DB <123
-          DB <121
-          DB <119
+          DB <124
+          DB <122
+          DB <120
+          DB <118
           DB <117
           DB <115
           DB <113
-          DB <111
+          DB <112
+          DB <110
           DB <109
-          DB <108
+          DB <107
           DB <106
           DB <104
           DB <102
           DB <101
-          DB <99
+          DB <100
+          DB <98
           DB <97
-          DB <96
+          DB <95
           DB <94
           DB <93
           DB <91
           DB <90
-          DB <88
+          DB <89
+          DB <87
           DB <86
           DB <85
           DB <84
-          DB <82
+          DB <83
           DB <81
+          DB <80
           DB <79
           DB <78
           DB <77
+          DB <76
           DB <75
           DB <74
-          DB <73
+          DB <72
           DB <71
           DB <70
           DB <69
           DB <68
           DB <67
+          DB <66
+          DB <66
           DB <65
           DB <64
           DB <63
@@ -449,74 +465,58 @@ MFREQLOW
           DB <60
           DB <59
           DB <58
+          DB <58
+          DB <57
           DB <56
           DB <55
+          DB <54
           DB <54
           DB <53
           DB <52
           DB <51
-          DB <50
+          DB <51
           DB <50
           DB <49
           DB <48
+          DB <48
           DB <47
           DB <46
+          DB <46
           DB <45
+          DB <44
           DB <44
           DB <43
           DB <42
           DB <42
           DB <41
+          DB <41
+          DB <40
           DB <40
           DB <39
           DB <38
           DB <38
           DB <37
+          DB <37
+          DB <36
           DB <36
           DB <35
           DB <35
           DB <34
+          DB <34
+          DB <33
           DB <33
           DB <32
           DB <32
           DB <31
+          DB <31
+          DB <30
           DB <30
           DB <30
           DB <29
+          DB <29
+          DB <28
           DB <28
           DB <28
           DB <27
+          DB <27
           DB <26
-          DB <26
-          DB <25
-          DB <25
-          DB <24
-          DB <24
-          DB <23
-          DB <22
-          DB <22
-          DB <21
-          DB <21
-          DB <20
-          DB <20
-          DB <19
-          DB <19
-          DB <18
-          DB <18
-          DB <17
-          DB <17
-          DB <16
-          DB <16
-          DB <15
-          DB <15
-          DB <14
-          DB <14
-          DB <14
-          DB <13
-          DB <13
-          DB <12
-          DB <12
-          DB <12
-          DB <11
-          DB <11
-          DB <10

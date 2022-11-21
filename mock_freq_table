@@ -20,8 +20,10 @@ for i in range(252,-1,-1):
   freqs[i] = freqs[i+1] / (2 ** (1 / 48))
 
 for i in range(0,256):
-  divider[i] = clk / freqs[i] - 16
-# print(i, freqs[i], divider[i])
+  divider[i] = int(round(clk / freqs[i]))
+  coarse = int(divider[i] / 256)
+  fine = int(divider[i] % 256)
+#  print("{:3d}: {:9.3f} {:5d} ({:2d} {:3d})".format(i, freqs[i], divider[i], coarse, fine))
 
 print("\nMFREQHIGH");
 for i in range(0,256):
