@@ -169,10 +169,6 @@ XF2AUX      MAC
 * Called by code running in aux mem to invoke a
 * routine in main memory
 XF2MAIN     MAC
-*            LDX   STRTL      ; No longer needed
-*            STX   STRTBCKL   ; $03E0-$03FF reserved for memory
-*            LDX   STRTH      ; switching
-*            STX   STRTBCKH
             LDX   #<]1
             STX   STRTL
             LDX   #>]1
@@ -192,10 +188,6 @@ ENTAUX      MAC
             LDX   $0101       ; Recover alt SP
             TXS
             CLI               ; Re-enable IRQ after XFER
-*            LDX   STRTBCKL   ; No longer needed
-*            STX   STRTL      ; $03e0-$03FF reserved for memory
-*            LDX   STRTBCKH   ; switching
-*            STX   STRTH
             EOM
 
 * Macro called on re-entry to main memory
@@ -212,10 +204,6 @@ ENTMAIN     MAC
 IENTAUX     MAC
             LDX   $0101       ; Recover alt SP
             TXS
-*            LDX   STRTBCKL   ; No longer needed
-*            STX   STRTL
-*            LDX   STRTBCKH
-*            STX   STRTH
             EOM
 
 * Macro called on re-entry to main memory
