@@ -79,7 +79,7 @@ ENSQNOTE    PHA
 
             PHA                             ; Stash orig freq
             TAY
-            LDA   FREQLOW,Y
+            LDA   EFREQLOW,Y
             TAY                             ; Frequency value LS byte
             LDA   #$00                      ; DOC register base $00 (Freq Lo)
             JSR   ADDOSC                    ; Actual register in X
@@ -87,7 +87,7 @@ ENSQNOTE    PHA
 
             PLA                             ; Get orig freq back
             TAY
-            LDA   FREQHIGH,Y
+            LDA   EFREQHIGH,Y
             TAY                             ; Frequency value MS byte
             LDA   #$20                      ; DOC register base $20 (Freq Hi)
             JSR   ADDOSC                    ; Actual register in X
@@ -125,14 +125,14 @@ ENSQNOTE    PHA
 * Preserves X & Y
 ENSQFREQ    PHX
             PHY                             ; Gonna need it again
-            LDA   FREQLOW,Y
+            LDA   EFREQLOW,Y
             TAY                             ; Frequency value LS byte
             LDA   #$00                      ; DOC register base $00 (Freq Lo)
             JSR   ADDOSC                    ; Actual register in X
             JSR   ENSQWRTDOC
             PLY                             ; Get freq back
             PHY
-            LDA   FREQHIGH,Y
+            LDA   EFREQHIGH,Y
             TAY                             ; Frequency value MS byte
             LDA   #$20                      ; DOC register base $20 (Freq Hi)
             JSR   ADDOSC                    ; Actual register in X
