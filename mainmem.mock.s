@@ -57,8 +57,6 @@ MOCKINIT    LDA   #$FF                      ; All VIA pins output
             LDA   #MOCK_AY_INACTIVE
             STA   MOCK_6522_ORB2
 
-* TODO: STOP VIA INTERRUPT & DEALLOC_INTERRUPT before we QUIT
-
             LDA   #<MOCKISR                 ; Set up ISR with ALLOC_INTERRUPT
             STA   ALLOCPL+2
             LDA   #>MOCKISR
