@@ -71,9 +71,9 @@ MOCKINIT    LDA   #$FF                      ; All VIA pins output
             SEI
             LDA   #$40                      ; Configure VIA interrupt
             STA   MOCK_6522_ACR
-            LDA   #$7F
+            LDA   #$7F                      ; Clear all bits
             STA   MOCK_6522_IER
-            LDA   #$C0
+            LDA   #$C0                      ; Set bit 6
             STA   MOCK_6522_IFR
             STA   MOCK_6522_IER
             LDA   #$F4                      ; $27F4 => 100Hz
@@ -91,6 +91,18 @@ MOCKSILENT  LDX  #13                        ; Clear all 14 AY-3 regs
             LDA  #$38                       ; Turn off noise
             LDX  #07
             JSR  MOCKWRT
+            RTS
+
+
+* Stop Mockingboard interrupt
+MOCKSTOP    JSR   MOCKSILENT
+            LDA   #$7F                      ; Clear all bits
+            STA   MOCK_6522_IER
+            LDA   ALLOCPL+1                 ; Interrupt number
+            STA   DEALLOCPL+1
+            JSR   MLI                       ; Deallocate ISR
+            DB    DEALLOCCMD
+            DW    DEALLOCPL
             RTS
 
 

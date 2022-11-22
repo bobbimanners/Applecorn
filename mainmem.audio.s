@@ -510,6 +510,13 @@ CHECK4BYTES PHX
             RTS
 
 
+* Stop the sound device (no more interrupts)
+AUDIOSTOP   LDA  AUDIOCARD
+            BEQ  :MOCK
+            JMP  ENSQSTOP
+:MOCK       JMP  MOCKSTOP
+
+
 * Configure an oscillator to play a note
 * On entry: X - oscillator number 0-3 , A - frequency, Y - amplitude
 * Preserves all registers
@@ -525,8 +532,7 @@ AUDIONOTE   PHA
 * Adjust frequency of  oscillator
 * On entry: X - oscillator number 0-3 , Y - frequency to set
 * Preserves X & Y
-AUDIOFREQ
-            LDA   AUDIOCARD
+AUDIOFREQ   LDA   AUDIOCARD
             BEQ   :MOCK
             JMP  ENSQFREQ
 :MOCK       JMP  MOCKFREQ
@@ -535,8 +541,7 @@ AUDIOFREQ
 * Adjust amplitude of  oscillator
 * On entry: X - oscillator number 0-3 , Y - amplitude to set
 * Preserves X & Y
-AUDIOAMP
-            LDA   AUDIOCARD
+AUDIOAMP    LDA   AUDIOCARD
             BEQ   :MOCK
             JMP  ENSQAMP
 :MOCK       JMP  MOCKAMP

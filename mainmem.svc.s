@@ -939,7 +939,8 @@ CHKNOTFND     CMP   #$44               ; Convert ProDOS 'not found'
 
 
 * Quit to ProDOS
-QUIT          INC   PWRDUP             ; Invalidate powerup byte
+QUIT          JSR   AUDIOSTOP          ; Shut down audio, dereg ISR
+              INC   PWRDUP             ; Invalidate powerup byte
               STA   PAGE1              ; PAGE2 off
               STA   CLRALTCHAR         ; Alt font off
               JSR   MLI

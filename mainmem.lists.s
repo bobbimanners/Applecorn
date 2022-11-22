@@ -114,3 +114,6 @@ ALLOCPL     HEX   02          ; Number of parameters
             DB    $00         ; Interrupt number returned here
             DW    $0000       ; Pointer to ISR
 
+DEALLOCPL   HEX   01          ; Number of parameters
+            DB    $01         ; Interrupt number
+

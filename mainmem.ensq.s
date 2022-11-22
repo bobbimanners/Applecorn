@@ -69,6 +69,14 @@ ENSQSILENT  LDY   #$00                      ; Amplitude
             RTS
 
 
+* Stop Ensoniq interrupt
+ENSQSTOP    JSR   ENSQSILENT
+            LDX   #$A4                      ; Control register for osc #4
+            LDY   #$00                      ; Free run, no IRQ, start
+            JSR   ENSQWRTDOC
+            RTS
+
+
 * Configure an Ensoniq oscillator to play a note
 * On entry: X - oscillator number 0-3 , A - frequency, Y - amplitude
 * Preserves all registers
