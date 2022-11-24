@@ -1,7 +1,9 @@
 * AUXMEM.AUDIO.S
 * (c) Bobbi 2022 GPLv3
 *
-* Applecorn audio code
+* Applecorn audio code.
+* This auxiliary memory code implements OSWORD &07 and &08, enqueueing events
+* for the audio engine that lives in main memory (MAINMEM.AUDIO.S).
 *
 
 * OSWORD &07 - Make a sound
@@ -67,7 +69,7 @@ WORD07      INY
 * Supports 4 envelopes for now, could be extended for more
 WORD08      LDA   (OSCTRL),Y                 ; Get envelope number
             DEC   A                          ; Make it zero-based
-            CMP   #$03                       ; Check in range
+            CMP   #$15                       ; Check in range
             BPL   :RTS                       ; Ignore if out of range
             TAX
             LDA   #$00
