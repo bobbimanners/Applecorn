@@ -20,23 +20,80 @@ ENSQINIT    LDX   #3
             DEX
             BNE   :L0
 
+* One cycle of square wave for 256 samples
+* Starts at address $0000 in DOC RAM
             LDA   ENSQSNDCTL                ; Get settings
             ORA   #$60                      ; DOC RAM, autoincrement on
             STA   ENSQSNDCTL                ; Set it
             LDA   #$00
             STA   ENSQADDRL                 ; DOC RAM addr $0000
             STA   ENSQADDRH                 ; DOC RAM addr $0000
-            LDA   #120                      ; High value of square wave
+            LDA   #210                      ; High value of square wave
             LDX   #$00
 :L1         STA   ENSQSNDDAT                ; 128 cycles of high value
             INX
             CPX   #128
             BNE   :L1
-            LDA   #80                       ; Low value of square wave
+            LDA   #40                       ; Low value of square wave
 :L2         STA   ENSQSNDDAT                ; 128 cycles of low value
             INX
             CPX   #0
             BNE   :L2
+
+* One cycle of pulse wave for 256 samples
+* Starts at $0100 in DOC RAM
+            LDA   #210                      ; High value of square wave
+            LDX   #$00
+:L3         STA   ENSQSNDDAT                ; 128 cycles of high value
+            INX
+            CPX   #128
+            BNE   :L3
+            LDA   #40                       ; Low value of square wave
+:L4         STA   ENSQSNDDAT                ; 128 cycles of low value
+            INX
+            CPX   #0
+            BNE   :L4
+
+* Random waveform for 256 samples
+* Starts at $0200 in DOC RAM
+            LDY   #$00
+:L5         LDA   $E000,Y                   ; Read ROM code as 'random' data
+            BNE   :S1                       ; Filter out zeros
+            LDA   #$01                      ; Change 0 -> 1
+:S1         STA   ENSQSNDDAT
+            INY
+            CPY   #0
+            BNE   :L5
+
+* One cycle of pulse wave for 4096 samples
+** Starts at address $1000 in DOC RAM
+*            LDA   ENSQSNDCTL                ; Get settings
+*            ORA   #$60                      ; DOC RAM, autoincrement on
+*            STA   ENSQSNDCTL                ; Set it
+*            LDA   #$00
+*            STA   ENSQADDRL                 ; DOC RAM addr $1000
+*            LDA   #$10
+*            STA   ENSQADDRH                 ; DOC RAM addr $1000
+*            LDA   #210                      ; High value of pulse wave
+*            LDX   #$00
+*:L3         STA   ENSQSNDDAT                ; 128 cycles of high value
+*            INX
+*            CPX   #128
+*            BNE   :L3
+*            LDA   #40                       ; Low value of pulse wave
+*:L4         STA   ENSQSNDDAT                ; 128 cycles of low value
+*            INX
+*            CPX   #0
+*            BNE   :L4
+*            LDY   #$00
+*:L6         LDX   #$00
+*:L5         STA   ENSQSNDDAT                ; 256 cycles of low value
+*            INX
+*            CPX   #0
+*            BNE   :L5
+*            INY
+*            CPY   #16                       ; Do it 15 times
+*            BNE   :L6
 
             LDA   #$5C                      ; GS IRQ.SOUND initialization
             STAL  $E1002C
@@ -85,6 +142,9 @@ ENSQNOTE    PHA
             PHY
             STX   OSCNUM                    ; Stash oscillator number 0-3
 
+            CPX   #$00
+            BEQ   :NOISE                    ; Oscillator 0 is noise channel
+
             PHA                             ; Stash orig freq
             TAY
             LDA   EFREQLOW,Y
@@ -112,17 +172,59 @@ ENSQNOTE    PHA
             JSR   ADDOSC                    ; Actual register in X
             JSR   ENSQWRTDOC
 
+            LDY   #$00                      ; For 256 byte wavetable, res 0
+            LDA   #$C0                      ; DOC register base $C0 (WT size)
+            JSR   ADDOSC                    ; Actual register in X
+            JSR   ENSQWRTDOC
+
             LDY   #$00                      ; Free run, no IRQ, start
             LDA   #$A0                      ; DOC register base $A0 (Control)
             JSR   ADDOSC                    ; Actual register in X
             JSR   ENSQWRTDOC
 
-            LDY   #$00                      ; For 256 byte wavetable
-            LDA   #$C0                      ; DOC register base $C0 (WT size)
-            JSR   ADDOSC                    ; Actual register in X
+            BRA   :DONE
+
+:NOISE      PHA                             ; Preserve value of parameter P
+            AND   #$04                      ; 'Periodic noise' or 'white noise'?
+            BEQ   :S1
+            LDY   #$02                      ; DOC RAM $0200 - white noise
+            BRA   :S2
+:S1         LDY   #$01                      ; DOC RAM $0100 - periodic noise
+:S2         LDX   #$80                      ; Wavetable pointer Register
             JSR   ENSQWRTDOC
 
+            PLA                             ; Restore P
+            AND   #$03                      ; Keep least significant 2 bits
+            TAX
+            LDA   #$40
+:L1         CPX   #$00
+            BEQ   :S3
+            LSR
+            DEX
+            BRA   :L1
+
+:S3         TAY                             ; Computed frequency value
+            LDX   #$20                      ; Freq Hi Register
+            JSR   ENSQWRTDOC
+
+            LDX   #$00                      ; Freq Lo Register
+            LDY   #$00                      ; Value
+            JSR   ENSQWRTDOC
+
+            LDX   #$40                      ; Amplitude Register
             PLY
+            PHY
+            JSR   ENSQWRTDOC
+
+            LDX   #$C0                      ; Wavetable size Register
+            LDY   #$04                      ; Size 256, resolution 4
+            JSR   ENSQWRTDOC
+
+            LDX   #$A0                      ; Wavetable size Register
+            LDY   #$00                      ; Free run, no IRQ, start
+            JSR   ENSQWRTDOC
+
+:DONE       PLY
             PLX
             PLA
             RTS
