@@ -2,6 +2,7 @@
 * (c) Bobbi 2022 GPLv3
 *
 * Ensoniq DOC Driver for Apple IIGS.
+* Simulates Hitachi SN76489 sound generator chip found in BBC Micro.
 *
 
 * Ensoniq control registers
@@ -145,7 +146,13 @@ ENSQNOTE    PHA
             CPX   #$00
             BEQ   :NOISE                    ; Oscillator 0 is noise channel
 
-            PHA                             ; Stash orig freq
+            CPX   #$01                      ; Oscillator 1 controls noise freq
+            BNE   :S0                       ; Not 1? Skip
+            CMP   #$00                      ; If frequency is zero ..
+            BEQ   :S0                       ; .. skip
+            STA   :CH1NOTE                  ; Store frequency for noise gen
+
+:S0         PHA                             ; Stash orig freq
             TAY
             LDA   EFREQLOW,Y
             TAY                             ; Frequency value LS byte
@@ -232,6 +239,7 @@ ENSQNOTE    PHA
 :NOISENOTE  DB    149                       ; BBC Micro note P=0 or 4
             DB    101                       ; BBC Micro note P=1 or 5
             DB    53                        ; BBC Micro note P=2 or 6
+:CH1NOTE    DB    00                        ; Note on channel 1
 
 
 * Adjust frequency of note already playing

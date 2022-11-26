@@ -732,7 +732,6 @@ ADSRPHASE   STX   OSCNUM
 :S1         TYA                             ; Change/step -> A
             CLC
             ADC   CURRAMP,X                 ; Add change to current amp
-*            BCS   :CLAMP                    ; If overflow, clamp to target
             CMP   :TARGET                   ; Compare with target
             BCS   :CLAMP                    ; If target < sum, clamp to target
             BRA   :UPDATE                   
@@ -743,7 +742,7 @@ ADSRPHASE   STX   OSCNUM
 :S2         TYA                             ; Change/step -> A
             CLC
             ADC   CURRAMP,X                 ; Add change to current amp
-            BCS   :CLAMP                    ; If overflow, clamp to target
+            BCS   :CLAMP                    ; If overflow (-ve), clamp to target
             CMP   :TARGET                   ; Compare with target
             BCC   :CLAMP                    ; If target >= sum, clamp to target
             BRA   :UPDATE                   
