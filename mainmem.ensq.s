@@ -44,12 +44,12 @@ ENSQINIT    LDX   #3
 * Starts at $0100 in DOC RAM
             LDA   #210                      ; High value of square wave
             LDX   #$00
-:L3         STA   ENSQSNDDAT                ; 128 cycles of high value
+:L3         STA   ENSQSNDDAT                ; 8 cycles of high value
             INX
-            CPX   #128
+            CPX   #8
             BNE   :L3
             LDA   #40                       ; Low value of square wave
-:L4         STA   ENSQSNDDAT                ; 128 cycles of low value
+:L4         STA   ENSQSNDDAT                ; 255-8 cycles of low value
             INX
             CPX   #0
             BNE   :L4
@@ -195,20 +195,20 @@ ENSQNOTE    PHA
 
             PLA                             ; Restore P
             AND   #$03                      ; Keep least significant 2 bits
-            TAX
-            LDA   #$40
-:L1         CPX   #$00
-            BEQ   :S3
-            LSR
-            DEX
-            BRA   :L1
+            TAY
+            LDA   :NOISENOTE,Y              ; BBC Micro note value
 
-:S3         TAY                             ; Computed frequency value
+:S3         PHA                             ; Gonna need it again
+            TAY                             ; Computed note
+            LDA   EFREQHIGH,Y
+            TAY                             ; Frequency value LS byte
             LDX   #$20                      ; Freq Hi Register
             JSR   ENSQWRTDOC
 
+            PLY                             ; Get computed note back
+            LDA   EFREQLOW,Y
+            TAY                             ; Frequency value LS byte
             LDX   #$00                      ; Freq Lo Register
-            LDY   #$00                      ; Value
             JSR   ENSQWRTDOC
 
             LDX   #$40                      ; Amplitude Register
@@ -218,6 +218,7 @@ ENSQNOTE    PHA
 
             LDX   #$C0                      ; Wavetable size Register
             LDY   #$04                      ; Size 256, resolution 4
+*            LDY   #$00                      ; Size 256, resolution 1
             JSR   ENSQWRTDOC
 
             LDX   #$A0                      ; Wavetable size Register
@@ -228,6 +229,9 @@ ENSQNOTE    PHA
             PLX
             PLA
             RTS
+:NOISENOTE  DB    149                       ; BBC Micro note P=0 or 4
+            DB    101                       ; BBC Micro note P=1 or 5
+            DB    53                        ; BBC Micro note P=2 or 6
 
 
 * Adjust frequency of note already playing
