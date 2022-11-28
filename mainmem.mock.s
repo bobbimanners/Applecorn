@@ -83,12 +83,15 @@ MOCKINIT    LDA   #$FF                      ; All VIA pins output
 * Silence all channels
 MOCKSILENT  LDX  #13                        ; Clear all 14 AY-3 regs
             LDA  #$00
-:L0         JSR  MOCKWRT
+:L0         JSR  MOCKWRT1
+            JSR  MOCKWRT2
             DEX
             BPL  :L0
             LDA  #$38                       ; Turn off noise
             LDX  #07
-            JSR  MOCKWRT
+            JSR  MOCKWRT1                   ; First AY-3
+            LDA  #$14                       ; A,B=tone; C=noise
+            JSR  MOCKWRT2                   ; Second AY-3
             RTS
 
 
@@ -122,17 +125,22 @@ MOCKNOTE    PHA
 * Preserves X & Y
 MOCKFREQ    PHX
             CPX   #$00                      ; Noise channel
-            BEQ   :DONE                     ; TODO: IGNORE NOISE FOR NOW
+            BEQ   :NOISE
             TXA
             DEC   A                         ; Subtract 1
             ASL                             ; Double to get fine register
             TAX
             LDA   MFREQLOW,Y                ; LSB of divider
-            JSR   MOCKWRT                   ; Write value to AY-3 register
+            JSR   MOCKWRT1                  ; Write value to AY-3 register
             INX                             ; Add one for course register
             LDA   MFREQHIGH,Y               ; MSB of divider
-            JSR   MOCKWRT                   ; Write value to AY-3 register
-:DONE       PLX
+            JSR   MOCKWRT1                  ; Write value to AY-3 register
+            PLX
+            RTS
+:NOISE      LDX   #6                        ; Noise period register
+            TYA                             ; TODO TEMPORARY HACK
+            JSR   MOCKWRT2                  ; Write value to AY-3 register
+            PLX
             RTS
 
 
@@ -141,7 +149,7 @@ MOCKFREQ    PHX
 * Preserves X & Y
 MOCKAMP     PHX
             CPX   #$00                      ; Noise channel
-            BEQ   :DONE                     ; Has no amplitude
+            BEQ   :NOISE
             TXA                             ; Add 7 to get register
             CLC
             ADC   #7
@@ -151,18 +159,24 @@ MOCKAMP     PHX
             LSR
             LSR
             LSR                             ; Now 0..15
-            JSR   MOCKWRT                   ; Write value to AY-3 register
-:DONE       PLX
+            JSR   MOCKWRT1                  ; Write value to AY-3 register
+            PLX
+            RTS
+:NOISE      LDX   #10                       ; Chan C
+            TYA                             ; Amplitude 0..255
+            LSR                             ; Divide by 16
+            LSR
+            LSR
+            LSR                             ; Now 0..15
+            JSR   MOCKWRT2                  ; Write value to AY-3 register
+            PLX
             RTS
 
 
 * Mockingboard interrupt service routine - just calls generic audio ISR
 MOCKISR     CLD
-            BIT   MOCK_6522_IFR            ; See if interrupt was from MB
-            BMI   :MOCK                    ; Yes
-            SEC                            ; We did not service irc
-            RTS
-:MOCK       BIT   MOCK_6522_T1CL           ; Clear interrupt
+* TODO: Check whether interrupt is from Mockingboard or not
+            BIT   MOCK_6522_T1CL           ; Clear interrupt
             JSR   AUDIOISR
             CLC                            ; CC indicates we serviced irq
             RTS
@@ -172,28 +186,43 @@ MOCKISR     CLD
 ** Private functions follow (ie: not part of driver API)
 **
 
-* Write to both AY-3s
+* Write to first AY-3
 * On entry: A - value, X - register
 * On exit: All regs preserved.
-MOCKWRT     PHY
+MOCKWRT1    PHY
             STX   MOCK_6522_ORA1            ; Latch the address
-            STX   MOCK_6522_ORA2
             LDY   #MOCK_AY_LATCH_ADDR
             STY   MOCK_6522_ORB1
-            STY   MOCK_6522_ORB2
 
             LDY   #MOCK_AY_INACTIVE         ; Go inactive
             STY   MOCK_6522_ORB1
-            STY   MOCK_6522_ORB2
 
             STA   MOCK_6522_ORA1            ; Write data
-            STA   MOCK_6522_ORA2
             LDY   #MOCK_AY_WRITE
             STY   MOCK_6522_ORB1
-            STY   MOCK_6522_ORB2
 
             LDY   #MOCK_AY_INACTIVE         ; Go inactive
             STY   MOCK_6522_ORB1
+            PLY
+            RTS
+
+
+* Write to second AY-3
+* On entry: A - value, X - register
+* On exit: All regs preserved.
+MOCKWRT2    PHY
+            STX   MOCK_6522_ORA2            ; Latch the address
+            LDY   #MOCK_AY_LATCH_ADDR
+            STY   MOCK_6522_ORB2
+
+            LDY   #MOCK_AY_INACTIVE         ; Go inactive
+            STY   MOCK_6522_ORB2
+
+            STA   MOCK_6522_ORA2            ; Write data
+            LDY   #MOCK_AY_WRITE
+            STY   MOCK_6522_ORB2
+
+            LDY   #MOCK_AY_INACTIVE         ; Go inactive
             STY   MOCK_6522_ORB2
             PLY
             RTS
