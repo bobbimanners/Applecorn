@@ -169,11 +169,11 @@ XF2AUX      MAC
 * Called by code running in aux mem to invoke a
 * routine in main memory
 XF2MAIN     MAC
+            SEI               ; Disable IRQ before XFER
             LDX   #<]1
             STX   STRTL
             LDX   #>]1
             STX   STRTH
-            SEI               ; Disable IRQ before XFER
             TSX
             STX   $0101       ; Save alt SP
             LDX   $0100       ; Load main SP into X
