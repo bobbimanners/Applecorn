@@ -2,8 +2,8 @@
 * (c) Bobbi 2022 GPLv3
 *
 * Mockingboard Driver.
+* Simulates Hitachi SN76489 sound generator chip found in BBC Micro.
 *
-
 *
 * I borrowed some ideas from Deater:
 * https://github.com/deater/dos33fsprogs/blob/master/music/pt3_lib/pt3_lib_mockingboard_setup.s
@@ -124,9 +124,14 @@ MOCKNOTE    PHA
 * On entry: X - oscillator number 0-3, Y - frequency to set
 * Preserves X & Y
 MOCKFREQ    PHX
-            CPX   #$00                      ; Noise channel
+            CPX   #$00                      ; Oscillator 0 is noise channel
             BEQ   :NOISE
-            TXA
+            CPX   #$01                      ; Oscillator 1 controls noise freq
+            BNE   :S0                       ; Not 1? Skip
+            CMP   #$00                      ; If frequency is zero ..
+            BEQ   :S0                       ; .. skip
+            STA   :CH1NOTE                  ; Store frequency for noise gen
+:S0         TXA
             DEC   A                         ; Subtract 1
             ASL                             ; Double to get fine register
             TAX
@@ -137,11 +142,25 @@ MOCKFREQ    PHX
             JSR   MOCKWRT1                  ; Write value to AY-3 register
             PLX
             RTS
-:NOISE      LDX   #6                        ; Noise period register
-            TYA                             ; TODO TEMPORARY HACK
+:NOISE      TYA                             ; Parameter P
+            AND   #$03                      ; Keep least significant 2 bits
+            TAY
+            LDA   :NOISENOTE,Y              ; Get value of note
+            EOR   #$FF                      ; Negate
+            INC   A
+            CLC                             ; Add 255
+            ADC   #$FF
+            LSR                             ; Convert 0..255 to 0..31
+            LSR
+            LSR
+            LDX   #6                        ; Noise period register
             JSR   MOCKWRT2                  ; Write value to AY-3 register
             PLX
             RTS
+:NOISENOTE  DB    $FF                       ; BBC Micro note P=0 or 4
+            DB    $80                       ; BBC Micro note P=1 or 5
+            DB    $00                       ; BBC Micro note P=2 or 6
+:CH1NOTE    DB    $00                       ; Note on channel 1
 
 
 * Adjust amplitude of note already playing
