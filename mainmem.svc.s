@@ -1068,7 +1068,20 @@ DRVINFO       >>>   ENTMAIN
               STA   MOSFILE+1          ; Convert "" to "@"
 :DRVINF2      JSR   PREPATH
               BCS   :EXIT
-              LDA   #<MOSFILE
+
+              LDX   #$01               ; Skip over initial '/'
+:L1           CPX   MOSFILE            ; See if end of string
+              BCS   :S1                ; If so ... we are done
+              BEQ   :S1
+              LDA   MOSFILE+1,X        ; Get char from path
+              CMP   #'/'               ; See if it is slash
+              BNE   :S2
+              STX   MOSFILE            ; If so, truncate here
+              BRA   :S1
+:S2           INX
+              BRA   :L1
+
+:S1           LDA   #<MOSFILE
               STA   GINFOPL+1
               LDA   #>MOSFILE
               STA   GINFOPL+2
