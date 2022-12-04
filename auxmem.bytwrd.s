@@ -8,6 +8,7 @@
 * 04-Sep-2021 Extended VDU table to add $75 and $A0 for VDU driver.
 * 09-Sep-2021 Moved keyboard and VDU OSBYTEs to Keyboard and VDU.
 * 05-Nov-2022 Added rest of OSBYTE dispatch entries, null for the moment.
+* 05-Dec-2022 Tweeked WORD05/06, added full list of OSBYTE comments.
 
 
              XC                           ; 65c02
@@ -30,28 +31,28 @@ BYTWRDADDR   DW    BYTE00                 ; OSBYTE   0 - Machine host    - INIT.
              DW    BYTE0C                 ; OSBYTE  12 - Autorepeat repeat
              DW    BYTENULL               ; OSBYTE  13 - Disable event
              DW    BYTENULL               ; OSBYTE  14 - Enable event
-             DW    BYTENULL               ; OSBYTE  15 - Flush buffer
-             DW    BYTENULL               ; OSBYTE  16
-             DW    BYTENULL               ; OSBYTE  17
-             DW    BYTENULL               ; OSBYTE  18
+             DW    BYTENULL               ; OSBYTE  15 - Flush buffer type
+             DW    BYTENULL               ; OSBYTE  16 - ADC channel max
+             DW    BYTENULL               ; OSBYTE  17 - ADC channel start
+             DW    BYTENULL               ; OSBYTE  18 - Clear soft keys
              DW    BYTENULL               ; OSBYTE  19 - Wait for VSync
-             DW    BYTENULL               ; OSBYTE  20
-             DW    BYTENULL               ; OSBYTE  21
-             DW    BYTENULL               ; OSBYTE  22
-             DW    BYTENULL               ; OSBYTE  23
-             DW    BYTENULL               ; OSBYTE  24
-             DW    BYTENULL               ; OSBYTE  25
+             DW    BYTENULL               ; OSBYTE  20 - Font explode
+             DW    BYTENULL               ; OSBYTE  21 - Buffer flush
+             DW    BYTENULL               ; OSBYTE  22 - Polling semaphore inc.
+             DW    BYTENULL               ; OSBYTE  23 - Polling semaphore dec.
+             DW    BYTENULL               ; OSBYTE  24 - External sound
+             DW    BYTENULL               ; OSBYTE  25 - Font hard/soft
 BYTWRDLOW
 BYTESZLO     EQU   BYTWRDLOW-BYTWRDADDR
 BYTELOW      EQU   BYTESZLO/2-1           ; Maximum low OSBYTE
 BYTEHIGH     EQU   $75                    ; First high OSBYTE
              DW    BYTE75                 ; OSBYTE 117 - Read VDU status - VDU.s
              DW    BYTE76                 ; OSBYTE 118 - Update kbd LEDs - CHARIO.s
-             DW    BYTENULL               ; OSBYTE 119
-             DW    BYTENULL               ; OSBYTE 120
-             DW    BYTENULL               ; OSBYTE 121
-             DW    BYTENULL               ; OSBYTE 122
-             DW    BYTENULL               ; OSBYTE 123
+             DW    BYTENULL               ; OSBYTE 119 - Close Spool/Exec
+             DW    BYTENULL               ; OSBYTE 120 - Set keys pressed
+             DW    BYTENULL               ; OSBYTE 121 - Keyboard scan
+             DW    BYTENULL               ; OSBYTE 122 - Keyboard scan from &10
+             DW    BYTENULL               ; OSBYTE 123 - Printer going dormant
              DW    BYTE7C                 ; OSBYTE 124 - Clear Escape    - CHARIO.s
              DW    BYTE7D                 ; OSBYTE 125 - Set Escape      - CHARIO.s
              DW    BYTE7E                 ; OSBYTE 126 - Ack. Escape     - CHARIO.s
@@ -66,28 +67,28 @@ BYTEHIGH     EQU   $75                    ; First high OSBYTE
              DW    BYTE87                 ; OSBYTE 135 - Character, MODE - VDU.s
              DW    BYTE88                 ; OSBYTE 136 - *CODE
              DW    BYTENULL               ; OSBYTE 137 - *MOTOR
-             DW    BYTENULL               ; OSBYTE 138 - Buffer insert
+             DW    BYTENULL               ; OSBYTE 138 - Buffer insert   - 
              DW    BYTE8B                 ; OSBYTE 139 - *OPT
              DW    BYTENULL               ; OSBYTE 140 - *TAPE
              DW    BYTENULL               ; OSBYTE 141 - *ROM
              DW    BYTE8E                 ; OSBYTE 142 - Enter language  - INIT.s
              DW    BYTE8F                 ; OSBYTE 143 - Service call    - INIT.s
-             DW    BYTENULL               ; OSBYTE 144
-             DW    BYTENULL               ; OSBYTE 145
-             DW    BYTENULL               ; OSBYTE 146
-             DW    BYTENULL               ; OSBYTE 147
-             DW    BYTENULL               ; OSBYTE 148
-             DW    BYTENULL               ; OSBYTE 149
-             DW    BYTENULL               ; OSBYTE 150
-             DW    BYTENULL               ; OSBYTE 151
-             DW    BYTENULL               ; OSBYTE 152
-             DW    BYTENULL               ; OSBYTE 153
-             DW    BYTENULL               ; OSBYTE 154
-             DW    BYTENULL               ; OSBYTE 155
-             DW    BYTENULL               ; OSBYTE 156
-             DW    BYTENULL               ; OSBYTE 157
-             DW    BYTENULL               ; OSBYTE 158
-             DW    BYTENULL               ; OSBYTE 159
+             DW    BYTENULL               ; OSBYTE 144 - *TV
+             DW    BYTENULL               ; OSBYTE 145 - Buffer remove   - 
+             DW    BYTENULL               ; OSBYTE 146 - Read FRED
+             DW    BYTENULL               ; OSBYTE 147 - Write FRED
+             DW    BYTENULL               ; OSBYTE 148 - Read JIM
+             DW    BYTENULL               ; OSBYTE 149 - Write JIM
+             DW    BYTENULL               ; OSBYTE 150 - Read SHEILA
+             DW    BYTENULL               ; OSBYTE 151 - Write SHEILA
+             DW    BYTENULL               ; OSBYTE 152 - Buffer examine  -
+             DW    BYTENULL               ; OSBYTE 153 - Buffer insert check ESCAPE
+             DW    BYTENULL               ; OSBYTE 154 - Video control
+             DW    BYTENULL               ; OSBYTE 155 - Video palette
+             DW    BYTENULL               ; OSBYTE 156 - Serial control
+             DW    BYTENULL               ; OSBYTE 157 - Tube BPUT
+             DW    BYTENULL               ; OSBYTE 158 - Speech Read
+             DW    BYTENULL               ; OSBYTE 159 - Speech Write
              DW    BYTEA0                 ; OSBYTE 160 - Read VDU variable - VDU.s
 BYTWRDTOP
              DW    BYTEVAR                ; OSBYTE 166+ - Read/Write OSBYTE variable
@@ -208,7 +209,7 @@ BYTWRDGO     JSR   JMPADDR                ; Call the routine
 *  Y=$00 for OSBYTE A<$80
 *  Y=$00 for OSWORD so (OSCTRL),Y => first byte
 *  Carry Set
-*  EQ set from OSBYTE X or from OSWORD first byte
+*  EQ,MI set from OSBYTE X or from OSWORD first byte
 * X,Y,Cy from routine returned to caller
 
 BYTWRDEXIT   ROR   A                      ; Move Carry to A
@@ -364,16 +365,16 @@ WORD04       RTS                          ; Dummy, do nothing
 *  A0xxxxxx use this to specify 'A'pple main memory
 *
 WORD05       JSR   GETADDR                ; Point to address, set Y=>data byte
-             BEQ   WORD5A                 ; Skip to read from main memory
+             BCS   WORD5A                 ; Skip to read from main memory
              LDA   (OSINTWS)              ; Get byte
-             STA   (OSCTRL),Y             ; Store it
-             RTS
+             BCC   WORD5B                 ; Store it
 
 * We want to read from anywhere in main memory. We can't just set
 * 'all reads from main' as we'd page out our own code. We need to call
 * mainmem and read from there.
 WORD5A       JSR   WORD05IO               ; Call as a subroutine to return here
-             STA   (OSCTRL),Y             ; Store it
+             LDY   #4                     ; Y corrupted by WORD05IO
+WORD5B       STA   (OSCTRL),Y             ; Store it
              RTS
 
 WORD05IO     LDA   OSINTWS+0              ; X CORRUPTED BY XF2MAIN
@@ -381,10 +382,8 @@ WORD05IO     LDA   OSINTWS+0              ; X CORRUPTED BY XF2MAIN
 WORD05IO1    >>>   XF2MAIN,MAINRDMEM
 
 WORD06       JSR   GETADDR                ; Point to address, set Y=>data byte
-             PHP
              LDA   (OSCTRL),Y             ; Get byte from our memory
-             PLP
-             BEQ   WORD06A                ; Skip to write to main memory
+             BCS   WORD06A                ; Skip to write to main memory
              STA   (OSINTWS)              ; Store it
              RTS
 
@@ -410,7 +409,9 @@ GETADDR      STA   OSINTWS+0              ; (OSINTWS)=>byte to read/write
              LDA   (OSCTRL),Y             ; Get address high byte
              INY                          ; Point Y to data byte
              CMP   #$A0                   ; Let's use A0xxxxxx for 'A'pple memory
-             RTS
+             BEQ   GETADDR1               ; Return with CS=Apple system memory
+             CLC                          ; Return with CC=not Apple memory
+GETADDR1     RTS
 
 
 * OSBYTE routines
