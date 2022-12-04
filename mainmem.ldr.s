@@ -50,7 +50,7 @@ SETPRFX     LDA   #GPFXCMD
 :OPC7        DB   $00
              DW   GSPFXPL
             LDX   DRVBUF1           ; was $0300
-            BNE   RTSINST
+            BNE   :CMDPATH
             LDA   DEVNUM
             STA   ONLNPL+1          ; Device number
             JSR   MLI
@@ -65,7 +65,7 @@ SETPRFX     LDA   #GPFXCMD
             STA   DRVBUF2           ; was $0301
             DEC   :OPC7
             BNE   :L1
-RTSINST     LDA   CMDPATH
+:CMDPATH    LDA   CMDPATH
             BEQ   :GETPFX           ; CMDPATH empty
             LDA   CMDPATH+1
             CMP   #'/'
