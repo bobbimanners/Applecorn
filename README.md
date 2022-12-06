@@ -5,9 +5,15 @@
 Applecorn is a ProDOS application for the Apple //e Enhanced which provides
 an environment for Acorn BBC Microcomputer language ROMs to run.  This
 allows BBC BASIC and other Acorn languages to run on the Apple //e and
-compatible systems.
+compatible systems.  Applecorn implements the Acorn MOS (Machine Operating
+System) API on top of Apple ProDOS.
 
 The language ROMs run as-is, without any modification required.
+
+Any BBC Micro software that follows Acorn's coding guidelines and uses
+approved MOS system calls should work on Applecorn, subject to the
+limitations imposed by the different capabilities of the Apple II
+hardware.
 
 ## Hardware Requirements
 
@@ -18,14 +24,15 @@ of memory and a 65C02 processor.  This includes the following:
 - Apple //c and //c+
 - Apple IIgs
 
-Note, for the Apple IIgs, with the latest code (as of September 26, 2021),
-you must NOT enable the "Alternate Text Mode" CDA!
+Note, for the Apple IIgs, you should NOT enable the "Alternate Text Mode"
+CDA!
 
 ## How to Run the Software
 
 Boot the diskette `applecorn.po` which is an 800KB bootable ProDOS
 diskette.  Applecorn is a .SYSTEM program and should start automatically
 when this disk is booted.
+
 You can optionally boot your system from other ProDOS media, and then simply
 select to start `APLCORN.SYSTEM` from your favorite ProDOS selector, such as
 Bitsy-Bye.  I use version 2.4.2 of ProDOS for my testing, but the software
@@ -117,10 +124,11 @@ program in memory.
 - The BBC Micro 'Copy Editor' function is supported.  Use the Apple II
   cursor keys to move the copy cursor and the `Tab` key to copy a character
   from the copy cursor to the insert cursor.
-- BBC Micro function keys are supported.  Use Open Apple with the number
-  keys for the unshifted function keys.  Use Closed Apple with the number
-  keys for the function keys with Shift.  Use both Open Apple and Closed
-  Apple together with the number keys for the function keys with Ctrl.
+- BBC Micro function keys are supported.
+  - Use Open Apple with the number keys for the unshifted function keys.
+  - Use Closed Apple with the number keys for the function keys with Shift.
+  - Use both Open Apple and Closed Apple together with the number keys for
+    the function keys with Ctrl.
 
 ### 'Sideways ROM' Support
 
@@ -311,12 +319,12 @@ allowed.
 `*RENAME <objspec1> <objspec2>` - Rename file or directory `<objspec1>`
 to `<objspec2>`.  No wildcards are allowed.
 
-`*DRIVE <dry>` - Switch to the specified physical drive.  This is equivalent
+`*DRIVE <drv>` - Switch to the specified physical drive.  This is equivalent
 to using `*DIR` but does not allow subdirectories to be specified.  The
 working directory will be set to the volume directory corresponding to
 the physical device specified.
 
-`*FREE [<dry>]` - Shows blocks used and blocks free on the specified physical
+`*FREE [<drv>]` - Shows blocks used and blocks free on the specified physical
 device.  If no drive is specified, the free space on the drive corresponding
 to the current ProDOS prefix is returned.
 
@@ -376,6 +384,43 @@ disable debugging output.
 
 `*SLOW` - turn Apple II accelerator off (supports GS, Ultrawarp and ZipChip).
 
+### Audio Support
+
+Applecorn includes an audio engine which emulates that of the Acorn MOS.
+The audio facilities may be used from BBC BASIC using the `SOUND` and
+`ENVELOPE` commands.  There are equivalents in other Acornsoft languaes,
+should you wish to conduct your sonatas in Forth or Pascal.
+
+Applecorn supports two different audio systems:
+- Ensoniq DOC, which is standard equipment on all Apple IIgs systems.
+- Mockingboard, a common add-on board for the Apple //e.
+
+If Applecorn is run on a IIgs, Ensoniq audio will be enabled, otherwise a
+Mockingboard will be assumed to be present in slot 4 (or you will have no
+audio.)
+
+Applecorn implements to core features of the BBC Micro audio engine:
+- Three square-wave tone channels
+- One noise channel
+- Pitch and amplitude (ADSR) envelopes updated at 100Hz
+
+The BBC Micro utilizes the Hitachi SN76489 sound generator chip. The
+Ensoniq DOC is a more powerful sound chip, based on a wavetable, which
+allows it to emulate teh SN76489 quite closely.  The Mockingboard uses
+the popular General Instruments AY-3-8910 chip, which has slightly
+different capabilities, especially with regard to the noise channel.
+As a result, the Ensoniq emulation is closer to the BBC Micro original
+than the Mockingboard.
+
+Up to 16 envelopes are supported without having to worry about any
+memory conflicts with other functions.
+
+The audio code relies on an interrupt service routine being invoked
+100 times a second.  This ISR also updates the pseudo-realtime clock
+which may be read (and set) in BASIC using the `TIME` variable.  For
+a //e with no Mockingboard there are is no source of interrupts, so
+`TIME` remains at zero.
+
 ## How to Build
 
 Applecorn is built natively on the Apple //e using the Merlin 16 assembler
@@ -383,6 +428,8 @@ v3.53 (requires a 65816 though.)  It may also be built using Merlin-32 on
 Windows, Linux or Mac if preferred.  The code should also assemble on
 Merlin-8 2.58 provided some of the longer comments are trimmed (Merlin-16
 allows longer lines.)
+
+To build in Merlin-32, use the `m32build` provided.
 
 In Merlin-16 (Merlin-8 in parenthesis, where different):
 - Press `D` for disk commands and enter the prefix of the build directory:
@@ -581,7 +628,7 @@ hardware capabilities of the BBC Micro and the Apple II.
   related to colour are not implemented.  The VDU driver is sufficient to
   run full screen editors such as the ISO Pascal editor and the View
   word processor.
-- Special BBC Micro functions such as sound, A/D interfaces, programmable
+- Special BBC Micro functions such A/D interfaces, programmable
   function keys and so on are currently not supported.
 
 
