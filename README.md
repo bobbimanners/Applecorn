@@ -246,7 +246,7 @@ Following Acorn's convention, these may be described as follows:
      pathname which may include the wildcard characters.  However, if the
      wildcard results in multiple matches, the command will operate
      on all of these files.
-   - `<dry>` is a drive number.  (For example, `:61`).
+   - `<drv>` is a drive number.  (For example, `:61`).
 
 Wildcards are expanded wherever they appear in the path with one
 exception.  For non-leaf nodes, the first match will be always be 
