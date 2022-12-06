@@ -89,6 +89,9 @@ CMDFILE     ASC   'CAT'
 CMDMOS      ASC   'BASIC'
             DB    $FF
             DW    STARBASIC-1        ; BASIC  -> (LPTR)=>params
+            ASC   'CODE'
+            DB    $88
+            DW    STARBYTE-1         ; CODE   -> OSBYTE &88,X,Y  XY=>params
             ASC   'ECHO'
             DB    $FF
             DW    CMDECHO-1          ; ECHO   -> (LPTR)=>params
@@ -104,6 +107,9 @@ CMDMOS      ASC   'BASIC'
             ASC   'KEY'
             DB    $FF
             DW    STARKEY-1          ; KEY    -> (LPTR)=>params
+            ASC   'LINE'
+            DB    $80
+            DW    CMDLINE-1          ; LINE   -> XY=>params
             ASC   'QUIT'
             DB    $FF
             DW    STARQUIT-1         ; QUIT   -> (LPTR)=>params
