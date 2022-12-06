@@ -417,8 +417,9 @@ GETADDR1     RTS
 * OSBYTE routines
 *****************
 
-BYTE88       LDA   #$01                   ; $88 = *CODE
-WORDE0       JMP   (USERV)                ; OSWORD &E0+
+BYTE88       LDA   #$81                   ; *CODE -> A=&01
+CMDLINE      EOR   #$80                   ; *LINE -> A=&00
+WORDE0       JMP   (USERV)                ; OSWORD &E0+ -> A=&E0+
 
 * Low OSBYTE converted into Set Variable
 BYTE02       LDA   #$F7                   ; -> &B1
