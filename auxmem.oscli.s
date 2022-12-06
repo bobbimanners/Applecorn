@@ -15,6 +15,7 @@
 *             Optimised CLILOOK dispatcher.
 * 05-Nov-2022 Added ROM, TAPE, TV to command table -> OSBYTE calls.
 * 06-Nov-2022 Rewrote *BUILD, avoids using code memory.
+*             Moved *KEY into CHARIO.S
 
 
 * COMMAND TABLE
@@ -507,10 +508,6 @@ STARHELP4   LDA   #$08
             JSR   OSWRCH
             JSR   OSWRCH
             JMP   FORCENL
-
-* *KEY <num> <GSTRANS string>
-* ---------------------------
-STARKEY     RTS
 
 * *QUIT command
 * -------------

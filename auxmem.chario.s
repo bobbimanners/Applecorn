@@ -32,6 +32,7 @@
 * 23-Oct-2022 Escape: BYTE7E needed to ESCPOLL, INKEYESC unbalanced stack.
 * 03-Nov-2022 Escape: Fixed INKEY loop failing if entering with previous Escape,
 *             combined with EscAck clearing keyboard.
+* 06-Dec-2022 Moved *KEY into here.
 
 
 * Hardware locations
@@ -51,10 +52,32 @@ FXKEYBASE    EQU   BYTEVARBASE+221
 FXESCON      EQU   BYTEVARBASE+229
 FXESCEFFECT  EQU   BYTEVARBASE+230
 FX200VAR     EQU   BYTEVARBASE+200
+FXSOFTLEN    EQU   BYTEVARBASE+216
+FXSOFTOK     EQU   BYTEVARBASE+244
+
 FX254VAR     EQU   BYTEVARBASE+254
 FX2VAR       EQU   BYTEVARBASE+$B1
 FX3VAR       EQU   BYTEVARBASE+$EC
 FX4VAR       EQU   BYTEVARBASE+$ED
+
+
+* *KEY <num> <GSTRANS string>
+* ---------------------------
+STARKEY     LDA   FXSOFTLEN
+            BNE   ERRKEYUSED         ; Key being expanded
+            JSR   SCANDEC
+            CMP   #$10
+            BCC   STARKEY1
+ERRBADKEY   BRK
+            DB    $FB
+            ASC   'Bad key'
+ERRKEYUSED  BRK
+            DB    $FA
+            ASC   'Key in use'
+            BRK
+STARKEY1    JSR   SKIPCOMMA
+* nothing yet
+            RTS
 
 
 * OSWRCH handler
