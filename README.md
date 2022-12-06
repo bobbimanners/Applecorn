@@ -272,11 +272,11 @@ lives in auxiliary memory, you can usually restart Applecorn by running it
 again and recover your program with `OLD`.
 
 `*HELP [topic]` - Prints out information similar to the same command on the BBC micro.
-Specifically it lists the version of Applecorn MOS and the name of the current
-language ROM.
-  - `*HELP` shows the version number and the language ROM in use.
-  - `*HELP MOS` shows the available MOS star commands.
+  - `*HELP` shows the version number and the current language ROM in use,
+    followed by a list of any other 'sideways ROMs' in the virtual system.
+  - `*HELP FILE` shows the available filing system star commands.
   - `*HELP HOSTFS` shows the available HostFS star commands.
+  - `*HELP MOS` shows the MOS star commands unrelated to the filing system.
 
 `*CAT [<*objspec*>]` (or `*. [*objspec*]`) - Simple listing of the files in the
 specified directory, or the current working directory ('current prefix') if
