@@ -194,10 +194,14 @@ MOCKAMP     PHX
 
 * Mockingboard interrupt service routine - just calls generic audio ISR
 MOCKISR     CLD
-* TODO: Check whether interrupt is from Mockingboard or not
+            LDA   MOCK_6522_IFR            ; Interrupt flag register
+            AND   #$40                     ; Bit 6
+            BEQ   :NOTMB                   ; Wasn't Mockingboard IRQ
             BIT   MOCK_6522_T1CL           ; Clear interrupt
             JSR   AUDIOISR
             CLC                            ; CC indicates we serviced irq
+            RTS
+:NOTMB      SEC                            ; We did not handle irq
             RTS
 
 
