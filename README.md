@@ -267,16 +267,62 @@ notation to specify physical drive as an abbreviation.
 
 ### Star Commands
 
+Applecorn implements the command line interface for MOS built-in functions
+and also for accessing the filingsystem.  Following Acorn conventions, these
+commands are all invoked with a leading asterix `*`.
+
+#### Applecorn Commands
+
+These commands are specific to Applecorn.
+
 `*QUIT` - Terminate Applecorn and quit to ProDOS.  Because the 'BBC Micro'
 lives in auxiliary memory, you can usually restart Applecorn by running it
-again and recover your program with `OLD`.
+again and (assuming you are using BBC BASIC) recover your program with `OLD`.
 
-`*HELP [topic]` - Prints out information similar to the same command on the BBC micro.
-  - `*HELP` shows the version number and the current language ROM in use,
-    followed by a list of any other 'sideways ROMs' in the virtual system.
+`*FAST` - turn Apple II accelerator on (supports GS, Ultrawarp and ZipChip).
+
+`*SLOW` - turn Apple II accelerator off (supports GS, Ultrawarp and ZipChip).
+
+#### MOS Commands
+
+The following commands correspond to those in the original Acorn MOS.
+
+`*HELP [topic]` - Prints out information in a manner similar to the same
+ command on the BBC micro.
+  - `*HELP` with no argument shows the Applecorn MOS version number and the
+    current language ROM in use, followed by a list of any other 'sideways
+    ROMs' in the virtual system.
   - `*HELP FILE` shows the available filing system star commands.
   - `*HELP HOSTFS` shows the available HostFS star commands.
   - `*HELP MOS` shows the MOS star commands unrelated to the filing system.
+
+`*ECHO This is some text` - echo a line of text to the screen.
+
+`*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
+
+`*OPT` - sets file system options.  `*OPT 255,x` may be used to enable or
+disable debugging output.
+
+`*KEY keynum <text>` - Programs a user-defined function key.
+**NOT YET IMPLEMENTED**.
+
+`*CODE x,y` - Invokes user machine code through the user vector `USERV`.
+6502 registers X and Y are initialized according to the value of the two
+numeric arguments provided.
+
+`*LINE <text>` - Invokes user machine code through the user vector `USERV`.
+6502 registers X and Y are initialized to point at the command-line text
+provided (X is least significant byte, Y most significant byte.)
+
+`*TV n` - This command does nothing. It is provided for compatibility because
+it is common for BBC Micro programs to use the `*TV` command to adjust the
+vertical position of the picture on the monitor.
+
+#### HostFS Filing System Commands
+
+This set of commands relates to filesystem operations, which would correspond
+to the Disk Filing System (DFS) or Advanced Disk Filing System (ADFS) of the
+BBC Micro.
 
 `*CAT [<*objspec*>]` (or `*. [*objspec*]`) - Simple listing of the files in the
 specified directory, or the current working directory ('current prefix') if
@@ -373,16 +419,6 @@ it, as though it were being typed on the keyboard.
 
 `*CLOSE` - close any open files (including spool file, if open.)
 
-`*ECHO This is some text` - echo a line of text to the screen.
-
-`*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
-
-`*OPT` - sets file system options.  `*OPT 255,x` may be used to enable or
-disable debugging output.
-
-`*FAST` - turn Apple II accelerator on (supports GS, Ultrawarp and ZipChip).
-
-`*SLOW` - turn Apple II accelerator off (supports GS, Ultrawarp and ZipChip).
 
 ### Audio Support
 
@@ -630,6 +666,5 @@ hardware capabilities of the BBC Micro and the Apple II.
   word processor.
 - Special BBC Micro functions such A/D interfaces, programmable
   function keys and so on are currently not supported.
-
 
 
