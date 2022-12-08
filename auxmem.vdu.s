@@ -555,7 +555,6 @@ VDU30         LDA   TXTWINTOP
               RTS
 
 * Move to (X,Y)
-** TODO
 VDU31         LDY   VDUQ+8
               CPY   #24
               BCS   :DONE
