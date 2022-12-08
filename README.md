@@ -296,6 +296,10 @@ The following commands correspond to those in the original Acorn MOS.
   - `*HELP HOSTFS` shows the available HostFS star commands.
   - `*HELP MOS` shows the MOS star commands unrelated to the filing system.
 
+`*BASIC` - Start the BASIC language (assuming it is present as one of the
+virtual Sideways ROMs.)  BASIC is the only language ROM which does not 
+provide its own startup command, so MOS provides it.
+
 `*ECHO This is some text` - echo a line of text to the screen.
 
 `*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
@@ -317,6 +321,12 @@ provided (X is least significant byte, Y most significant byte.)
 `*TV n` - This command does nothing. It is provided for compatibility because
 it is common for BBC Micro programs to use the `*TV` command to adjust the
 vertical position of the picture on the monitor.
+
+`*ROM` - On the real BBC Micro, this selects the ROM Filing System. This
+command is accepted by Applecorn but does nothing.
+
+`*TAPE` - On the real BBC Micro, this selects the Cassette Filing System.
+This command is accepted by Applecorn but does nothing.
 
 #### HostFS Filing System Commands
 
