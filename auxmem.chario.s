@@ -91,17 +91,19 @@ STARKEY1    ASL   A                  ; Key num * 2
             PLX                      ; Recover key num * 2
             STA   KEYBUF+1,X         ; Store MS byte start address
 :L1         LDA   (OSLPTR),Y         ; Read char from input
-            CMP   #$0D               ; Carriage return?
-            BEQ   :S1
             STA   (OSTEXT)           ; Store in buffer
+            PHA
+            INY                      ; Advance source index
             JSR   INCKEYPTR          ; Advance dest pointer
-            INY
-            BRA   :L1
+            PLA
+            CMP   #$0D               ; Carriage return?
+            BNE   :L1
 :S1         LDA   OSTEXT+0
             STA   KEYBUF + $20       ; Free space LS byte
             LDA   OSTEXT+1
             STA   KEYBUF + $21       ; Free space LS byte
             RTS
+
 
 * Increment OSTEXT, skipping over screen holes
 * Screen holes are $478-$47F, $4F8-$4FF
@@ -123,6 +125,7 @@ INCKEYPTR   LDA   OSTEXT+0           ; Least significant byte
 :HOLEF8     STZ   OSTEXT+0
             INC   OSTEXT+1
             RTS
+
 
 
 * OSWRCH handler
