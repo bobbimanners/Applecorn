@@ -36,13 +36,13 @@
 
 
 * Hardware locations
-KBDDATA      EQU   $C000               ; Read Keyboard data
-KBDACK       EQU   $C010               ; Acknowledge keyboard data
-KBDAPPLFT    EQU   $C061               ; Left Apple key
-KBDAPPRGT    EQU   $C062               ; Right Apple key
-IOVBLNK      EQU   $C019               ; VBLNK pulse
+KBDDATA      EQU   $C000             ; Read Keyboard data
+KBDACK       EQU   $C010             ; Acknowledge keyboard data
+KBDAPPLFT    EQU   $C061             ; Left Apple key
+KBDAPPRGT    EQU   $C062             ; Right Apple key
+IOVBLNK      EQU   $C019             ; VBLNK pulse
 
-FLASHER      EQU   BYTEVARBASE+176     ; VSync counter for flashing cursor
+FLASHER      EQU   BYTEVARBASE+176   ; VSync counter for flashing cursor
 FXEXEC       EQU   BYTEVARBASE+198
 FXSPOOL      EQU   BYTEVARBASE+199
 
@@ -60,6 +60,9 @@ FX2VAR       EQU   BYTEVARBASE+$B1
 FX3VAR       EQU   BYTEVARBASE+$EC
 FX4VAR       EQU   BYTEVARBASE+$ED
 
+KEYBUF       EQU   $400              ; *KEY buffer from $400-$7FF
+                                     ; Beware of the screen holes!
+KEYBUFFREE   EQU   KEYBUF + $20      ; Free space word
 
 * *KEY <num> <GSTRANS string>
 * ---------------------------
@@ -75,8 +78,50 @@ ERRKEYUSED  BRK
             DB    $FA
             ASC   'Key in use'
             BRK
-STARKEY1    JSR   SKIPCOMMA
-* nothing yet
+STARKEY1    ASL   A                  ; Key num * 2
+            PHA                      ; Preserve for later
+            JSR   SKIPCOMMA
+            LDA   KEYBUFFREE+0       ; Free space LS byte
+            STA   OSTEXT+0
+            PLX                      ; Recover key num * 2
+            PHX
+            STA   KEYBUF,X           ; Store LS byte start address
+            LDA   KEYBUFFREE+1       ; Free space MS byte
+            STA   OSTEXT+1
+            PLX                      ; Recover key num * 2
+            STA   KEYBUF+1,X         ; Store MS byte start address
+:L1         LDA   (OSLPTR),Y         ; Read char from input
+            CMP   #$0D               ; Carriage return?
+            BEQ   :S1
+            STA   (OSTEXT)           ; Store in buffer
+            JSR   INCKEYPTR          ; Advance dest pointer
+            INY
+            BRA   :L1
+:S1         LDA   OSTEXT+0
+            STA   KEYBUF + $20       ; Free space LS byte
+            LDA   OSTEXT+1
+            STA   KEYBUF + $21       ; Free space LS byte
+            RTS
+
+* Increment OSTEXT, skipping over screen holes
+* Screen holes are $478-$47F, $4F8-$4FF
+*                  $578-$57F, $5F8-$5FF
+*                  $678-$67F, $6F8-$6FF
+*                  $778-$77F, $7F8-$7FF
+INCKEYPTR   LDA   OSTEXT+0           ; Least significant byte
+            INC   A
+            STA   OSTEXT+0
+            AND   #$F8
+            CMP   #$78               ; If $78 to $7F
+            BEQ   :HOLE78
+            CMP   #$F8               ; If $F8 to $FF
+            BEQ   :HOLEF8
+            RTS
+:HOLE78     LDA   #$80
+            STA   OSTEXT+0
+            RTS
+:HOLEF8     STZ   OSTEXT+0
+            INC   OSTEXT+1
             RTS
 
 

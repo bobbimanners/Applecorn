@@ -99,6 +99,23 @@ MOSHIGH     SEI                   ; Ensure IRQs disabled
             STZ   $0300,X
             INX
             BNE   :SCLR
+:KCLR       STZ   $0400,X         ; Clear *KEY buffer (avoid scrn holes)
+            STZ   $0500,X
+            STZ   $0600,X
+            STZ   $0700,X
+            STZ   $0480,X
+            STZ   $0580,X
+            STZ   $0680,X
+            STZ   $0780,X
+            INX
+            CPX   #$78
+            BNE   :KCLR
+
+            LDA   #<KEYBUFFREE+2  ; Initialize start of *KEY free-space
+            STA   KEYBUFFREE+0
+            LDA   #>KEYBUFFREE
+            STA   KEYBUFFREE+1
+
             STY   FXRESET         ; Set ResetType
             STA   FXLANG          ; Current language
 
