@@ -99,9 +99,9 @@ STARKEY1    ASL   A                  ; Key num * 2
             CMP   #$0D               ; Carriage return?
             BNE   :L1
 :S1         LDA   OSTEXT+0
-            STA   KEYBUF + $20       ; Free space LS byte
+            STA   KEYBUFFREE+0       ; Free space LS byte
             LDA   OSTEXT+1
-            STA   KEYBUF + $21       ; Free space LS byte
+            STA   KEYBUFFREE+1       ; Free space MS byte
             RTS
 
 
