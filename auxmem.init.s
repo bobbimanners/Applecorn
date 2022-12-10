@@ -55,106 +55,26 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
             BRA   :NORELOC
 
 :RELOC      LDA   #<AUXMOS1       ; Source
-            STA   A1L
+            STA   OSLPTR+0
             LDA   #>AUXMOS1
-            STA   A1H
+            STA   OSLPTR+1
             LDA   #<AUXMOS        ; Dest
-            STA   A2L
+            STA   OSTEXT+0
             LDA   #>AUXMOS
-            STA   A2H             ; Y=0 from earlier
-:L1         LDA   (A1L),Y         ; Copy from source
-            STA   (A2L),Y         ; to dest
+            STA   OSTEXT+1        ; Y=0 from earlier
+:L1         LDA   (OSLPTR),Y      ; Copy from source
+            STA   (OSTEXT),Y      ; to dest
             INY
             BNE   :L1             ; Do 256 bytes
-            INC   A1H             ; Update source
-            INC   A2H             ; Update dest
+            INC   OSLPTR+1        ; Update source
+            INC   OSTEXT+1        ; Update dest
             BMI   :L1             ; Loop until wrap past &FFFF
-*
+
 :L2         LDA   MOSVEND-AUXMOS+AUXMOS1-256,Y
             STA   $FF00,Y         ; Copy MOS API and vectors
             INY                   ; to proper place
             BNE   :L2
 
-*:S4         LDA   #<MOSVEC-MOSINIT+AUXMOS1
-*            STA   A1L
-*            LDA   #>MOSVEC-MOSINIT+AUXMOS1
-*            STA   A1H
-*            LDA   #<MOSVEND-MOSINIT+AUXMOS1
-*            STA   A2L
-*            LDA   #>MOSVEND-MOSINIT+AUXMOS1
-*            STA   A2H
-*            LDA   #<MOSAPI
-*            STA   A4L
-*            LDA   #>MOSAPI
-*            STA   A4H
-*:L2         LDA   (A1L)
-*            STA   (A4L)
-*            LDA   A1H
-*            CMP   A2H
-*            BNE   :S5
-*            LDA   A1L
-*            CMP   A2L
-*            BNE   :S5
-
-*            LDA   #<AUXMOS1       ; Relocate MOS shim
-*            STA   A1L
-*            LDA   #>AUXMOS1
-*            STA   A1H
-*            LDA   #<EAUXMOS1
-*            STA   A2L
-*            LDA   #>EAUXMOS1
-*            STA   A2H
-*            LDA   #<AUXMOS
-*            STA   A4L
-*            LDA   #>AUXMOS
-*            STA   A4H
-*:L1         LDA   (A1L)
-*            STA   (A4L)
-*            LDA   A1H
-*            CMP   A2H
-*            BNE   :S1
-*            LDA   A1L
-*            CMP   A2L
-*            BNE   :S1
-*            BRA   :S4
-*:S1         INC   A1L
-*            BNE   :S2
-*            INC   A1H
-*:S2         INC   A4L
-*            BNE   :S3
-*            INC   A4H
-*:S3         BRA   :L1
-*
-*:S4         LDA   #<MOSVEC-MOSINIT+AUXMOS1
-*            STA   A1L
-*            LDA   #>MOSVEC-MOSINIT+AUXMOS1
-*            STA   A1H
-*            LDA   #<MOSVEND-MOSINIT+AUXMOS1
-*            STA   A2L
-*            LDA   #>MOSVEND-MOSINIT+AUXMOS1
-*            STA   A2H
-*            LDA   #<MOSAPI
-*            STA   A4L
-*            LDA   #>MOSAPI
-*            STA   A4H
-*:L2         LDA   (A1L)
-*            STA   (A4L)
-*            LDA   A1H
-*            CMP   A2H
-*            BNE   :S5
-*            LDA   A1L
-*            CMP   A2L
-*            BNE   :S5
-*            BRA   :S8
-*:S5         INC   A1L
-*            BNE   :S6
-*            INC   A1H
-*:S6         INC   A4L
-*            BNE   :S7
-*            INC   A4H
-*:S7         BRA   :L2
-
-:S8
             LDA   #$EA            ; NOP opcode
             STA   :MODBRA+0       ; Next time around, we're already
             STA   :MODBRA+1       ; in high memory
