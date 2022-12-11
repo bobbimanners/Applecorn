@@ -36,13 +36,13 @@
 
 
 * Hardware locations
-KBDDATA      EQU   $C000             ; Read Keyboard data
-KBDACK       EQU   $C010             ; Acknowledge keyboard data
-KBDAPPLFT    EQU   $C061             ; Left Apple key
-KBDAPPRGT    EQU   $C062             ; Right Apple key
-IOVBLNK      EQU   $C019             ; VBLNK pulse
+KBDDATA      EQU   $C000               ; Read Keyboard data
+KBDACK       EQU   $C010               ; Acknowledge keyboard data
+KBDAPPLFT    EQU   $C061               ; Left Apple key
+KBDAPPRGT    EQU   $C062               ; Right Apple key
+IOVBLNK      EQU   $C019               ; VBLNK pulse
 
-FLASHER      EQU   BYTEVARBASE+176   ; VSync counter for flashing cursor
+FLASHER      EQU   BYTEVARBASE+176     ; VSync counter for flashing cursor
 FXEXEC       EQU   BYTEVARBASE+198
 FXSPOOL      EQU   BYTEVARBASE+199
 
@@ -54,78 +54,12 @@ FXESCEFFECT  EQU   BYTEVARBASE+230
 FX200VAR     EQU   BYTEVARBASE+200
 FXSOFTLEN    EQU   BYTEVARBASE+216
 FXSOFTOK     EQU   BYTEVARBASE+244
+SOFTKEYOFF   EQU   $03FF ; *TEMP*
 
 FX254VAR     EQU   BYTEVARBASE+254
 FX2VAR       EQU   BYTEVARBASE+$B1
 FX3VAR       EQU   BYTEVARBASE+$EC
 FX4VAR       EQU   BYTEVARBASE+$ED
-
-KEYBUF       EQU   $400              ; *KEY buffer from $400-$7FF
-                                     ; Beware of the screen holes!
-KEYBUFFREE   EQU   KEYBUF + $20      ; Free space word
-
-* *KEY <num> <GSTRANS string>
-* ---------------------------
-STARKEY     LDA   FXSOFTLEN
-            BNE   ERRKEYUSED         ; Key being expanded
-            JSR   SCANDEC
-            CMP   #$10
-            BCC   STARKEY1
-ERRBADKEY   BRK
-            DB    $FB
-            ASC   'Bad key'
-ERRKEYUSED  BRK
-            DB    $FA
-            ASC   'Key in use'
-            BRK
-STARKEY1    ASL   A                  ; Key num * 2
-            PHA                      ; Preserve for later
-            JSR   SKIPCOMMA
-            LDA   KEYBUFFREE+0       ; Free space LS byte
-            STA   OSTEXT+0
-            PLX                      ; Recover key num * 2
-            PHX
-            STA   KEYBUF,X           ; Store LS byte start address
-            LDA   KEYBUFFREE+1       ; Free space MS byte
-            STA   OSTEXT+1
-            PLX                      ; Recover key num * 2
-            STA   KEYBUF+1,X         ; Store MS byte start address
-:L1         LDA   (OSLPTR),Y         ; Read char from input
-            STA   (OSTEXT)           ; Store in buffer
-            PHA
-            INY                      ; Advance source index
-            JSR   INCKEYPTR          ; Advance dest pointer
-            PLA
-            CMP   #$0D               ; Carriage return?
-            BNE   :L1
-:S1         LDA   OSTEXT+0
-            STA   KEYBUFFREE+0       ; Free space LS byte
-            LDA   OSTEXT+1
-            STA   KEYBUFFREE+1       ; Free space MS byte
-            RTS
-
-
-* Increment OSTEXT, skipping over screen holes
-* Screen holes are $478-$47F, $4F8-$4FF
-*                  $578-$57F, $5F8-$5FF
-*                  $678-$67F, $6F8-$6FF
-*                  $778-$77F, $7F8-$7FF
-INCKEYPTR   LDA   OSTEXT+0           ; Least significant byte
-            INC   A
-            STA   OSTEXT+0
-            AND   #$F8
-            CMP   #$78               ; If $78 to $7F
-            BEQ   :HOLE78
-            CMP   #$F8               ; If $F8 to $FF
-            BEQ   :HOLEF8
-            RTS
-:HOLE78     LDA   #$80
-            STA   OSTEXT+0
-            RTS
-:HOLEF8     STZ   OSTEXT+0
-            INC   OSTEXT+1
-            RTS
-
 
 
 * OSWRCH handler
@@ -181,6 +115,7 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
              STA   BYTEVARBASE+DEFBYTELOW,X
              DEX
              BPL   :KBDINITLP
+             JSR   SOFTKEYCHK          ; Clear soft keys
              LDX   #$C0
              STX   FX254VAR            ; b7-b4=default KBD map, b3-b0=default MODE
              BIT   SETV                ; Set V
@@ -327,6 +262,149 @@ NEGCALL      >>>   XF2MAIN,MACHRD      ; Try to read Machine ID
 * KERNEL/KEYBOARD.S
 *******************
 
+
+* SOFT KEY PROCESSING
+=====================
+
+* *KEY <num> <GSTRANS string>
+* ---------------------------
+STARKEY      LDA   FXSOFTLEN
+             BNE   ERRKEYUSED          ; Key being expanded
+             JSR   SCANDEC
+             CMP   #$10
+             BCC   STARKEY1
+ERRBADKEY    BRK
+             DB    $FB
+             ASC   'Bad key'
+ERRKEYUSED   BRK
+             DB    $FA
+             ASC   'Key in use'
+             BRK
+* A slightly fiddly procedure, as we need to check the new
+* definition is valid before we insert it, we can't bomb
+* out halfway through inserting a string, and we mustn't
+* have mainmem paged in while parsing the string as the
+* string might be "underneath" the memory we've paged in,
+* we don't know how long the new definition is and if
+* it will fit into memory until after we've parsed it, so
+* we either have to store it to a temp area or parse it
+* twice.
+*
+* All this, and we need a structure that is reasonably coded,
+* but with the priority to be easy for KEYREAD to extract
+* from (as called more often), even if at expense of storing
+* being more complex.
+*
+* Optimisations:
+* BBC doesn't care if the new definition is valid, it removes
+* the current definition before parsing, so a parse error
+* results in the definition being cleared.
+* eg *KEY 1 HELLO, *KEY 1 "X gives Bad string and key 1=""
+*
+* BBC uses (simplified):
+* SOFTBUF+key+0  -> start of definition
+* SOFTBUF+key+1  -> after last byte of definition
+* SOFTBUF+16     -> free space after end of last definition
+*  definitions stored in order of creation
+*
+* Master uses:
+* SOFTBUF+key    -> lo.start of definition
+* SOFTBUF+key+17 -> hi.start of definition
+* SOFTBUF+key+1  -> lo.after last byte definition
+* SOFTBUF+key+18 -> hi.after last byte definition
+* SOFTBUF+16/33  -> free space after last byte last definition
+*  definitions stored in key order
+*
+* Bobbi's initial layout:
+* 00/01 - 1E/1F  -> pointers to start of each string
+* 20/21          -> pointer to end of all strings
+*
+* Bobbi's initial scheme:
+KEYBUF       EQU   $400              ; *KEY buffer from $400-$7FF
+                                     ; Beware of the screen holes!
+KEYBUFFREE   EQU   KEYBUF + $20      ; Free space word
+
+STARKEY1
+            ASL   A                  ; Key num * 2
+            PHA                      ; Preserve for later
+            JSR   SKIPCOMMA
+            LDA   KEYBUFFREE+0       ; Free space LS byte
+            STA   OSTEXT+0
+            PLX                      ; Recover key num * 2
+            PHX
+            STA   KEYBUF,X           ; Store LS byte start address
+            LDA   KEYBUFFREE+1       ; Free space MS byte
+            STA   OSTEXT+1
+            PLX                      ; Recover key num * 2
+            STA   KEYBUF+1,X         ; Store MS byte start address
+:L1         LDA   (OSLPTR),Y         ; Read char from input
+            STA   (OSTEXT)           ; Store in buffer
+            PHA
+            INY                      ; Advance source index
+            JSR   INCKEYPTR          ; Advance dest pointer
+            PLA
+            CMP   #$0D               ; Carriage return?
+            BNE   :L1
+:S1         LDA   OSTEXT+0
+            STA   KEYBUFFREE+0       ; Free space LS byte
+            LDA   OSTEXT+1
+            STA   KEYBUFFREE+1       ; Free space MS byte
+            RTS
+
+
+* Increment OSTEXT, skipping over screen holes
+* Screen holes are $478-$47F, $4F8-$4FF
+*                  $578-$57F, $5F8-$5FF
+*                  $678-$67F, $6F8-$6FF
+*                  $778-$77F, $7F8-$7FF
+INCKEYPTR   LDA   OSTEXT+0           ; Least significant byte
+            INC   A
+            STA   OSTEXT+0
+            AND   #$F8
+            CMP   #$78               ; If $78 to $7F
+            BEQ   :HOLE78
+            CMP   #$F8               ; If $F8 to $FF
+            BEQ   :HOLEF8
+            RTS
+:HOLE78     LDA   #$80
+            STA   OSTEXT+0
+            RTS
+:HOLEF8     STZ   OSTEXT+0
+            INC   OSTEXT+1
+            RTS
+
+* OSBYTE &12 - Clear soft keys
+* ----------------------------
+SOFTKEYCHK   LDA   FXSOFTOK
+             BEQ   BYTE12OK            ; Soft keys ok, exit
+BYTE12       LDX   #120                ; 120 bytes in each half page
+             STX   FXSOFTOK            ; Soft keys being updated
+
+* Bobbi's initial scheme
+             PHP
+             SEI                       ; Prevent IRQs while writing
+             STZ   WRMAINRAM           ; Write to main mem
+BYTE12LP     STZ   $0400-1,X           ; Could be more efficient
+             STZ   $0480-1,X
+             STZ   $0500-1,X
+             STZ   $0580-1,X
+             STZ   $0600-1,X
+             STZ   $0680-1,X
+             STZ   $0700-1,X
+             STZ   $0780-1,X
+             DEX
+             BNE   BYTE12LP
+             LDA   #<KEYBUFFREE+2      ; Initialize start of *KEY free-space
+             STA   KEYBUFFREE+0
+             LDA   #>KEYBUFFREE
+             STA   KEYBUFFREE+1
+             STA   WRCARDRAM           ; Restore writing to aux
+             PLP                       ; And restore IRQs
+*
+             STX   FXSOFTOK            ; Soft keys updated
+BYTE12OK     RTS
+
+
 * KEYREAD
 ************************
 * Test for and read from input,
@@ -335,22 +413,24 @@ NEGCALL      >>>   XF2MAIN,MACHRD      ; Try to read Machine ID
 * On exit, CS=no keypress
 *          CC=keypress
 *          A =keycode, X,Y=corrupted
-KEYREAD      LDY   FXEXEC               ; See if EXEC file is open
-             BEQ   KEYREAD1             ; No, skip past
-             JSR   OSBGET               ; Read character from file
-             BCC   KEYREADOK            ; Not EOF, return it
-             LDA   #$00                 ; EOF, close EXEC file
-             STA   FXEXEC               ; Clear EXEC handle
-             JSR   OSFIND               ; And close it
+KEYREAD      LDY   FXEXEC              ; See if EXEC file is open
+             BEQ   KEYREAD1            ; No, skip past
+             JSR   OSBGET              ; Read character from file
+             BCC   KEYREADOK           ; Not EOF, return it
+             LDA   #$00                ; EOF, close EXEC file
+             STA   FXEXEC              ; Clear EXEC handle
+             JSR   OSFIND              ; And close it
 KEYREAD1
 *
 * TO DO: expand current soft key
-*  LDA SOFTKEYLEN
+*  LDA FXSOFTLEN
 *  BEQ KEYREAD2
 *  LDX SOFTKEYOFF
+* page in main memory
 *  LDA SOFTKEYS,X
+* page out main memory
 *  INC SOFTKEYOFF
-*  DEC SOFTKEYLEN
+*  DEC FXSOFTLEN
 *  CLC
 *  RTS
 * KEYREAD2
@@ -524,8 +604,9 @@ BYTE7E       STA   KBDACK              ; Flush keyboard
              BEQ   BYTE7E2
              CLI                       ; Allow IRQs while flushing
              STX   FXLINES             ; Clear scroll counter
+             STX   FXSOFTLEN           ; Cancel soft key expansion
              JSR   CMDEXEC0            ; Close any EXEC file
-*             JSR   BUFFLUSHALL        ; Flush all buffers
+*             JSR   BUFFLUSHALL        ; Flush all buffers (this should do FXSOFTLEN)
 BYTE7E2      LDX   #$FF                ; X=$FF, Escape was pending
 BYTE7C       CLC                       ; &7C = clear escape condition
 BYTE7D       ROR   ESCFLAG             ; $7D = set escape condition
