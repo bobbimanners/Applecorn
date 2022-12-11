@@ -320,6 +320,7 @@ ERRKEYUSED   BRK
 * 20/21          -> pointer to end of all strings
 *
 * Bobbi's initial scheme:
+* NOTE - THIS WRITES TO AUX MEM AT THE MOMENT. SHOULD BE MAIN!!
 KEYBUF       EQU   $400              ; *KEY buffer from $400-$7FF
                                      ; Beware of the screen holes!
 KEYBUFFREE   EQU   KEYBUF + $20      ; Free space word
@@ -381,9 +382,7 @@ BYTE12       LDX   #120                ; 120 bytes in each half page
              STX   FXSOFTOK            ; Soft keys being updated
 
 * Bobbi's initial scheme
-             PHP
-             SEI                       ; Prevent IRQs while writing
-             STZ   WRMAINRAM           ; Write to main mem
+             >>>   WRTMAIN
 BYTE12LP     STZ   $0400-1,X           ; Could be more efficient
              STZ   $0480-1,X
              STZ   $0500-1,X
@@ -396,10 +395,8 @@ BYTE12LP     STZ   $0400-1,X           ; Could be more efficient
              BNE   BYTE12LP
              LDA   #<KEYBUFFREE+2      ; Initialize start of *KEY free-space
              STA   KEYBUFFREE+0
-             LDA   #>KEYBUFFREE
              STA   KEYBUFFREE+1
-             STA   WRCARDRAM           ; Restore writing to aux
-             PLP                       ; And restore IRQs
+             >>>   WRTAUX
 *
              STX   FXSOFTOK            ; Soft keys updated
 BYTE12OK     RTS
