@@ -1,10 +1,25 @@
 * AUXMEM.AUDIO.S
 * (c) Bobbi 2022 GPLv3
 *
-* Applecorn audio code.
+* Applecorn audio and buffer management code.
 * This auxiliary memory code implements OSWORD &07 and &08, enqueueing events
 * for the audio engine that lives in main memory (MAINMEM.AUDIO.S).
 *
+
+
+BYTE0F
+BYTE15
+BYTE8A
+BYTE91
+BYTE98
+BYTE99
+BUFFLUSH
+BUFFLUSHALL
+BUFINSERT
+BUFREM
+BUFINS
+BUFCNP
+            RTS
 
 * OSWORD &07 - Make a sound
 * On entry: (OSCTRL),Y points to eight byte parameter block (2 bytes each for
