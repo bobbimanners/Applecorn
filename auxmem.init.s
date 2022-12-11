@@ -55,26 +55,106 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
             BRA   :NORELOC
 
 :RELOC      LDA   #<AUXMOS1       ; Source
-            STA   OSLPTR+0
+            STA   A1L
             LDA   #>AUXMOS1
-            STA   OSLPTR+1
+            STA   A1H
             LDA   #<AUXMOS        ; Dest
-            STA   OSTEXT+0
+            STA   A2L
             LDA   #>AUXMOS
-            STA   OSTEXT+1        ; Y=0 from earlier
-:L1         LDA   (OSLPTR),Y      ; Copy from source
-            STA   (OSTEXT),Y      ; to dest
+            STA   A2H             ; Y=0 from earlier
+:L1         LDA   (A1L),Y         ; Copy from source
+            STA   (A2L),Y         ; to dest
             INY
             BNE   :L1             ; Do 256 bytes
-            INC   OSLPTR+1        ; Update source
-            INC   OSTEXT+1        ; Update dest
+            INC   A1H             ; Update source
+            INC   A2H             ; Update dest
             BMI   :L1             ; Loop until wrap past &FFFF
-
+*
 :L2         LDA   MOSVEND-AUXMOS+AUXMOS1-256,Y
             STA   $FF00,Y         ; Copy MOS API and vectors
             INY                   ; to proper place
             BNE   :L2
 
+*:S4         LDA   #<MOSVEC-MOSINIT+AUXMOS1
+*            STA   A1L
+*            LDA   #>MOSVEC-MOSINIT+AUXMOS1
+*            STA   A1H
+*            LDA   #<MOSVEND-MOSINIT+AUXMOS1
+*            STA   A2L
+*            LDA   #>MOSVEND-MOSINIT+AUXMOS1
+*            STA   A2H
+*            LDA   #<MOSAPI
+*            STA   A4L
+*            LDA   #>MOSAPI
+*            STA   A4H
+*:L2         LDA   (A1L)
+*            STA   (A4L)
+*            LDA   A1H
+*            CMP   A2H
+*            BNE   :S5
+*            LDA   A1L
+*            CMP   A2L
+*            BNE   :S5
+
+*            LDA   #<AUXMOS1       ; Relocate MOS shim
+*            STA   A1L
+*            LDA   #>AUXMOS1
+*            STA   A1H
+*            LDA   #<EAUXMOS1
+*            STA   A2L
+*            LDA   #>EAUXMOS1
+*            STA   A2H
+*            LDA   #<AUXMOS
+*            STA   A4L
+*            LDA   #>AUXMOS
+*            STA   A4H
+*:L1         LDA   (A1L)
+*            STA   (A4L)
+*            LDA   A1H
+*            CMP   A2H
+*            BNE   :S1
+*            LDA   A1L
+*            CMP   A2L
+*            BNE   :S1
+*            BRA   :S4
+*:S1         INC   A1L
+*            BNE   :S2
+*            INC   A1H
+*:S2         INC   A4L
+*            BNE   :S3
+*            INC   A4H
+*:S3         BRA   :L1
+*
+*:S4         LDA   #<MOSVEC-MOSINIT+AUXMOS1
+*            STA   A1L
+*            LDA   #>MOSVEC-MOSINIT+AUXMOS1
+*            STA   A1H
+*            LDA   #<MOSVEND-MOSINIT+AUXMOS1
+*            STA   A2L
+*            LDA   #>MOSVEND-MOSINIT+AUXMOS1
+*            STA   A2H
+*            LDA   #<MOSAPI
+*            STA   A4L
+*            LDA   #>MOSAPI
+*            STA   A4H
+*:L2         LDA   (A1L)
+*            STA   (A4L)
+*            LDA   A1H
+*            CMP   A2H
+*            BNE   :S5
+*            LDA   A1L
+*            CMP   A2L
+*            BNE   :S5
+*            BRA   :S8
+*:S5         INC   A1L
+*            BNE   :S6
+*            INC   A1H
+*:S6         INC   A4L
+*            BNE   :S7
+*            INC   A4H
+*:S7         BRA   :L2
+
+:S8
             LDA   #$EA            ; NOP opcode
             STA   :MODBRA+0       ; Next time around, we're already
             STA   :MODBRA+1       ; in high memory
@@ -91,39 +171,30 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
 MOSHIGH     SEI                   ; Ensure IRQs disabled
             LDX   #$FF
             TXS                   ; Initialise stack
-            INX                   ; X=$00
-            LDA   FXLANG          ; Y=ResetType, A=Language
+            PHY                   ; Stack ResetType
+            LDA   FXLANG          ; A=Language
+            LDY   FXSOFTOK        ; A=Language, Y=Soft Keys Ok
 
+            INX                   ; X=$00
 :SCLR       STZ   $0000,X         ; Clear Kernel memory
             STZ   $0200,X
             STZ   $0300,X
             INX
             BNE   :SCLR
-:KCLR       STZ   $0400,X         ; Clear *KEY buffer (avoid scrn holes)
-            STZ   $0500,X
-            STZ   $0600,X
-            STZ   $0700,X
-            STZ   $0480,X
-            STZ   $0580,X
-            STZ   $0680,X
-            STZ   $0780,X
-            INX
-            CPX   #$78
-            BNE   :KCLR
-
-            LDA   #<KEYBUFFREE+2  ; Initialize start of *KEY free-space
-            STA   KEYBUFFREE+0
-            LDA   #>KEYBUFFREE
-            STA   KEYBUFFREE+1
-
-            STY   FXRESET         ; Set ResetType
             STA   FXLANG          ; Current language
+            STY   FXSOFTOK        ; Soft key validity
+            PLA
+            STA   FXRESET         ; Set ResetType
+            BEQ   :INITPG2        ; Soft Reset, preserve settings
+            DEX                   ; X=$FF
+            STX   FXLANG          ; Current language=none
+            STX   FXSOFTOK        ; Invalidate soft keys
 
-            LDX   #ENDVEC-DEFVEC-1
-:INITPG2    LDA   DEFVEC,X        ; Set up vectors
+:INITPG2    LDX   #ENDVEC-DEFVEC-1
+:INITPG2LP  LDA   DEFVEC,X        ; Set up vectors
             STA   $200,X
             DEX
-            BPL   :INITPG2
+            BPL   :INITPG2LP
 
             LDA   CYAREG          ; GS speed register
             AND   #$80            ; Speed bit only
@@ -138,10 +209,8 @@ MOSHIGH     SEI                   ; Ensure IRQs disabled
             BEQ   :INITSOFT       ; Soft reset, skip past
             LDA   #7              ; Beep on HardReset/PowerReset
             JSR   OSWRCH
-            LDA   #$FF
-            STA   FXLANG          ; Current language=none
 *
-* AppleII MOS beeps anyway, so always get a Beep
+* AppleII MOS beeps anyway, so we always get a Beep
 * APPLECORN startup -> BBC Beep
 * Press Ctrl-Reset  -> AppleII Beep
 *
@@ -227,7 +296,7 @@ BYTE00      BEQ   BYTE00A         ; OSBYTE 0,0 - generate error
             RTS                   ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2022-12-07'
+HELLO       ASC   'Applecorn MOS 2022-11-08'
             DB    $00             ; Unify MOS messages
 * TO DO: Move into RAM
 GSSPEED     DB    $00             ; $80 if GS is fast, $00 for slow
