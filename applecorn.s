@@ -227,7 +227,7 @@ WRTAUX      MAC
             PLP               ; Normal service resumed
             EOM
 
-* Manually enable AltZP + Alt LC (for code running in main)
+* Manually enable AltZP + Aux LC (for code running in main)
 * Banks ROM out
 ALTZP       MAC
             PHP
@@ -237,7 +237,7 @@ ALTZP       MAC
             STA   SETALTZP    ; Alt ZP and LC
             EOM
 
-* Manually disable AltZP + Alt LC (for code running in main)
+* Manually disable AltZP + Aux LC (for code running in main)
 * Banks ROM in
 MAINZP      MAC
             STA   SETSTDZP    ; Main ZP and LC
