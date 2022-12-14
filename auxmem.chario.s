@@ -33,16 +33,17 @@
 * 03-Nov-2022 Escape: Fixed INKEY loop failing if entering with previous Escape,
 *             combined with EscAck clearing keyboard.
 * 06-Dec-2022 Moved *KEY into here.
+* 12-Dec-2022 Test code to write *KEY data to mainmem.
 
 
 * Hardware locations
-KBDDATA      EQU   $C000               ; Read Keyboard data
-KBDACK       EQU   $C010               ; Acknowledge keyboard data
-KBDAPPLFT    EQU   $C061               ; Left Apple key
-KBDAPPRGT    EQU   $C062               ; Right Apple key
-IOVBLNK      EQU   $C019               ; VBLNK pulse
+KBDDATA      EQU   $C000              ; Read Keyboard data
+KBDACK       EQU   $C010              ; Acknowledge keyboard data
+KBDAPPLFT    EQU   $C061              ; Left Apple key
+KBDAPPRGT    EQU   $C062              ; Right Apple key
+IOVBLNK      EQU   $C019              ; VBLNK pulse
 
-FLASHER      EQU   BYTEVARBASE+176     ; VSync counter for flashing cursor
+FLASHER      EQU   BYTEVARBASE+176    ; VSync counter for flashing cursor
 FXEXEC       EQU   BYTEVARBASE+198
 FXSPOOL      EQU   BYTEVARBASE+199
 
@@ -73,7 +74,7 @@ WRCHHND      PHA
              PHA
 * TO DO Check any output redirections
 * TO DO Check any printer output
-             JSR   OUTCHAR             ; Send to VDU driver
+             JSR   OUTCHAR            ; Send to VDU driver
 *  BCC WRCHHND3 ; VDU driver says skip printer
 *  PLA          ; Get character back
 *  PHA
@@ -81,13 +82,13 @@ WRCHHND      PHA
 * WRCHHND3
 *  Check FX3VAR
 *  Bxx WRCHHND4 ; Spool disabled
-             LDY   FXSPOOL             ; See if *SPOOL is in effect
-             BEQ   WRCHHND4            ; No, skip sending to spool file
+             LDY   FXSPOOL            ; See if *SPOOL is in effect
+             BEQ   WRCHHND4           ; No, skip sending to spool file
              PLA
              PHA
-             JSR   OSBPUT              ; Write character to spool file
-WRCHHND4     PLA                       ; Drop stacked character
-             PLY                       ; Restore everything
+             JSR   OSBPUT             ; Write character to spool file
+WRCHHND4     PLA                      ; Drop stacked character
+             PLY                      ; Restore everything
              PLX
              PLA
              RTS
@@ -104,25 +105,25 @@ WRCHHND4     PLA                       ; Drop stacked character
 
 * TEMP as no *KEY
 * Default keyboard OSBYTE variables
-DEFBYTELOW   EQU   219                 ; First default OSBYTE value
-DEFBYTE      DB    $09,$1B             ; Default key codes
-             DB    $C0,$D0,$E0,$F0     ; Default key expansion
-             DB    $80,$90,$A0,$B0     ; Default key expansion
+DEFBYTELOW   EQU   219                ; First default OSBYTE value
+DEFBYTE      DB    $09,$1B            ; Default key codes
+             DB    $C0,$D0,$E0,$F0    ; Default key expansion
+             DB    $80,$90,$A0,$B0    ; Default key expansion
 DEFBYTEEND
 
 KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
-:KBDINITLP   LDA   DEFBYTE,X           ; Initialise KBD OSBYTE variables
+:KBDINITLP   LDA   DEFBYTE,X          ; Initialise KBD OSBYTE variables
              STA   BYTEVARBASE+DEFBYTELOW,X
              DEX
              BPL   :KBDINITLP
-             JSR   SOFTKEYCHK          ; Clear soft keys
+             JSR   SOFTKEYCHK         ; Clear soft keys
              LDX   #$C0
-             STX   FX254VAR            ; b7-b4=default KBD map, b3-b0=default MODE
-             BIT   SETV                ; Set V
-             JSR   KBDTEST             ; Test if key being pressed
-             BCS   :KBDINITOK          ; Return default MODE=0
-             STA   KBDACK              ; Ack. keypress
-             TAX                       ; Use keypress as default MODE
+             STX   FX254VAR           ; b7-b4=default KBD map, b3-b0=default MODE
+             BIT   SETV               ; Set V
+             JSR   KBDTEST            ; Test if key being pressed
+             BCS   :KBDINITOK         ; Return default MODE=0
+             STA   KBDACK             ; Ack. keypress
+             TAX                      ; Use keypress as default MODE
 :KBDINITOK   TXA
              RTS
 
@@ -133,88 +134,88 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
 * Flashes a soft cursor while waiting for input
 * *NB* OSRDCH returns with IRQs enabled, INKEY returns with IRQs preserved
 *
-RDCHHND      LDA   #$80                ; flag=wait forever
+RDCHHND      LDA   #$80               ; flag=wait forever
              PHY
              TAY
-             BRA   INKEYGO             ; Wait forever for input
+             BRA   INKEYGO            ; Wait forever for input
 
 * XY<$8000 - wait for a keypress
-INKEY        PHY                       ; Dummy PHY to balance RDCH
-INKEYGO      CLI                       ; Enable IRQs
-             PHX                       ; Save registers
+INKEY        PHY                      ; Dummy PHY to balance RDCH
+INKEYGO      CLI                      ; Enable IRQs
+             PHX                      ; Save registers
              PHY
-             BIT   VDUSTATUS           ; Enable editing cursor
-             BVC   INKEYGO2            ; No editing cursor
-             JSR   GETCHRC             ; Get character under cursor
-             STA   COPYCHAR            ; Save char under edit cursor
+             BIT   VDUSTATUS          ; Enable editing cursor
+             BVC   INKEYGO2           ; No editing cursor
+             JSR   GETCHRC            ; Get character under cursor
+             STA   COPYCHAR           ; Save char under edit cursor
              LDA   CURSORED
-             JSR   PUTCHRC             ; Display edit cursor
-             JSR   COPYSWAP1           ; Swap to copy cursor
-INKEYGO2     JSR   GETCHRC             ; Get character under cursor
+             JSR   PUTCHRC            ; Display edit cursor
+             JSR   COPYSWAP1          ; Swap to copy cursor
+INKEYGO2     JSR   GETCHRC            ; Get character under cursor
              STA   OLDCHAR
-             BRA   INKEY1              ; Turn cursor on
+             BRA   INKEY1             ; Turn cursor on
 
 INKEYLP      CLC
-             LDA   #$01                ; Slow flash, every 32 frames
+             LDA   #$01               ; Slow flash, every 32 frames
              BIT   VDUSTATUS
              BVC   INKEY0
-             ASL   A                   ; Fast flash, every 16 frames
+             ASL   A                  ; Fast flash, every 16 frames
 INKEY0       ADC   FLASHER
              STA   FLASHER
              AND   #15
-             BNE   INKEY3              ; Not time to toggle yet
-             LDA   OLDCHAR             ; Prepare to remove cursor
+             BNE   INKEY3             ; Not time to toggle yet
+             LDA   OLDCHAR            ; Prepare to remove cursor
              BIT   FLASHER
-             BMI   INKEY2              ; Remove cursor
-INKEY1       LDA   CURSOR              ; Add cursor
+             BMI   INKEY2             ; Remove cursor
+INKEY1       LDA   CURSOR             ; Add cursor
              BIT   VDUSTATUS
              BVC   INKEY2
              LDA   CURSORCP
-INKEY2       JSR   PUTCHRC             ; Toggle cursor
-INKEY3       LDA   #$27                ; Prepare to return CHR$27 if Escape state
+INKEY2       JSR   PUTCHRC            ; Toggle cursor
+INKEY3       LDA   #$27               ; Prepare to return CHR$27 if Escape state
              CLC
-             BIT   ESCFLAG             ; Check Escape state
-             BMI   INKEYESC            ; Escape pending, return it with A=27
-INKEY4       JSR   KEYREAD             ; Test for input, all can be trashed
+             BIT   ESCFLAG            ; Check Escape state
+             BMI   INKEYESC           ; Escape pending, return it with A=27
+INKEY4       JSR   KEYREAD            ; Test for input, all can be trashed
              PLY
-             BCC   INKEYOK             ; Char returned, return it
-             BMI   INKEY6              ; Loop forever, skip countdown
+             BCC   INKEYOK            ; Char returned, return it
+             BMI   INKEY6             ; Loop forever, skip countdown
              PLX
              BNE   INKEY5
              TYA
-             BEQ   INKEYOUT            ; XY=0, timed out
-             DEY                       ; 16-bit decrement
+             BEQ   INKEYOUT           ; XY=0, timed out
+             DEY                      ; 16-bit decrement
 INKEY5       DEX
              PHX
 INKEY6       PHY
 *
 * VBLK pulses at 50Hz/60Hz, toggles at 100Hz/120Hz
-             LDX   IOVBLNK             ; Get initial VBLK state
+             LDX   IOVBLNK            ; Get initial VBLK state
 INKEY8       BIT   KBDDATA
-             BMI   INKEY4              ; Key pressed
+             BMI   INKEY4             ; Key pressed
              TXA
              EOR   IOVBLNK
-             BPL   INKEY8              ; Wait for VBLK change
-             BMI   INKEYLP             ; Loop back to key test
+             BPL   INKEY8             ; Wait for VBLK change
+             BMI   INKEYLP            ; Loop back to key test
 
-INKEYOUT     LDA   #$FF                ; Prepare to stack $FF
-INKEYESC     PLY                       ; Drop stacked Y
-INKEYOK      PHA                       ; Save key or timeout
-             PHP                       ; Save CC=key, CS=timeout
-             LDA   OLDCHAR             ; Prepare for main cursor
+INKEYOUT     LDA   #$FF               ; Prepare to stack $FF
+INKEYESC     PLY                      ; Drop stacked Y
+INKEYOK      PHA                      ; Save key or timeout
+             PHP                      ; Save CC=key, CS=timeout
+             LDA   OLDCHAR            ; Prepare for main cursor
              BIT   VDUSTATUS
-             BVC   INKEYOFF2           ; No editing cursor
-             JSR   PUTCHRC             ; Remove cursor
-             JSR   COPYSWAP1           ; Swap cursor back
-             LDA   COPYCHAR            ; Remove main cursor
-INKEYOFF2    JSR   PUTCHRC             ; Remove cursor
+             BVC   INKEYOFF2          ; No editing cursor
+             JSR   PUTCHRC            ; Remove cursor
+             JSR   COPYSWAP1          ; Swap cursor back
+             LDA   COPYCHAR           ; Remove main cursor
+INKEYOFF2    JSR   PUTCHRC            ; Remove cursor
              PLP
-             BCS   INKEYOK3            ; Timeout
-             LDA   ESCFLAG             ; Keypress, test for Escape
-             ASL   A                   ; Cy=Escape flag
-             PLA                       ; Get char back
-             PLX                       ; Restore X,Y for key pressed
-INKEYOK3     PLY                       ; Or pop TimeOut
+             BCS   INKEYOK3           ; Timeout
+             LDA   ESCFLAG            ; Keypress, test for Escape
+             ASL   A                  ; Cy=Escape flag
+             PLA                      ; Get char back
+             PLX                      ; Restore X,Y for key pressed
+INKEYOK3     PLY                      ; Or pop TimeOut
              RTS
 * RDCH  Character read: CC, A=char, X=restored, Y=restored
 * RDCH  Escape:         CS, A=char, X=restored, Y=restored
@@ -224,17 +225,17 @@ INKEYOK3     PLY                       ; Or pop TimeOut
 
 
 BYTE81       TYA
-             BMI   NEGINKEY            ; XY<0, scan for keypress
-             JSR   INKEY               ; XY>=0, wait for keypress
+             BMI   NEGINKEY           ; XY<0, scan for keypress
+             JSR   INKEY              ; XY>=0, wait for keypress
 * Character read: CC, A=char, X=???, Y<$80
 * Escape:         CS, A=char, X=???, Y<$80
 * Timeout:        CS, A=???,  X=???, Y=$FF
-             TAX                       ; X=character returned
+             TAX                      ; X=character returned
              TYA
-             BMI   BYTE81DONE          ; Y=$FF, timeout
+             BMI   BYTE81DONE         ; Y=$FF, timeout
              LDY   #$00
-             BCC   BYTE81DONE          ; CC, not Escape
-             LDY   #$1B                ; Y=27
+             BCC   BYTE81DONE         ; CC, not Escape
+             LDY   #$1B               ; Y=27
 BYTE81DONE   RTS
 * Returns: Y=$FF, X=???, CS  - timeout
 *          Y=$1B, X=???, CS  - escape
@@ -242,21 +243,21 @@ BYTE81DONE   RTS
 
 
 NEGINKEY     CPX   #$01
-             LDX   #$00                ; Unimplemented
+             LDX   #$00               ; Unimplemented
              BCS   NEGINKEY0
-             JSR   NEGCALL             ; Read machine ID from mainmem
+             JSR   NEGCALL            ; Read machine ID from mainmem
              LDX   #$2C
              TAY
-             BEQ   NEGINKEY0           ;  $00 = Apple IIc  -> INKEY-256 = $2C
+             BEQ   NEGINKEY0          ;  $00 = Apple IIc  -> INKEY-256 = $2C
              LDX   #$2E
              AND   #$0F
-             BEQ   NEGINKEY0           ;  $x0 = Apple IIe  -> INKEY-256 = $2E
-             LDX   #$2A                ; else = Apple IIgs -> INKEY-256 = $2A
+             BEQ   NEGINKEY0          ;  $x0 = Apple IIe  -> INKEY-256 = $2E
+             LDX   #$2A               ; else = Apple IIgs -> INKEY-256 = $2A
 NEGINKEY0    LDY   #$00
 NEGINKEY1    CLC
              RTS
 
-NEGCALL      >>>   XF2MAIN,MACHRD      ; Try to read Machine ID
+NEGCALL      >>>   XF2MAIN,MACHRD     ; Try to read Machine ID
 
 
 * KERNEL/KEYBOARD.S
@@ -264,12 +265,12 @@ NEGCALL      >>>   XF2MAIN,MACHRD      ; Try to read Machine ID
 
 
 * SOFT KEY PROCESSING
-=====================
+* ===================
 
 * *KEY <num> <GSTRANS string>
 * ---------------------------
 STARKEY      LDA   FXSOFTLEN
-             BNE   ERRKEYUSED          ; Key being expanded
+             BNE   ERRKEYUSED         ; Key being expanded
              JSR   SCANDEC
              CMP   #$10
              BCC   STARKEY1
@@ -280,6 +281,7 @@ ERRKEYUSED   BRK
              DB    $FA
              ASC   'Key in use'
              BRK
+*
 * A slightly fiddly procedure, as we need to check the new
 * definition is valid before we insert it, we can't bomb
 * out halfway through inserting a string, and we mustn't
@@ -315,90 +317,89 @@ ERRKEYUSED   BRK
 * SOFTBUF+16/33  -> free space after last byte last definition
 *  definitions stored in key order
 *
-* Bobbi's initial layout:
-* 00/01 - 1E/1F  -> pointers to start of each string
-* 20/21          -> pointer to end of all strings
+* Initial development layout:
+* 00..0F -> length of string 0..15
+* 10...  -> strings in key order
+* (len0+len1+...len15) => start of free space
 *
-* Bobbi's initial scheme:
-* NOTE - THIS WRITES TO AUX MEM AT THE MOMENT. SHOULD BE MAIN!!
-KEYBUF       EQU   $400              ; *KEY buffer from $400-$7FF
-                                     ; Beware of the screen holes!
-KEYBUFFREE   EQU   KEYBUF + $20      ; Free space word
+STARKEY1     TAX                      ; X=key number
+             JSR   SKIPCOMMA
+*
+* Test code
+* Just parse the string and write it to mainmem
+             SEC
+             JSR   GSINIT             ; Initialise '*KEY-type string'
+             LDX   #0                 ; Parse string and check it's valid
+STARKEYLP1   JSR   GSREAD
+             BCS   STARKEYEND
+             JSR   WRHOLES            ; Store the byte
+             INX
+             BRA   STARKEYLP1
 
-STARKEY1
-            ASL   A                  ; Key num * 2
-            PHA                      ; Preserve for later
-            JSR   SKIPCOMMA
-            LDA   KEYBUFFREE+0       ; Free space LS byte
-            STA   OSTEXT+0
-            PLX                      ; Recover key num * 2
-            PHX
-            STA   KEYBUF,X           ; Store LS byte start address
-            LDA   KEYBUFFREE+1       ; Free space MS byte
-            STA   OSTEXT+1
-            PLX                      ; Recover key num * 2
-            STA   KEYBUF+1,X         ; Store MS byte start address
-:L1         LDA   (OSLPTR),Y         ; Read char from input
-            STA   (OSTEXT)           ; Store in buffer
-            PHA
-            INY                      ; Advance source index
-            JSR   INCKEYPTR          ; Advance dest pointer
-            PLA
-            CMP   #$0D               ; Carriage return?
-            BNE   :L1
-:S1         LDA   OSTEXT+0
-            STA   KEYBUFFREE+0       ; Free space LS byte
-            LDA   OSTEXT+1
-            STA   KEYBUFFREE+1       ; Free space MS byte
-            RTS
+STARKEYEND   RTS
+
+             
+
+* Write a byte to mainmem screen avoiding holes
+WRHOLES  BIT SETV
+         BRA RDWRHOLE
+* Read a byte from mainmem screen avoiding holes
+RDHOLES  CLV
+RDWRHOLE PHP      ; Save IRQ state
+         SEI      ; Disable IRQs
+         PHP      ; Save V=rd/wr
+         PHA      ; Save byte to write
+         TXA      ; C=? A=abcdefgh
+         AND #$BF ; C=? A=a0cdefgh
+         STA OSINTWS+0
+         TXA      ; C=? A=abcdefgh
+         ASL A    ; C=a A=bcdefgh0
+         ASL A    ; C=b A=cdefgh00
+         LDA #$02 ; C=b A=00000010
+         ROL A    ; C=0 A=0000010b
+         STA OSINTWS+1 ; (OSINTWS)=>$400+x or $500+x
+         PLA           ; Get byte to write back
+         PLP           ; Get rd/wr back
+         BVC RDHOLE2
+         STA WRMAINRAM ; &0200-&BFFF writes to main memory
+         STA (OSINTWS)
+         STA WRCARDRAM ; &0200-&BFFF writes to aux memory
+         PLP           ; Restore IRQs
+         RTS
+RDHOLE2  STA RDMAINRAM ; &0200-&BFFF reads from main memory
+         LDA (OSINTWS)
+         STA RDCARDRAM ; &0200-&BFFF reads from aux memory
+         PLP           ; Restore IRQs
+         RTS
 
 
-* Increment OSTEXT, skipping over screen holes
-* Screen holes are $478-$47F, $4F8-$4FF
-*                  $578-$57F, $5F8-$5FF
-*                  $678-$67F, $6F8-$6FF
-*                  $778-$77F, $7F8-$7FF
-INCKEYPTR   LDA   OSTEXT+0           ; Least significant byte
-            INC   A
-            STA   OSTEXT+0
-            AND   #$F8
-            CMP   #$78               ; If $78 to $7F
-            BEQ   :HOLE78
-            CMP   #$F8               ; If $F8 to $FF
-            BEQ   :HOLEF8
-            RTS
-:HOLE78     LDA   #$80
-            STA   OSTEXT+0
-            RTS
-:HOLEF8     STZ   OSTEXT+0
-            INC   OSTEXT+1
-            RTS
+
+
+
 
 * OSBYTE &12 - Clear soft keys
 * ----------------------------
 SOFTKEYCHK   LDA   FXSOFTOK
-             BEQ   BYTE12OK            ; Soft keys ok, exit
-BYTE12       LDX   #120                ; 120 bytes in each half page
-             STX   FXSOFTOK            ; Soft keys being updated
-
-* Bobbi's initial scheme
-             >>>   WRTMAIN
-BYTE12LP     STZ   $0400-1,X           ; Could be more efficient
-             STZ   $0480-1,X
-             STZ   $0500-1,X
-             STZ   $0580-1,X
-             STZ   $0600-1,X
-             STZ   $0680-1,X
-             STZ   $0700-1,X
-             STZ   $0780-1,X
+             BEQ   BYTE12OK           ; Soft keys ok, exit
+BYTE12       LDX   #120               ; 120 bytes in each half page
+             STX   FXSOFTOK           ; Soft keys being updated
+             PHP
+             SEI                      ; Prevent IRQs while writing
+             LDA   #0
+             STA   WRMAINRAM          ; Write to main mem
+BYTE12LP     STA   $0400-1,X          ; Could be more efficient
+             STA   $0480-1,X          ; If use 16xlen, only need to
+             STA   $0500-1,X          ; zero first 16 bytes
+             STA   $0580-1,X          ; Gives 4*120=480 bytes
+*             STA   $0600-1,X
+*             STA   $0680-1,X
+*             STA   $0700-1,X
+*             STA   $0780-1,X
              DEX
              BNE   BYTE12LP
-             LDA   #<KEYBUFFREE+2      ; Initialize start of *KEY free-space
-             STA   KEYBUFFREE+0
-             STA   KEYBUFFREE+1
-             >>>   WRTAUX
-*
-             STX   FXSOFTOK            ; Soft keys updated
+             STA   WRCARDRAM          ; Restore writing to aux
+             PLP                      ; And restore IRQs
+             STX   FXSOFTOK           ; Soft keys updated
 BYTE12OK     RTS
 
 
@@ -410,13 +411,13 @@ BYTE12OK     RTS
 * On exit, CS=no keypress
 *          CC=keypress
 *          A =keycode, X,Y=corrupted
-KEYREAD      LDY   FXEXEC              ; See if EXEC file is open
-             BEQ   KEYREAD1            ; No, skip past
-             JSR   OSBGET              ; Read character from file
-             BCC   KEYREADOK           ; Not EOF, return it
-             LDA   #$00                ; EOF, close EXEC file
-             STA   FXEXEC              ; Clear EXEC handle
-             JSR   OSFIND              ; And close it
+KEYREAD      LDY   FXEXEC             ; See if EXEC file is open
+             BEQ   KEYREAD1           ; No, skip past
+             JSR   OSBGET             ; Read character from file
+             BCC   KEYREADOK          ; Not EOF, return it
+             LDA   #$00               ; EOF, close EXEC file
+             STA   FXEXEC             ; Clear EXEC handle
+             JSR   OSFIND             ; And close it
 KEYREAD1
 *
 * TO DO: expand current soft key
@@ -432,21 +433,21 @@ KEYREAD1
 *  RTS
 * KEYREAD2
 *
-             JSR   KBDREAD             ; Fetch character from KBD "buffer"
-             BCS   KEYREADOK           ; Nothing pending
-             TAY                       ; Y=unmodified character
-             BPL   KEYREADOK           ; Not top-bit key
-             AND   #$CF                ; Drop Shift/Ctrl bits
+             JSR   KBDREAD            ; Fetch character from KBD "buffer"
+             BCS   KEYREADOK          ; Nothing pending
+             TAY                      ; Y=unmodified character
+             BPL   KEYREADOK          ; Not top-bit key
+             AND   #$CF               ; Drop Shift/Ctrl bits
              CMP   #$C9
-             BCC   KEYSOFTY            ; Not cursor key
+             BCC   KEYSOFTY           ; Not cursor key
              LDX   FX4VAR
-             BEQ   KEYCURSOR           ; *FX4,0 - editing keys
+             BEQ   KEYCURSOR          ; *FX4,0 - editing keys
              CPY   #$C9
              CLV
-             BEQ   KEYCOPYTAB          ; TAB key
+             BEQ   KEYCOPYTAB         ; TAB key
              DEX
-             BNE   KEYSOFTHI           ; Not *FX4,1 - soft key
-             SBC   #$44                ; Return $88-$8B
+             BNE   KEYSOFTHI          ; Not *FX4,1 - soft key
+             SBC   #$44               ; Return $88-$8B
 KEYREADOK1   CLC
 KEYREADOK    RTS
 
@@ -457,20 +458,20 @@ KEYSOFTHI    LDX   FX254VAR
              TYA
              AND   #$BF
              TAY
-KEYSOFTY     TYA                       ; Get key including Shift/Ctrl
+KEYSOFTY     TYA                      ; Get key including Shift/Ctrl
              LSR   A
              LSR   A
              LSR   A
-             LSR   A                   ; A=key DIV 16
-             EOR   #$04                ; Offset into KEYBASE
+             LSR   A                  ; A=key DIV 16
+             EOR   #$04               ; Offset into KEYBASE
              TAX
              LDA   FXKEYBASE-8,X
 * TO DO:
 *BEQ KEYNONE ; $00=ignored
 *DEC A
 *BEQ expandfunction
-             CMP   #2                  ; *TEMP*
-             BCC   KEYNONE             ; *TEMP*
+             CMP   #2                 ; *TEMP*
+             BCC   KEYNONE            ; *TEMP*
              TYA
              AND   #$0F
              CLC
@@ -483,26 +484,26 @@ KEYCURSOR    CMP   #$C9
              BEQ   KEYCOPY
              PHA
              LDA   OLDCHAR
-             JSR   PUTCHRC             ; Remove cursor
+             JSR   PUTCHRC            ; Remove cursor
              PLA
-             JSR   COPYMOVE            ; Move copy cursor
-             JSR   GETCHRC             ; Save char under cursor
+             JSR   COPYMOVE           ; Move copy cursor
+             JSR   GETCHRC            ; Save char under cursor
              STA   OLDCHAR
 KEYNONE      SEC
              RTS
 
 KEYCOPY      BIT   VDUSTATUS
-KEYCOPYTAB   LDA   FXTABCHAR           ; Prepare TAB if no copy cursor
-             BVC   KEYREADOK1          ; No copy cursor, return TAB
-             LDA   OLDCHAR             ; Get the char under cursor
+KEYCOPYTAB   LDA   FXTABCHAR          ; Prepare TAB if no copy cursor
+             BVC   KEYREADOK1         ; No copy cursor, return TAB
+             LDA   OLDCHAR            ; Get the char under cursor
              PHA
-             JSR   OUTCHARCP           ; Output it to restore and move cursor
-             JSR   GETCHRC             ; Save char under cursor
+             JSR   OUTCHARCP          ; Output it to restore and move cursor
+             JSR   GETCHRC            ; Save char under cursor
              STA   OLDCHAR
              PLA
-             BNE   KEYREADOK1          ; Ok character
+             BNE   KEYREADOK1         ; Ok character
              SEC
-             JMP   BEEP                ; Beep and return CS=No char
+             JMP   BEEP               ; Beep and return CS=No char
 
 
 * KBDREAD
@@ -517,63 +518,63 @@ KEYCOPYTAB   LDA   FXTABCHAR           ; Prepare TAB if no copy cursor
 * TAB          -> $C9
 * Cursors      -> $CC-$CF
 *
-KBDREAD      CLV                       ; VC=return keypress
-KBDTEST      LDA   KBDDATA             ; VS here to test for keypress
-             EOR   #$80                ; Toggle bit 7
+KBDREAD      CLV                      ; VC=return keypress
+KBDTEST      LDA   KBDDATA            ; VS here to test for keypress
+             EOR   #$80               ; Toggle bit 7
              CMP   #$80
-             BCS   KBDDONE             ; No key pressed
-             BVS   KBDDONE             ; VS=test for keypress
-             STA   KBDACK              ; Ack. keypress
+             BCS   KBDDONE            ; No key pressed
+             BVS   KBDDONE            ; VS=test for keypress
+             STA   KBDACK             ; Ack. keypress
 KBDREAD2     BIT   KBDAPPLFT
-             BMI   KBDLALT             ; Left Apple pressed
+             BMI   KBDLALT            ; Left Apple pressed
              BIT   KBDAPPRGT
-             BMI   KBDRALT             ; Right Apple pressed
+             BMI   KBDRALT            ; Right Apple pressed
              CMP   #$09
-             BEQ   KBDTAB              ; TAB is dual action TAB/COPY
+             BEQ   KBDTAB             ; TAB is dual action TAB/COPY
              CMP   #$08
-             BCC   KBDCHKESC           ; <$08 not cursor key
+             BCC   KBDCHKESC          ; <$08 not cursor key
              CMP   #$0C
-             BCC   KBDCURSR            ; $08-$0B are cursor keys
+             BCC   KBDCURSR           ; $08-$0B are cursor keys
              CMP   #$15
-             BNE   KBDCHKESC           ; $15 is cursor key
+             BNE   KBDCHKESC          ; $15 is cursor key
 *
-KBDCUR15     LDA   #$0D                ; Convert RGT to $09
-KBDTAB       SBC   #$04                ; Convert TAB to &C9
+KBDCUR15     LDA   #$0D               ; Convert RGT to $09
+KBDTAB       SBC   #$04               ; Convert TAB to &C9
 KBDCURSR     CLC
-             ADC   #$C4                ; Cursor keys $C0+x
+             ADC   #$C4               ; Cursor keys $C0+x
              BRA   KBDCHKESC
 
-KBDRALT                                ; Right Apple key pressed
-KBDLALT      CMP   #$40                ; Left Apple key pressed
+KBDRALT                               ; Right Apple key pressed
+KBDLALT      CMP   #$40               ; Left Apple key pressed
              BCS   KBDCTRL
              CMP   #$30
-             BCC   KBDCHKESC           ; <'0'
+             BCC   KBDCHKESC          ; <'0'
              CMP   #$3A
-             BCS   KBDCHKESC           ; >'9'
-KBDFUNC      AND   #$0F                ; Convert Apple-Num to function key
+             BCS   KBDCHKESC          ; >'9'
+KBDFUNC      AND   #$0F               ; Convert Apple-Num to function key
              ORA   #$80
 KBDFUNC2     BIT   KBDAPPRGT
-             BPL   KBDCHKESC           ; Left+Digit       -> $8x
-             ORA   #$90                ; Right+Digit      -> $9x
+             BPL   KBDCHKESC          ; Left+Digit       -> $8x
+             ORA   #$90               ; Right+Digit      -> $9x
              BIT   KBDAPPLFT
              BPL   KBDCHKESC
-             EOR   #$30                ; Left+Right+Digit -> $Ax
+             EOR   #$30               ; Left+Right+Digit -> $Ax
              BRA   KBDCHKESC
 
-KBDCTRL      AND   #$1F                ; Apple-Letter -> Ctrl-Letter
+KBDCTRL      AND   #$1F               ; Apple-Letter -> Ctrl-Letter
 *
 * Test for Escape character
-KBDCHKESC    TAX                       ; X=keycode
-             EOR   FXESCCHAR           ; Current ESCAPE char?
-             ORA   FXESCON             ; Is ESCAPE an ASCII char?
-             BNE   KBDNOESC            ; Not ESCAPE or ESCAPE=ASCII
-             LDA   FX200VAR            ; Is ESCAPE ignored?
-             LSR   A                   ; Check bit 0
-             BCS   KBDDONE             ; ESCAPE completely ignored
+KBDCHKESC    TAX                      ; X=keycode
+             EOR   FXESCCHAR          ; Current ESCAPE char?
+             ORA   FXESCON            ; Is ESCAPE an ASCII char?
+             BNE   KBDNOESC           ; Not ESCAPE or ESCAPE=ASCII
+             LDA   FX200VAR           ; Is ESCAPE ignored?
+             LSR   A                  ; Check bit 0
+             BCS   KBDDONE            ; ESCAPE completely ignored
              SEC
-             ROR   ESCFLAG             ; Set Escape flag
-KBDNOESC     TXA                       ; A=keycode
-             CLC                       ; CLC=Ok
+             ROR   ESCFLAG            ; Set Escape flag
+KBDNOESC     TXA                      ; A=keycode
+             CLC                      ; CLC=Ok
 KBDDONE      RTS
 
 
@@ -583,32 +584,32 @@ KBDDONE      RTS
 *          A=character
 *          X,Y=preserved
 *
-ESCPOLL      BIT   SETV                ; Set V
-             JSR   KBDTEST             ; VS - test keyboard
-             BCS   ESCPOLL9            ; No keypress pending
-             PHX                       ; KBDREAD corrupts A,X
-             JSR   KBDREAD2            ; Read key and check for Escape, returns CC
+ESCPOLL      BIT   SETV               ; Set V
+             JSR   KBDTEST            ; VS - test keyboard
+             BCS   ESCPOLL9           ; No keypress pending
+             PHX                      ; KBDREAD corrupts A,X
+             JSR   KBDREAD2           ; Read key and check for Escape, returns CC
              PLX
-ESCPOLL9     BIT   ESCFLAG             ; Return with Escape state
+ESCPOLL9     BIT   ESCFLAG            ; Return with Escape state
              RTS
 
 * Process pending Escape state
-BYTE7E       STA   KBDACK              ; Flush keyboard
-             LDX   #$00                ; $7E = ack detection of ESC
+BYTE7E       STA   KBDACK             ; Flush keyboard
+             LDX   #$00               ; $7E = ack detection of ESC
              BIT   ESCFLAG
-             BPL   BYTE7DOK            ; No Escape pending
-             LDA   FXESCEFFECT         ; Process Escape effects
+             BPL   BYTE7DOK           ; No Escape pending
+             LDA   FXESCEFFECT        ; Process Escape effects
              BEQ   BYTE7E2
-             CLI                       ; Allow IRQs while flushing
-             STX   FXLINES             ; Clear scroll counter
-             STX   FXSOFTLEN           ; Cancel soft key expansion
-             JSR   CMDEXEC0            ; Close any EXEC file
-*             JSR   BUFFLUSHALL        ; Flush all buffers (this should do FXSOFTLEN)
-BYTE7E2      LDX   #$FF                ; X=$FF, Escape was pending
-BYTE7C       CLC                       ; &7C = clear escape condition
-BYTE7D       ROR   ESCFLAG             ; $7D = set escape condition
+             CLI                      ; Allow IRQs while flushing
+             STX   FXLINES            ; Clear scroll counter
+             STX   FXSOFTLEN          ; Cancel soft key expansion
+             JSR   CMDEXEC0           ; Close any EXEC file
+*             JSR   BUFFLUSHALL       ; Flush all buffers (this should do FXSOFTLEN)
+BYTE7E2      LDX   #$FF               ; X=$FF, Escape was pending
+BYTE7C       CLC                      ; &7C = clear escape condition
+BYTE7D       ROR   ESCFLAG            ; $7D = set escape condition
 BYTE7DOK     RTS
 
-BYTE76       LDX   #$00                ; Update LEDs and return X=SHIFT
-             RTS                       ; Not possible with Apple
+BYTE76       LDX   #$00               ; Update LEDs and return X=SHIFT
+             RTS                      ; Not possible with Apple
 

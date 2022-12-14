@@ -4,6 +4,7 @@
 * Initialization code running in Apple //e aux memory
 * 08-Nov-2022 ResetType OSBYTE set
 * 09-Nov-2022 Current language re-entered, reset on Power/Hard Reset
+* 12-Dec-2022 Copy loop uses OSvars, single byte for MODBRA jump.
 * BUG: If Ctrl-Break pressed during a service call, wrong ROM gets paged in
 
 
@@ -22,6 +23,8 @@ ZP1         EQU   $90             ; $90-$9f are spare Econet space
 ZP2         EQU   $92
 ZP3         EQU   $94
 
+*STRTBCKL    EQU   $9D             ; *TO DO* No longer needed to preserve
+*STRTBCKH    EQU   $9E
 
 MOSSHIM
             ORG   AUXMOS          ; MOS shim implementation
@@ -42,30 +45,35 @@ MOSSHIM
 MOSINIT     SEI                   ; Ensure IRQs disabled
             LDX   #$FF            ; Initialize Alt SP to $1FF
             TXS
-
+* Ensure memory map set up:
             STA   WRCARDRAM       ; Make sure we are writing aux
             STA   80STOREOFF      ; Make sure 80STORE is off
-
+            STA   SET80VID        ; 80 col on
+            STA   CLRALTCHAR      ; Alt charset off
+            STA   PAGE2           ; PAGE2
             LDA   LCBANK1         ; LC RAM Rd/Wt, 1st 4K bank
             LDA   LCBANK1
-            LDY   #$00            ; $00=Soft Reset
-:MODBRA     BRA   :RELOC          ; NOPped out on first run
-            BRA   :NORELOC
 
+            LDY   #$00            ; $00=Soft Reset
+:MODBRA     SEC                   ; Changed to CLC after first run
+            BCC   :NORELOC        ; Subsequent run, skip to code
+*            BRA   :RELOC          ; NOPped out on first run
+*            BRA   :NORELOC
+
+* Copy code to high memory, (OSCTRL)=>source, (OSLPTR)=>dest
 :RELOC      LDA   #<AUXMOS1       ; Source
-            STA   ZP1+0
+            STA   OSCTRL+0
             LDA   #>AUXMOS1
-            STA   ZP1+1
-            LDA   #<AUXMOS        ; Dest
-            STA   ZP2+0
-            LDA   #>AUXMOS
-            STA   ZP2+1           ; Y=0 from earlier
-:L1         LDA   (ZP1),Y         ; Copy from source
-            STA   (ZP2),Y         ; to dest
+            STA   OSCTRL+1
+            STY   OSLPTR+0        ; Y=0 from earlier
+            LDA   #>AUXMOS        ; AUXMOS is always &xx00
+            STA   OSLPTR+1
+:L1         LDA   (OSCTRL),Y      ; Copy from source
+            STA   (OSLPTR),Y      ; to dest
             INY
             BNE   :L1             ; Do 256 bytes
-            INC   ZP1+1           ; Update source
-            INC   ZP2+1           ; Update dest
+            INC   OSCTRL+1        ; Update source
+            INC   OSLPTR+1        ; Update dest
             BMI   :L1             ; Loop until wrap past &FFFF
 *
 :L2         LDA   MOSVEND-AUXMOS+AUXMOS1-256,Y
@@ -73,14 +81,21 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
             INY                   ; to proper place
             BNE   :L2
 
-            LDA   #$EA            ; NOP opcode
-            STA   :MODBRA+0       ; Next time around, we're already
-            STA   :MODBRA+1       ; in high memory
+            LDA   #$18            ; CLC opcode, next time around, we're
+            STA   :MODBRA         ; already in high memory
+* Changing only one byte ensures against a RESET happening halfway between
+* two bytes being changed - and is five bytes shorter!
+            
+*            LDA   #$EA            ; NOP opcode
+*            STA   :MODBRA+0       ; Next time around, we're already
+*            STA   :MODBRA+1       ; in high memory
+
             LDY   #$02            ; $02=PowerOn
 
-:NORELOC    STA   SET80VID        ; 80 col on
-            STA   CLRALTCHAR      ; Alt charset off
-            STA   PAGE2           ; PAGE2
+:NORELOC
+*            STA   SET80VID        ; 80 col on
+*            STA   CLRALTCHAR      ; Alt charset off
+*            STA   PAGE2           ; PAGE2
             JMP   MOSHIGH         ; Ensure executing in high memory from here
 
 * From here onwards we are always executing at $D000 onwards
@@ -91,7 +106,7 @@ MOSHIGH     SEI                   ; Ensure IRQs disabled
             TXS                   ; Initialise stack
             PHY                   ; Stack ResetType
             LDA   FXLANG          ; A=Language
-            LDY   FXSOFTOK        ; A=Language, Y=Soft Keys Ok
+            LDY   FXSOFTOK        ; Y=Soft Keys Ok
 
             INX                   ; X=$00
 :SCLR       STZ   $0000,X         ; Clear Kernel memory
@@ -134,19 +149,19 @@ MOSHIGH     SEI                   ; Ensure IRQs disabled
 *
 * Find a language to enter
 :INITSOFT   LDX   FXLANG          ; Get current language
-            BPL   :INITLANG       ; b7=ok, use it
+            BPL   INITLANG        ; b7=ok, use it
             LDX   ROMMAX          ; Look for a language
 :FINDLANG   JSR   ROMSELECT       ; Bring ROM X into memory
             BIT   $8006           ; Check ROM type
-            BVS   :INITLANG       ; b6=set, use it
+            BVS   INITLANG        ; b6=set, use it
             DEX                   ; Step down to next ROM
             BPL   :FINDLANG       ; Loop until all tested
-            BRK                   ; No language found
+ERRNOLANG   BRK                   ; No language found
             DB    $F9
             ASC   'No Language'
             BRK
 *
-:INITLANG   CLC                   ; CLC=Entering from RESET
+INITLANG    CLC                   ; CLC=Entering from RESET
 
 * OSBYTE $8E - Enter language ROM
 *********************************
@@ -154,7 +169,8 @@ MOSHIGH     SEI                   ; Ensure IRQs disabled
 *
 BYTE8E      PHP                   ; Save CLC=RESET, SEC=Not RESET
             JSR   ROMSELECT       ; Bring ROM X into memory
-            STX   FXLANG          ; Set as current language ROM
+            BIT   $8006
+            BVC   ERRNOLANG       ; No language in this ROM
             LDA   #$00
             STA   FAULT+0
             LDA   #$80
@@ -164,6 +180,7 @@ BYTE8E      PHP                   ; Save CLC=RESET, SEC=Not RESET
             STY   FAULT+0         ;  FAULT pointing to version string
             JSR   OSNEWL
             JSR   OSNEWL
+            STX   FXLANG          ; Set as current language ROM
             PLP                   ; Get entry type back
             LDA   #$01            ; $01=Entering code with a header
             JMP   ROMAUXADDR
@@ -214,9 +231,8 @@ BYTE00      BEQ   BYTE00A         ; OSBYTE 0,0 - generate error
             RTS                   ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2022-11-11'
+HELLO       ASC   'Applecorn MOS 2022-11-08'
             DB    $00             ; Unify MOS messages
-
 * TO DO: Move into RAM
-GSSPEED     DB    $00             ; $80 if GS is fast, $00 for slow
+* GSSPEED     DB    $00             ; $80 if GS is fast, $00 for slow
 
