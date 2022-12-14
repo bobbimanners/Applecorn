@@ -23,9 +23,6 @@ ZP1         EQU   $90             ; $90-$9f are spare Econet space
 ZP2         EQU   $92
 ZP3         EQU   $94
 
-*STRTBCKL    EQU   $9D             ; *TO DO* No longer needed to preserve
-*STRTBCKH    EQU   $9E
-
 MOSSHIM
             ORG   AUXMOS          ; MOS shim implementation
 
@@ -45,7 +42,9 @@ MOSSHIM
 MOSINIT     SEI                   ; Ensure IRQs disabled
             LDX   #$FF            ; Initialize Alt SP to $1FF
             TXS
-* Ensure memory map set up:
+
+* Ensure memory map setup ...
+
             STA   WRCARDRAM       ; Make sure we are writing aux
             STA   80STOREOFF      ; Make sure 80STORE is off
             STA   SET80VID        ; 80 col on
@@ -57,10 +56,9 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
             LDY   #$00            ; $00=Soft Reset
 :MODBRA     SEC                   ; Changed to CLC after first run
             BCC   :NORELOC        ; Subsequent run, skip to code
-*            BRA   :RELOC          ; NOPped out on first run
-*            BRA   :NORELOC
 
 * Copy code to high memory, (OSCTRL)=>source, (OSLPTR)=>dest
+
 :RELOC      LDA   #<AUXMOS1       ; Source
             STA   OSCTRL+0
             LDA   #>AUXMOS1
@@ -83,20 +81,9 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
 
             LDA   #$18            ; CLC opcode, next time around, we're
             STA   :MODBRA         ; already in high memory
-* Changing only one byte ensures against a RESET happening halfway between
-* two bytes being changed - and is five bytes shorter!
-            
-*            LDA   #$EA            ; NOP opcode
-*            STA   :MODBRA+0       ; Next time around, we're already
-*            STA   :MODBRA+1       ; in high memory
-
             LDY   #$02            ; $02=PowerOn
 
-:NORELOC
-*            STA   SET80VID        ; 80 col on
-*            STA   CLRALTCHAR      ; Alt charset off
-*            STA   PAGE2           ; PAGE2
-            JMP   MOSHIGH         ; Ensure executing in high memory from here
+:NORELOC    JMP   MOSHIGH         ; Ensure executing in high memory from here
 
 * From here onwards we are always executing at $D000 onwards
 * Y=ResetType
@@ -231,8 +218,6 @@ BYTE00      BEQ   BYTE00A         ; OSBYTE 0,0 - generate error
             RTS                   ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2022-11-08'
+HELLO       ASC   'Applecorn MOS 2022-12-14'
             DB    $00             ; Unify MOS messages
-* TO DO: Move into RAM
-* GSSPEED     DB    $00             ; $80 if GS is fast, $00 for slow
 
