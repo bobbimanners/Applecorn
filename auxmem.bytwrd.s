@@ -34,7 +34,7 @@ BYTWRDADDR   DW    BYTE00                 ; OSBYTE   0 - Machine host    - INIT.
              DW    BYTENULL               ; OSBYTE  15 - Flush buffer type
              DW    BYTENULL               ; OSBYTE  16 - ADC channel max
              DW    BYTENULL               ; OSBYTE  17 - ADC channel start
-             DW    BYTENULL               ; OSBYTE  18 - Clear soft keys
+             DW    BYTE12                 ; OSBYTE  18 - Clear soft keys
              DW    BYTENULL               ; OSBYTE  19 - Wait for VSync
              DW    BYTENULL               ; OSBYTE  20 - Font explode
              DW    BYTENULL               ; OSBYTE  21 - Buffer flush

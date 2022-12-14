@@ -18,7 +18,7 @@
 
 * DEBUG       EQU   $00         ; $00=*OPT 255 debug code removed
 DEBUG       EQU   $E0         ; $E0=*OPT 255 debug code included
-* GSSPEED     EQU   $E1         ; $E1 **TEMP**
+GSSPEED     EQU   $E1         ; $E1 $80 if GS is fast, $00 for slow
 FSFLAG1     EQU   $E2         ; $E2
 FSFLAG2     EQU   $E3         ; $E3 HOSTFS *OPT settings
 GSFLAG      EQU   $E4         ; $E4 GSREAD processing flags
@@ -51,7 +51,7 @@ ESCFLAG     EQU   $FF         ; $FF Escape status
 
 * $0200-$0235 Vectors
 * $0236-$028F OSBYTE variables ($190+BYTENUM)
-* $0290-$02ED
+* $0290-$02ED VDU workspace
 * $02EE-$02FF MOS control block
 
 USERV       EQU   $200        ; USER vector
@@ -75,4 +75,6 @@ OSGBPBCB    EQU   OSFILECB+1  ; OSGBPB control block
 
 
 * $0300-$03DF
-* $03E0-$03FF Used for interfacing with ProDOS XFER
+* $03E0-$03EF Used for interfacing with ProDOS XFER
+* $03F0-$03FF
+
