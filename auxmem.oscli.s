@@ -16,15 +16,17 @@
 * 05-Nov-2022 Added ROM, TAPE, TV to command table -> OSBYTE calls.
 * 06-Nov-2022 Rewrote *BUILD, avoids using code memory.
 *             Moved *KEY into CHARIO.S
+* 15-Dec-2022 Added *REMOVE. LDY #0 was missing in CLIUNKNOWN.
 
 
 * COMMAND TABLE
 ***************
 * Table structure is: { string, byte OR $80, destword-1 } $FF
 * Commands are entered with A=command byte with b7=1
-*                          EQ=no parameter
 *                          b6=0 - Enter with XY=>parameters
 *                          b6=1 - Enter with LPTR,Y=>parameters
+*                          EQ=no parameter
+*                          CS=normal entry
 *
 CMDTABLE    ASC   'CAT'              ; Must be first command so matches '*.'
             DB    $85
@@ -74,6 +76,9 @@ CMDFILE     ASC   'CAT'
             ASC   'RENAME'
             DB    $8C
             DW    STARFSC-1          ; RENAME -> FSC 12, XY=>params
+            ASC   'REMOVE'
+            DB    $86
+            DW    STARFILECS-1       ; REMOVE -> OSFILE 06, CBLK=>filename
             ASC   'SAVE'
             DB    $81
             DW    STARSAVE-1         ; SAVE   -> OSFILE 00, CBLK=>filename
@@ -144,10 +149,13 @@ HLPTABLE    ASC   'MOS'
 
 
 * Command table lookup
+* ====================
 * On entry, (OSLPTR)=>command string
 *           XY=>command table
 * On exit,  A=0  done, command called
 *           A<>0 no match
+*           (OSLPTR) presevred if no match
+*           X,Y corrupted
 *
 * Search command table
 CLILOOKUP   STX   OSTEXT+0           ; Start of command table
@@ -193,6 +201,7 @@ CLIMATCH2   JSR   CLIMATCH3          ; Call the routine
             RTS                      ; Return A=0 to claim
 
 CLIMATCH3   JSR   SKIPSPC            ; (OSLPTR),Y=>parameters
+            SEC                      ; Enter with CS pre-set
             PHP                      ; Save EQ=end of line
             LDA   (OSTEXT,X)         ; Command byte
             STA   OSTEMP
@@ -207,11 +216,6 @@ CLIMATCH3   JSR   SKIPSPC            ; (OSLPTR),Y=>parameters
             PHP                      ; SP->flg, low, high
             BIT OSTEMP               ; Test command parameter
             BVS CLICALL              ; If b6=1 don't convert LPTR
-;            LDA   OSTEMP
-;            ASL   A                  ; Move bit 6 into bit 7
-;            BMI   CLICALL            ; If b6=1 don't convert LPTR
-;            BEQ   CLICALL  ; *TEMP* If $80, skip - remove when HOSTFS updated
-*
             JSR   LPTRtoXY           ; XY=>parameters
 CLICALL     LDA   OSTEMP             ; A=command parameter
             PLP                      ; EQ=no parameters
@@ -259,10 +263,11 @@ CLISLASH    JSR   SKIPSPC1
             LDA   #$02
             BNE   STARFSC2           ; FSC 2 = */filename
 *
-CLIUNKNOWN  LDX   #$04
+CLIUNKNOWN  LDY   #$00               ; Point to start of command
+            LDX   #$04               ; Service 4 = Unknown command
             JSR   SERVICEX           ; Offer to sideways ROM(s)
             BEQ   CLIDONE            ; Claimed
-            LDA   #$03               ; FSC 3 = unknown command
+            LDA   #$03               ; FSC 3 = Unknown command
 STARFSC2    PHA
             JSR   LPTRtoXY           ; XY=>command
             PLA
@@ -596,13 +601,17 @@ STARLDSVGO  LDX   OSLPTR+0
 
 * Commands passed to OSFILE
 * -------------------------
-STARFILE    EOR   #$80
+STARFILE    CLC                      ; CLC=Error if NotFound
+STARFILECS  EOR   #$80               ; SEC=Ignore NotFound
+            PHP
             STX   OSFILECB+0
             STY   OSFILECB+1
             LDX   #<OSFILECB
             LDY   #>OSFILECB
             JSR   OSFILE
+            PLP
             TAX
+            BCS   STARDONE           ; Ignore NotFound
             BNE   STARDONE
             JMP   ERRNOTFND
 
