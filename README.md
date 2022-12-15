@@ -328,7 +328,7 @@ command is accepted by Applecorn but does nothing.
 `*TAPE` - On the real BBC Micro, this selects the Cassette Filing System.
 This command is accepted by Applecorn but does nothing.
 
-#### HostFS Filing System Commands
+#### Filing System & HostFS Commands
 
 This set of commands relates to filesystem operations, which would correspond
 to the Disk Filing System (DFS) or Advanced Disk Filing System (ADFS) of the
@@ -369,11 +369,19 @@ of a ROM routine.)
 can also delete directories, provided they are empty.  No wildcards are
 allowed.
 
+`*REMOVE <objspec>` - Delete file `<objspec>` from disk.  This command
+is identical to `*DELETE` except that no error message is shown if the file
+to be deleted does not exist.
+
 `*DESTROY <listspec>` - Deletes multiple files as specified by
 `<listspec>`. For example, `*DESTROY PROJECT/*.ASM`.
 
 `*RENAME <objspec1> <objspec2>` - Rename file or directory `<objspec1>`
 to `<objspec2>`.  No wildcards are allowed.
+
+`*TITLE [<drv>] <title>` - Change the disk title (or volumename in ProDOS
+terms.)  If no drive is specified, the name of the volume in the
+drive corresponding to the current ProDOS prefix is changed.
 
 `*DRIVE <drv>` - Switch to the specified physical drive.  This is equivalent
 to using `*DIR` but does not allow subdirectories to be specified.  The
