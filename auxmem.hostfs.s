@@ -317,7 +317,7 @@ FSCCOMMAND   ASC   'ACCESS'
              ASC   'FREE'
              DB    $FF
              DW    FSCFREE-1                 ; FREE (<drv>), LPTR=>params
-             ASC   'DTITLE'
+             ASC   'TITLE'
              DB    $FF
              DW    FSCTITLE-1                ; TITLE (<drv>) <title>, LPTR=>params
 *
