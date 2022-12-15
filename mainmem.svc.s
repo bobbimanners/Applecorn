@@ -33,7 +33,7 @@ RENFILE       >>>   ENTMAIN
               JSR   PREPATH            ; Preprocess arg2
               JSR   COPYMF12           ; Put it back in MOSFILE2
               JSR   TMPtoMF            ; Recover arg1->MOSFILE
-              LDA   #<MOSFILE
+RENFILE2      LDA   #<MOSFILE
               STA   RENPL+1
               LDA   #>MOSFILE
               STA   RENPL+2
@@ -45,6 +45,27 @@ RENFILE       >>>   ENTMAIN
               DB    RENCMD
               DW    RENPL
               >>>   XF2AUX,RENRET
+
+
+* Set name of volume dir, for *TITLE
+* Special case of renaming
+* Case 1: Disk ID in MOSFILE, title in MOSFILE2
+* Case 2: Title in MOSFILE, MOSFILE2=""
+*
+DISKTITLE     >>>   ENTMAIN
+              LDA   MOSFILE2
+              BNE   :CASE1
+              JSR   COPYMF12           ; Copy title->MOSFILE2
+              LDA   #$01               ; MOSFILE2 = "@"
+              STA   MOSFILE1
+              LDA   #'@'
+              STA   MOSFILE1 + 1
+:CASE1        JSR   PREPATH            ; Preprocess pathname
+              BCS   :EXIT
+              JSR   TRUNCPATH          ; Truncate to top level
+              JMP   RENFILE2
+:EXIT         >>>   XF2AUX,RENRET
+
 
 * ProDOS file handling for file copying
 * Returns with ProDOS error code in A
@@ -1034,6 +1055,22 @@ INFOFIRST     LDA   WILDIDX
 CATARG        DB    $00
 
 
+* Helper routine to truncate path in MOSFILE at the top level
+* So '/FOO/BAR/BAZ' -> '/FOO'
+TRUNCPATH     LDX   #$01               ; Skip over initial '/'
+:L1           CPX   MOSFILE            ; See if end of string
+              BCS   :EXIT              ; If so ... we are done
+              BEQ   :EXIT
+              LDA   MOSFILE+1,X        ; Get char from path
+              CMP   #'/'               ; See if it is slash
+              BNE   :NOTSLASH
+              STX   MOSFILE            ; If so, truncate here
+              BRA   :EXIT
+:NOTSLASH     INX
+              BRA   :L1
+:EXIT         RTS
+
+
 * Set prefix. Used by *CHDIR/*DRIVE to change directory
 * Y= $00 - CHDIR, select any directory
 * Y<>$00 - DRIVE, must select root
@@ -1045,9 +1082,11 @@ SETPFX        >>>   ENTMAIN
               JSR   WILDONE            ; Handle any wildcards
               LDA   #$2E
               BCS   :EXIT              ; Exit with wildcard path
-* TO DO: If DRIVE disallow selecting a directory
-*
-              LDA   #<MOSFILE
+              PLY                      ; CHDIR/DRIVE flag
+              CPY   #$00               ; If <> $00 (ie: *DRIVE)
+              BEQ   :CHDIR
+              JSR   TRUNCPATH          ; Truncate to top level
+:CHDIR        LDA   #<MOSFILE
               STA   SPFXPL+1
               LDA   #>MOSFILE
               STA   SPFXPL+2
@@ -1055,8 +1094,7 @@ SETPFX        >>>   ENTMAIN
               DB    SPFXCMD
               DW    SPFXPL
 
-:EXIT         PLY                      ; Drop CHDIR/DRIVE flag
-              >>>   XF2AUX,CHDIRRET
+:EXIT         >>>   XF2AUX,CHDIRRET
 
 
 * Obtain info on total/used blocks
@@ -1068,20 +1106,8 @@ DRVINFO       >>>   ENTMAIN
               STA   MOSFILE+1          ; Convert "" to "@"
 :DRVINF2      JSR   PREPATH
               BCS   :EXIT
-
-              LDX   #$01               ; Skip over initial '/'
-:L1           CPX   MOSFILE            ; See if end of string
-              BCS   :S1                ; If so ... we are done
-              BEQ   :S1
-              LDA   MOSFILE+1,X        ; Get char from path
-              CMP   #'/'               ; See if it is slash
-              BNE   :S2
-              STX   MOSFILE            ; If so, truncate here
-              BRA   :S1
-:S2           INX
-              BRA   :L1
-
-:S1           LDA   #<MOSFILE
+              JSR   TRUNCPATH          ; Truncate to top level
+              LDA   #<MOSFILE
               STA   GINFOPL+1
               LDA   #>MOSFILE
               STA   GINFOPL+2

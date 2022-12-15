@@ -317,7 +317,7 @@ FSCCOMMAND   ASC   'ACCESS'
              ASC   'FREE'
              DB    $FF
              DW    FSCFREE-1                 ; FREE (<drv>), LPTR=>params
-             ASC   'TITLE'
+             ASC   'DTITLE'
              DB    $FF
              DW    FSCTITLE-1                ; TITLE (<drv>) <title>, LPTR=>params
 *
@@ -846,7 +846,19 @@ DESTROY      JSR   PARSLPTR                  ; Copy filename->MOSFILE
 * LPTR=>parameters string
 * Syntax: *TITLE (<drive>) <title>
 *
-FSCTITLE     RTS
+FSCTITLE     JSR   PARSLPTR                  ; Copy arg1->MOSFILE
+             BEQ   :SYNTAX                   ; No args
+             JSR   PARSLPTR2                 ; Copy arg2->MOSFILE2
+             BNE   :S1                       ; If two args, skip
+             >>>   WRTMAIN
+             STZ   MOSFILE2                  ; One arg, MOSFILE2=""
+             >>>   WRTAUX
+:S1          >>>   XF2MAIN,DISKTITLE
+             RTS
+:SYNTAX      BRK
+             DB    $DC
+             ASC   'Syntax: TITLE (<drv>) <title>'
+             BRK
 
 
 * Parse filename pointed to by XY
