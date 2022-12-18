@@ -218,12 +218,12 @@ IENTMAIN    MAC
 WRTMAIN     MAC
             PHP
             SEI               ; Keeps IRQ handler easy
-            STA   WRMAINRAM   ; Write to main memory
+            STZ   WRMAINRAM   ; Write to main memory
             EOM
 
 * Go back to writing to aux (for code running in aux)
 WRTAUX      MAC
-            STA   WRCARDRAM   ; Write to aux memory
+            STZ   WRCARDRAM   ; Write to aux memory
             PLP               ; Normal service resumed
             EOM
 
@@ -234,13 +234,13 @@ ALTZP       MAC
             SEI               ; Disable IRQ when AltZP on
             LDA   LCBANK1     ; R/W LC bank 1
             LDA   LCBANK1
-            STA   SETALTZP    ; Alt ZP and LC
+            STZ   SETALTZP    ; Alt ZP and LC
             EOM
 
 * Manually disable AltZP + Aux LC (for code running in main)
 * Banks ROM in
 MAINZP      MAC
-            STA   SETSTDZP    ; Main ZP and LC
+            STZ   SETSTDZP    ; Main ZP and LC
             LDA   ROMIN       ; Bank ROM back in
             LDA   ROMIN
             PLP               ; Turn IRQ back on
