@@ -55,7 +55,6 @@ FXESCEFFECT  EQU   BYTEVARBASE+230
 FX200VAR     EQU   BYTEVARBASE+200
 FXSOFTLEN    EQU   BYTEVARBASE+216
 FXSOFTOK     EQU   BYTEVARBASE+244
-SOFTKEYOFF   EQU   $03FF ; *TEMP*
 
 FX254VAR     EQU   BYTEVARBASE+254
 FX2VAR       EQU   BYTEVARBASE+$B1
@@ -97,19 +96,12 @@ WRCHHND4     PLA                      ; Drop stacked character
 * Character Input
 *****************
 * Default keyboard OSBYTE variables
-*DEFBYTELOW  EQU  219              ; First default OSBYTE value
-*DEFBYTE     DB   $09,$1B          ; Default key codes
-*            DB   $01,$D0,$E0,$F0  ; Default key expansion
-*            DB   $01,$80,$90,$00  ; Default key expansion
-*DEFBYTEEND
-
-* TEMP as no *KEY
-* Default keyboard OSBYTE variables
-DEFBYTELOW   EQU   219                ; First default OSBYTE value
-DEFBYTE      DB    $09,$1B            ; Default key codes
-             DB    $C0,$D0,$E0,$F0    ; Default key expansion
-             DB    $80,$90,$A0,$B0    ; Default key expansion
+DEFBYTELOW  EQU  219              ; First default OSBYTE value
+DEFBYTE     DB   $09,$1B          ; Default key codes
+            DB   $01,$D0,$E0,$F0  ; Default key expansion
+            DB   $01,$80,$90,$00  ; Default key expansion
 DEFBYTEEND
+
 
 KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
 :KBDINITLP   LDA   DEFBYTE,X          ; Initialise KBD OSBYTE variables
@@ -480,22 +472,17 @@ KEYREAD      LDY   FXEXEC             ; See if EXEC file is open
              LDA   #$00               ; EOF, close EXEC file
              STA   FXEXEC             ; Clear EXEC handle
              JSR   OSFIND             ; And close it
-KEYREAD1
-*
-* TO DO: expand current soft key
-*  LDA FXSOFTLEN
-*  BEQ KEYREAD2
-*  LDX SOFTKEYOFF
-* page in main memory
-*  LDA SOFTKEYS,X
-* page out main memory
-*  INC SOFTKEYOFF
-*  DEC FXSOFTLEN
-*  CLC
-*  RTS
-* KEYREAD2
-*
-             JSR   KBDREAD            ; Fetch character from KBD "buffer"
+KEYREAD1     LDA   FXSOFTLEN
+             BEQ   KEYREAD2
+             LDX   SOFTKEYOFF
+             >>>   RDMAIN
+             LDA   FKEYBUF,X
+             >>>   RDAUX
+             INC   SOFTKEYOFF
+             DEC   FXSOFTLEN
+             CLC
+             RTS
+KEYREAD2     JSR   KBDREAD            ; Fetch character from KBD "buffer"
              BCS   KEYREADOK          ; Nothing pending
              TAY                      ; Y=unmodified character
              BPL   KEYREADOK          ; Not top-bit key
@@ -528,18 +515,33 @@ KEYSOFTY     TYA                      ; Get key including Shift/Ctrl
              EOR   #$04               ; Offset into KEYBASE
              TAX
              LDA   FXKEYBASE-8,X
-* TO DO:
-*BEQ KEYNONE ; $00=ignored
-*DEC A
-*BEQ expandfunction
-             CMP   #2                 ; *TEMP*
-             BCC   KEYNONE            ; *TEMP*
+             BEQ   KEYNONE            ; Value 0 means 'ignore key'
+             DEC   A
+             BEQ   EXPANDKEY          ; Value 1 means 'expand key'
              TYA
              AND   #$0F
              CLC
              ADC   FXKEYBASE-8,X
              CLC
              RTS
+
+
+* Expand soft key
+* On entry: Y key code ($8n where n is F-key num)
+EXPANDKEY    TYA
+             AND   #$0F               ; Obtain F-key number
+             TAX
+             PHX
+             JSR   KEYSUMLENS         ; Obtain starting offset
+             STA   SOFTKEYOFF
+             PLX
+             >>>   RDMAIN
+             LDA   FKEYLENS,X         ; Obtain length of *KEY string
+             >>>   RDAUX
+             STA   FXSOFTLEN
+             RTS
+SOFTKEYOFF   DB    $00
+
 
 * Process cursor keys
 KEYCURSOR    CMP   #$C9
