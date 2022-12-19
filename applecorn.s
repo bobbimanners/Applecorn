@@ -227,6 +227,19 @@ WRTAUX      MAC
             PLP               ; Normal service resumed
             EOM
 
+* Enable reading from main memory (for code running in aux LC)
+RDMAIN      MAC
+            PHP
+            SEI               ; Keeps IRQ handler easy
+            STZ   RDMAINRAM   ; Read from main memory
+            EOM
+
+* Go back to reading from aux (for code running in aux LC)
+RDAUX       MAC
+            STZ   RDCARDRAM   ; Read from aux memory
+            PLP               ; Normal service resumed
+            EOM
+
 * Manually enable AltZP + Aux LC (for code running in main)
 * Banks ROM out
 ALTZP       MAC

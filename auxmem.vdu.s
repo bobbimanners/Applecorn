@@ -399,9 +399,9 @@ GETCHRC       JSR   CHARADDR               ; Find character address
               BIT   VDUBANK
               BMI   GETCHRGS
               BCC   GETCHR6                ; Aux memory
-              STA   RDMAINRAM              ; Read main memory
+              STZ   RDMAINRAM              ; Read main memory (IRQs off)
 GETCHR6       LDA   (VDUADDR),Y            ; Get character
-              STA   RDCARDRAM              ; Read aux memory
+              STZ   RDCARDRAM              ; Read aux memory
               TAY                          ; Convert character
               AND   #$A0
               BNE   GETCHR7
@@ -414,9 +414,9 @@ GETCHR7       TYA
               TAX                          ; X=char
 GETCHROK      RTS
 GETCHRGS      BCC   GETCHR8                ; Aux memory
-              STA   RDMAINRAM              ; Read main memory
+              STZ   RDMAINRAM              ; Read main memory (IRQs off)
 GETCHR8       LDA   [VDUADDR],Y            ; Get character
-              STA   RDCARDRAM              ; Read aux memory
+              STZ   RDCARDRAM              ; Read aux memory
               TAY                          ; Convert character
               AND   #$A0
               BNE   GETCHR9
@@ -812,10 +812,10 @@ DOSCR1LINE    INC   TXTWINRGT
               STA   (VDUADDR2),Y
               BRA   :SKIPMAIN
 :MAIN         >>>   WRTMAIN
-              STA   RDMAINRAM              ; Read main memory
+              STZ   RDMAINRAM              ; Read main memory (IRQs off)
               LDA   (VDUADDR),Y
               STA   (VDUADDR2),Y
-              STA   RDCARDRAM              ; Read aux memory
+              STZ   RDCARDRAM              ; Read aux memory
               >>>   WRTAUX
 :SKIPMAIN     INX
               CPX   TXTWINRGT
@@ -824,10 +824,10 @@ DOSCR1LINE    INC   TXTWINRGT
 :FORTY        TXA
               TAY
 :L2           >>>   WRTMAIN
-              STA   RDMAINRAM              ; Read main memory
+              STZ   RDMAINRAM              ; Read main memory (IRQs off)
               LDA   (VDUADDR),Y
               STA   (VDUADDR2),Y
-              STA   RDCARDRAM              ; Read aux memory
+              STZ   RDCARDRAM              ; Read aux memory
               >>>   WRTAUX
               INY
               CPY   TXTWINRGT
@@ -847,20 +847,20 @@ SCR1LINEGS    LDX   TXTWINLFT
               STA   VDUBANK
               STA   VDUBANK2
               >>>   WRTMAIN
-              STA   RDMAINRAM              ; Read main memory
+              STZ   RDMAINRAM              ; Read main memory (IRQs off)
               LDA   [VDUADDR],Y            ; Even cols in bank $E1
               STA   [VDUADDR2],Y
-              STA   RDCARDRAM              ; Read aux memory
+              STZ   RDCARDRAM              ; Read aux memory
               >>>   WRTAUX
               BRA   :SKIPE0
 :E0           LDA   #$E0
               STA   VDUBANK
               STA   VDUBANK2
               >>>   WRTMAIN
-              STA   RDMAINRAM              ; Read main memory
+              STZ   RDMAINRAM              ; Read main memory (IRQs off)
               LDA   [VDUADDR],Y            ; Odd cols in bank $E0
               STA   [VDUADDR2],Y
-              STA   RDCARDRAM              ; Read aux memory
+              STZ   RDCARDRAM              ; Read aux memory
               >>>   WRTAUX
 :SKIPE0       INX
               CPX   TXTWINRGT
@@ -871,10 +871,10 @@ SCR1LINEGS    LDX   TXTWINLFT
               LDA   #$E0
               STA   VDUBANK
 :L2           >>>   WRTMAIN
-              STA   RDMAINRAM              ; Read main memory
+              STZ   RDMAINRAM              ; Read main memory (IRQs off)
               LDA   [VDUADDR],Y
               STA   [VDUADDR2],Y
-              STA   RDCARDRAM              ; Read aux memory
+              STZ   RDCARDRAM              ; Read aux memory
               >>>   WRTAUX
               INY
               CPY   TXTWINRGT

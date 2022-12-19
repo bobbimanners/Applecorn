@@ -351,9 +351,9 @@ ROMSELOK    PLP
 
 * Initialize ROMTAB according to user selection in menu
 ROMINIT     STZ   MAXROM           ; One sideways ROM only
-            STA   RDMAINRAM        ; Read main mem
+            >>>   RDMAIN           ; Read main mem
             LDA   USERSEL          ; *TO DO* Should be actual number of ROMs
-            STA   RDCARDRAM        ; Read aux mem
+            >>>   RDAUX            ; Read aux mem
 
             CMP   #6
             BNE   :X1
@@ -380,16 +380,6 @@ GSBRKAUX    >>>   IENTAUX          ; IENTAUX does not do CLI
 IRQBRKHDLR  PHA
 * Mustn't enable IRQs within the IRQ handler
 * Do not use WRTMAIN/WRTAUX macros
-*            LDA   RDRAMRD          ; Record softswitch state
-*            STA   $90
-*            LDA   RDRAMWR
-*            STA   $91
-*
-*            STA   WRMAINRAM        ; Write to main memory
-*            STA   $45              ; $45=A for ProDOS IRQ handlers
-*            STA   WRCARDRAM        ; Write to aux memory
-*            STA   RDCARDRAM        ; Read from aux memory
-
             PHX
             CLD
             TSX
@@ -421,18 +411,6 @@ IRQBRKRET
             >>>   IENTAUX          ; IENTAUX does not do CLI
 
             PLY
-
-*            LDA   $90              ; Restore state of RAMRD
-*            BMI   :S1
-*            STA   RDMAINRAM
-*            BRA   :S2
-*:S1         STA   RDCARDRAM
-*
-*:S2         LDA   $91              ; Restore state of RAMWRT
-*            BMI   :S3
-*            STA   WRMAINRAM
-*            BRA   :S4
-*:S3         STA   WRCARDRAM
 
 *:S4                                ; TODO: Pass on to IRQ1V
             PLX

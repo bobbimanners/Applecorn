@@ -331,22 +331,22 @@ WORD00       IF    MAXLEN-OSTEXT-2
 *           Y=0
 * IRQs are disabled while we access the timers and main memory
 
-WORD01       STA   RDMAINRAM              ; Read from main mem (IRQs are off)
+WORD01       STZ   RDMAINRAM              ; Read from main mem (IRQs are off)
 :WORD01LP    LDA   SYSCLOCK,Y             ; Read sys clock in main mem
              STA   (OSCTRL),Y             ; Store in buffer in aux mem
              INY
              CPY   #$05
              BCC   :WORD01LP
-             STA   RDCARDRAM              ; Reads back to aux memory
+             STZ   RDCARDRAM              ; Reads back to aux memory
              RTS
 
-WORD02       STA   WRMAINRAM              ; Write to main mem (IRQs are off)
+WORD02       STZ   WRMAINRAM              ; Write to main mem (IRQs are off)
 :WORD02LP    LDA   (OSCTRL),Y             ; Read from buffer in aux mem
              STA   SYSCLOCK,Y             ; Store to sys clock in main mem
              INY
              CPY   #$05
              BCC   :WORD02LP
-             STA   WRCARDRAM              ; Writes back to aux memory
+             STZ   WRCARDRAM              ; Writes back to aux memory
              RTS
 
 WORD03
