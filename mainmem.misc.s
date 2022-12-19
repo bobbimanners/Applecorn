@@ -3,6 +3,9 @@
 *
 * Miscellaneous routines used by main memory code.
 
+FKEYLENS     DS    $0F            ; Length of f-key definitions 0..15
+FKEYBUF      DS    $FF            ; 256 bytes for f-key definitions
+
 * Copy a block of main memory
 * A1L/A1H: Start address
 * A2L/A2H: End address

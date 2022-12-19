@@ -301,7 +301,7 @@ ERRKEYUSED   BRK
 * BBC doesn't care if the new definition is valid, it removes
 * the current definition before parsing, so a parse error
 * results in the definition being cleared.
-* eg *KEY 1 HELLO, *KEY 1 "X gives Bad string and key 1=""
+* eg *KEY 1 HELLO, *KEY 1 X gives Bad string and key 1=""
 *
 * BBC uses (simplified):
 * SOFTBUF+key+0  -> start of definition
@@ -322,84 +322,141 @@ ERRKEYUSED   BRK
 * 10...  -> strings in key order
 * (len0+len1+...len15) => start of free space
 *
-STARKEY1     TAX                      ; X=key number
+STARKEY1     STA   FKEYNUM            ; Key number being defined
+             JSR   KEYOPENGAP
              JSR   SKIPCOMMA
-*
-* Test code
-* Just parse the string and write it to mainmem
              SEC
              JSR   GSINIT             ; Initialise '*KEY-type string'
-             LDX   #0                 ; Parse string and check it's valid
+             LDX   MOVESRC            ; Starting point to insert
 STARKEYLP1   JSR   GSREAD
              BCS   STARKEYEND
-             JSR   WRHOLES            ; Store the byte
+             >>>   WRTMAIN            ; Write main memory
+             STA   FKEYBUF,X          ; Store char of definition
+             >>>   WRTAUX             ; Back to writing aux again
              INX
-             BRA   STARKEYLP1
+             CPX   MOVEDST-1          ; See if we are out of space
+             BNE   STARKEYLP1
+             >>>   WRTMAIN            ; Write main memory
+             STZ   FKEYLENS,X         ; Out of space. Set len=0
+             >>>   WRTAUX             ; Back to writing aux again
+             BRA   STARKEYCLS
+STARKEYEND   TXA                      ; Last idx+1
+             SEC                      ; Compute length
+             SBC   MOVESRC
+             LDX   FKEYNUM
+             >>>   WRTMAIN            ; Write main memory
+             STA   FKEYLENS,X         ; Store length of new def
+             >>>   WRTAUX             ; Back to writing aux again
+STARKEYCLS   JSR   KEYCLSGAP
+             RTS
+FKEYNUM      DB    $00
 
-STARKEYEND   RTS
 
+* Open gap in FKEYBUF to allow new def to be inserted
+* Moved defs for keys FKEYNUM+1..15 to top of FKEYBUF
+* Preserves A,X,Y
+KEYOPENGAP   PHA
+             PHX
+             PHY
+             LDX   FKEYNUM            ; Key being defined
+             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
+             STA   MOVESRC            ; Source offset for move
+             LDX   #16                ; Sum keys 0..15 (ie: all)
+             JSR   KEYSUMLENS         ; Sum them all
+             SEC
+             SBC   MOVESRC            ; Compute length to move
+             STA   MOVELEN
+             LDA   #$FF               ; Length of FKEYBUF
+             SEC
+             SBC   MOVELEN            ; Compute dest for move
+             STA   MOVEDST            ; Dest offset for move
+             LDX   MOVESRC            ; Source
+             JSR   MOVEKEYS           ; Open the gap
+             PLY
+             PLX
+             PLA
+             RTS
+* After the gap is opened, there is freespace from MOVESRC to MOVEDST-1
+
+
+* Close gap in FKEYBUF after def has been inserted
+* Preserves A,X,Y
+KEYCLSGAP    PHA
+             PHX
+             PHY
+             LDA   #$FF               ; Length of FKEYBUF
+             SEC
+             SBC   MOVEDST            ; Previous dest, to calc length
+             STA   MOVELEN            ; Length for move
+             LDA   MOVEDST            ; Old dest ...
+             STA   MOVESRC            ; ... is new source
+             LDX   FKEYNUM            ; Key being defined
+             INX
+             JSR   KEYSUMLENS         ; Len of defs 0..X INclusive
+             STA   MOVEDST            ; New dest
+             JSR   MOVEKEYS           ; Close the gap
+             PLY
+             PLX
+             PLA
+             RTS
+
+
+* Add lengths of *KEY definitions together
+* On entry: X is the highest key num + 1 (sums 0..X-1)
+* On return: Sum in A (exclusive of X)
+* From *KEY0 to *KEYn where n is value in X
+KEYSUMLENS   LDA   #$00               ; Clear sum
+:LOOP        CPX   #$00
+             BEQ   :DONE
+             >>>   RDMAIN             ; Read main memory
+             CLC
+             ADC   FKEYLENS-1,X       ; Add lengths
+             >>>   RDAUX              ; Read aux memory
+             DEX
+             BRA   :LOOP
+:DONE        RTS
              
 
-* Write a byte to mainmem screen avoiding holes
-WRHOLES  BIT SETV
-         BRA RDWRHOLE
-* Read a byte from mainmem screen avoiding holes
-RDHOLES  CLV
-RDWRHOLE PHP      ; Save IRQ state
-         SEI      ; Disable IRQs
-         PHP      ; Save V=rd/wr
-         PHA      ; Save byte to write
-         TXA      ; C=? A=abcdefgh
-         AND #$BF ; C=? A=a0cdefgh
-         STA OSINTWS+0
-         TXA      ; C=? A=abcdefgh
-         ASL A    ; C=a A=bcdefgh0
-         ASL A    ; C=b A=cdefgh00
-         LDA #$02 ; C=b A=00000010
-         ROL A    ; C=0 A=0000010b
-         STA OSINTWS+1 ; (OSINTWS)=>$400+x or $500+x
-         PLA           ; Get byte to write back
-         PLP           ; Get rd/wr back
-         BVC RDHOLE2
-         STA WRMAINRAM ; &0200-&BFFF writes to main memory
-         STA (OSINTWS)
-         STA WRCARDRAM ; &0200-&BFFF writes to aux memory
-         PLP           ; Restore IRQs
-         RTS
-RDHOLE2  STA RDMAINRAM ; &0200-&BFFF reads from main memory
-         LDA (OSINTWS)
-         STA RDCARDRAM ; &0200-&BFFF reads from aux memory
-         PLP           ; Restore IRQs
-         RTS
-
-
-
-
+* Move key definitions within FKEYBUF
+* Copies MOVELEN bytes from MOVSRC->MOVDST within FKEYBUF
+MOVEKEYS     LDX   MOVESRC
+             LDY   MOVEDST
+:L1          LDA   MOVELEN
+             BEQ   :DONE
+             >>>   RDMAIN             ; Read main memory
+             LDA   FKEYBUF,X
+             >>>   RDAUX              ; Read aux memory
+             >>>   WRTMAIN            ; Write main memory
+             STA   FKEYBUF,Y
+             >>>   WRTAUX             ; Write aux memory
+             INX
+             INY
+             DEC   MOVELEN
+             BRA   :L1
+:DONE        RTS
+MOVESRC      DB    $00                ; Source offset in FKEYBUF
+MOVEDST      DB    $00                ; Dest offset in FKEYBUF
+MOVELEN      DB    $00                ; # bytes remaining to move
 
 
 * OSBYTE &12 - Clear soft keys
 * ----------------------------
 SOFTKEYCHK   LDA   FXSOFTOK
              BEQ   BYTE12OK           ; Soft keys ok, exit
-BYTE12       LDX   #120               ; 120 bytes in each half page
+BYTE12       LDX   #$FF
              STX   FXSOFTOK           ; Soft keys being updated
-             PHP
-             SEI                      ; Prevent IRQs while writing
-             LDA   #0
-             STA   WRMAINRAM          ; Write to main mem
-BYTE12LP     STA   $0400-1,X          ; Could be more efficient
-             STA   $0480-1,X          ; If use 16xlen, only need to
-             STA   $0500-1,X          ; zero first 16 bytes
-             STA   $0580-1,X          ; Gives 4*120=480 bytes
-*             STA   $0600-1,X
-*             STA   $0680-1,X
-*             STA   $0700-1,X
-*             STA   $0780-1,X
+:L1          >>>   WRTMAIN            ; Zero the buffer (nice when debugging)
+             STZ   FKEYBUF,X
+             >>>   WRTAUX
              DEX
-             BNE   BYTE12LP
-             STA   WRCARDRAM          ; Restore writing to aux
-             PLP                      ; And restore IRQs
-             STX   FXSOFTOK           ; Soft keys updated
+             BNE   :L1
+             LDX   #15
+:L2          >>>   WRTMAIN            ; Zero the lengths
+             STZ   FKEYLENS,X
+             >>>   WRTAUX
+             DEX
+             BNE   :L2
+             STZ   FXSOFTOK           ; Soft keys updated
 BYTE12OK     RTS
 
 
