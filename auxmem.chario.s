@@ -359,6 +359,7 @@ KEYOPENGAP   PHA
              PHX
              PHY
              LDX   FKEYNUM            ; Key being defined
+             INX
              JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
              STA   MOVESRC            ; Source offset for move
              LDX   #16                ; Sum keys 0..15 (ie: all)
@@ -392,7 +393,7 @@ KEYCLSGAP    PHA
              STA   MOVESRC            ; ... is new source
              LDX   FKEYNUM            ; Key being defined
              INX
-             JSR   KEYSUMLENS         ; Len of defs 0..X INclusive
+             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
              STA   MOVEDST            ; New dest
              JSR   MOVEKEYS           ; Close the gap
              PLY
