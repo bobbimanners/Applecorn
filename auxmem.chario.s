@@ -327,7 +327,7 @@ STARKEY1     STA   FKEYNUM            ; Key number being defined
              JSR   SKIPCOMMA
              SEC
              JSR   GSINIT             ; Initialise '*KEY-type string'
-             LDX   MOVESRC            ; Starting point to insert
+             LDX   KEYINS             ; Starting point to insert
 STARKEYLP1   JSR   GSREAD
              BCS   STARKEYEND
              >>>   WRTMAIN            ; Write main memory
@@ -342,7 +342,7 @@ STARKEYLP1   JSR   GSREAD
              BRA   STARKEYCLS
 STARKEYEND   TXA                      ; Last idx+1
              SEC                      ; Compute length
-             SBC   MOVESRC
+             SBC   KEYINS
              LDX   FKEYNUM
              >>>   WRTMAIN            ; Write main memory
              STA   FKEYLENS,X         ; Store length of new def
@@ -350,6 +350,7 @@ STARKEYEND   TXA                      ; Last idx+1
 STARKEYCLS   JSR   KEYCLSGAP
              RTS
 FKEYNUM      DB    $00
+KEYINS       DB    $00
 
 
 * Open gap in FKEYBUF to allow new def to be inserted
@@ -358,6 +359,9 @@ FKEYNUM      DB    $00
 KEYOPENGAP   PHA
              PHX
              PHY
+             LDX   FKEYNUM            ; Key being defined
+             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
+             STA   KEYINS             ; Offset for insert
              LDX   FKEYNUM            ; Key being defined
              INX
              JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
