@@ -302,15 +302,16 @@ provide its own startup command, so MOS provides it.
 
 `*ECHO This is some text` - echo a line of text to the screen.
 
-`*FX a[,x,y]` - invokes `OSBYTE` MOS calls.
+`*FX a[,x,y]` - Invokes `OSBYTE` MOS calls.
 
-`*OPT` - sets file system options.  `*OPT 255,x` may be used to enable or
+`*OPT` - Sets file system options.  `*OPT 255,x` may be used to enable or
 disable debugging output.
 
 `*KEY n <text>` - Programs a user-defined function key.  n can take values
 from 0 to 15.  Values of 0 through 9 refer to the function keys (Open Apple
 plus number key 0 through 9), while higher numbers may be used to program the
-cursor keys and Copy key.  For example `*KEY 1 LIST|M`.
+cursor keys and Copy key.  For example `*KEY 1 LIST|M` (note the special
+syntax to insert a control character.)
 
 `*CODE x,y` - Invokes user machine code through the user vector `USERV`.
 6502 registers X and Y are initialized according to the value of the two
