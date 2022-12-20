@@ -307,8 +307,10 @@ provide its own startup command, so MOS provides it.
 `*OPT` - sets file system options.  `*OPT 255,x` may be used to enable or
 disable debugging output.
 
-`*KEY keynum <text>` - Programs a user-defined function key.
-**NOT YET IMPLEMENTED**.
+`*KEY n <text>` - Programs a user-defined function key.  n can take values
+from 0 to 15.  Values of 0 through 9 refer to the function keys (Open Apple
++ number key 0 through 9), while higher numbers may be used to program the
+cursor keys and Copy key.  For example `*KEY 1 LIST|M`.
 
 `*CODE x,y` - Invokes user machine code through the user vector `USERV`.
 6502 registers X and Y are initialized according to the value of the two
