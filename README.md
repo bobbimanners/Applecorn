@@ -309,7 +309,7 @@ disable debugging output.
 
 `*KEY n <text>` - Programs a user-defined function key.  n can take values
 from 0 to 15.  Values of 0 through 9 refer to the function keys (Open Apple
-+ number key 0 through 9), while higher numbers may be used to program the
+plus number key 0 through 9), while higher numbers may be used to program the
 cursor keys and Copy key.  For example `*KEY 1 LIST|M`.
 
 `*CODE x,y` - Invokes user machine code through the user vector `USERV`.
