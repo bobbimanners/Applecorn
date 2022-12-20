@@ -326,8 +326,9 @@ STARKEYLP1   JSR   GSREAD
              STA   FKEYBUF,X          ; Store char of definition
              >>>   WRTAUX             ; Back to writing aux again
              INX
-             CPX   MOVEDST-1          ; See if we are out of space
+             CPX   MOVEDST            ; See if we are out of space
              BNE   STARKEYLP1
+             LDX   FKEYNUM
              >>>   WRTMAIN            ; Write main memory
              STZ   FKEYLENS,X         ; Out of space. Set len=0
              >>>   WRTAUX             ; Back to writing aux again
@@ -367,7 +368,6 @@ KEYOPENGAP   PHA
              SEC
              SBC   MOVELEN            ; Compute dest for move
              STA   MOVEDST            ; Dest offset for move
-             LDX   MOVESRC            ; Source
              JSR   MOVEKEYS           ; Open the gap
              PLY
              PLX
