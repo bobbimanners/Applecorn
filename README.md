@@ -685,7 +685,7 @@ hardware capabilities of the BBC Micro and the Apple II.
   related to colour are not implemented.  The VDU driver is sufficient to
   run full screen editors such as the ISO Pascal editor and the View
   word processor.
-- Special BBC Micro functions such A/D interfaces, programmable
-  function keys and so on are currently not supported.
+- Special BBC Micro functions which have no counterpart on the Apple II,
+  such as the A/D interface, are currently not supported.
 
 
