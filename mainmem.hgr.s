@@ -1,7 +1,8 @@
-* MAINMEM.GFX.S
+* MAINMEM.HGR.S
 * (c) Bobbi 2021 GPLv3
 *
-* Main memory HGR graphics routines.
+* Routines for drawing bitmapped text and graphics in HGR mode (280x192)
+* Uses the FDraw library to actually do the drawing.
 
 * Call FDraw Clear routine
 CLRHGR      >>>   ENTMAIN

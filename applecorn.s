@@ -265,7 +265,7 @@ MAINZP      MAC
             PUT   AUXMEM.MOSEQU
             PUT   AUXMEM.INIT
             PUT   AUXMEM.VDU
-            PUT   AUXMEM.GFX
+            PUT   AUXMEM.HGR
             PUT   AUXMEM.HOSTFS
             PUT   AUXMEM.OSCLI
             PUT   AUXMEM.BYTWRD
@@ -276,7 +276,7 @@ MAINZP      MAC
             PUT   MAINMEM.FSEQU
             PUT   MAINMEM.INIT
             PUT   MAINMEM.SVC
-            PUT   MAINMEM.GFX
+            PUT   MAINMEM.HGR
             PUT   MAINMEM.PATH
             PUT   MAINMEM.WILD
             PUT   MAINMEM.LISTS

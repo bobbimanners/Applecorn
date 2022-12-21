@@ -462,22 +462,6 @@ CHARADDROK    STA   VDUBANK
 *  VDUBANK   = AppleGS screen bank
 * CC=auxmem, CS=mainmem, X=preserved
 
-* Calculate character address in HGR screen memory
-* This is the address of the first pixel row of the char
-* Add $0400 for each subsequent row of the char
-HCHARADDR     LDA   VDUTEXTY
-              ASL
-              TAY
-              CLC
-              LDA   HGRTAB+0,Y             ; LSB of row address
-              ADC   VDUTEXTX
-              STA   VDUADDR+0
-              LDA   HGRTAB+1,Y             ; MSB of row address
-              ADC   #$00
-              STA   VDUADDR+1
-              RTS
-* (VDUADDR)=>character address, X=preserved
-
 
 * Move text cursor position
 ***************************

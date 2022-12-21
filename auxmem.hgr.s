@@ -1,7 +1,9 @@
-* AUXMEM.GFX.S
+* AUXMEM.HGR.S
 * (c) Bobbi 2021 GPLv3
 *
-* Graphics operations
+* Routines for drawing bitmapped text and graphics in HGR mode (280x192)
+* Most of these routines call into MAINMEM.HGR.S to actually do the
+* drawing.
 *
 * 26-Sep-2021 All graphics screen code moved to here.
 * 02-Oct-2021 Added temp'y wrapper to HGRPLOT.
@@ -31,6 +33,24 @@ PRCHRSOFT    CMP   #$A0              ; Convert to screen code
              >>>   XF2MAIN,DRAWCHAR  ; Plot char on HGR screen
 PUTCHRET     >>>   ENTAUX
              RTS
+
+
+* Calculate character address in HGR screen memory
+* This is the address of the first pixel row of the char
+* Add $0400 for each subsequent row of the char
+HCHARADDR     LDA   VDUTEXTY
+              ASL
+              TAY
+              CLC
+              LDA   HGRTAB+0,Y             ; LSB of row address
+              ADC   VDUTEXTX
+              STA   VDUADDR+0
+              LDA   HGRTAB+1,Y             ; MSB of row address
+              ADC   #$00
+              STA   VDUADDR+1
+              RTS
+* (VDUADDR)=>character address, X=preserved
+
 
 * Forwards scroll one line
 HSCR1LINE    >>>   WRTMAIN
