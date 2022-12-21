@@ -286,6 +286,7 @@ MAINZP      MAC
             PUT   MAINMEM.ENSQFREQ
             PUT   MAINMEM.MOCK
             PUT   MAINMEM.MOCKFREQ
+            PUT   MAINMEM.FONT8
 
 * Automatically save the object file:
             SAV   APLCORN.SYSTEM
