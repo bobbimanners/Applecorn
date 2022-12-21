@@ -87,12 +87,12 @@ CLRALTCHAR  EQU   $C00E
 SETALTCHAR  EQU   $C00F
 RDRAMRD     EQU   $C013
 RDRAMWR     EQU   $C014
-
 KBDSTRB     EQU   $C010
 RDVBL       EQU   $C019
 RD80VID     EQU   $C01F
 
 TBCOLOR     EQU   $C022       ; GS-specific, used but commented out
+KEYMOD      EQU   $C025       ; GS-specific
 
 SPKR        EQU   $C030
 CLOCKCTL    EQU   $C034       ; GS-specific, Clock control register

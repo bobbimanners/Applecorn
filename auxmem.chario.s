@@ -457,6 +457,55 @@ BYTE12       LDX   #$FF
 BYTE12OK     RTS
 
 
+* Handle function keys on ADB Extended Keyboard & BMOW Wombat
+* For Apple IIGS only
+EXTENDKBD    BIT   VDUBANK            ; Use VDUBANK to see if ...
+             BMI   :GS                ; ... this is a GS
+             RTS                      ; If not, bail
+:GS          PHA                      ; Preserve character typed
+             LDA   KEYMOD             ; GS-specific register
+             AND   #$10               ; Bit 4 is the 'keypad bit'
+             BEQ   :NOTKEYPAD         ; Not an extended key
+             PLA
+             LDX   #$00
+:LOOP        CMP   :TABLE,X           ; Lookup keycode in table
+             BEQ   :FOUND
+             INX
+             INX
+             CPX   #20                ; 10 rows of two bytes each
+             BNE   :LOOP
+             RTS                      ; Not found, return unchanged
+:FOUND       LDA   KEYMOD             ; Look at the modifiers
+             AND   #$C3               ; Mask only the modifier bits
+             CMP   #$01               ; Only shift pressed
+             BNE   :S1
+             LDA   #$10               ; Offset for shift+f-key
+             BRA   :S2
+:S1          CMP   #$02               ; Onlt ctrl pressed
+             BNE   :S2
+             LDA   #$20               ; Offset for ctrl+f-key
+:S2          CLC
+             ADC   :TABLE+1,X         ; Lookup translation + add
+             RTS
+
+             
+* TODO Add $10 if shift is down
+* TODO Add $20 if ctrl is down
+             RTS
+:NOTKEYPAD   PLA                      ; Get original key back
+             RTS
+:TABLE       DB   $7A, $81            ; Extended keyboard F1 code -> f1
+             DB   $78, $82            ; Extended keyboard F2 code -> f2
+             DB   $63, $83            ; Extended keyboard F3 code -> f3
+             DB   $76, $84            ; Extended keyboard F4 code -> f4
+             DB   $60, $85            ; Extended keyboard F5 code -> f5
+             DB   $61, $86            ; Extended keyboard F6 code -> f6
+             DB   $62, $87            ; Extended keyboard F7 code -> f7
+             DB   $64, $88            ; Extended keyboard F8 code -> f8
+             DB   $65, $89            ; Extended keyboard F9 code -> f9
+             DB   $6D, $80            ; Extended keyboard F10 code -> f0
+
+
 * KEYREAD
 ************************
 * Test for and read from input,
@@ -472,18 +521,19 @@ KEYREAD      LDY   FXEXEC             ; See if EXEC file is open
              LDA   #$00               ; EOF, close EXEC file
              STA   FXEXEC             ; Clear EXEC handle
              JSR   OSFIND             ; And close it
-KEYREAD1     LDA   FXSOFTLEN
-             BEQ   KEYREAD2
-             LDX   SOFTKEYOFF
+KEYREAD1     LDA   FXSOFTLEN          ; Are we replaying a function key?
+             BEQ   KEYREAD2           ; No, skip over
+             LDX   SOFTKEYOFF         ; Obtain current f-key buffer offset
              >>>   RDMAIN
-             LDA   FKEYBUF,X
+             LDA   FKEYBUF,X          ; Read char from buf in main mem
              >>>   RDAUX
-             INC   SOFTKEYOFF
-             DEC   FXSOFTLEN
+             INC   SOFTKEYOFF         ; Next char in buffer
+             DEC   FXSOFTLEN          ; One less char remaining
              CLC
              RTS
 KEYREAD2     JSR   KBDREAD            ; Fetch character from KBD "buffer"
              BCS   KEYREADOK          ; Nothing pending
+             JSR   EXTENDKBD          ; Handle ADB Extended Keyboard f-keys
              TAY                      ; Y=unmodified character
              BPL   KEYREADOK          ; Not top-bit key
              AND   #$CF               ; Drop Shift/Ctrl bits
@@ -499,6 +549,7 @@ KEYREAD2     JSR   KBDREAD            ; Fetch character from KBD "buffer"
              SBC   #$44               ; Return $88-$8B
 KEYREADOK1   CLC
 KEYREADOK    RTS
+
 
 * Process soft key
 KEYSOFTHI    LDX   FX254VAR
