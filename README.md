@@ -129,6 +129,9 @@ program in memory.
   - Use Closed Apple with the number keys for the function keys with Shift.
   - Use both Open Apple and Closed Apple together with the number keys for
     the function keys with Ctrl.
+  - If you happen to have an Apple IIgs with and ADB Extended Keyboard, or
+    a BMOW Wombat USB keyboard adapter, the function keys F1-F10 should
+    work (F10 is mapped to the BBC Micro f0).
 
 ### 'Sideways ROM' Support
 
