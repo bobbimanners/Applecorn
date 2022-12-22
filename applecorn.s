@@ -268,13 +268,13 @@ MAINZP      MAC
             PUT   AUXMEM.INIT
             PUT   AUXMEM.VDU
             PUT   AUXMEM.HGR
+            PUT   AUXMEM.SHR
             PUT   AUXMEM.HOSTFS
             PUT   AUXMEM.OSCLI
             PUT   AUXMEM.BYTWRD
             PUT   AUXMEM.CHARIO
             PUT   AUXMEM.AUDIO
             PUT   AUXMEM.MISC
-            PUT   AUXMEM.SHR
             PUT   MAINMEM.MENU
             PUT   MAINMEM.FSEQU
             PUT   MAINMEM.INIT
