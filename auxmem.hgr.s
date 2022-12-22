@@ -8,6 +8,10 @@
 * 26-Sep-2021 All graphics screen code moved to here.
 * 02-Oct-2021 Added temp'y wrapper to HGRPLOT.
 
+* Addresses of start of pixel rows in PAGE1
+HGRTAB        DW    $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380
+              DW    $2028,$20A8,$2128,$21A8,$2228,$22A8,$2328,$23A8
+              DW    $2050,$20D0,$2150,$21D0,$2250,$22D0,$2350,$23D0
 
 * Write character to HGR screen
 PRCHRSOFT    CMP   #$A0              ; Convert to screen code

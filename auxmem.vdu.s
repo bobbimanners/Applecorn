@@ -112,13 +112,13 @@ VDUWORKSZ     EQU   VDUVAREND-VDUWORKSP+1
 *
 
 * Screen definitions
-*                     1     3        6  7  ; MODEs sort-of completed
-SCNTXTMAXX    DB    79,39,19,79,39,19,39,39  ; Max text column
-SCNTXTMAXY    DB    23,23,23,23,23,23,23,23  ; Max text row
-SCNBYTES      DB    01,08,01,01,01,01,01,01  ; Bytes per character
-SCNCOLOURS    DB    15,07,15,01,01,15,01,01  ; Colours-1
-SCNPIXELS     DB    00,07,00,00,00,00,00,00  ; Pixels per byte
-SCNTYPE       DB    01,128,0,01,00,00,00,64  ; Screen type
+*                     0   1   2   3           6   7  ; MODEs sort-of completed
+SCNTXTMAXX    DB     79, 39, 39, 79, 39, 19, 39, 39  ; Max text column
+SCNTXTMAXY    DB     23, 23, 23, 23, 23, 23, 23, 23  ; Max text row
+SCNBYTES      DB     01, 08, 08, 01, 01, 01, 01, 01  ; Bytes per character
+SCNCOLOURS    DB     15, 07, 07, 01, 01, 15, 01, 01  ; Colours-1
+SCNPIXELS     DB     00, 07, 07, 00, 00, 00, 00, 00  ; Pixels per byte
+SCNTYPE       DB     01,128,128, 01, 00, 00, 00, 64  ; Screen type
 * b7=FastDraw
 * b6=Teletext
 * b0=40COL/80COL
@@ -137,11 +137,6 @@ CLRTRANS8     DB    00,05,01,01,06,02,02,07
 SCNTAB        DW    $800,$880,$900,$980,$A00,$A80,$B00,$B80
               DW    $828,$8A8,$928,$9A8,$A28,$AA8,$B28,$BA8
               DW    $850,$8D0,$950,$9D0,$A50,$AD0,$B50,$BD0
-
-* Addresses of start of pixel rows in PAGE1
-HGRTAB        DW    $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380
-              DW    $2028,$20A8,$2128,$21A8,$2228,$22A8,$2328,$23A8
-              DW    $2050,$20D0,$2150,$21D0,$2250,$22D0,$2350,$23D0
 
 * Output character to VDU driver
 ********************************
