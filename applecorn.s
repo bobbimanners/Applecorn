@@ -272,6 +272,7 @@ MAINZP      MAC
             PUT   AUXMEM.CHARIO
             PUT   AUXMEM.AUDIO
             PUT   AUXMEM.MISC
+            PUT   AUXMEM.SHR
             PUT   MAINMEM.MENU
             PUT   MAINMEM.FSEQU
             PUT   MAINMEM.INIT
