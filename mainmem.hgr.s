@@ -146,6 +146,8 @@ DRAWCHAR    >>>   ENTMAIN
 
 * Copy text line A+1 to line A 
 HGRSCR1L    >>>   ENTMAIN
+            PHP                     ; Disable interrupts ..
+            SEI                     ; .. to prevent corruption while scrolling
             INC   MTXTWINRGT
             ASL                     ; Dest addr->A4L,A4H
             TAX
@@ -177,6 +179,7 @@ DOHGRSCR1L  LDX   #$00
             INX
             CPX   #8                ; 8 pixel rows in character
             BNE   :L1
+            PLP                     ; Re-enable interrupts
             >>>   XF2AUX,HSCR1RET
 
 * Copy text line A to line A+1
