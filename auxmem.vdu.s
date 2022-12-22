@@ -117,11 +117,11 @@ SCNTXTMAXX    DB     79, 39, 39, 79, 39, 39, 39, 39  ; Max text column
 SCNTXTMAXY    DB     23, 23, 23, 23, 23, 23, 23, 23  ; Max text row
 SCNBYTES      DB     08, 08, 08, 01, 01, 01, 01, 01  ; Bytes per character
 SCNCOLOURS    DB     03, 15, 07, 01, 01, 01, 01, 01  ; Colours-1
-SCNPIXELS     DB     08, 08, 07, 00, 00, 00, 00, 00  ; Pixels per byte
-SCNTYPE       DB     32, 32,128, 01, 00, 00, 00, 64  ; Screen type
+SCNPIXELS     DB     04, 02, 07, 00, 00, 00, 00, 00  ; Pixels per byte
+SCNTYPE       DB     65, 64,128, 01, 00, 00, 00, 32  ; Screen type
 * b7=FastDraw -> HGR mode
-* b6=Teletext -> No-op
-* b5=SHR mode on Apple IIgs
+* b6=SHR mode on Apple IIgs
+* b5=Teletext
 * b0=40COL/80COL
 
 * Colour table
@@ -361,8 +361,9 @@ PUTCHRC       PHA
               BNE   PRCHR4
               CPX   #$20
               BCS   PRCHR3                 ; Not $80-$9F
+              LDA   #$20
               BIT   VDUSCREEN
-              BVC   PRCHR3                 ; Not teletext
+              BEQ   PRCHR3                 ; Not teletext
               LDX   #$E0                   ; Convert $80-$9F to space
 PRCHR3        TXA
               EOR   #$40
@@ -593,15 +594,20 @@ VDU22         LDA   VDUQ+8
               JSR   VDU20                  ; Default colours
               JSR   VDU26                  ; Default windows
               STA   FULLGR                 ; Clear MIXED mode
-              LDA   VDUSCREEN
+              BIT   VDUSCREEN
               BPL   :NOTHGR
-              JMP   HGRVDU22               ; b7=1, graphics mode
-:NOTHGR       AND   #$01                   ; 40col/80col bit
+              JMP   HGRVDU22               ; b7=1, HGR mode
+:NOTHGR       BVC   :NOTSHR
+              JMP   SHRVDU22               ; b6=1, SHR mode
+:NOTSHR       LDA   VDUSCREEN
+              AND   #$01                   ; 40col/80col bit
               TAX
               STA   CLR80VID,X             ; Select 40col/80col
               STA   TEXTON                 ; Enable Text
               STA   PAGE2                  ; PAGE2
               STA   SETALTCHAR             ; Enable alt charset
+              LDA   #$80                   ; Most significant bit
+              TRB   NEWVIDEO               ; Turn off SHR
 * Fall through into CLS
 
 

@@ -19,6 +19,8 @@ HGRVDU22      JSR   VDU12                  ; Clear text and HGR screen
               STA   GRON                   ; Enable Graphics
               STA   PAGE1                  ; PAGE1
               STA   CLR80VID               ; Select 40col text
+              LDA   #$80                   ; Most significant bit
+              TRB   NEWVIDEO               ; Turn off SHR
               RTS
 
 
