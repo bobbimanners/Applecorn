@@ -113,14 +113,15 @@ VDUWORKSZ     EQU   VDUVAREND-VDUWORKSP+1
 
 * Screen definitions
 *                     0   1   2   3           6   7  ; MODEs sort-of completed
-SCNTXTMAXX    DB     79, 39, 39, 79, 39, 19, 39, 39  ; Max text column
+SCNTXTMAXX    DB     79, 39, 39, 79, 39, 39, 39, 39  ; Max text column
 SCNTXTMAXY    DB     23, 23, 23, 23, 23, 23, 23, 23  ; Max text row
-SCNBYTES      DB     01, 08, 08, 01, 01, 01, 01, 01  ; Bytes per character
-SCNCOLOURS    DB     15, 07, 07, 01, 01, 15, 01, 01  ; Colours-1
-SCNPIXELS     DB     00, 07, 07, 00, 00, 00, 00, 00  ; Pixels per byte
-SCNTYPE       DB     01,128,128, 01, 00, 00, 00, 64  ; Screen type
-* b7=FastDraw
-* b6=Teletext
+SCNBYTES      DB     08, 08, 08, 01, 01, 01, 01, 01  ; Bytes per character
+SCNCOLOURS    DB     03, 15, 07, 01, 01, 01, 01, 01  ; Colours-1
+SCNPIXELS     DB     08, 08, 07, 00, 00, 00, 00, 00  ; Pixels per byte
+SCNTYPE       DB     32, 32,128, 01, 00, 00, 00, 64  ; Screen type
+* b7=FastDraw -> HGR mode
+* b6=Teletext -> No-op
+* b5=SHR mode on Apple IIgs
 * b0=40COL/80COL
 
 * Colour table
@@ -556,11 +557,12 @@ VDUINIT       STA   VDUQ+8
 * VDU 22 - MODE n
 *****************
 * At the moment only MODEs available:
-*  MODE 1 - 280x192 HGR graphics, 40 cols bitmap text
+*  MODE 0 - 640x200 SHR graphics, 80 cols bitmap text (GS only)
+*  MODE 1 - 320x200 SHR graphics, 40 cols bitmap text (GS only)
+*  MODE 2 - 280x192 HGR graphics, 40 cols bitmap text
 *  MODE 3 - 80x24 text
 *  MODE 6 - 40x24 text
 *  MODE 7 - 40x24 with $80-$9F converted to spaces
-*  MODE 0 defaults to MODE 3
 *  All others default to MODE 6
 *
 * Wait for VSync?
@@ -592,8 +594,9 @@ VDU22         LDA   VDUQ+8
               JSR   VDU26                  ; Default windows
               STA   FULLGR                 ; Clear MIXED mode
               LDA   VDUSCREEN
-              BMI   VDU22G                 ; b7=1, graphics mode
-              AND   #$01                   ; 40col/80col bit
+              BPL   :NOTHGR
+              JMP   HGRVDU22               ; b7=1, graphics mode
+:NOTHGR       AND   #$01                   ; 40col/80col bit
               TAX
               STA   CLR80VID,X             ; Select 40col/80col
               STA   TEXTON                 ; Enable Text
@@ -626,15 +629,9 @@ VDU12         STZ   FXLINES
               STA   VDUTEXTX               ; COL
               RTS
 
+
 * Clear the graphics screen buffer
 VDU12SOFT     JMP   VDU16                  ; *TEMP*
-
-VDU22G        JSR   VDU12                  ; Clear text and HGR screen
-              STA   HIRES                  ; Hi-Res
-              STA   GRON                   ; Enable Graphics
-              STA   PAGE1                  ; PAGE1
-              STA   CLR80VID               ; Select 40col text
-              RTS
 
 
 * Clear to EOL, respecting text window boundaries

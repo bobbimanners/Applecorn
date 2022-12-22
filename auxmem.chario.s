@@ -109,11 +109,11 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
              DEX
              BPL   :KBDINITLP
              JSR   SOFTKEYCHK         ; Clear soft keys
-             LDX   #$C0
+             LDX   #$C3
              STX   FX254VAR           ; b7-b4=default KBD map, b3-b0=default MODE
              BIT   SETV               ; Set V
              JSR   KBDTEST            ; Test if key being pressed
-             BCS   :KBDINITOK         ; Return default MODE=0
+             BCS   :KBDINITOK         ; Return default MODE=3
              STA   KBDACK             ; Ack. keypress
              TAX                      ; Use keypress as default MODE
 :KBDINITOK   TXA

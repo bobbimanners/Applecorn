@@ -131,12 +131,12 @@ CURRAMP     DB    $00
 
 * Get address of sound buffer
 * On entry: X is buffer number (4..7)
-* On exit: A1L,A1H points to start of buffer
+* On exit: A3L,A3H points to start of buffer
 * Called with interrupts disabled
 GETBUFADDR  LDA   :BUFADDRL,X
-            STA   A1L
+            STA   A3L
             LDA   :BUFADDRH,X
-            STA   A1H
+            STA   A3H
             RTS
 :BUFADDRL   DB    $00
             DB    $00
@@ -175,9 +175,9 @@ INS         PHP                              ; Save flags, turn off interrupts
             BEQ   :FULL
             LDY   ENDINDICES,X               ; Current position
             STA   ENDINDICES,X               ; Write updated input pointer
-            JSR   GETBUFADDR                 ; Buffer address into A1L,A1H
+            JSR   GETBUFADDR                 ; Buffer address into A3L,A3H
             PLA                              ; Get value to write back
-            STA   (A1L),Y                    ; Write to buffer
+            STA   (A3L),Y                    ; Write to buffer
             PLY
             PLP                              ; Restore flags
             CLC                              ; Exit with carry clear
@@ -211,8 +211,8 @@ REM         PHP                              ; Save flags, turn off interrupts
             CMP   ENDINDICES,X
             BEQ   :EMPTY                     ; Buffer is empty
             TAY                              ; Buffer pointer into Y
-            JSR   GETBUFADDR                 ; Buffer address into A1L,A1H
-            LDA   (A1L),Y                    ; Read byte from buffer
+            JSR   GETBUFADDR                 ; Buffer address into A3L,A3H
+            LDA   (A3L),Y                    ; Read byte from buffer
             PHA                              ; Stash for later
             BVS   :EXAM                      ; If only examination, done
             INY                              ; Next byte
@@ -268,12 +268,12 @@ RELNOTE    PHX                               ; Preserve X
            TXA                               ; Audio channel X->A
            ORA   #$04                        ; Convert to queue number
            TAX                               ; Queue number ->X
-           JSR   GETBUFADDR                  ; Buffer address into A1L,A1H
+           JSR   GETBUFADDR                  ; Buffer address into A3L,A3H
            LDA   STARTINDICES,X              ; Output pointer for buf X
            TAY
-           LDA   (A1L),Y                     ; Obtain Hold/Sync byte
+           LDA   (A3L),Y                     ; Obtain Hold/Sync byte
            AND   #$F0                        ; Set sync nybble to zero ..
-           STA   (A1L),Y                     ; .. to release the note
+           STA   (A3L),Y                     ; .. to release the note
            PLX                               ; Recover original X
 :RTS       RTS
 
@@ -568,30 +568,30 @@ ENVTICKS    DEC   CHANCTR,X                 ; Decrement counter
 * On return: Sets CHANCTR,X to length of each step in 1/100ths
 RSTTICKS    LDA   CHANENV,X                 ; Get envelope number
             TAY
-            JSR   GETENVADDR                ; Envelope address in A1L,A1H
+            JSR   GETENVADDR                ; Envelope address in A3L,A3H
             LDY   #ENVT                     ; Parm for length of each step
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             AND   #$7F                      ; Mask out MSB
             STA   CHANCTR,X                 ; Reset counter
             RTS
 
 
 * On entry: Y is envelope number
-* On return: A1L,A1H point to start of buffer for this envelope
+* On return: A3L,A3H point to start of buffer for this envelope
 * X is preserved
-GETENVADDR  LDA   #<ENVBUF0                 ; Copy ENVBUF0 to A1L,A1H
-            STA   A1L
+GETENVADDR  LDA   #<ENVBUF0                 ; Copy ENVBUF0 to A3L,A3H
+            STA   A3L
             LDA   #>ENVBUF0
-            STA   A1H
+            STA   A3H
 :L1         CPY   #$00                      ; See if Y is zero
             BEQ   :DONE                     ; If so, we are done
-            LDA   A1L                       ; Add 13 to A1L,A1H
+            LDA   A3L                       ; Add 13 to A3L,A3H
             CLC
             ADC   #13
-            STA   A1L
-            LDA   A1H
+            STA   A3L
+            LDA   A3H
             ADC   #00
-            STA   A1H
+            STA   A3H
             DEY                             ; Decr envelopes remaining
             BRA   :L1                       ; Go again
 :DONE       RTS
@@ -602,7 +602,7 @@ GETENVADDR  LDA   #<ENVBUF0                 ; Copy ENVBUF0 to A1L,A1H
 * X is preserved
 PITCHENV    LDA   CHANENV,X                 ; Get envelope number
             TAY
-            JSR   GETENVADDR                ; Addr of envelope -> A1L,A1H
+            JSR   GETENVADDR                ; Addr of envelope -> A3L,A3H
             LDA   PITCHSECT,X               ; See what section we are in
             BEQ   :SECT1                    ; Section 1, encoded as 0
             CMP   #$01
@@ -612,31 +612,31 @@ PITCHENV    LDA   CHANENV,X                 ; Get envelope number
             RTS                             ; Other section, do nothing
 :SECT1      
             LDY   #ENVPN1                   ; Parm: num steps in section 1
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             CMP   PITCHSTEP,X               ; Are we there yet?
             BEQ   :NXTSECT                  ; Yes!
             LDY   #ENVPI1                   ; Parm: change pitch/step section 1
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             JSR   UPDPITCH                  ; Update the pitch
             INC   PITCHSTEP,X               ; One more step
             RTS
 :SECT2      
             LDY   #ENVPN2                   ; Parm: num steps in section 2
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             CMP   PITCHSTEP,X               ; Are we there yet?
             BEQ   :NXTSECT                  ; Yes!
             LDY   #ENVPI2                   ; Parm: change pitch/step section 2
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             JSR   UPDPITCH                  ; Update the pitch
             INC   PITCHSTEP,X               ; One more step
             RTS
 :SECT3      
             LDY   #ENVPN3                   ; Parm: num steps in section 3
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             CMP   PITCHSTEP,X               ; Are we there yet?
             BEQ   :LASTSECT                 ; Yes!
             LDY   #ENVPI3                   ; Parm: change pitch/step section 3
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             JSR   UPDPITCH                  ; Update the pitch
             INC   PITCHSTEP,X               ; One more step
             RTS
@@ -644,7 +644,7 @@ PITCHENV    LDA   CHANENV,X                 ; Get envelope number
             STZ   PITCHSTEP,X               ; Back to step 0 of section
             RTS
 :LASTSECT   LDY   #ENVT                     ; Parm: length/step + autorepeat
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             AND   #$80                      ; MSB is auto-repeat flag
             BNE   :NXTSECT                  ; Not repeating
             STZ   PITCHSECT,X               ; Go back to section 1
@@ -669,7 +669,7 @@ UPDPITCH    STX   OSCNUM
 * X is preserved
 ADSRENV     LDA   CHANENV,X                 ; Get envelope number
             TAY
-            JSR   GETENVADDR                ; Addr of envelope -> A1L,A1H
+            JSR   GETENVADDR                ; Addr of envelope -> A3L,A3H
             LDA   AMPSECT,X                 ; See what section we are in
             BEQ   :ATTACK                   ; Attack, encoded as 0
             CMP   #$01
@@ -680,31 +680,31 @@ ADSRENV     LDA   CHANENV,X                 ; Get envelope number
             BEQ   :RELEASE                  ; Release, encoded as 3
             RTS                             ; Otherwise nothing to do
 :ATTACK     LDY   #ENVAA                    ; Parm: attack change/step
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             PHA
             LDY   #ENVALA                   ; Parm: level at end of attack
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             PLY
             JSR   ADSRPHASE                 ; Generic ADSR phase handler
             BCS   :NEXTSECT                 ; Phase done -> decay
             RTS
 :DECAY      LDY   #ENVAD                    ; Parm: delay change/step
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             PHA
             LDY   #ENVALD                   ; Parm: level at end of delay
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             PLY
             JSR   ADSRPHASE                 ; Generic ADSR phase handler
             BCS   :NEXTSECT                 ; Phase done -> sustain
             RTS
 :SUSTAIN    LDY   #ENVAS                    ; Parm: delay change/step
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             TAY
             LDA   #$00                      ; Target level zero
             JSR   ADSRPHASE                 ; Generic ADSR phase handler
             RTS
 :RELEASE    LDY   #ENVAR                    ; Parm: attack change/step
-            LDA   (A1L),Y                   ; Get value of parm
+            LDA   (A3L),Y                   ; Get value of parm
             TAY
             LDA   #$00                      ; Target level zero
             JSR   ADSRPHASE                 ; Generic ADSR phase handler
