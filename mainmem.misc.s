@@ -6,6 +6,7 @@
 FKEYLENS     DS    16            ; Length of f-key definitions 0..15
 FKEYBUF      DS    256           ; 256 bytes for f-key definitions
 
+
 * Copy a block of main memory
 * A1L/A1H: Start address
 * A2L/A2H: End address
@@ -27,19 +28,6 @@ MEMCPY       LDA   (A1L)
              INC   A4H
 :S3          BRA   MEMCPY
 
-* Copy 512 bytes from BLKBUF to AUXBLK in aux LC
-COPYAUXBLK   >>>   ALTZP          ; Alt ZP & Alt LC on
-             LDY   #$00
-             STA   WRCARDRAM      ; Write aux mem
-:L1          LDA   BLKBUF+$000,Y
-             STA   AUXBLK+$000,Y
-             LDA   BLKBUF+$100,Y
-             STA   AUXBLK+$100,Y
-             INY
-             BNE   :L1
-             STA   WRMAINRAM      ; Write main mem
-:S2          >>>   MAINZP         ; Alt ZP off, ROM back in
-RTSINSTR     RTS
 
 * Search FILEREFS for value in A
 * On return, buffer number is in X (or $FF if no bufs)
@@ -51,6 +39,7 @@ FINDBUF      LDX   #$00
              BNE   :L1
              LDX   #$FF           ; $FF for not found
 :END         RTS
+
 
 * Obtain I/O buffer address
 * On entry: buffer number in X
@@ -110,11 +99,13 @@ COPYFB       PHA
              PLA
              RTS
 
+
 * Get file info
 GETINFO      JSR   MLI
              DB    GINFOCMD
              DW    GINFOPL
              RTS
+
 
 * Set file info
 SETINFO      LDA   #$07           ; SET_FILE_INFO 7 parms
@@ -125,6 +116,7 @@ SETINFO      LDA   #$07           ; SET_FILE_INFO 7 parms
              LDA   #$0A           ; GET_FILE_INFO 10 parms
              STA   GINFOPL
              RTS
+
 
 * Create disk file
 * Uses filename in MOSFILE
@@ -149,6 +141,7 @@ CRTFILE      JSR   MLI            ; GET_TIME
              DW    CREATEPL
              RTS
 
+
 * Open disk file
 OPENMOSFILE  LDA   #<MOSFILE      ; Open filename in MOSFILE
              STA   OPENPL+1
@@ -159,11 +152,13 @@ OPENFILE     JSR   MLI
              DW    OPENPL
              RTS
 
+
 * Close disk file
 CLSFILE      JSR   MLI
              DB    CLSCMD
              DW    CLSPL
              RTS
+
 
 * Read 512 bytes into BLKBUF
 RDFILE       JSR   MLI
@@ -171,11 +166,13 @@ RDFILE       JSR   MLI
              DW    READPL
              RTS
 
+
 * Write data in BLKBUF to disk
 WRTFILE      JSR   MLI
              DB    WRITECMD
              DW    WRITEPL
              RTS
+
 
 * Put ProDOS prefix in PREFIX
 GETPREF      JSR   MLI
@@ -183,12 +180,7 @@ GETPREF      JSR   MLI
              DW    GPFXPL
              RTS
 
+
 * Map of file reference numbers to IOBUF1..4
 FILEREFS     DB    $00,$00,$00,$00
-
-
-
-
-
-
 

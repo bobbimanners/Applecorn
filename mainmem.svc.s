@@ -1008,7 +1008,6 @@ CATREENTRY    LDA   OPENPL+5           ; File ref num
               STA   READPL+1
               JSR   RDFILE
               BCS   :CATERR
-              JSR   COPYAUXBLK
               >>>   XF2AUX,PRONEBLK
 
 :CATERR       CMP   #$4C               ; EOF
@@ -1049,8 +1048,7 @@ INFOFIRST     LDA   WILDIDX
               BEQ   :DONEBLK           ; If so, print this blk first
               JSR   WILDNEXT2
               BCC   INFOFIRST          ; Find more entries
-:DONEBLK      JSR   COPYAUXBLK
-              >>>   XF2AUX,PRONEBLK
+:DONEBLK      >>>   XF2AUX,PRONEBLK
 
 CATARG        DB    $00
 

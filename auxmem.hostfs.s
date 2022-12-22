@@ -476,16 +476,18 @@ STARCATRET   >>>   ENTAUX
              RTS
 
 * Print one block of a catalog. Called by CATALOG
-* Block is in AUXBLK
+* Block is in BLKBUF in main memory
 PRONEBLK     >>>   ENTAUX
-             LDA   #<AUXBLK+4                ; FSPTR1=>first entry
+             LDA   #<BLKBUF+4                ; FSPTR1=>first entry
              STA   FSPTR1+0
-             LDA   #>AUXBLK+4
+             LDA   #>BLKBUF+4
              STA   FSPTR1+1
              LDA   #13                       ; Max 13 entries per block
              STA   FSNUM
 :CATLP       LDY   #$00
+             >>>   RDMAIN
              LDA   (FSPTR1),Y                ; Get storage type
+             >>>   RDAUX
              CMP   #$E0
              BCC   :NOTKEY                   ; Not a key block
 
@@ -509,16 +511,20 @@ PRONEBLK     >>>   ENTAUX
              DB    $00
 
 * Print a single directory entry
-* On entry: A = dirent index in AUXBLK
+* On entry: FSPTR1 points to dirent in BLKBUF (in main memory)
 *           CC=entry, CS=header
 PRONEENT     LDY   #$00                      ; Characters printed
+             >>>   RDMAIN
              LDA   (FSPTR1),Y
+             >>>   RDAUX
              AND   #$0F                      ; Len of filename
              BEQ   NULLENT                   ; Inactive entry
              PHP
              TAX
 :L2          INY
+             >>>   RDMAIN
              LDA   (FSPTR1),Y
+             >>>   RDAUX
              JSR   OSWRCH                    ; Print filename
              DEX
              BNE   :L2

@@ -47,5 +47,5 @@ RESETHW      SEC
              RTS                     ; AUDIOCARD=1
 :NOTGS
              JSR   MOCKINIT          ; Initialize Mockingboard (sl4)
-             RTS                     ; AUDIOCARD=0
+RTSINSTR     RTS                     ; AUDIOCARD=0
 
