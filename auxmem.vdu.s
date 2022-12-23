@@ -384,8 +384,12 @@ PRCHR5        BCC   PRCHR6                 ; Aux memory
 PRCHR6        STA   (VDUADDR),Y            ; Store in aux
 PRCHR7        PLA
               BIT   VDUSCREEN
-              BPL   GETCHROK
-              JMP   PRCHRSOFT              ; Write character to graphics
+              BPL   :NOTHGR
+              JMP   HGRPRCHAR              ; Write character to HGR
+:NOTHGR       BVC   :NOTSHR
+              JMP   SHRPRCHAR              ; Write character to SHR
+:NOTSHR       BRA   GETCHROK               ; Text mode
+ 
 
 * OSBYTE &87 - Read character at cursor
 ***************************************
@@ -622,14 +626,16 @@ VDU12         STZ   FXLINES
 * Clear the text screen buffer
 :L1           JSR   CLREOL
               BIT   VDUSCREEN
-              BPL   :S2
-              JSR   HSCRCLREOL
-:S2           LDA   VDUTEXTY               ; ROW
+              BPL   :NOTHGR
+              JSR   HGRCLREOL
+:NOTHGR       BVC   :NOTSHR
+              JSR   SHRCLREOL
+:NOTSHR       LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
-              BEQ   :S3
+              BEQ   :S1
               INC   VDUTEXTY               ; ROW
               BRA   :L1
-:S3           LDA   TXTWINTOP
+:S1           LDA   TXTWINTOP
               STA   VDUTEXTY               ; ROW
               LDA   TXTWINLFT
               STA   VDUTEXTX               ; COL
@@ -671,9 +677,11 @@ CLREOL        JSR   CHARADDR               ; Set VDUADDR=>start of line
               BMI   :L2
 CLREOLDONE    DEC   TXTWINRGT
               BIT   VDUSCREEN
-              BPL   :NOHIRES
-              JMP   HSCRCLREOL             ; Clear an HGR line
-:NOHIRES      RTS
+              BPL   :NOHGR
+              JMP   HGRCLREOL              ; Clear an HGR line
+:NOHGR        BVC   :NOSHR
+              JMP   SHRCLREOL              ; Clear an SHR line
+:NOSHR        RTS
 CLREOLGS      BIT   RD80VID
               BPL   :FORTY                 ; 40-col mode
 :EIGHTY       LDX   VDUTEXTX               ; Addr offset for column
@@ -717,9 +725,11 @@ SCROLLER      LDA   TXTWINTOP
 :L1           PHA
               JSR   SCR1LINE
               BIT   VDUSCREEN
-              BPL   :S0
-              JSR   SCR1SOFT               ; Scroll graphics screen
-:S0           PLA
+              BPL   :NOTHGR
+              JMP   HGRSCR1LINE            ; Scroll HGR screen
+:NOTHGR       BVC   :NOTSHR
+              JMP   SHRSCR1LINE            ; Scroll SHR screen
+:NOTSHR       PLA
               INC
               CMP   TXTWINBOT
               BNE   :L1
@@ -738,9 +748,11 @@ RSCROLLER     DEC   TXTWINTOP
 :L1           PHA
               JSR   RSCR1LINE
               BIT   VDUSCREEN
-              BPL   :S0
-              JSR   RSCR1SOFT              ; Scroll graphics screen
-:S0           PLA
+              BPL   :NOTHGR
+              JMP   HGRRSCR1LINE           ; Reverse scroll HGR screen
+:NOTHGR       BVC   :NOTSHR
+              JMP   SHRRSCR1LINE           ; Reverse scroll SHR screen
+:NOTSHR       PLA
               DEC   A
               CMP   TXTWINTOP
               BNE   :L1
@@ -863,14 +875,14 @@ SCR1LINEGS    LDX   TXTWINLFT
               BMI   :L2
               BRA   SCR1LNDONE
 
-* Copy text line A+1 to line A for HGR bitmap gfx mode
-SCR1SOFT      JMP   HSCR1LINE
-
-* Copy text line A to line A+1 for HGR bitmap gfx mode
-RSCR1SOFT      JMP   HRSCR1LINE
 
 * VDU 16 - CLG, clear graphics window
-VDU16         JMP   HSCRCLEAR
+VDU16         BIT   VDUSCREEN
+              BPL   :NOTHGR
+              JMP   HGRCLEAR
+:NOTHGR       BVC   :NOTSHR
+              JMP   SHRCLEAR
+:NOTSHR       RTS
 
 
 * Colour control
@@ -1164,20 +1176,4 @@ BYTEA02       LDY   VDUVARS+1,X
 ****************
 * VDU 1 - Send one character to printer
 VDU01         RTS
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

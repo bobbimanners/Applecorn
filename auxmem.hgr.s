@@ -25,7 +25,7 @@ HGRVDU22      JSR   VDU12                  ; Clear text and HGR screen
 
 
 * Write character to HGR screen
-PRCHRSOFT    CMP   #$A0              ; Convert to screen code
+HGRPRCHAR    CMP   #$A0              ; Convert to screen code
              BCS   :B0
              CMP   #$80
              BCC   :B0
@@ -37,7 +37,7 @@ PRCHRSOFT    CMP   #$A0              ; Convert to screen code
              EOR   #$40
              TAX
 :B1          PHX
-             JSR   HCHARADDR         ; Addr in VDUADDR
+             JSR   HGRCHARADDR         ; Addr in VDUADDR
              >>>   WRTMAIN
              LDA   VDUADDR+0
              STA   HGRADDR+0
@@ -53,7 +53,7 @@ PUTCHRET     >>>   ENTAUX
 * Calculate character address in HGR screen memory
 * This is the address of the first pixel row of the char
 * Add $0400 for each subsequent row of the char
-HCHARADDR     LDA   VDUTEXTY
+HGRCHARADDR   LDA   VDUTEXTY
               ASL
               TAY
               CLC
@@ -68,7 +68,7 @@ HCHARADDR     LDA   VDUTEXTY
 
 
 * Forwards scroll one line
-HSCR1LINE    >>>   WRTMAIN
+HGRSCR1LINE  >>>   WRTMAIN
              LDX   TXTWINLFT
              STX   MTXTWINLFT
              LDX   TXTWINRGT
@@ -78,8 +78,9 @@ HSCR1LINE    >>>   WRTMAIN
 HSCR1RET     >>>   ENTAUX
              RTS
 
+
 * Reverse scroll one line
-HRSCR1LINE   >>>   WRTMAIN
+HGRRSCR1LINE >>>   WRTMAIN
              LDX   TXTWINLFT
              STX   MTXTWINLFT
              LDX   TXTWINRGT
@@ -87,7 +88,9 @@ HRSCR1LINE   >>>   WRTMAIN
              >>>   WRTAUX
              >>>   XF2MAIN,HGRRSCR1L
 
-HSCRCLREOL   LDA   VDUTEXTY
+
+* Clear from current location to EOL
+HGRCLREOL    LDA   VDUTEXTY
              ASL
              TAX
              >>>   WRTMAIN
@@ -102,8 +105,9 @@ HSCRCLREOL   LDA   VDUTEXTY
              >>>   WRTAUX
              >>>   XF2MAIN,HCLREOL
 
+
 * VDU16 (CLG) clears the whole HGR screen right now
-HSCRCLEAR    >>>   XF2MAIN,CLRHGR
+HGRCLEAR     >>>   XF2MAIN,CLRHGR
 VDU16RET     >>>   ENTAUX
              STZ   XPIXEL+0
              STZ   XPIXEL+1
