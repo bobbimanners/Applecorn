@@ -104,7 +104,9 @@ SHRCLREOL
 
 
 * VDU16 (CLG) clears the whole SHR screen right now
-SHRCLEAR      CLC                          ; 816 native mode
+SHRCLEAR      PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 816 native mode
               XCE
               REP  #$10                    ; 16 bit index
               MX   %10                     ; Tell Merlin
@@ -118,6 +120,7 @@ SHRCLEAR      CLC                          ; 816 native mode
               MX   %11                     ; Tell Merlin
               SEC                          ; Back to 6502 emu mode
               XCE
+              PLP                          ; Normal service resumed
               RTS
 
 
