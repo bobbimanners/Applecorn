@@ -726,9 +726,9 @@ SCROLLER      LDA   TXTWINTOP
               JSR   SCR1LINE
               BIT   VDUSCREEN
               BPL   :NOTHGR
-              JMP   HGRSCR1LINE            ; Scroll HGR screen
+              JSR   HGRSCR1LINE            ; Scroll HGR screen
 :NOTHGR       BVC   :NOTSHR
-              JMP   SHRSCR1LINE            ; Scroll SHR screen
+              JSR   SHRSCR1LINE            ; Scroll SHR screen
 :NOTSHR       PLA
               INC
               CMP   TXTWINBOT
@@ -749,9 +749,9 @@ RSCROLLER     DEC   TXTWINTOP
               JSR   RSCR1LINE
               BIT   VDUSCREEN
               BPL   :NOTHGR
-              JMP   HGRRSCR1LINE           ; Reverse scroll HGR screen
+              JSR   HGRRSCR1LINE           ; Reverse scroll HGR screen
 :NOTHGR       BVC   :NOTSHR
-              JMP   SHRRSCR1LINE           ; Reverse scroll SHR screen
+              JSR   SHRRSCR1LINE           ; Reverse scroll SHR screen
 :NOTSHR       PLA
               DEC   A
               CMP   TXTWINTOP

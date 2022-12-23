@@ -1,5 +1,5 @@
 * AUXMEM.HGR.S
-* (c) Bobbi 2021 GPLv3
+* (c) Bobbi 2021-2022 GPLv3
 *
 * Routines for drawing bitmapped text and graphics in HGR mode (280x192)
 * Most of these routines call into MAINMEM.HGR.S to actually do the
@@ -8,19 +8,21 @@
 * 26-Sep-2021 All graphics screen code moved to here.
 * 02-Oct-2021 Added temp'y wrapper to HGRPLOT.
 
+
 * Addresses of start of pixel rows in PAGE1
 HGRTAB        DW    $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380
               DW    $2028,$20A8,$2128,$21A8,$2228,$22A8,$2328,$23A8
               DW    $2050,$20D0,$2150,$21D0,$2250,$22D0,$2350,$23D0
 
+
 * Enable HGR mode
-HGRVDU22      JSR   VDU12                  ; Clear text and HGR screen
-              STA   HIRES                  ; Hi-Res
-              STA   GRON                   ; Enable Graphics
-              STA   PAGE1                  ; PAGE1
-              STA   CLR80VID               ; Select 40col text
-              LDA   #$80                   ; Most significant bit
-              TRB   NEWVIDEO               ; Turn off SHR
+HGRVDU22      JSR   VDU12            ; Clear text and HGR screen
+              STA   HIRES            ; Hi-Res
+              STA   GRON             ; Enable Graphics
+              STA   PAGE1            ; PAGE1
+              STA   CLR80VID         ; Select 40col text
+              LDA   #$80             ; Most significant bit
+              TRB   NEWVIDEO         ; Turn off SHR
               RTS
 
 
@@ -37,7 +39,7 @@ HGRPRCHAR    CMP   #$A0              ; Convert to screen code
              EOR   #$40
              TAX
 :B1          PHX
-             JSR   HGRCHARADDR         ; Addr in VDUADDR
+             JSR   HGRCHARADDR       ; Addr in VDUADDR
              >>>   WRTMAIN
              LDA   VDUADDR+0
              STA   HGRADDR+0
@@ -57,10 +59,10 @@ HGRCHARADDR   LDA   VDUTEXTY
               ASL
               TAY
               CLC
-              LDA   HGRTAB+0,Y             ; LSB of row address
+              LDA   HGRTAB+0,Y       ; LSB of row address
               ADC   VDUTEXTX
               STA   VDUADDR+0
-              LDA   HGRTAB+1,Y             ; MSB of row address
+              LDA   HGRTAB+1,Y       ; MSB of row address
               ADC   #$00
               STA   VDUADDR+1
               RTS
@@ -186,7 +188,7 @@ HGRPLOTTER2  LDA   VDUQ+5,X
 *  $90+x - draw circle
 *  $98+x - fill circle
 *
-HGRPLOT      JSR   CVTCOORD          ; Convert coordinate system
+HGRPLOT      JSR   HGRCOORD          ; Convert coordinate system
 HGRPLOT2     LDA   VDUQ+4
              AND   #$03
              CMP   #$0               ; Bits 0,1 clear -> just move
@@ -280,9 +282,10 @@ HGRPOS       LDA   VDUQ+5
 XPIXEL       DW    $0000             ; Previous plot x-coord
 YPIXEL       DW    $0000             ; Previous plot y-coord
 
+
 * Convert high-resolution screen coordinates
 * from 1280x1024 to 280x192
-CVTCOORD
+HGRCOORD
 * X-coordinate in VDUQ+5,+6   1280*7/32=280
              LDA   VDUQ+6            ; MSB of X-coord
              CMP   #$05              ; $500 is 1280
