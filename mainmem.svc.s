@@ -1114,17 +1114,14 @@ DRVINFO       >>>   ENTMAIN
               LDA   GINFOPL+7
               CMP   #$0F
               BNE   :EXIT1             ; Not a drive, exit with 'Bad drive'
-
-              >>>   ALTZP              ; Alt ZP & Alt LC on
               LDA   GINFOPL+8          ; Blocks used LSB
-              STA   AUXBLK+0
+              STA   BLKBUF+0
               LDA   GINFOPL+9          ; Blocks used MSB
-              STA   AUXBLK+1
+              STA   BLKBUF+1
               LDA   GINFOPL+5          ; Total blocks LSB
-              STA   AUXBLK+2
+              STA   BLKBUF+2
               LDA   GINFOPL+6          ; Total blocks MSB
-              STA   AUXBLK+3
-              >>>   MAINZP             ; ALt ZP off, ROM back in
+              STA   BLKBUF+3
               LDA   #$00               ; $00=Ok
 
 :EXIT         CMP   #$46

@@ -535,8 +535,5 @@ MOSEND
             DW    IRQBRKHDLR       ; FFFE IRQVEC
 MOSVEND
 
-* Buffer for one 512 byte disk block in aux mem
-AUXBLK
-;           ASC   '**ENDOFCODE**'
-;           DS    $200-13
+*           ASC   '**ENDOFCODE**'
 

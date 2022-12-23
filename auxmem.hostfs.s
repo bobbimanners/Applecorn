@@ -758,20 +758,24 @@ FREERET      >>>   ENTAUX
 * Disk size is two-byte 512-byte block count
 * Maximum disk size is $FFFF blocks = 1FFFF00 bytes = 33554176 bytes = 32M-512
 :NOERR       SEC
-             LDA   AUXBLK+2                  ; LSB of total blocks
-             SBC   AUXBLK+0                  ; LSB of blocks used
+             >>>   RDMAIN
+             LDA   BLKBUF+2                  ; LSB of total blocks
+             SBC   BLKBUF+0                  ; LSB of blocks used
              TAX                             ; X=b0-b7 of blocks free
-             LDA   AUXBLK+3                  ; MSB of total blocks
-             SBC   AUXBLK+1                  ; MSB of blocks used
+             LDA   BLKBUF+3                  ; MSB of total blocks
+             SBC   BLKBUF+1                  ; MSB of blocks used
              TAY                             ; Y=b8-b15 of blocks free
+             >>>   RDAUX
              LDA   #$00                      ; A=b16-b23 of blocks free
              JSR   :FREEDEC                  ; Print 'AAYYXX blocks aaayyyxxx bytes '
              LDX   #<:FREE
              LDY   #>:FREE
              JSR   OUTSTR                    ; Print 'free'<nl>
 
-             LDX   AUXBLK+0                  ; X=b0-b7 of blocks used
-             LDY   AUXBLK+1                  ; Y=b8-b15 of blocks used
+             >>>   RDMAIN
+             LDX   BLKBUF+0                  ; X=b0-b7 of blocks used
+             LDY   BLKBUF+1                  ; Y=b8-b15 of blocks used
+             >>>   RDAUX
              LDA   #$00                      ; A=b16-b23 of blocks used
              JSR   :FREEDEC                  ; Print 'AAYYXX blocks aaayyyxxx bytes '
              LDX   #<:USED
