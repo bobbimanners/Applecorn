@@ -70,10 +70,10 @@ SHRVDU22      JSR   VDU12                  ; Clear text and SHR screen
               BNE   :L1
               LDX   #$00
 :L2           LDA   PALETTE320,Y           ; Offset n Y computed above
-              STAL  $E119E00,X             ; Palettes begin at $9E00 in $E1
+              STAL  $E19E00,X              ; Palettes begin at $9E00 in $E1
               INX
               INY
-              CPX   #16                    ; 16 colours in palette
+              CPX   #32                    ; 32 bytes in palette
               BNE   :L2
               RTS
 
