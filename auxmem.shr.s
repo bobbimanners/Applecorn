@@ -109,13 +109,7 @@ SHRPRCHAR     SEC
               JSR   SHRCHAR320
               BRA   :S2
 :S1           JSR   SHRCHAR640
-:S2           LDA   VDUADDR+0              ; Add 160 to VDUADDR
-              CLC
-              ADC   #160
-              STA   VDUADDR+0
-              LDA   VDUADDR+1
-              ADC   #$00
-              STA   VDUADDR+1
+:S2           JSR   SHRNEXTROW             ; Add 160 to VDUADDR
               INY                          ; Next row of font
               CPY   #$08                   ; Last row?
               BNE   :L1
@@ -200,6 +194,17 @@ SHRCHARADDR   LDA   #$20                   ; MSB starts at $20
 * (VDUADDR)=>character address, X=preserved
 
 
+* Advance VDUADDR to the next row of pixels
+SHRNEXTROW    LDA   VDUADDR+0              ; Add 160 to VDUADDR
+              CLC
+              ADC   #160
+              STA   VDUADDR+0
+              LDA   VDUADDR+1
+              ADC   #$00
+              STA   VDUADDR+1
+              RTS
+
+
 * Forwards scroll one line
 SHRSCR1LINE
               RTS
@@ -211,8 +216,29 @@ SHRRSCR1LINE
 
 
 * Clear from current location to EOL
-SHRCLREOL
+* TODO: This is only for 640 mode at present
+SHRCLREOL     JSR   SHRCHARADDR
+              STZ   VDUADDR+0              ; Addr of start of line
+              LDA   #$08                   ; Eight rows
+              STA   :CTR
+:L0           LDA   VDUTEXTX
+              TAX
+              ASL                          ; 2 bytes / char
+              TAY
+              LDA   #$00
+:L1           CPX   TXTWINRGT
+              BCS   :S1
+              STA   [VDUADDR],Y
+              INY
+              STA   [VDUADDR],Y
+              INY
+              INX
+              BRA   :L1
+:S1           JSR   SHRNEXTROW
+              DEC   :CTR
+              BNE   :L0
               RTS
+:CTR          DB    $00
 
 
 * VDU16 (CLG) clears the whole SHR screen right now

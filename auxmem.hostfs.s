@@ -564,12 +564,16 @@ CATLONG      LDY   #$21
              JMP   OSNEWL
 PRDATETIME   JSR   PRSPACE
              JSR   PRSPACE
+             >>>   RDMAIN
              LDA   (FSPTR1),Y
+             >>>   RDAUX
              PHA
              AND   #$1F
              JSR   PRDECSLH                  ; Day
              INY
+             >>>   RDMAIN
              LDA   (FSPTR1),Y
+             >>>   RDAUX
              ASL   A
              PLA
              ROL   A
@@ -578,7 +582,9 @@ PRDATETIME   JSR   PRSPACE
              ROL   A
              AND   #$0F
              JSR   PRDECSLH                  ; Month
+             >>>   RDMAIN
              LDA   (FSPTR1),Y
+             >>>   RDAUX
              PHA
              CMP   #80
              LDA   #$19
@@ -591,12 +597,16 @@ PRDATETIME   JSR   PRSPACE
              JSR   PRSPACE
              INY
              INY
+             >>>   RDMAIN
              LDA   (FSPTR1),Y
+             >>>   RDAUX
              JSR   PRDEC                     ; Hour
              LDA   #$3A
              JSR   OSWRCH
              DEY
+             >>>   RDMAIN
              LDA   (FSPTR1),Y                ; Minute
+             >>>   RDAUX
 PRDEC        TAX
              LDA   #$99
              SED
@@ -613,10 +623,14 @@ PRDECSLH     JSR   PRDEC
 * Print object access string
 PRACCESS     LDX   #$04                      ; Offset to 'D' char
              LDY   #$00
+             >>>   RDMAIN
              LDA   (FSPTR1),Y
+             >>>   RDAUX
              CMP   #$D0                      ; CS=Directory
              LDY   #$1E
+             >>>   RDMAIN
              LDA   (FSPTR1),Y                ; Permission byte
+             >>>   RDAUX
              LDY   #$0C                      ; Char counter
              EOR   #$C0
 *            AND   #$E3              ; Keep LLB---WR
@@ -635,47 +649,14 @@ PRACCESS     LDX   #$04                      ; Offset to 'D' char
              BPL   :PRACCLP                  ; Loop for all chars
              JMP   PRSPACES                  ; Pad
 
-*            LDX   #$04              ; Offset to chars
-*            LDY   #$1E
-*            LDA   (FSPTR1),Y
-*            PHA
-*            LDY   #$00              ; Chars printed
-*            LDA   (FSPTR1),Y
-*            CMP   #$D0
-*            JSR   :PRACCCHR         ; 'D'
-*            PLA
-*            CPY   #$01              ; Has 'D' been printed?
-*            PHP
-*            PHA
-*            EOR   #$C0
-*            CMP   #$40
-*            JSR   :PRACCCHR         ; 'L'
-*            PLA
-*            PLP
-*            BCS   :PRACCDONE        ; Dir, skip 'WR'
-*            ROR   A
-*            PHP
-*            ROR   A
-*            JSR   :PRACCCHR         ; 'W'
-*            PLP
-*            JSR   :PRACCCHR         ; 'R'
-*:PRACCDONE  LDA   #$20
-*:PRACCLP    JSR   :PRSPACE
-*            CPY   #$04
-*            BCC   :PRACCLP
-*:PRSKIP     RTS
-*:PRACCCHR   DEX
-*            BCC   :PRSKIP
-*            LDA   ACCESSCHRS,X
-*:PRSPACE    INY
-*            JMP   OSWRCH
-
 ACCESSCHRS   ASC   'RWBLD'
 ACCESSBITS   DB    $01,$02,$20,$C0,$00
 
 * Print object addresses
 PRADDR       LDX   #3
-PRADDRLP     LDA   (FSPTR1),Y
+PRADDRLP     >>>   RDMAIN
+             LDA   (FSPTR1),Y
+             >>>   RDAUX
 PRADDR0      JSR   OUTHEX
              DEY
              DEX
