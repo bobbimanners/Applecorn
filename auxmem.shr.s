@@ -221,6 +221,7 @@ SHRCLREOL     JSR   SHRCHARADDR
               STZ   VDUADDR+0              ; Addr of start of line
               LDA   #$08                   ; Eight rows
               STA   :CTR
+              INC   TXTWINRGT
 :L0           LDA   VDUTEXTX
               TAX
               ASL                          ; 2 bytes / char
@@ -237,6 +238,7 @@ SHRCLREOL     JSR   SHRCHARADDR
 :S1           JSR   SHRNEXTROW
               DEC   :CTR
               BNE   :L0
+              DEC   TXTWINRGT
               RTS
 :CTR          DB    $00
 
@@ -246,16 +248,16 @@ SHRCLEAR      PHP                          ; Disable interrupts
               SEI
               CLC                          ; 816 native mode
               XCE
-              REP  #$10                    ; 16 bit index
-              MX   %10                     ; Tell Merlin
-              LDX  #$0000
-              LDA  #$00
-:L1           STAL $E12000,X               ; SHR screen @ E1:2000
+              REP   #$10                   ; 16 bit index
+              MX    %10                    ; Tell Merlin
+              LDX   #$0000
+              LDA   #$00
+:L1           STAL  $E12000,X              ; SHR screen @ E1:2000
               INX
-              CPX  #$7D00
-              BNE  :L1
-              SEP  #$10                    ; Back to 8 bit index
-              MX   %11                     ; Tell Merlin
+              CPX   #$7D00
+              BNE   :L1
+              SEP   #$10                   ; Back to 8 bit index
+              MX    %11                    ; Tell Merlin
               SEC                          ; Back to 6502 emu mode
               XCE
               PLP                          ; Normal service resumed
