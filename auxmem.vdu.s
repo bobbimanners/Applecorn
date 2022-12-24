@@ -900,26 +900,29 @@ VDU20LP       STA   TXTFGD,X               ; Clear all colours
 * THE FOLLOWING LINE IS FOR GS ONLY & NOT SAFE ON //c
 *             STA   CLOCKCTL               ; Set border
               LDA   #$80
-              JSR   HSCRSETTCOL            ; Set txt background
+              JSR   HGRSETTCOL             ; Set txt background
+              JSR   SHRSETTCOL             ; Set txt background
               LDX   #$00
               LDA   #$80
-              JSR   HSCRSETGCOL            ; Set gfx background
+              JSR   HGRSETGCOL             ; Set gfx background
               LDA   VDUCOLOURS
               AND   #$07
               PHA
               STA   TXTFGD                 ; Note txt foreground
-              JSR   HSCRSETTCOL            ; Set txt foreground
+              JSR   HGRSETTCOL             ; Set txt foreground
+              JSR   SHRSETTCOL             ; Set txt background
               LDX   #$00
               PLA
               STA   GFXFGD                 ; Note gfx foreground
-              JMP   HSCRSETGCOL            ; Set gfx foreground
+              JMP   HGRSETGCOL             ; Set gfx foreground
 
 * VDU 17 - COLOUR n - select text or border colour
 VDU17         LDA   VDUQ+8
               CMP   #$C0
               BCS   VDU17BORDER
 * TO DO *
-              JMP   HSCRSETTCOL
+              JSR   HGRSETTCOL 
+              JMP   SHRSETTCOL
 VDU17BORDER   AND   #$0F
               STA   VDUBORDER
               TAX
@@ -946,7 +949,7 @@ VDU18A        LDA   VDUQ+7                 ; GCOL action
               ROL   A
               PLP
               ROR   A                      ; Get bit 7 back
-              JMP   HSCRSETGCOL
+              JMP   HGRSETGCOL
 
 * VDU 19 - Select palette colours
 VDU19         RTS

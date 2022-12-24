@@ -8,6 +8,7 @@
 SCB320        EQU   $00                    ; SCB for 320 mode
 SCB640        EQU   $80                    ; SCB for 640 mode
 
+
 * Colours in the following order.
 * For 16 colour modes ...
 * BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, ...
@@ -47,6 +48,9 @@ PALETTE640    DB    $00, $00               ; BLACK
               DB    $00, $08               ; RED
               DB    $80, $08               ; YELLOW
               DB    $88, $08               ; WHITE
+
+SHRCOLMASK    DB    $00                    ; Colour mask
+
 
 * Enable SHR mode
 SHRVDU22      JSR   VDU12                  ; Clear text and SHR screen
@@ -149,7 +153,7 @@ SHRCHAR640    PHY
               BNE  :L1
               PHA
               LDA  :TEMP
- AND #%10101010
+              AND  SHRCOLMASK              ; Mask to set colour
               STA  [VDUADDR]
               PLA
               STZ  :TEMP
@@ -164,7 +168,7 @@ SHRCHAR640    PHY
               BNE  :L2
               LDA  :TEMP
               LDY  #$01
- AND #%10101010
+              AND  SHRCOLMASK              ; Mask to set colour
               STA  [VDUADDR],Y
               PLY
               RTS
@@ -230,5 +234,17 @@ SHRCLEAR      PHP                          ; Disable interrupts
               XCE
               PLP                          ; Normal service resumed
               RTS
+
+
+* Set text colour
+* A=txt colour
+SHRSETTCOL    TAX
+              LDA   :MASKS640,X            ; Lookup mask in table
+              STA   SHRCOLMASK             ; Set colour mask
+              RTS
+:MASKS640     DB    %00000000
+              DB    %01010101
+              DB    %10101010
+              DB    %11111111
 
 

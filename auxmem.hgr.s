@@ -121,7 +121,7 @@ CLRLNRET     >>>   ENTAUX
 
 
 * A=txt colour
-HSCRSETTCOL  RTS
+HGRSETTCOL   RTS
 
 
 * A=gfx colour, X=gcol action
@@ -134,7 +134,7 @@ HSCRSETTCOL  RTS
 *  5 = NUL no change to pixel
 *  6 = CLR clear pixel to background
 *  7 = UND undefined
-HSCRSETGCOL  PHA
+HGRSETGCOL   PHA
              LDA   #$00              ; Normal drawing mode
              CPX   #$04              ; k=4 means toggle
              BNE   :NORM
