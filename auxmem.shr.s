@@ -52,6 +52,35 @@ PALETTE640    DB    $00, $00               ; BLACK
 SHRCOLMASK    DB    $00                    ; Colour mask
 
 
+* Addresses of start of text rows in SHR
+* LS byte is always zero
+* Add $A0 to get to next row of pixels
+SHRTAB        DB    $20                    ; Text row 0
+              DB    $25                    ; Text row 1
+              DB    $2a                    ; Text row 2
+              DB    $2f                    ; Text row 3
+              DB    $34                    ; Text row 4
+              DB    $39                    ; Text row 5
+              DB    $3e                    ; Text row 6
+              DB    $43                    ; Text row 7
+              DB    $48                    ; Text row 8
+              DB    $4d                    ; Text row 9
+              DB    $52                    ; Text row 10
+              DB    $57                    ; Text row 11
+              DB    $5c                    ; Text row 12
+              DB    $61                    ; Text row 13
+              DB    $66                    ; Text row 14
+              DB    $6b                    ; Text row 15
+              DB    $70                    ; Text row 16
+              DB    $75                    ; Text row 17
+              DB    $7a                    ; Text row 18
+              DB    $7f                    ; Text row 19
+              DB    $84                    ; Text row 20
+              DB    $89                    ; Text row 21
+              DB    $8e                    ; Text row 22
+              DB    $93                    ; Text row 23
+
+
 * Enable SHR mode
 SHRVDU22      JSR   VDU12                  ; Clear text and SHR screen
               LDA   #$80                   ; Most significant bit
@@ -118,6 +147,7 @@ SHRPRCHAR     SEC
 
 * Draw one pixel row of font in 320 mode
 * 4 bytes per char, 4 bits per pixel
+* TODO Implement this
 SHRCHAR320    PHY
               LDA   #$FF
               LDY   #$00
@@ -172,22 +202,16 @@ SHRCHAR640    PHY
 * Calculate character address in SHR screen memory
 * This is the address of the first pixel row of the char
 * Add $00A0 for each subsequent row
-SHRCHARADDR   LDA   #$20                   ; MSB starts at $20
-              LDY   VDUTEXTY
-:L1           CPY   #$00
-              BEQ   :S1
-              CLC
-              ADC   #05                    ; Each char row is $500
-              DEY
-              BRA   :L1
-:S1           STA   VDUADDR+1              ; MSB of address
+SHRCHARADDR   LDY   VDUTEXTY
+              LDA   SHRTAB,Y               ; MSB
+              STA   VDUADDR+1
               LDA   VDUTEXTX
               ASL                          ; Mult x 2 (4 pixels/byte)
               LDY   VDUPIXELS              ; Pixels per byte
               CPY   #$02                   ; 2 pixels per byte in 320 mode
-              BNE   :S2
+              BNE   :S1
               ASL                          ; Mult x 2 (2 pixels/byte)
-:S2           STA   VDUADDR+0              ; LSB of address
+:S1           STA   VDUADDR+0              ; LSB of address
               LDA   #$E1                   ; Bank $E1
               STA   VDUBANK
               RTS
@@ -206,11 +230,52 @@ SHRNEXTROW    LDA   VDUADDR+0              ; Add 160 to VDUADDR
 
 
 * Forwards scroll one line
-SHRSCR1LINE
+* Copy text line A+1 to line A
+* TODO: This is only for 640 mode at present
+SHRSCR1LINE   TAY
+              LDA   SHRTAB,Y               ; MSB of address of line A
+              STA   VDUADDR+1
+              STZ   VDUADDR+0              ; Addr of start of line
+              INY
+              LDA   SHRTAB,Y               ; MSB of address of line A+1
+              STA   VDUADDR2+1
+              STZ   VDUADDR2+0             ; Addr of start of line
+              LDA   #$E1                   ; Bank $E1
+              STA   VDUBANK
+              STA   VDUBANK2
+              LDA   #$08                   ; Eight rows of pixels
+              STA   :CTR
+              INC   TXTWINRGT
+:L0           LDA   TXTWINLFT
+              TAX
+              ASL                          ; 2 bytes / char
+              TAY
+:L1           CPX   TXTWINRGT
+              BCS   :S1
+              LDA   [VDUADDR2],Y
+              STA   [VDUADDR],Y
+              INY
+              LDA   [VDUADDR2],Y
+              STA   [VDUADDR],Y
+              INY
+              INX
+              BRA   :L1
+:S1           JSR   SHRNEXTROW              ; Add 160 to VDUADDR
+              LDA   VDUADDR2+0              ; Add 160 to VDUADDR2
+              CLC
+              ADC   #160
+              STA   VDUADDR2+0
+              LDA   VDUADDR2+1
+              ADC   #$00
+              STA   VDUADDR2+1
+              DEC   :CTR
+              BNE   :L0
+              DEC   TXTWINRGT
               RTS
 
 
 * Reverse scroll one line
+* Copy text line A to line A+1
 SHRRSCR1LINE
               RTS
 
@@ -219,7 +284,7 @@ SHRRSCR1LINE
 * TODO: This is only for 640 mode at present
 SHRCLREOL     JSR   SHRCHARADDR
               STZ   VDUADDR+0              ; Addr of start of line
-              LDA   #$08                   ; Eight rows
+              LDA   #$08                   ; Eight rows of pixels
               STA   :CTR
               INC   TXTWINRGT
 :L0           LDA   VDUTEXTX
