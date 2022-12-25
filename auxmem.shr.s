@@ -83,7 +83,7 @@ SHRTAB        DB    $20                    ; Text row 0
 
 * Enable SHR mode
 SHRVDU22
-              LDA   #$18                   ; Inhibit SHR shadowing
+              LDA   #$18                   ; Inhibit SHR & aux HGR shadowing
               TSB   SHADOW
               JSR   VDU12                  ; Clear text and SHR screen
               LDA   #$80                   ; Most significant bit
