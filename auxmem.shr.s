@@ -113,6 +113,7 @@ SHRVDU22
 
 * Write character to SHR screen
 * On entry: A - character to write
+* TODO: Make this faster!! It is horrible ATM
 SHRPRCHAR     SEC
               SBC   #32
               STA   ZP1+0                  ; A*8 -> ZP1
@@ -168,38 +169,37 @@ SHRCHAR320    PHY
 * Draw one pixel row of font in 640 mode
 * 2 bytes per char, 2 bits per pixel
 SHRCHAR640    PHY
-              STZ   :TEMP
+              STZ   ZP2
               LDX   #$00                   ; Source bit index
 :L1           ASL                          ; MS bit -> C
               PHP                          ; Preserve C
-              ROL  :TEMP                   ; C -> LS bit
+              ROL   ZP2                    ; C -> LS bit
               PLP                          ; Recover C
-              ROL  :TEMP                   ; C -> LS bit
+              ROL   ZP2                    ; C -> LS bit
               INX
-              CPX  #$04
-              BNE  :L1
+              CPX   #$04
+              BNE   :L1
               PHA
-              LDA  :TEMP
-              AND  SHRCOLMASK              ; Mask to set colour
-              STA  [VDUADDR]
+              LDA   ZP2
+              AND   SHRCOLMASK              ; Mask to set colour
+              STA   [VDUADDR]
               PLA
-              STZ  :TEMP
-              LDX  #$00
+              STZ   ZP2
+              LDX   #$00
 :L2           ASL                          ; MS bit -> C
               PHP                          ; Preserve C
-              ROL  :TEMP                   ; C -> LS bit
+              ROL   ZP2                    ; C -> LS bit
               PLP                          ; Recover C
-              ROL  :TEMP                   ; C -> LS bit
+              ROL   ZP2                    ; C -> LS bit
               INX
-              CPX  #$04
-              BNE  :L2
-              LDA  :TEMP
-              LDY  #$01
-              AND  SHRCOLMASK              ; Mask to set colour
-              STA  [VDUADDR],Y
+              CPX   #$04
+              BNE   :L2
+              LDA   ZP2
+              LDY   #$01
+              AND   SHRCOLMASK             ; Mask to set colour
+              STA   [VDUADDR],Y
               PLY
               RTS
-:TEMP         DB   $00
 
 
 * Calculate character address in SHR screen memory
