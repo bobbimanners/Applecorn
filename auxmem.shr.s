@@ -82,7 +82,10 @@ SHRTAB        DB    $20                    ; Text row 0
 
 
 * Enable SHR mode
-SHRVDU22      JSR   VDU12                  ; Clear text and SHR screen
+SHRVDU22
+              LDA   #$18                   ; Inhibit SHR shadowing
+              TSB   SHADOW
+              JSR   VDU12                  ; Clear text and SHR screen
               LDA   #$80                   ; Most significant bit
               TSB   NEWVIDEO               ; Enable SHR mode
               LDA   VDUPIXELS              ; Pixels per byte
@@ -147,7 +150,7 @@ SHRPRCHAR     SEC
 
 * Draw one pixel row of font in 320 mode
 * 4 bytes per char, 4 bits per pixel
-* TODO Implement this
+* TODO: Implement this
 SHRCHAR320    PHY
               LDA   #$FF
               LDY   #$00
@@ -276,6 +279,7 @@ SHRSCR1LINE   TAY
 
 * Reverse scroll one line
 * Copy text line A to line A+1
+* TODO: Implement this
 SHRRSCR1LINE
               RTS
 
@@ -331,6 +335,7 @@ SHRCLEAR      PHP                          ; Disable interrupts
 
 * Set text colour
 * A=txt colour
+* TODO: Need to add support for 320 mode also
 SHRSETTCOL    TAX
               LDA   :MASKS640,X            ; Lookup mask in table
               STA   SHRCOLMASK             ; Set colour mask

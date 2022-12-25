@@ -99,6 +99,7 @@ NEWVIDEO    EQU   $C029       ; GS-specific, new video register
 
 SPKR        EQU   $C030
 CLOCKCTL    EQU   $C034       ; GS-specific, Clock control register
+SHADOW      EQU   $C035       ; GS-specific, Shadow Register
 CYAREG      EQU   $C036       ; GS-specific, CYA Register
 
 GRON        EQU   $C050
