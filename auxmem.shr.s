@@ -85,7 +85,6 @@ SHRTAB        DB    $20                    ; Text row 0
 SHRVDU22
               LDA   #$18                   ; Inhibit SHR & aux HGR shadowing
               TSB   SHADOW
-              JSR   VDU12                  ; Clear text and SHR screen
               LDA   #$80                   ; Most significant bit
               TSB   NEWVIDEO               ; Enable SHR mode
               LDA   VDUPIXELS              ; Pixels per byte
@@ -93,9 +92,11 @@ SHRVDU22
               BNE   :MODE0
               LDA   #SCB320                ; SCB for 320-mode
               LDY   #00                    ; Palette offset
+              STZ   CLR80VID               ; 40 column text mode
               BRA   :S1
 :MODE0        LDA   #SCB640                ; SCB for 640-mode
               LDY   #32                    ; Palette offset
+              STZ   SET80VID               ; 80 column text mode
 :S1           LDX   #$00
 :L1           STAL  $E19D00,X              ; SCBs begin at $9D00 in $E1
               INX
@@ -108,6 +109,7 @@ SHRVDU22
               INY
               CPX   #32                    ; 32 bytes in palette
               BNE   :L2
+              JSR   VDU12                  ; Clear text and SHR screen
               RTS
 
 
@@ -336,7 +338,8 @@ SHRCLEAR      PHP                          ; Disable interrupts
 * Set text colour
 * A=txt colour
 * TODO: Need to add support for 320 mode also
-SHRSETTCOL    TAX
+SHRSETTCOL    AND   #$03
+              TAX
               LDA   :MASKS640,X            ; Lookup mask in table
               STA   SHRCOLMASK             ; Set colour mask
               RTS
