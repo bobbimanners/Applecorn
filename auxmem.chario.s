@@ -35,6 +35,7 @@
 * 06-Dec-2022 Moved *KEY into here.
 * 12-Dec-2022 Test code to write *KEY data to mainmem.
 * 24-Dec-2022 Minor bit of tidying.
+* 26-Dec-2022 Integrated ADB extended keyboard keys.
 
 
 * Hardware locations
@@ -42,23 +43,27 @@ KBDDATA      EQU   $C000              ; Read Keyboard data
 KBDACK       EQU   $C010              ; Acknowledge keyboard data
 KBDAPPLFT    EQU   $C061              ; Left Apple key
 KBDAPPRGT    EQU   $C062              ; Right Apple key
+KBDMOD       EQU   $C025              ; AppleIIgs modifier keys
 IOVBLNK      EQU   $C019              ; VBLNK pulse
 
 FLASHER      EQU   BYTEVARBASE+176    ; VSync counter for flashing cursor
 FXEXEC       EQU   BYTEVARBASE+198    ; *EXEC handle
 FXSPOOL      EQU   BYTEVARBASE+199    ; *SPOOL handle
 
+FXKBDSTATE   EQU   BYTEVARBASE+202    ; Keyboard modifier state
 FXTABCHAR    EQU   BYTEVARBASE+219    ; Char for TAB key to return
 FXESCCHAR    EQU   BYTEVARBASE+220    ; Char to match as Escape key
 FXKEYBASE    EQU   BYTEVARBASE+221    ; Base of char &80+ translations
+FXKEYPADBASE EQU   BYTEVARBASE+238    ; Base of keypad keys
 FXESCON      EQU   BYTEVARBASE+229    ; Escape key is ASC or ESC
 FXESCEFFECT  EQU   BYTEVARBASE+230    ; Actions when Escape acknowledged
 FX200VAR     EQU   BYTEVARBASE+200    ; Completely ignore CHR$(escape)
+FX254VAR     EQU   BYTEVARBASE+254    ; Keyboard map
+
 FXSOFTLEN    EQU   BYTEVARBASE+216    ; Length of current soft key
 FXSOFTOFF    EQU   BYTEVARBASE+233    ; Offset to current soft key
 FXSOFTOK     EQU   BYTEVARBASE+244    ; Soft keys not unstable
 
-FX254VAR     EQU   BYTEVARBASE+254    ; Keyboard map
 FX2VAR       EQU   BYTEVARBASE+$B1    ; Input stream
 FX3VAR       EQU   BYTEVARBASE+$EC    ; Output streams
 FX4VAR       EQU   BYTEVARBASE+$ED    ; Cursor key state
@@ -112,12 +117,14 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
              STA   BYTEVARBASE+DEFBYTELOW,X
              DEX
              BPL   :KBDINITLP
+             LDA   #$80               ; Keypad keys are function keys
+             STA   FXKEYPADBASE
              JSR   SOFTKEYCHK         ; Clear soft keys
-             LDX   #$C3
+             LDX   #$C3               ; Default KBD=Native, MODE=3
              STX   FX254VAR           ; b7-b4=default KBD map, b3-b0=default MODE
              BIT   SETV               ; Set V
              JSR   KBDTEST            ; Test if key being pressed
-             BCS   :KBDINITOK         ; Return default MODE=3
+             BCS   :KBDINITOK         ; Return default MODE
              STA   KBDACK             ; Ack. keypress
              TAX                      ; Use keypress as default MODE
 :KBDINITOK   TXA
@@ -463,50 +470,6 @@ BYTE12
 BYTE12OK     RTS
 
 
-* Handle function keys on ADB Extended Keyboard & BMOW Wombat
-* For Apple IIGS only
-EXTENDKBD    BIT   VDUBANK            ; Use VDUBANK to see if ...
-             BMI   :GS                ; ... this is a GS
-             RTS                      ; If not, bail
-:GS          PHA                      ; Preserve character typed
-             LDA   KEYMOD             ; GS-specific register
-             AND   #$10               ; Bit 4 is the 'keypad bit'
-             BEQ   :NOTKEYPAD         ; Not an extended key
-             PLA
-             LDX   #$00
-:LOOP        CMP   :TABLE,X           ; Lookup keycode in table
-             BEQ   :FOUND
-             INX
-             INX
-             CPX   #20                ; 10 rows of two bytes each
-             BNE   :LOOP
-             RTS                      ; Not found, return unchanged
-:FOUND       LDA   KEYMOD             ; Look at the modifiers
-             AND   #$C3               ; Mask only the modifier bits
-             CMP   #$01               ; Only shift pressed
-             BNE   :S1
-             LDA   #$10               ; Offset for shift+f-key
-             BRA   :S2
-:S1          CMP   #$02               ; Only ctrl pressed
-             BNE   :S2
-             LDA   #$20               ; Offset for ctrl+f-key
-:S2          CLC
-             ADC   :TABLE+1,X         ; Lookup translation + add
-             RTS
-:NOTKEYPAD   PLA                      ; Get original key back
-             RTS
-:TABLE       DB   $7A, $81            ; Extended keyboard F1 code -> f1
-             DB   $78, $82            ; Extended keyboard F2 code -> f2
-             DB   $63, $83            ; Extended keyboard F3 code -> f3
-             DB   $76, $84            ; Extended keyboard F4 code -> f4
-             DB   $60, $85            ; Extended keyboard F5 code -> f5
-             DB   $61, $86            ; Extended keyboard F6 code -> f6
-             DB   $62, $87            ; Extended keyboard F7 code -> f7
-             DB   $64, $88            ; Extended keyboard F8 code -> f8
-             DB   $65, $89            ; Extended keyboard F9 code -> f9
-             DB   $6D, $80            ; Extended keyboard F10 code -> f0
-
-
 * KEYREAD
 ************************
 * Test for and read from input,
@@ -522,19 +485,18 @@ KEYREAD      LDY   FXEXEC             ; See if EXEC file is open
              LDA   #$00               ; EOF, close EXEC file
              STA   FXEXEC             ; Clear EXEC handle
              JSR   OSFIND             ; And close it
-KEYREAD1     LDA   FXSOFTLEN
-             BEQ   KEYREAD2
-             LDX   FXSOFTOFF		; SOFTKEYOFF
+KEYREAD1     LDA   FXSOFTLEN          ; Soft key active?
+             BEQ   KEYREAD2           ; No, skip past
+             LDX   FXSOFTOFF          ; Get offset to current character
              >>>   RDMAIN
-             LDA   FKEYBUF,X
+             LDA   FKEYBUF,X          ; Get it from mainmem
              >>>   RDAUX
-             INC   FXSOFTOFF		; SOFTKEYOFF
-             DEC   FXSOFTLEN
+             INC   FXSOFTOFF          ; Inc. offset
+             DEC   FXSOFTLEN          ; Dec. counter
              CLC
              RTS
 KEYREAD2     JSR   KBDREAD            ; Fetch character from KBD "buffer"
              BCS   KEYREADOK          ; Nothing pending
-             JSR   EXTENDKBD          ; Handle ADB Extended Keyboard f-keys
              TAY                      ; Y=unmodified character
              BPL   KEYREADOK          ; Not top-bit key
              AND   #$CF               ; Drop Shift/Ctrl bits
@@ -576,11 +538,10 @@ KEYSOFTY     TYA                      ; Get key including Shift/Ctrl
              CLC
              RTS
 
-
 * Expand soft key
-* On entry: Y key code ($8n where n is F-key num)
+* On entry: Y=key code ($Xn where n is soft key number)
 KEYEXPAND    TYA
-             AND   #$0F               ; Obtain F-key number
+             AND   #$0F               ; Obtain soft key number
              TAX
              PHX
              JSR   KEYSUMLENS         ; Obtain starting offset
@@ -591,8 +552,6 @@ KEYEXPAND    TYA
              >>>   RDAUX
              STA   FXSOFTLEN
              RTS
-* SOFTKEYOFF   DB    $00
-
 
 * Process cursor keys
 KEYCURSOR    CMP   #$C9
@@ -624,14 +583,18 @@ KEYCOPYTAB   LDA   FXTABCHAR          ; Prepare TAB if no copy cursor
 * KBDREAD
 ************************
 * Test for and fetch key from keyboard
+* Updated for ADB keyboards
 *
 * On exit, CS=no keypress
 *          CC=keypress
 *          A =keycode, X=corrupted
-* Apple+Letter -> Ctrl+Letter
-* Apple+Digits -> 80+x, 90+x, A0+x
-* TAB          -> $C9
-* Cursors      -> $CC-$CF
+* Apple+Letter  -> Ctrl+Letter
+* AppleL+digit  -> 80+x
+* AppleR+digit  -> 90+x
+* AppleLR+digit -> A0+x
+* TAB           -> $C9
+* Cursors       -> $CC-$CF
+* Keypad        -> PADBASE+key
 *
 KBDREAD      CLV                      ; VC=return keypress
 KBDTEST      LDA   KBDDATA            ; VS here to test for keypress
@@ -640,46 +603,72 @@ KBDTEST      LDA   KBDDATA            ; VS here to test for keypress
              BCS   KBDDONE            ; No key pressed
              BVS   KBDDONE            ; VS=test for keypress
              STA   KBDACK             ; Ack. keypress
-KBDREAD2     BIT   KBDAPPLFT
-             BMI   KBDLALT            ; Left Apple pressed
-             BIT   KBDAPPRGT
-             BMI   KBDRALT            ; Right Apple pressed
-             CMP   #$09
-             BEQ   KBDTAB             ; TAB is dual action TAB/COPY
-             CMP   #$08
-             BCC   KBDCHKESC          ; <$08 not cursor key
-             CMP   #$0C
-             BCC   KBDCURSR           ; $08-$0B are cursor keys
-             CMP   #$15
-             BNE   KBDCHKESC          ; $15 is cursor key
+KBDREAD2     TAX                      ; X=raw keypress
 *
-KBDCUR15     LDA   #$0D               ; Convert RGT to $09
-KBDTAB       SBC   #$04               ; Convert TAB to &C9
-KBDCURSR     CLC
-             ADC   #$C4               ; Cursor keys $C0+x
-             BRA   KBDCHKESC
+* Set FXKBDSTATE to %x0CS0000 from Alt or Shift keys
+             LDA   KBDAPPRGT          ; Right Apple/Alt pressed
+             ASL   A
+             LDA   KBDAPPLFT          ; Left Apple/Alt pressed
+             ROR   A                  ; b7=Right, b6=Left
+             AND   #$C0
+             LSR   A
+             LSR   A
+             PHP                      ; Save EQ=no ALTs pressed
+             BEQ   KBDREAD2A
+             ADC   #$F0               ; Convert into fkey modifer
+KBDREAD2A    STA   FXKBDSTATE
+             BIT   VDUBANK
+             BPL   KBDREAD5           ; Not IIgs
+             LDA   KBDMOD             ; Get extended KBD state
+             PLP
+             PHP
+             BNE   KBDREAD2B          ; ALTs pressed, skip
+             PHA                      ; Save b4=Keypad
+             ASL   A
+             ASL   A
+             ASL   A
+             ASL   A                  ; b5=Ctrl, b4=Shift
+             AND   #$30
+             STA   FXKBDSTATE
+             PLA
+*
+KBDREAD2B    AND   #$10
+             BEQ   KBDREAD5           ; Not keypad
+             PLP                      ; Drop NoALT
+             TXA                      ; A=raw keypress
+             LDX   FXKEYPADBASE
+             BEQ   KBDCHKESC          ; $00=use unchanged
+             BPL   KBDREAD4           ; Keypad not function keys
+             CMP   #$20
+             BCC   KBDCHKESC          ; Don't translate control chars
+             CMP   #$3D
+             BNE   KBDREAD3           ; Special case for KP'='
+             DEC   A
+KBDREAD3     ORA   #$30               ; Ensure $30-$3F
+KBDREAD4     SEC
+             SBC   #$30               ; Convert to offset from $30
+             CLC
+             ADC   FXKEYPADBASE       ; Add to keypad base
+             BRA   KBDREAD6
 
-KBDRALT                               ; Right Apple key pressed
-KBDLALT      CMP   #$40               ; Left Apple key pressed
-             BCS   KBDCTRL
+KBDREAD5     TXA                      ; A=raw keypress
+             PLP
+             BEQ   KBDNOALT           ; No ALTs pressed
+*
+KBDALT       CMP   #$40
+             BCS   KBDCTRL            ; 'A'+ Alt+letter ->Control code
              CMP   #$30
-             BCC   KBDCHKESC          ; <'0'
+             BCC   KBDCHKESC          ; <'0' Alt+nondigit -> keep
              CMP   #$3A
-             BCS   KBDCHKESC          ; >'9'
-KBDFUNC      AND   #$0F               ; Convert Apple-Num to function key
-             ORA   #$80
-KBDFUNC2     BIT   KBDAPPRGT
-             BPL   KBDCHKESC          ; Left+Digit       -> $8x
-             ORA   #$90               ; Right+Digit      -> $9x
-             BIT   KBDAPPLFT
-             BPL   KBDCHKESC
-             EOR   #$30               ; Left+Right+Digit -> $Ax
-             BRA   KBDCHKESC
-
-KBDCTRL      AND   #$1F               ; Apple-Letter -> Ctrl-Letter
+             BCS   KBDCHKESC          ; >'9' Alt+nondigit -> keep
+             ORA   #$80               ; Alt+digit -> function key
+*
+KBDREAD6     BPL   KBDCHKESC          ; Not a top-bit key
+KBDFUNC      AND   #$CF               ; Clear Ctrl+Shift bits
+             ORA   FXKBDSTATE         ; Add in Ctrl+Shift
 *
 * Test for Escape character
-KBDCHKESC    TAX                      ; X=keycode
+KBDCHKESC    TAX                      ; X=processed keycode
              EOR   FXESCCHAR          ; Current ESCAPE char?
              ORA   FXESCON            ; Is ESCAPE an ASCII char?
              BNE   KBDNOESC           ; Not ESCAPE or ESCAPE=ASCII
@@ -691,6 +680,24 @@ KBDCHKESC    TAX                      ; X=keycode
 KBDNOESC     TXA                      ; A=keycode
              CLC                      ; CLC=Ok
 KBDDONE      RTS
+
+* Moved here to reduce BRx ranges
+KBDCTRL      AND   #$1F               ; Apple-Letter -> Ctrl-Letter
+             BRA KBDCHKESC
+ 
+KBDNOALT     CMP   #$09
+             BEQ   KBDTAB             ; TAB is dual action TAB/COPY
+             CMP   #$08
+             BCC   KBDCHKESC          ; <$08 not cursor key
+             CMP   #$0C
+             BCC   KBDCURSR           ; $08-$0B are cursor keys
+             CMP   #$15
+             BNE   KBDCHKESC          ; $15 is cursor key
+KBDCUR15     LDA   #$0D               ; Convert RGT to $09
+KBDTAB       SBC   #$04               ; Convert TAB to &C9
+KBDCURSR     CLC
+             ADC   #$C4               ; Cursor keys $C0+x
+             BRA   KBDFUNC
 
 
 * Poll the keyboard to update Escape state
