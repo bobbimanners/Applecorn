@@ -391,7 +391,7 @@ SHRCLREOL     JSR   SHRCHARADDR
               TAX
               ASL                          ; 2 bytes / char
               TAY
-              LDA   #$00
+              LDA   SHRBGMASK
 :L1           CPX   TXTWINRGT
               BCS   :S1
               STA   [VDUADDR],Y
