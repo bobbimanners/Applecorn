@@ -49,7 +49,8 @@ PALETTE640    DB    $00, $00               ; BLACK
               DB    $80, $08               ; YELLOW
               DB    $88, $08               ; WHITE
 
-SHRCOLMASK    DB    $00                    ; Colour mask
+SHRCOLMASK    DB    $00                    ; Colour mask foreground
+SHRBGMASK     DB    $00                    ; Colour mask background
 
 
 * Addresses of start of text rows in SHR
@@ -220,7 +221,6 @@ SHRCHAR640    PHY
               BNE   :L1
               PHA
               LDA   ZP2
-              AND   SHRCOLMASK              ; Mask to set colour
               STA   [VDUADDR]
               PLA
               STZ   ZP2
@@ -235,7 +235,6 @@ SHRCHAR640    PHY
               BNE   :L2
               LDA   ZP2
               LDY   #$01
-              AND   SHRCOLMASK             ; Mask to set colour
               STA   [VDUADDR],Y
               PLY
               RTS
@@ -269,12 +268,14 @@ SHRPRCHAR     SEC
               LDX   #$00                   ; First row of char
 :L1           LDY   #$00
               LDA   [VDUADDR2]             ; Load exploded font data 1st byte
+              JSR   SHRCOLBYTE
               STA   [VDUADDR]              ; Store on screen
               INY
               INC   VDUADDR2+0             ; Increment exploded font ptr
               BNE   :S1
               INC   VDUADDR2+1
 :S1           LDA   [VDUADDR2]             ; Load exploded font data 2nd byte
+              JSR   SHRCOLBYTE
               STA   [VDUADDR],Y            ; Store on screen
               INC   VDUADDR2+0             ; Increment exploded font ptr
               BNE   :S2
@@ -283,6 +284,17 @@ SHRPRCHAR     SEC
               INX                          ; Next row of font
               CPX   #$08                   ; Last row?
               BNE   :L1
+              RTS
+
+
+* Apply colour masks to byte of character data
+SHRCOLBYTE    PHA                          ; Keep A
+              AND   SHRCOLMASK             ; Mask to set foreground colour
+              STA   ZP1                    ; Keep foreground
+              PLA                          ; Get original A back
+              EOR   #$FF                   ; Invert bits
+              AND   SHRBGMASK              ; Apply background colour mask
+              EOR   ZP1                    ; Combine with foreground
               RTS
 
 
@@ -420,10 +432,20 @@ SHRCLEAR      PHP                          ; Disable interrupts
 * Set text colour
 * A=txt colour
 * TODO: Need to add support for 320 mode also
-SHRSETTCOL    AND   #$03
+SHRSETTCOL    PHA
+              AND   #$80
+              BEQ   :FOREGND
+              PLA
+              AND   #$03
               TAX
               LDA   :MASKS640,X            ; Lookup mask in table
-              STA   SHRCOLMASK             ; Set colour mask
+              STA   SHRBGMASK              ; Set colour mask (BG)
+              RTS
+:FOREGND      PLA
+              AND   #$03
+              TAX
+              LDA   :MASKS640,X            ; Lookup mask in table
+              STA   SHRCOLMASK             ; Set colour mask (FG)
               RTS
 :MASKS640     DB    %00000000
               DB    %01010101
