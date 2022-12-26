@@ -82,8 +82,7 @@ SHRTAB        DB    $20                    ; Text row 0
 
 
 * Enable SHR mode
-SHRVDU22
-              LDA   #$18                   ; Inhibit SHR & aux HGR shadowing
+SHRVDU22      LDA   #$18                   ; Inhibit SHR & aux HGR shadowing
               TSB   SHADOW
               LDA   #$80                   ; Most significant bit
               TSB   NEWVIDEO               ; Enable SHR mode
@@ -109,14 +108,35 @@ SHRVDU22
               INY
               CPX   #32                    ; 32 bytes in palette
               BNE   :L2
+              JSR   SHRXPLDFONT            ; Explode font -> SHRFONTXPLD table
               JSR   VDU12                  ; Clear text and SHR screen
               RTS
 
 
-* Write character to SHR screen
-* On entry: A - character to write
-* TODO: Make this faster!! It is horrible ATM
-SHRPRCHAR     SEC
+SHRFONTXPLD   EQU   $A000                  ; Explode SHR font to $E1:A000
+
+
+* Explode font to generate SHRFONTXPLD table
+* This is 2 bytes x 8 rows for each character in 640 mode
+* or      4 bytes x 8 rows for each character in 320 mode
+SHRXPLDFONT   LDA   #<SHRFONTXPLD          ; Use VDUADDR to point to ..
+              STA   VDUADDR+0              ; .. start of table to write
+              LDA   #>SHRFONTXPLD
+              STA   VDUADDR+1
+              LDA   #$E1
+              STA   VDUBANK
+              LDA   #32                    ; First char number
+:L1           JSR   SHRXPLDCHAR            ; Explode char A
+              INC   A
+              CMP   #128                   ; 96 chars in FONT8
+              BNE   :L1
+              RTS
+
+
+* Explode one character to location pointed to by VDUADDR
+* On entry: A - character to explode
+SHRXPLDCHAR   PHA
+              SEC
               SBC   #32
               STA   ZP1+0                  ; A*8 -> ZP1
               STZ   ZP1+1
@@ -133,7 +153,6 @@ SHRPRCHAR     SEC
               LDA   ZP1+1
               ADC   #>FONT8
               STA   ZP1+1
-              JSR   SHRCHARADDR            ; Addr in VDUADDR
               LDY   #$00                   ; First row of char
 :L1           >>>   RDMAIN
               LDA   (ZP1),Y                ; Load row of font
@@ -144,10 +163,28 @@ SHRPRCHAR     SEC
               JSR   SHRCHAR320
               BRA   :S2
 :S1           JSR   SHRCHAR640
-:S2           JSR   SHRNEXTROW             ; Add 160 to VDUADDR
-              INY                          ; Next row of font
+:S2           LDX   VDUPIXELS              ; Pixels per byte
+              CPX   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :S3
+              CLC                          ; 320 mode: add 4 to VDUADDR
+              LDA   VDUADDR+0
+              ADC   #$04
+              STA   VDUADDR+0
+              LDA   VDUADDR+1
+              ADC   #$00
+              STA   VDUADDR+1
+              BRA   :S4
+:S3           CLC                          ; 640 mode: add 2 to VDUADDR
+              LDA   VDUADDR+0
+              ADC   #$02
+              STA   VDUADDR+0
+              LDA   VDUADDR+1
+              ADC   #$00
+              STA   VDUADDR+1
+:S4           INY                          ; Next row of font
               CPY   #$08                   ; Last row?
               BNE   :L1
+              PLA
               RTS
 
 
@@ -201,6 +238,51 @@ SHRCHAR640    PHY
               AND   SHRCOLMASK             ; Mask to set colour
               STA   [VDUADDR],Y
               PLY
+              RTS
+
+
+* Write character to SHR screen
+* On entry: A - character to write
+* TODO: This is for 640 mode only at the moment
+SHRPRCHAR     SEC
+              SBC   #32
+              STA   VDUADDR2+0             ; A*16 -> VDUADDR2
+              STZ   VDUADDR2+1
+              ASL   VDUADDR2+0
+              ROL   VDUADDR2+1
+              ASL   VDUADDR2+0
+              ROL   VDUADDR2+1
+              ASL   VDUADDR2+0
+              ROL   VDUADDR2+1
+              ASL   VDUADDR2+0
+              ROL   VDUADDR2+1
+              CLC                          ; SHRFONTXPLD+A*16 -> VDUADDR2
+              LDA   VDUADDR2+0
+              ADC   #<SHRFONTXPLD
+              STA   VDUADDR2+0
+              LDA   VDUADDR2+1
+              ADC   #>SHRFONTXPLD
+              STA   VDUADDR2+1
+              LDA   #$E1
+              STA   VDUBANK2
+              JSR   SHRCHARADDR            ; Screen addr in VDUADDR
+              LDX   #$00                   ; First row of char
+:L1           LDY   #$00
+              LDA   [VDUADDR2]             ; Load exploded font data 1st byte
+              STA   [VDUADDR]              ; Store on screen
+              INY
+              INC   VDUADDR2+0             ; Increment exploded font ptr
+              BNE   :S1
+              INC   VDUADDR2+1
+:S1           LDA   [VDUADDR2]             ; Load exploded font data 2nd byte
+              STA   [VDUADDR],Y            ; Store on screen
+              INC   VDUADDR2+0             ; Increment exploded font ptr
+              BNE   :S2
+              INC   VDUADDR2+1
+:S2           JSR   SHRNEXTROW             ; Add 160 to VDUADDR
+              INX                          ; Next row of font
+              CPX   #$08                   ; Last row?
+              BNE   :L1
               RTS
 
 
