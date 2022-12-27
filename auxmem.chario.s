@@ -36,6 +36,7 @@
 * 12-Dec-2022 Test code to write *KEY data to mainmem.
 * 24-Dec-2022 Minor bit of tidying.
 * 26-Dec-2022 Integrated ADB extended keyboard keys.
+* 27-Dec-2022 Bobbi's keyboard uses $60+n extended keys.
 
 
 * Hardware locations
@@ -120,7 +121,7 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
              LDA   #$80               ; Keypad keys are function keys
              STA   FXKEYPADBASE
              JSR   SOFTKEYCHK         ; Clear soft keys
-             LDX   #$C3               ; Default KBD=Native, MODE=3
+             LDX   #$83               ; Default KBD=Native, MODE=3
              STX   FX254VAR           ; b7-b4=default KBD map, b3-b0=default MODE
              BIT   SETV               ; Set V
              JSR   KBDTEST            ; Test if key being pressed
@@ -501,7 +502,8 @@ KEYREAD2     JSR   KBDREAD            ; Fetch character from KBD "buffer"
              BPL   KEYREADOK          ; Not top-bit key
              AND   #$CF               ; Drop Shift/Ctrl bits
              CMP   #$C9
-             BCC   KEYSOFTY           ; Not cursor key
+             BCC   KEYSOFTHI          ; Not cursor key
+*             BCC   KEYSOFTY           ; Not cursor key
              LDX   FX4VAR
              BEQ   KEYCURSOR          ; *FX4,0 - editing keys
              CPY   #$C9
@@ -518,7 +520,8 @@ KEYSOFTHI    LDX   FX254VAR
              CPX   #$C0
              BCC   KEYSOFTY
              TYA
-             AND   #$BF
+             EOR   #$40               ; Toggle keyboard map
+*             AND   #$BF
              TAY
 KEYSOFTY     TYA                      ; Get key including Shift/Ctrl
              LSR   A
@@ -564,7 +567,7 @@ KEYCURSOR    CMP   #$C9
              JSR   GETCHRC            ; Save char under cursor
              STA   OLDCHAR
 KEYNONE      SEC
-             RTS
+KBDDONE2     RTS
 
 KEYCOPY      BIT   VDUSTATUS
 KEYCOPYTAB   LDA   FXTABCHAR          ; Prepare TAB if no copy cursor
@@ -600,8 +603,8 @@ KBDREAD      CLV                      ; VC=return keypress
 KBDTEST      LDA   KBDDATA            ; VS here to test for keypress
              EOR   #$80               ; Toggle bit 7
              CMP   #$80
-             BCS   KBDDONE            ; No key pressed
-             BVS   KBDDONE            ; VS=test for keypress
+             BCS   KBDDONE2           ; No key pressed
+             BVS   KBDDONE2           ; VS=test for keypress
              STA   KBDACK             ; Ack. keypress
 KBDREAD2     TAX                      ; X=raw keypress
 *
@@ -636,7 +639,13 @@ KBDREAD2B    AND   #$10
              BEQ   KBDREAD5           ; Not keypad
              PLP                      ; Drop NoALT
              TXA                      ; A=raw keypress
-             LDX   FXKEYPADBASE
+             BMI   KBDREADPAD         ; Translate keypad
+             CMP   #$60
+             BCC   KBDREADPAD
+             LDA   KBDADBKEYS-$60,X   ; Translate $60-$7E keys
+             BRA   KBDREAD6
+
+KBDREADPAD   LDX   FXKEYPADBASE
              BEQ   KBDCHKESC          ; $00=use unchanged
              BPL   KBDREAD4           ; Keypad not function keys
              CMP   #$20
@@ -699,6 +708,10 @@ KBDCURSR     CLC
              ADC   #$C4               ; Cursor keys $C0+x
              BRA   KBDFUNC
 
+KBDADBKEYS   DB    $85,$86,$87,$83,$88,$89,$80,$8B
+             DB    $80,$8D,$80,$8E,$80,$8A,$80,$8C
+             DB    $80,$8F,$C6,$C8,$CB,$C7,$84,$87
+             DB    $82,$CA,$81,$CC,$CD,$CE,$C4,$7F
 
 * Poll the keyboard to update Escape state
 * On exit, MI=Escape state pending
