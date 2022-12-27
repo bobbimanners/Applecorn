@@ -268,27 +268,31 @@ SHRPRCHAR     SEC
 
 * 65816 code contributed by John Brooks follows ...
 
+              PHP                          ; Disauble interrupts
+              SEI
               PHB                          ; Save data bank
               LDA   VDUADDR2+2             ; Push font Bank onto stack
               PHA
               PLB                          ; Set data bank to font bank
-              CLC
+              CLC                          ; 65816 native mode
               XCE
-              REP   #$30
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
               LDY   VDUADDR2               ; Font src ptr
               LDX   VDUADDR                ; SHR dst ptr
 SrcFont       =     $000000
 DstShr        =     $E10000
-              LUP   8
-              LDA   !SrcFont,Y
-              STAL  DstShr,X   
+              LUP   8                      ; Unroll x 8
+              LDA   !SrcFont,Y             ; Read 2 bytes of exploded font
+              STAL  DstShr,X               ; Write 2 bytes to screen
 SrcFont       =     SrcFont+2
 DstShr        =     DstShr+160
               --^           
-              PLB
-              SEC
+              PLB                          ; Recover data bank
+              SEC                          ; Back to emulation mode
               XCE
-              MX    %11
+              MX    %11                    ; Tell Merlin
+              PLP                          ; Normal service resumed
               RTS
 
 
