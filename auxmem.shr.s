@@ -482,6 +482,7 @@ SHRNEXTROW    LDA   VDUADDR+0              ; Add 160 to VDUADDR
 * Forwards scroll one line
 * Copy text line A+1 to line A
 * Note: Code for this courtesy Kent Dickey
+* TODO: Not quite right in 320 mode
 SHRSCR1LINE   PHY
               PHX
               STA   VDUADDR+1              ; Screen line -> MSB
@@ -499,47 +500,48 @@ SHRSCR1LINE   PHY
               ADC   VDUADDR                ; Mult 5
               STA   VDUADDR                ; VDUADDR = line * $500
               LDA   TXTWINLFT              ; Left margin
-              ASL                          ; 2 bytes / char
               LDY   VDUPIXELS              ; Pixels per byte
               CPY   #$02                   ; 2 pixels per byte in 320 mode
               BNE   :S1
-              ASL                          ; 4 bytes / char
-:S1           AND   #$00ff                 ; Mask to get 8 bit result
+              ASL                          ; Double TXTWINLFT
+:S1           ASL                          ; 2 bytes / char
+              AND   #$00ff                 ; Mask to get 8 bit result
               ADC   VDUADDR                ; Add to beginning of line addr
               STA   VDUADDR                ; VDUADDR = start position
               SEP   #$21                   ; M 8 bit, X 16 bit, carry set
               MX    %10                    ; Tell Merlin
               LDA   TXTWINRGT              ; Compute width ..
               SBC   TXTWINLFT              ; .. right minus left
-              REP   #$31                   ; M,X 16 bit, carry clear
-              MX    %00                    ; Tell Merlin
-              ASL                          ; 2 bytes / char
               LDY   VDUPIXELS              ; Pixels per byte
               CPY   #$02                   ; 2 pixels per byte in 320 mode
               BNE   :S2
-              ASL                          ; 4 bytes / char
-:S2           AND   #$00ff                 ; Mask to get 8 bit result
+              ASL                          ; Double the width for 320
+              INC   A                      ; Plus one
+:S2           REP   #$31                   ; M,X 16 bit, carry clear
+              MX    %00                    ; Tell Merlin
+              ASL                          ; 2 bytes / char
+              AND   #$00ff                 ; Mask to get 8 bit result
               ADC   VDUADDR                ; Add to start position
               TAX                          ; Will use as index
-              PEA   #$e1e1                 ; Set databank to $E1
+              PEA   #$E1E1                 ; Set databank to $E1
               PLB
               PLB
-:LOOP1        LDA   $2500,x                ; 2 bytes, row 0
-              STA   $2000,x
-              LDA   $25a0,x                ; row 1
-              STA   $20a0,x
-              LDA   $2640,x                ; row 2
-              STA   $2140,x
-              LDA   $26e0,x                ; row 3
-              STA   $21e0,x
-              LDA   $2780,x                ; row 4
-              STA   $2280,x
-              LDA   $2820,x                ; row 5
-              STA   $2320,x
-              LDA   $28c0,x                ; row 6
-              STA   $23c0,x
-              LDA   $2960,x                ; row 7
-              STA   $2460,x
+:LOOP1        LDA   $2500,X                ; 2 bytes, row 0
+              STA   $2000,X
+              LDA   $25A0,X                ; row 1
+              STA   $20A0,X
+              LDA   $2640,X                ; row 2
+              STA   $2140,X
+              LDA   $26E0,X                ; row 3
+              STA   $21E0,X
+              LDA   $2780,X                ; row 4
+              STA   $2280,X
+              LDA   $2820,X                ; row 5
+              STA   $2320,X
+              LDA   $28C0,X                ; row 6
+              STA   $23C0,X
+              LDA   $2960,X                ; row 7
+              STA   $2460,X
               DEX                          ; Update index
               DEX
               BMI   :DONE                  ; Jump out if odd->-ve
@@ -570,7 +572,11 @@ SHRCLREOL     JSR   SHRCHARADDR
 :L0           LDA   VDUTEXTX
               TAX
               ASL                          ; 2 bytes / char
-              TAY
+              LDY   VDUPIXELS              ; Pixels per byte
+              CPY   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :S0
+              ASL                          ; 4 bytes / char
+:S0           TAY
 :L1           CPX   TXTWINRGT
               BCS   :S1
               LDA   SHRBGMASKA
