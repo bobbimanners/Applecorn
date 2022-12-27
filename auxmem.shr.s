@@ -265,25 +265,34 @@ SHRPRCHAR     SEC
               LDA   #$E1
               STA   VDUBANK2
               JSR   SHRCHARADDR            ; Screen addr in VDUADDR
-              LDX   #$00                   ; First row of char
-:L1           LDY   #$00
-              LDA   [VDUADDR2]             ; Load exploded font data 1st byte
-              JSR   SHRCOLBYTE
-              STA   [VDUADDR]              ; Store on screen
-              INY
-              INC   VDUADDR2+0             ; Increment exploded font ptr
-              BNE   :S1
-              INC   VDUADDR2+1
-:S1           LDA   [VDUADDR2]             ; Load exploded font data 2nd byte
-              JSR   SHRCOLBYTE
-              STA   [VDUADDR],Y            ; Store on screen
-              INC   VDUADDR2+0             ; Increment exploded font ptr
-              BNE   :S2
-              INC   VDUADDR2+1
-:S2           JSR   SHRNEXTROW             ; Add 160 to VDUADDR
-              INX                          ; Next row of font
-              CPX   #$08                   ; Last row?
-              BNE   :L1
+
+* 65816 code contributed by John Brooks follows ...
+
+              PHP                          ; Disauble interrupts
+              SEI
+              PHB                          ; Save data bank
+              LDA   VDUADDR2+2             ; Push font Bank onto stack
+              PHA
+              PLB                          ; Set data bank to font bank
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDY   VDUADDR2               ; Font src ptr
+              LDX   VDUADDR                ; SHR dst ptr
+SrcFont       =     $000000
+DstShr        =     $E10000
+              LUP   8                      ; Unroll x 8
+              LDA   !SrcFont,Y             ; Read 2 bytes of exploded font
+              STAL  DstShr,X               ; Write 2 bytes to screen
+SrcFont       =     SrcFont+2
+DstShr        =     DstShr+160
+              --^           
+              PLB                          ; Recover data bank
+              SEC                          ; Back to emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP                          ; Normal service resumed
               RTS
 
 
@@ -330,46 +339,69 @@ SHRNEXTROW    LDA   VDUADDR+0              ; Add 160 to VDUADDR
 
 * Forwards scroll one line
 * Copy text line A+1 to line A
+* Note: Code for this courtesy Kent Dickey
 * TODO: This is only for 640 mode at present
-SHRSCR1LINE   TAY
-              LDA   SHRTAB,Y               ; MSB of address of line A
-              STA   VDUADDR+1
-              STZ   VDUADDR+0              ; Addr of start of line
-              INY
-              LDA   SHRTAB,Y               ; MSB of address of line A+1
-              STA   VDUADDR2+1
-              STZ   VDUADDR2+0             ; Addr of start of line
-              LDA   #$E1                   ; Bank $E1
-              STA   VDUBANK
-              STA   VDUBANK2
-              LDA   #$08                   ; Eight rows of pixels
-              STA   :CTR
-              INC   TXTWINRGT
-:L0           LDA   TXTWINLFT
-              TAX
+SHRSCR1LINE   PHY
+              PHX
+              STA   VDUADDR+1              ; Screen line -> MSB
+              STZ   VDUADDR+0              ; Zero LSB
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; Enter native mode
+              XCE
+              PHB                          ; Preserve data bank
+              REP   #$31                   ; M,X 16 bit, carry clear
+              MX    %00                    ; Tell Merlin
+              LDA   VDUADDR                ; Screen line to scroll
+              ASL                          ; Mult 4
+              ASL
+              ADC   VDUADDR                ; Mult 5
+              STA   VDUADDR                ; VDUADDR = line * $500
+              LDA   TXTWINLFT              ; Left margin
               ASL                          ; 2 bytes / char
-              TAY
-:L1           CPX   TXTWINRGT
-              BCS   :S1
-              LDA   [VDUADDR2],Y
-              STA   [VDUADDR],Y
-              INY
-              LDA   [VDUADDR2],Y
-              STA   [VDUADDR],Y
-              INY
-              INX
-              BRA   :L1
-:S1           JSR   SHRNEXTROW              ; Add 160 to VDUADDR
-              LDA   VDUADDR2+0              ; Add 160 to VDUADDR2
-              CLC
-              ADC   #160
-              STA   VDUADDR2+0
-              LDA   VDUADDR2+1
-              ADC   #$00
-              STA   VDUADDR2+1
-              DEC   :CTR
-              BNE   :L0
-              DEC   TXTWINRGT
+              AND   #$00ff                 ; Mask to get 8 bit result
+              ADC   VDUADDR                ; Add to beginning of line addr
+              STA   VDUADDR                ; VDUADDR = start position
+              SEP   #$21                   ; M 8 bit, X 16 bit, carry set
+              MX    %10                    ; Tell Merlin
+              LDA   TXTWINRGT              ; Compute width ..
+              SBC   TXTWINLFT              ; .. right minus left
+              REP   #$31                   ; M,X 16 bit, carry clear
+              MX    %00                    ; Tell Merlin
+              ASL                          ; 2 bytes / char
+              AND   #$00ff                 ; Mask to get 8 bit result
+              ADC   VDUADDR                ; Add to start position
+              TAX                          ; Will use as index
+              PEA   #$e1e1                 ; Set databank to $E1
+              PLB
+              PLB
+:LOOP1        LDA   $2500,x                ; 2 bytes, row 0
+              STA   $2000,x
+              LDA   $25a0,x                ; row 1
+              STA   $20a0,x
+              LDA   $2640,x                ; row 2
+              STA   $2140,x
+              LDA   $26e0,x                ; row 3
+              STA   $21e0,x
+              LDA   $2780,x                ; row 4
+              STA   $2280,x
+              LDA   $2820,x                ; row 5
+              STA   $2320,x
+              LDA   $28c0,x                ; row 6
+              STA   $23c0,x
+              LDA   $2960,x                ; row 7
+              STa   $2460,x
+              DEX                          ; Update index
+              DEX
+              BMI   :DONE                  ; Jump out if odd->-ve
+              CPX   VDUADDR                ; Compare with start addr
+              BCS   :LOOP1                 ; Bytes left? Go again
+:DONE         PLB                          ; Recover data bank
+              SEC                          ; Back to emulation mode
+              XCE
+              PLP                          ; Recover flags + regs
+              PLX
+              PLY
               RTS
 
 
