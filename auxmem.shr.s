@@ -343,36 +343,36 @@ SHRNEXTROW    LDA   VDUADDR+0              ; Add 160 to VDUADDR
 * TODO: This is only for 640 mode at present
 SHRSCR1LINE   PHY
               PHX
-              STA   VDUADDR+1
-              STZ   VDUADDR
-              PHP
+              STA   VDUADDR+1              ; Screen line -> MSB
+              STZ   VDUADDR+0              ; Zero LSB
+              PHP                          ; Disable interrupts
               SEI
-              CLC
+              CLC                          ; Enter native mode
               XCE
-              PHB
+              PHB                          ; Preserve data bank
               REP   #$31                   ; M,X 16 bit, carry clear
               MX    %00                    ; Tell Merlin
-              LDA   VDUADDR
+              LDA   VDUADDR                ; Screen line to scroll
+              ASL                          ; Mult 4
               ASL
-              ASL
-              ADC   VDUADDR
+              ADC   VDUADDR                ; Mult 5
               STA   VDUADDR                ; VDUADDR = line * $500
-              LDA   TXTWINLFT
-              ASL
-              AND   #$00ff
-              ADC   VDUADDR
-              STA   VDUADDR                ; VDUADDR = Minimum position
+              LDA   TXTWINLFT              ; Left margin
+              ASL                          ; 2 bytes / char
+              AND   #$00ff                 ; Mask to get 8 bit result
+              ADC   VDUADDR                ; Add to beginning of line addr
+              STA   VDUADDR                ; VDUADDR = start position
               SEP   #$21                   ; M 8 bit, X 16 bit, carry set
               MX    %10                    ; Tell Merlin
-              LDA   TXTWINRGT
-              SBC   TXTWINLFT
+              LDA   TXTWINRGT              ; Compute width ..
+              SBC   TXTWINLFT              ; .. right minus left
               REP   #$31                   ; M,X 16 bit, carry clear
               MX    %00                    ; Tell Merlin
-              ASL
-              AND   #$00ff
-              ADC   VDUADDR
-              TAX
-              PEA   #$e1e1
+              ASL                          ; 2 bytes / char
+              AND   #$00ff                 ; Mask to get 8 bit result
+              ADC   VDUADDR                ; Add to start position
+              TAX                          ; Will use as index
+              PEA   #$e1e1                 ; Set databank to $E1
               PLB
               PLB
 :LOOP1        LDA   $2500,x                ; 2 bytes, row 0
@@ -391,15 +391,15 @@ SHRSCR1LINE   PHY
               STA   $23c0,x
               LDA   $2960,x                ; row 7
               STa   $2460,x
+              DEX                          ; Update index
               DEX
-              DEX
-              BMI   :DONE
-              CPX   VDUADDR
-              BCS   :LOOP1
-:DONE         PLB
-              SEC
+              BMI   :DONE                  ; Jump out if odd->-ve
+              CPX   VDUADDR                ; Compare with start addr
+              BCS   :LOOP1                 ; Bytes left? Go again
+:DONE         PLB                          ; Recover data bank
+              SEC                          ; Back to emulation mode
               XCE
-              PLP
+              PLP                          ; Recover flags + regs
               PLX
               PLY
               RTS
