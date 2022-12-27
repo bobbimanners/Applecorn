@@ -268,7 +268,7 @@ SHRPRCHAR     SEC
 
 * 65816 code contributed by John Brooks follows ...
 
-              PHP                          ; Disauble interrupts
+              PHP                          ; Disable interrupts
               SEI
               PHB                          ; Save data bank
               LDA   VDUADDR2+2             ; Push font Bank onto stack
@@ -280,14 +280,22 @@ SHRPRCHAR     SEC
               MX    %00                    ; Tell Merlin
               LDY   VDUADDR2               ; Font src ptr
               LDX   VDUADDR                ; SHR dst ptr
-SrcFont       =     $000000
-DstShr        =     $E10000
-              LUP   8                      ; Unroll x 8
-              LDA   !SrcFont,Y             ; Read 2 bytes of exploded font
-              STAL  DstShr,X               ; Write 2 bytes to screen
-SrcFont       =     SrcFont+2
-DstShr        =     DstShr+160
-              --^           
+              LDA   !$000000,Y             ; Read 2 bytes of exploded font
+              STAL  $E10000,X              ; Write 2 bytes to screen
+              LDA   !$000002,Y             ; Read 2 bytes of exploded font
+              STAL  $E100A0,X              ; Write 2 bytes to screen
+              LDA   !$000004,Y             ; Read 2 bytes of exploded font
+              STAL  $E10140,X              ; Write 2 bytes to screen
+              LDA   !$000006,Y             ; Read 2 bytes of exploded font
+              STAL  $E101E0,X              ; Write 2 bytes to screen
+              LDA   !$000008,Y             ; Read 2 bytes of exploded font
+              STAL  $E10280,X              ; Write 2 bytes to screen
+              LDA   !$00000A,Y             ; Read 2 bytes of exploded font
+              STAL  $E10320,X              ; Write 2 bytes to screen
+              LDA   !$00000C,Y             ; Read 2 bytes of exploded font
+              STAL  $E103C0,X              ; Write 2 bytes to screen
+              LDA   !$00000E,Y             ; Read 2 bytes of exploded font
+              STAL  $E10460,X              ; Write 2 bytes to screen
               PLB                          ; Recover data bank
               SEC                          ; Back to emulation mode
               XCE
@@ -390,7 +398,7 @@ SHRSCR1LINE   PHY
               LDA   $28c0,x                ; row 6
               STA   $23c0,x
               LDA   $2960,x                ; row 7
-              STa   $2460,x
+              STA   $2460,x
               DEX                          ; Update index
               DEX
               BMI   :DONE                  ; Jump out if odd->-ve
