@@ -16,41 +16,38 @@ SCB640        EQU   $80                    ; SCB for 640 mode
 * BLACK, RED, YELLOW, WHITE
 
 PALETTE320    DB    $00, $00               ; BLACK
-              DB    $00, $08               ; RED
-              DB    $80, $00               ; GREEN
-              DB    $80, $08               ; YELLOW
-              DB    $08, $00               ; BLUE
-              DB    $08, $08               ; MAGENTA
-              DB    $88, $00               ; CYAN
-              DB    $88, $08               ; WHITE
-              DB    $00, $00               ; BLACK
-              DB    $00, $08               ; RED
-              DB    $80, $00               ; GREEN
-              DB    $80, $08               ; YELLOW
-              DB    $08, $00               ; BLUE
-              DB    $08, $08               ; MAGENTA
-              DB    $88, $00               ; CYAN
-              DB    $88, $08               ; WHITE
+              DB    $00, $0F               ; RED
+              DB    $F0, $00               ; GREEN
+              DB    $F0, $0F               ; YELLOW
+              DB    $0F, $00               ; BLUE
+              DB    $0F, $0F               ; MAGENTA
+              DB    $FF, $00               ; CYAN
+              DB    $FF, $0F               ; WHITE
+              DB    $44, $04               ; Dark grey
+              DB    $00, $07               ; RED (dim)
+              DB    $70, $00               ; GREEN (dim)
+              DB    $70, $07               ; YELLOW (dim)
+              DB    $07, $00               ; BLUE (dim)
+              DB    $07, $07               ; MAGENTA (dim)
+              DB    $77, $00               ; CYAN (dim)
+              DB    $AA, $0A               ; Light grey
 
 PALETTE640    DB    $00, $00               ; BLACK
-              DB    $00, $08               ; RED
-              DB    $80, $08               ; YELLOW
-              DB    $88, $08               ; WHITE
+              DB    $00, $0F               ; RED
+              DB    $F0, $0F               ; YELLOW
+              DB    $FF, $0F               ; WHITE
               DB    $00, $00               ; BLACK
-              DB    $00, $08               ; RED
-              DB    $80, $08               ; YELLOW
-              DB    $88, $08               ; WHITE
+              DB    $00, $0F               ; RED
+              DB    $F0, $0F               ; YELLOW
+              DB    $F8, $0F               ; WHITE
               DB    $00, $00               ; BLACK
-              DB    $00, $08               ; RED
-              DB    $80, $08               ; YELLOW
-              DB    $88, $08               ; WHITE
+              DB    $00, $0F               ; RED
+              DB    $F0, $0F               ; YELLOW
+              DB    $FF, $0F               ; WHITE
               DB    $00, $00               ; BLACK
-              DB    $00, $08               ; RED
-              DB    $80, $08               ; YELLOW
-              DB    $88, $08               ; WHITE
-
-SHRCOLMASK    DB    $00                    ; Colour mask foreground
-SHRBGMASK     DB    $00                    ; Colour mask background
+              DB    $00, $0F               ; RED
+              DB    $F0, $0F               ; YELLOW
+              DB    $FF, $0F               ; WHITE
 
 
 * Addresses of start of text rows in SHR
@@ -113,8 +110,23 @@ SHRVDU22      LDA   #$18                   ; Inhibit SHR & aux HGR shadowing
               JSR   VDU12                  ; Clear text and SHR screen
               RTS
 
+******************************************************************************
+* Data in bank $E1
+******************************************************************************
 
 SHRFONTXPLD   EQU   $A000                  ; Explode SHR font to $E1:A000
+
+* Used for long writes
+SHRCOLMASKL   EQU   $E1B000                ; Colour mask foreground (word)
+SHRBGMASKL    EQU   $E1B002                ; Colour mask background (word)
+
+* Used for reads via data bank reg
+SHRCOLMASK    EQU   $B000                  ; Colour mask foreground (word)
+SHRBGMASK     EQU   $B002                  ; Colour mask background (word)
+
+******************************************************************************
+
+SHRBGMASKA    DW    $0000                  ; Keep a copy in aux mem too
 
 
 * Explode font to generate SHRFONTXPLD table
@@ -249,7 +261,6 @@ SHRCHAR640    PHY                          ; Preserve Y
 
 * Write character to SHR screen
 * On entry: A - character to write
-* TODO: This is for 640 mode only at the moment
 SHRPRCHAR     LDX   VDUPIXELS              ; Pixels per byte
               CPX   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :S1
@@ -298,36 +309,52 @@ SHRPRCH320    SEC
               LDY   VDUADDR2               ; Font src ptr
               LDX   VDUADDR                ; SHR dst ptr
               LDA   !$000000,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10000,X              ; Write 2 bytes to screen
               LDA   !$000002,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10002,X              ; Write 2 bytes to screen
               LDA   !$000004,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E100A0,X              ; Write 2 bytes to screen
               LDA   !$000006,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E100A2,X              ; Write 2 bytes to screen
               LDA   !$000008,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10140,X              ; Write 2 bytes to screen
               LDA   !$00000A,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10142,X              ; Write 2 bytes to screen
               LDA   !$00000C,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E101E0,X              ; Write 2 bytes to screen
               LDA   !$00000E,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E101E2,X              ; Write 2 bytes to screen
               LDA   !$000010,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10280,X              ; Write 2 bytes to screen
               LDA   !$000012,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10282,X              ; Write 2 bytes to screen
               LDA   !$000014,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10320,X              ; Write 2 bytes to screen
               LDA   !$000016,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10322,X              ; Write 2 bytes to screen
               LDA   !$000018,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E103C0,X              ; Write 2 bytes to screen
               LDA   !$00001A,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E103C2,X              ; Write 2 bytes to screen
               LDA   !$00001C,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10460,X              ; Write 2 bytes to screen
               LDA   !$00001E,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10462,X              ; Write 2 bytes to screen
               PLB                          ; Recover data bank
               SEC                          ; Back to emulation mode
@@ -376,20 +403,28 @@ SHRPRCH640    SEC
               LDY   VDUADDR2               ; Font src ptr
               LDX   VDUADDR                ; SHR dst ptr
               LDA   !$000000,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10000,X              ; Write 2 bytes to screen
               LDA   !$000002,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E100A0,X              ; Write 2 bytes to screen
               LDA   !$000004,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10140,X              ; Write 2 bytes to screen
               LDA   !$000006,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E101E0,X              ; Write 2 bytes to screen
               LDA   !$000008,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10280,X              ; Write 2 bytes to screen
               LDA   !$00000A,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10320,X              ; Write 2 bytes to screen
               LDA   !$00000C,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E103C0,X              ; Write 2 bytes to screen
               LDA   !$00000E,Y             ; Read 2 bytes of exploded font
+              JSR   SHRCOLWORD
               STAL  $E10460,X              ; Write 2 bytes to screen
               PLB                          ; Recover data bank
               SEC                          ; Back to emulation mode
@@ -399,15 +434,19 @@ SHRPRCH640    SEC
               RTS
 
 
-* Apply colour masks to byte of character data
-SHRCOLBYTE    PHA                          ; Keep A
+* Apply colour masks to 16 bit word of character data
+* Called in 6816 native mode, 16 bit
+              MX    %00                    ; Tell Merlin 16 bit M & X
+SHRCOLWORD
+              PHA                          ; Keep A
               AND   SHRCOLMASK             ; Mask to set foreground colour
               STA   ZP1                    ; Keep foreground
               PLA                          ; Get original A back
-              EOR   #$FF                   ; Invert bits
+              EOR   #$FFFF                 ; Invert bits
               AND   SHRBGMASK              ; Apply background colour mask
               EOR   ZP1                    ; Combine with foreground
               RTS
+              MX    %11
 
 
 * Calculate character address in SHR screen memory
@@ -443,7 +482,6 @@ SHRNEXTROW    LDA   VDUADDR+0              ; Add 160 to VDUADDR
 * Forwards scroll one line
 * Copy text line A+1 to line A
 * Note: Code for this courtesy Kent Dickey
-* TODO: This is only for 640 mode at present
 SHRSCR1LINE   PHY
               PHX
               STA   VDUADDR+1              ; Screen line -> MSB
@@ -462,7 +500,11 @@ SHRSCR1LINE   PHY
               STA   VDUADDR                ; VDUADDR = line * $500
               LDA   TXTWINLFT              ; Left margin
               ASL                          ; 2 bytes / char
-              AND   #$00ff                 ; Mask to get 8 bit result
+              LDY   VDUPIXELS              ; Pixels per byte
+              CPY   #$02                   ; 2 pixels per byte in 320 mode
+              BNE   :S1
+              ASL                          ; 4 bytes / char
+:S1           AND   #$00ff                 ; Mask to get 8 bit result
               ADC   VDUADDR                ; Add to beginning of line addr
               STA   VDUADDR                ; VDUADDR = start position
               SEP   #$21                   ; M 8 bit, X 16 bit, carry set
@@ -472,7 +514,11 @@ SHRSCR1LINE   PHY
               REP   #$31                   ; M,X 16 bit, carry clear
               MX    %00                    ; Tell Merlin
               ASL                          ; 2 bytes / char
-              AND   #$00ff                 ; Mask to get 8 bit result
+              LDY   VDUPIXELS              ; Pixels per byte
+              CPY   #$02                   ; 2 pixels per byte in 320 mode
+              BNE   :S2
+              ASL                          ; 4 bytes / char
+:S2           AND   #$00ff                 ; Mask to get 8 bit result
               ADC   VDUADDR                ; Add to start position
               TAX                          ; Will use as index
               PEA   #$e1e1                 ; Set databank to $E1
@@ -516,7 +562,6 @@ SHRRSCR1LINE
 
 
 * Clear from current location to EOL
-* TODO: This is only for 640 mode at present
 SHRCLREOL     JSR   SHRCHARADDR
               STZ   VDUADDR+0              ; Addr of start of line
               LDA   #$08                   ; Eight rows of pixels
@@ -526,14 +571,22 @@ SHRCLREOL     JSR   SHRCHARADDR
               TAX
               ASL                          ; 2 bytes / char
               TAY
-              LDA   SHRBGMASK
 :L1           CPX   TXTWINRGT
               BCS   :S1
+              LDA   SHRBGMASKA
               STA   [VDUADDR],Y
               INY
               STA   [VDUADDR],Y
               INY
-              INX
+              LDA   VDUPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :S2
+              LDA   SHRBGMASKA
+              STA   [VDUADDR],Y
+              INY
+              STA   [VDUADDR],Y
+              INY
+:S2           INX
               BRA   :L1
 :S1           JSR   SHRNEXTROW
               DEC   :CTR
@@ -566,25 +619,63 @@ SHRCLEAR      PHP                          ; Disable interrupts
 
 * Set text colour
 * A=txt colour
-* TODO: Need to add support for 320 mode also
 SHRSETTCOL    PHA
+              LDX   VDUPIXELS              ; Pixels per byte
+              CPX   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :MODE0
               AND   #$80
-              BEQ   :FOREGND
+              BEQ   :FORE320
+              PLA
+              AND   #$0F
+              TAX
+              LDA   :MASKS320,X            ; Lookup mask in table
+              STAL  SHRBGMASKL             ; Set colour mask (BG)
+              STAL  SHRBGMASKL+1
+              STA   SHRBGMASKA
+              RTS
+:FORE320      PLA
+              AND   #$0F
+              TAX
+              LDA   :MASKS320,X            ; Lookup mask in table
+              STAL  SHRCOLMASKL            ; Set colour mask (FG)
+              STAL  SHRCOLMASKL+1
+              RTS
+:MODE0        AND   #$80
+              BEQ   :FORE640
               PLA
               AND   #$03
               TAX
               LDA   :MASKS640,X            ; Lookup mask in table
-              STA   SHRBGMASK              ; Set colour mask (BG)
+              STAL  SHRBGMASKL             ; Set colour mask (BG)
+              STAL  SHRBGMASKL+1
+              STA   SHRBGMASKA
               RTS
-:FOREGND      PLA
+:FORE640      PLA
               AND   #$03
               TAX
               LDA   :MASKS640,X            ; Lookup mask in table
-              STA   SHRCOLMASK             ; Set colour mask (FG)
+              STAL  SHRCOLMASKL            ; Set colour mask (FG)
+              STAL  SHRCOLMASKL+1
               RTS
 :MASKS640     DB    %00000000
               DB    %01010101
               DB    %10101010
               DB    %11111111
+:MASKS320     DB    $00
+              DB    $11
+              DB    $22
+              DB    $33
+              DB    $44
+              DB    $55
+              DB    $66
+              DB    $77
+              DB    $88
+              DB    $99
+              DB    $AA
+              DB    $BB
+              DB    $CC
+              DB    $DD
+              DB    $EE
+              DB    $FF
 
 
