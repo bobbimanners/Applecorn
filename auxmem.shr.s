@@ -341,73 +341,68 @@ SHRNEXTROW    LDA   VDUADDR+0              ; Add 160 to VDUADDR
 * Copy text line A+1 to line A
 * Note: Code for this courtesy Kent Dickey
 * TODO: This is only for 640 mode at present
-SHRSCR1LINE
-; acc=line to scroll (0-24)
-; nead to calc acc * $500.  Could use a table, but this is about as fast
-        phy
-	phx
-	sta	VDUADDR+1
-	stz	VDUADDR
-	php
-	sei
-	clc
-	xce
-        phb
-	rep	#$31                    ; M,X 16 bit, carry clear
-        MX      %00                     ; Tell Merlin
-	lda	VDUADDR
-	asl
-	asl
-	adc	VDUADDR
-	sta	VDUADDR			;; VDUADDR = line * $500
-	lda	TXTWINLFT
-	asl
-	and	#$00ff
-	adc	VDUADDR
-	sta	VDUADDR			; VDUADDR = Minimum position
-	sep	#$21			; M 8 bit, X 16 bit, carry set
-        MX      %10                     ; Tell Merlin
-	lda	TXTWINRGT
-	sbc	TXTWINLFT
-	rep	#$31                    ; M,X 16 bit, carry clear
-        MX      %00                     ; Tell Merlin
-	asl
-	and	#$00ff
-	adc	VDUADDR
-	tax
-	pea	#$e1e1
-	plb
-	plb
-:loop1
-	lda	$2500,x			;; 2 bytes, row 0
-	sta	$2000,x
-	lda	$25a0,x			; row 1
-	sta	$20a0,x
-	lda	$2640,x			; row 2
-	sta	$2140,x
-	lda	$26e0,x			; row 3
-	sta	$21e0,x
-	lda	$2780,x			; row 4
-	sta	$2280,x
-	lda	$2820,x			; row 5
-	sta	$2320,x
-	lda	$28c0,x			; row 6
-	sta	$23c0,x
-	lda	$2960,x			; row 7
-	sta	$2460,x
-	dex
-	dex
-	bmi	:done
-	cpx	VDUADDR
-	bcs	:loop1
-:done
-        plb
-	sec
-	xce
-	plp
-	plx
-	ply
-	rts
+SHRSCR1LINE   PHY
+              PHX
+              STA   VDUADDR+1
+              STZ   VDUADDR
+              PHP
+              SEI
+              CLC
+              XCE
+              PHB
+              REP   #$31                   ; M,X 16 bit, carry clear
+              MX    %00                    ; Tell Merlin
+              LDA   VDUADDR
+              ASL
+              ASL
+              ADC   VDUADDR
+              STA   VDUADDR                ; VDUADDR = line * $500
+              LDA   TXTWINLFT
+              ASL
+              AND   #$00ff
+              ADC   VDUADDR
+              STA   VDUADDR                ; VDUADDR = Minimum position
+              SEP   #$21                   ; M 8 bit, X 16 bit, carry set
+              MX    %10                    ; Tell Merlin
+              LDA   TXTWINRGT
+              SBC   TXTWINLFT
+              REP   #$31                   ; M,X 16 bit, carry clear
+              MX    %00                    ; Tell Merlin
+              ASL
+              AND   #$00ff
+              ADC   VDUADDR
+              TAX
+              PEA   #$e1e1
+              PLB
+              PLB
+:LOOP1        LDA   $2500,x                ; 2 bytes, row 0
+              STA   $2000,x
+              LDA   $25a0,x                ; row 1
+              STA   $20a0,x
+              LDA   $2640,x                ; row 2
+              STA   $2140,x
+              LDA   $26e0,x                ; row 3
+              STA   $21e0,x
+              LDA   $2780,x                ; row 4
+              STA   $2280,x
+              LDA   $2820,x                ; row 5
+              STA   $2320,x
+              LDA   $28c0,x                ; row 6
+              STA   $23c0,x
+              LDA   $2960,x                ; row 7
+              STa   $2460,x
+              DEX
+              DEX
+              BMI   :DONE
+              CPX   VDUADDR
+              BCS   :LOOP1
+:DONE         PLB
+              SEC
+              XCE
+              PLP
+              PLX
+              PLY
+              RTS
 
 
 * Reverse scroll one line
