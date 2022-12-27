@@ -250,7 +250,95 @@ SHRCHAR640    PHY                          ; Preserve Y
 * Write character to SHR screen
 * On entry: A - character to write
 * TODO: This is for 640 mode only at the moment
-SHRPRCHAR     SEC
+SHRPRCHAR     LDX   VDUPIXELS              ; Pixels per byte
+              CPX   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :S1
+              JMP   SHRPRCH320
+:S1           JMP   SHRPRCH640
+
+
+* Write character to SHR screen in 320 pixel mode
+SHRPRCH320    SEC
+              SBC   #32
+              STA   VDUADDR2+0             ; A*32 -> VDUADDR2
+              STZ   VDUADDR2+1
+              ASL   VDUADDR2+0
+              ROL   VDUADDR2+1
+              ASL   VDUADDR2+0
+              ROL   VDUADDR2+1
+              ASL   VDUADDR2+0
+              ROL   VDUADDR2+1
+              ASL   VDUADDR2+0
+              ROL   VDUADDR2+1
+              ASL   VDUADDR2+0
+              ROL   VDUADDR2+1
+              CLC                          ; SHRFONTXPLD+A*32 -> VDUADDR2
+              LDA   VDUADDR2+0
+              ADC   #<SHRFONTXPLD
+              STA   VDUADDR2+0
+              LDA   VDUADDR2+1
+              ADC   #>SHRFONTXPLD
+              STA   VDUADDR2+1
+              LDA   #$E1
+              STA   VDUBANK2
+              JSR   SHRCHARADDR            ; Screen addr in VDUADDR
+
+* 65816 code contributed by John Brooks follows ...
+
+              PHP                          ; Disable interrupts
+              SEI
+              PHB                          ; Save data bank
+              LDA   VDUBANK2               ; Push font Bank onto stack
+              PHA
+              PLB                          ; Set data bank to font bank
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDY   VDUADDR2               ; Font src ptr
+              LDX   VDUADDR                ; SHR dst ptr
+              LDA   !$000000,Y             ; Read 2 bytes of exploded font
+              STAL  $E10000,X              ; Write 2 bytes to screen
+              LDA   !$000002,Y             ; Read 2 bytes of exploded font
+              STAL  $E10002,X              ; Write 2 bytes to screen
+              LDA   !$000004,Y             ; Read 2 bytes of exploded font
+              STAL  $E100A0,X              ; Write 2 bytes to screen
+              LDA   !$000006,Y             ; Read 2 bytes of exploded font
+              STAL  $E100A2,X              ; Write 2 bytes to screen
+              LDA   !$000008,Y             ; Read 2 bytes of exploded font
+              STAL  $E10140,X              ; Write 2 bytes to screen
+              LDA   !$00000A,Y             ; Read 2 bytes of exploded font
+              STAL  $E10142,X              ; Write 2 bytes to screen
+              LDA   !$00000C,Y             ; Read 2 bytes of exploded font
+              STAL  $E101E0,X              ; Write 2 bytes to screen
+              LDA   !$00000E,Y             ; Read 2 bytes of exploded font
+              STAL  $E101E2,X              ; Write 2 bytes to screen
+              LDA   !$000010,Y             ; Read 2 bytes of exploded font
+              STAL  $E10280,X              ; Write 2 bytes to screen
+              LDA   !$000012,Y             ; Read 2 bytes of exploded font
+              STAL  $E10282,X              ; Write 2 bytes to screen
+              LDA   !$000014,Y             ; Read 2 bytes of exploded font
+              STAL  $E10320,X              ; Write 2 bytes to screen
+              LDA   !$000016,Y             ; Read 2 bytes of exploded font
+              STAL  $E10322,X              ; Write 2 bytes to screen
+              LDA   !$000018,Y             ; Read 2 bytes of exploded font
+              STAL  $E103C0,X              ; Write 2 bytes to screen
+              LDA   !$00001A,Y             ; Read 2 bytes of exploded font
+              STAL  $E103C2,X              ; Write 2 bytes to screen
+              LDA   !$00001C,Y             ; Read 2 bytes of exploded font
+              STAL  $E10460,X              ; Write 2 bytes to screen
+              LDA   !$00001E,Y             ; Read 2 bytes of exploded font
+              STAL  $E10462,X              ; Write 2 bytes to screen
+              PLB                          ; Recover data bank
+              SEC                          ; Back to emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP                          ; Normal service resumed
+              RTS
+
+
+* Write character to SHR screen in 640 pixel mode
+SHRPRCH640    SEC
               SBC   #32
               STA   VDUADDR2+0             ; A*16 -> VDUADDR2
               STZ   VDUADDR2+1
@@ -278,7 +366,7 @@ SHRPRCHAR     SEC
               PHP                          ; Disable interrupts
               SEI
               PHB                          ; Save data bank
-              LDA   VDUADDR2+2             ; Push font Bank onto stack
+              LDA   VDUBANK2               ; Push font Bank onto stack
               PHA
               PLB                          ; Set data bank to font bank
               CLC                          ; 65816 native mode
