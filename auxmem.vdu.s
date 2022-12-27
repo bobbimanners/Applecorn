@@ -920,7 +920,6 @@ VDU20LP       STA   TXTFGD,X               ; Clear all colours
 VDU17         LDA   VDUQ+8
               CMP   #$C0
               BCS   VDU17BORDER
-* TO DO *
               JSR   HGRSETTCOL 
               JMP   SHRSETTCOL
 VDU17BORDER   AND   #$0F

@@ -261,7 +261,10 @@ SHRCHAR640    PHY                          ; Preserve Y
 
 * Write character to SHR screen
 * On entry: A - character to write
-SHRPRCHAR     LDX   VDUPIXELS              ; Pixels per byte
+SHRPRCHAR     CMP   #128                   ; Check char in range
+              BCC   :INRANGE
+              LDA   #127                   ; If not, use block char
+:INRANGE      LDX   VDUPIXELS              ; Pixels per byte
               CPX   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :S1
               JMP   SHRPRCH320
