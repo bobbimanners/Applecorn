@@ -265,25 +265,30 @@ SHRPRCHAR     SEC
               LDA   #$E1
               STA   VDUBANK2
               JSR   SHRCHARADDR            ; Screen addr in VDUADDR
-              LDX   #$00                   ; First row of char
-:L1           LDY   #$00
-              LDA   [VDUADDR2]             ; Load exploded font data 1st byte
-              JSR   SHRCOLBYTE
-              STA   [VDUADDR]              ; Store on screen
-              INY
-              INC   VDUADDR2+0             ; Increment exploded font ptr
-              BNE   :S1
-              INC   VDUADDR2+1
-:S1           LDA   [VDUADDR2]             ; Load exploded font data 2nd byte
-              JSR   SHRCOLBYTE
-              STA   [VDUADDR],Y            ; Store on screen
-              INC   VDUADDR2+0             ; Increment exploded font ptr
-              BNE   :S2
-              INC   VDUADDR2+1
-:S2           JSR   SHRNEXTROW             ; Add 160 to VDUADDR
-              INX                          ; Next row of font
-              CPX   #$08                   ; Last row?
-              BNE   :L1
+
+* 65816 code contributed by John Brooks follows ...
+
+              PHB                          ; Save data bank
+              LDA   VDUADDR2+2             ; Push font Bank onto stack
+              PHA
+              PLB                          ; Set data bank to font bank
+              CLC
+              XCE
+              REP   #$30
+              LDY   VDUADDR2               ; Font src ptr
+              LDX   VDUADDR                ; SHR dst ptr
+SrcFont       =     $000000
+DstShr        =     $E10000
+              LUP   8
+              LDA   !SrcFont,Y
+              STAL  DstShr,X   
+SrcFont       =     SrcFont+2
+DstShr        =     DstShr+160
+              --^           
+              PLB
+              SEC
+              XCE
+              MX    %11
               RTS
 
 
