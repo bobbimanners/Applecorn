@@ -191,25 +191,42 @@ SHRXPLDCHAR   PHA
 
 * Draw one pixel row of font in 320 mode
 * 4 bytes per char, 4 bits per pixel
-* TODO: Implement this
-SHRCHAR320    PHY
-              LDA   #$FF
-              LDY   #$00
+* On entry: A contains row of font data
+SHRCHAR320    PHY                          ; Preserve Y
+              LDY   #$00                   ; Dest byte index
+:L0           STZ   ZP2
+              LDX   #$00                   ; Source bit index
+:L1           ASL                          ; MS bit -> C
+              PHP                          ; Preserve C
+              ROL   ZP2                    ; C -> LS bit
+              PLP                          ; Recover C
+              PHP
+              ROL   ZP2                    ; C -> LS bit
+              PLP                          ; Recover C
+              PHP
+              ROL   ZP2                    ; C -> LS bit
+              PLP                          ; Recover C
+              ROL   ZP2                    ; C -> LS bit
+              INX
+              CPX   #$02                   ; Processed two bits of font?
+              BNE   :L1
+              PHA                          ; Preserve partially shifted font
+              LDA   ZP2
               STA   [VDUADDR],Y
+              PLA                          ; Recover partially shifted font
               INY
-              STA   [VDUADDR],Y
-              INY
-              STA   [VDUADDR],Y
-              INY
-              STA   [VDUADDR],Y
-              PLY
+              CPY   #$04                   ; Done 4 bytes?
+              BNE   :L0
+              PLY                          ; Recover Y
               RTS
 
 
 * Draw one pixel row of font in 640 mode
 * 2 bytes per char, 2 bits per pixel
-SHRCHAR640    PHY
-              STZ   ZP2
+* On entry: A contains row of font data
+SHRCHAR640    PHY                          ; Preserve Y
+              LDY   #$00                   ; Dest byte index
+:L0           STZ   ZP2
               LDX   #$00                   ; Source bit index
 :L1           ASL                          ; MS bit -> C
               PHP                          ; Preserve C
@@ -219,24 +236,14 @@ SHRCHAR640    PHY
               INX
               CPX   #$04
               BNE   :L1
-              PHA
+              PHA                          ; Preserve partially shifted font
               LDA   ZP2
-              STA   [VDUADDR]
-              PLA
-              STZ   ZP2
-              LDX   #$00
-:L2           ASL                          ; MS bit -> C
-              PHP                          ; Preserve C
-              ROL   ZP2                    ; C -> LS bit
-              PLP                          ; Recover C
-              ROL   ZP2                    ; C -> LS bit
-              INX
-              CPX   #$04
-              BNE   :L2
-              LDA   ZP2
-              LDY   #$01
               STA   [VDUADDR],Y
-              PLY
+              PLA                          ; Recover partially shifted font
+              INY
+              CPY   #$02                   ; Done 2 bytes?
+              BNE   :L0
+              PLY                          ; Recover Y
               RTS
 
 
