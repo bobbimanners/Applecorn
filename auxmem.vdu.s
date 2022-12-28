@@ -889,10 +889,13 @@ VDU16         BIT   VDUSCREEN
 ****************
 * VDU 20 - Reset to default colours
 VDU20
+              BIT   VDUBANK                ; Check if GS
+              BPL   :S1                    ; If not, skip SHR call
+              JSR   SHRDEFPAL              ; Default palette
 * THE FOLLOWING TWO LINES ARE FOR GS ONLY & NOT SAFE ON //c
 *             LDA   #$F0
 *             STA   TBCOLOR                ; Set text palette
-              LDX   #VDUCOLEND-TXTFGD
+:S1           LDX   #VDUCOLEND-TXTFGD
               LDA   #$00
 VDU20LP       STA   TXTFGD,X               ; Clear all colours
               DEX                          ; and gcol actions
@@ -961,9 +964,10 @@ VDU19         LDA   VDUQ+5                 ; Second parm
               LDA   VDUQ+5                 ; Second parm (physcol)
               ASL                          ; Double it
               TAY                          ; Phys colour in X
-* TODO: Only call this if GS ...
+              BIT   VDUBANK                ; Check if GS
+              BPL   :S1                    ; If not, skip SHR call
               JSR   SHRPALCHANGE
-              RTS
+:S1           RTS
 :RGB          LDA   VDUQ+6                 ; 3rd parm (red)
               AND   #$0F
               TAY                          ; Red in Y
@@ -980,9 +984,10 @@ VDU19         LDA   VDUQ+5                 ; Second parm
               LDA   VDUQ+8                 ; 5th parm (blue)
               AND   #$0F
               ORA   :TMP                   ; Green+Blue in A
-* TODO: Only call this if GS ...
+              BIT   VDUBANK                ; Check if GS
+              BPL   :S2                    ; If not, skip SHR call
               JSR   SHRPALCUSTOM
-              RTS
+:S2           RTS
 :TMP          DB    $00
 
 
