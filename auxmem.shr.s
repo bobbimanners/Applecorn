@@ -700,9 +700,15 @@ SHRDEFPAL     LDY   #00                    ; Palette offset for 320 mode
 * Assign a 'physical' colour from the 16 colour palette to a
 * 'logical' colour for the current mode
 * On entry: X=logical colour, Y=physical colour
-SHRPALCHANGE  LDA   VDUPIXELS              ; Pixels per byte
+SHRPALCHANGE  TYA
+              AND   #%00011110             ; Has already been shifted
+              TAY
+              LDA   VDUPIXELS              ; Pixels per byte
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BEQ   :MODE320
+              TXA
+              AND   #%00000110             ; Has already been shifted
+              TAX
               LDA   PALETTE320,Y           ; Byte 1 of physical colour
               STAL  $E19E00,X              ; Store in logical slot (4 copies)
               STAL  $E19E00+8,X
@@ -714,7 +720,10 @@ SHRPALCHANGE  LDA   VDUPIXELS              ; Pixels per byte
               STAL  $E19E00+17,X
               STAL  $E19E00+25,X
               RTS
-:MODE320      LDA   PALETTE320,Y           ; Byte 1 of physical colour
+:MODE320      TXA
+              AND   #%00011110             ; Has already been shifted
+              TAX
+              LDA   PALETTE320,Y           ; Byte 1 of physical colour
               STAL  $E19E00,X              ; Store in logical slot
               LDA   PALETTE320+1,Y         ; Byte 2 of physical colour
               STAL  $E19E00+1,X            ; Store in logical slot
@@ -727,6 +736,9 @@ SHRPALCUSTOM  PHA                          ; Preserve GB components
               LDA   VDUPIXELS              ; Pixels per byte
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BEQ   :MODE320
+              TXA
+              AND   #%00000110             ; Has already been shifted
+              TAX
               PLA                          ; Recover GB components
               STAL  $E19E00,X              ; Store in logical slot (4 copies)
               STAL  $E19E00+8,X
@@ -738,7 +750,10 @@ SHRPALCUSTOM  PHA                          ; Preserve GB components
               STAL  $E19E00+17,X
               STAL  $E19E00+25,X
               RTS
-:MODE320      PLA                          ; Recover GB components
+:MODE320      TXA
+              AND   #%00011110             ; Has already been shifted
+              TAX
+              PLA                          ; Recover GB components
               STAL  $E19E00,X              ; Store in logical slot
               TYA                          ; R component
               STAL  $E19E00+1,X            ; Store in logical slot

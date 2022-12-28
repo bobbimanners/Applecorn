@@ -963,6 +963,7 @@ VDU19         LDA   VDUQ+5                 ; Second parm
               TAY                          ; Phys colour in X
 * TODO: Only call this if GS ...
               JSR   SHRPALCHANGE
+              RTS
 :RGB          LDA   VDUQ+6                 ; 3rd parm (red)
               AND   #$0F
               TAY                          ; Red in Y
