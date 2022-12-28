@@ -15,6 +15,7 @@ SCB640        EQU   $80                    ; SCB for 640 mode
 * For 4 colour modes ...
 * BLACK, RED, YELLOW, WHITE
 
+*                    GB   0R
 PALETTE320    DB    $00, $00               ; BLACK
               DB    $00, $0F               ; RED
               DB    $F0, $00               ; GREEN
@@ -24,12 +25,12 @@ PALETTE320    DB    $00, $00               ; BLACK
               DB    $FF, $00               ; CYAN
               DB    $FF, $0F               ; WHITE
               DB    $44, $04               ; Dark grey
-              DB    $00, $07               ; RED (dim)
-              DB    $70, $00               ; GREEN (dim)
-              DB    $70, $07               ; YELLOW (dim)
-              DB    $07, $00               ; BLUE (dim)
-              DB    $07, $07               ; MAGENTA (dim)
-              DB    $77, $00               ; CYAN (dim)
+              DB    $88, $0F               ; RED (light)
+              DB    $F8, $08               ; GREEN (light)
+              DB    $F8, $0F               ; YELLOW (light)
+              DB    $8F, $08               ; BLUE (light)
+              DB    $8F, $0F               ; MAGENTA (light)
+              DB    $FF, $08               ; CYAN (light)
               DB    $AA, $0A               ; Light grey
 
 PALETTE640    DB    $00, $00               ; BLACK
@@ -88,24 +89,16 @@ SHRVDU22      LDA   #$18                   ; Inhibit SHR & aux HGR shadowing
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
               LDA   #SCB320                ; SCB for 320-mode
-              LDY   #00                    ; Palette offset
               STZ   CLR80VID               ; 40 column text mode
               BRA   :S1
 :MODE0        LDA   #SCB640                ; SCB for 640-mode
-              LDY   #32                    ; Palette offset
               STZ   SET80VID               ; 80 column text mode
 :S1           LDX   #$00
 :L1           STAL  $E19D00,X              ; SCBs begin at $9D00 in $E1
               INX
               CPX   #200                   ; 200 lines so 200 SCBs
               BNE   :L1
-              LDX   #$00
-:L2           LDA   PALETTE320,Y           ; Offset in Y computed above
-              STAL  $E19E00,X              ; Palettes begin at $9E00 in $E1
-              INX
-              INY
-              CPX   #32                    ; 32 bytes in palette
-              BNE   :L2
+              JSR   SHRDEFPAL              ; Default palette
               JSR   SHRXPLDFONT            ; Explode font -> SHRFONTXPLD table
               JSR   VDU12                  ; Clear text and SHR screen
               RTS
@@ -686,5 +679,70 @@ SHRSETTCOL    PHA
               DB    $DD
               DB    $EE
               DB    $FF
+
+
+* Set up default palette
+SHRDEFPAL     LDY   #00                    ; Palette offset for 320 mode
+              LDA   VDUPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BEQ   :S1
+              LDY   #32                    ; Palette offset for 640 mode
+:S1           LDX   #$00
+:L1           LDA   PALETTE320,Y           ; Offset in Y computed above
+              STAL  $E19E00,X              ; Palettes begin at $9E00 in $E1
+              INX
+              INY
+              CPX   #32                    ; 32 bytes in palette
+              BNE   :L1
+              RTS
+
+
+* Assign a 'physical' colour from the 16 colour palette to a
+* 'logical' colour for the current mode
+* On entry: X=logical colour, Y=physical colour
+SHRPALCHANGE  LDA   VDUPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BEQ   :MODE320
+              LDA   PALETTE320,Y           ; Byte 1 of physical colour
+              STAL  $E19E00,X              ; Store in logical slot (4 copies)
+              STAL  $E19E00+8,X
+              STAL  $E19E00+16,X
+              STAL  $E19E00+24,X
+              LDA   PALETTE320+1,Y         ; Byte 2 of physical colour
+              STAL  $E19E00+1,X            ; Store in logical slot (4 copies)
+              STAL  $E19E00+9,X
+              STAL  $E19E00+17,X
+              STAL  $E19E00+25,X
+              RTS
+:MODE320      LDA   PALETTE320,Y           ; Byte 1 of physical colour
+              STAL  $E19E00,X              ; Store in logical slot
+              LDA   PALETTE320+1,Y         ; Byte 2 of physical colour
+              STAL  $E19E00+1,X            ; Store in logical slot
+              RTS
+
+
+* Assign a custom RGB colour to a 'logical' colour
+* On entry: X=logical colour, A=GB components, Y=R component
+SHRPALCUSTOM  PHA                          ; Preserve GB components
+              LDA   VDUPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BEQ   :MODE320
+              PLA                          ; Recover GB components
+              STAL  $E19E00,X              ; Store in logical slot (4 copies)
+              STAL  $E19E00+8,X
+              STAL  $E19E00+16,X
+              STAL  $E19E00+24,X
+              TYA                          ; R component
+              STAL  $E19E00+1,X            ; Store in logical slot (4 copies)
+              STAL  $E19E00+9,X
+              STAL  $E19E00+17,X
+              STAL  $E19E00+25,X
+              RTS
+:MODE320      PLA                          ; Recover GB components
+              STAL  $E19E00,X              ; Store in logical slot
+              TYA                          ; R component
+              STAL  $E19E00+1,X            ; Store in logical slot
+              RTS
+
 
 

@@ -951,7 +951,38 @@ VDU18A        LDA   VDUQ+7                 ; GCOL action
               JMP   HGRSETGCOL
 
 * VDU 19 - Select palette colours
-VDU19         RTS
+* VDU 19, logcol, physcol, red, green, blue
+VDU19         LDA   VDUQ+5                 ; Second parm
+              CMP   #16                    ; If 16, then use RBG values
+              BEQ   :RGB
+              LDA   VDUQ+4                 ; First parm (logcol)
+              ASL                          ; Double it
+              TAX                          ; Log colour in X
+              LDA   VDUQ+5                 ; Second parm (physcol)
+              ASL                          ; Double it
+              TAY                          ; Phys colour in X
+* TODO: Only call this if GS ...
+              JSR   SHRPALCHANGE
+:RGB          LDA   VDUQ+6                 ; 3rd parm (red)
+              AND   #$0F
+              TAY                          ; Red in Y
+              LDA   VDUQ+4                 ; First parm (logcol)
+              ASL                          ; Double it
+              TAX                          ; Log colour in X
+              LDA   VDUQ+7                 ; 4th parm (green)
+              AND   #$0F
+              ASL
+              ASL
+              ASL
+              ASL
+              STA   :TMP
+              LDA   VDUQ+8                 ; 5th parm (blue)
+              AND   #$0F
+              ORA   :TMP                   ; Green+Blue in A
+* TODO: Only call this if GS ...
+              JSR   SHRPALCUSTOM
+              RTS
+:TMP          DB    $00
 
 
 * Window (viewport) control
