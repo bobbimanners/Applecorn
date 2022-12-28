@@ -892,16 +892,14 @@ VDU20
               BIT   VDUBANK                ; Check if GS
               BPL   :S1                    ; If not, skip SHR call
               JSR   SHRDEFPAL              ; Default palette
-* THE FOLLOWING TWO LINES ARE FOR GS ONLY & NOT SAFE ON //c
-*             LDA   #$F0
-*             STA   TBCOLOR                ; Set text palette
+              LDA   #$F0
+              STA   TBCOLOR                ; Set text palette B&W
+              STZ   CLOCKCTL               ; Set border
 :S1           LDX   #VDUCOLEND-TXTFGD
               LDA   #$00
 VDU20LP       STA   TXTFGD,X               ; Clear all colours
               DEX                          ; and gcol actions
               BPL   VDU20LP
-* THE FOLLOWING LINE IS FOR GS ONLY & NOT SAFE ON //c
-*             STA   CLOCKCTL               ; Set border
               LDA   #$80
               JSR   HGRSETTCOL             ; Set txt background
               JSR   SHRSETTCOL             ; Set txt background

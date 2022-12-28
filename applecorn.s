@@ -93,7 +93,7 @@ KBDSTRB     EQU   $C010
 RDVBL       EQU   $C019
 RD80VID     EQU   $C01F
 
-TBCOLOR     EQU   $C022       ; GS-specific, used but commented out
+TBCOLOR     EQU   $C022       ; GS-specific, text colour reg
 NEWVIDEO    EQU   $C029       ; GS-specific, new video register
 
 SPKR        EQU   $C030
