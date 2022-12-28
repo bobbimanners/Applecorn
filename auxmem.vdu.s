@@ -628,6 +628,7 @@ VDU12         STZ   FXLINES
               BIT   VDUSCREEN
               BPL   :NOTHGR
               JSR   HGRCLREOL
+              BRA   :NOTSHR
 :NOTHGR       BVC   :NOTSHR
               JSR   SHRCLREOL
 :NOTSHR       LDA   VDUTEXTY               ; ROW
@@ -727,6 +728,7 @@ SCROLLER      LDA   TXTWINTOP
               BIT   VDUSCREEN
               BPL   :NOTHGR
               JSR   HGRSCR1LINE            ; Scroll HGR screen
+              BRA   :NOTSHR
 :NOTHGR       BVC   :NOTSHR
               JSR   SHRSCR1LINE            ; Scroll SHR screen
 :NOTSHR       PLA
@@ -750,6 +752,7 @@ RSCROLLER     DEC   TXTWINTOP
               BIT   VDUSCREEN
               BPL   :NOTHGR
               JSR   HGRRSCR1LINE           ; Reverse scroll HGR screen
+              BRA   :NOTSHR
 :NOTHGR       BVC   :NOTSHR
               JSR   SHRRSCR1LINE           ; Reverse scroll SHR screen
 :NOTSHR       PLA

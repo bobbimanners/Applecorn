@@ -559,12 +559,7 @@ SHRRSCR1LINE
 
 
 * Clear from current location to EOL
-* TODO: I added a check on entry to bail out if not a GS in order to 
-*       fix #235. But I am not sure why this code is ever called in HGR mode.
-SHRCLREOL     BIT   VDUBANK                ; Check it is a GS ..
-              BMI   :GS                    ; .. easier to check here
-              RTS
-:GS           JSR   SHRCHARADDR
+SHRCLREOL     JSR   SHRCHARADDR
               STZ   VDUADDR+0              ; Addr of start of line
               LDA   #$08                   ; Eight rows of pixels
               STA   :CTR
