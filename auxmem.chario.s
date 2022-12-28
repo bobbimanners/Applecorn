@@ -36,6 +36,8 @@
 * 12-Dec-2022 Test code to write *KEY data to mainmem.
 * 24-Dec-2022 Minor bit of tidying.
 * 26-Dec-2022 Integrated ADB extended keyboard keys.
+* 27-Dec-2022 Bobbi's keyboard uses $60+n extended keys.
+* TO DO: Need to special-case RAlt-2, RAlt-6 when RAlt also holds Ctrl.
 
 
 * Hardware locations
@@ -120,8 +122,9 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
              LDA   #$80               ; Keypad keys are function keys
              STA   FXKEYPADBASE
              JSR   SOFTKEYCHK         ; Clear soft keys
-             LDX   #$C3               ; Default KBD=Native, MODE=3
-             STX   FX254VAR           ; b7-b4=default KBD map, b3-b0=default MODE
+*             LDX   #$83               ; Default KBD=Native, MODE=3
+*             STX   FX254VAR           ; b7-b4=default KBD map, b3-b0=default MODE
+             LDX   #$03               ; Default MODE=3 (map already <$C0 by startup)
              BIT   SETV               ; Set V
              JSR   KBDTEST            ; Test if key being pressed
              BCS   :KBDINITOK         ; Return default MODE
@@ -269,6 +272,11 @@ NEGCALL      >>>   XF2MAIN,MACHRD     ; Try to read Machine ID
 
 * SOFT KEY PROCESSING
 * ===================
+OSDECNUM     EQU   OSTEMP
+
+* *SHOW (<num>)
+* -------------
+STARSHOW     RTS
 
 * *KEY <num> <GSTRANS string>
 * ---------------------------
@@ -290,42 +298,24 @@ ERRKEYUSED   BRK
 * out halfway through inserting a string, and we mustn't
 * have mainmem paged in while parsing the string as the
 * string might be "underneath" the memory we've paged in,
-* we don't know how long the new definition is and if
-* it will fit into memory until after we've parsed it, so
-* we either have to store it to a temp area or parse it
-* twice.
+* we don't know how long the new definition is and if it
+* will fit into memory until after we've parsed it, so we
+* either have to store it to a temp area or parse it twice.
 *
 * All this, and we need a structure that is reasonably coded,
 * but with the priority to be easy for KEYREAD to extract
 * from (as called more often), even if at expense of storing
 * being more complex.
 *
-* Optimisations:
-* BBC doesn't care if the new definition is valid, it removes
-* the current definition before parsing, so a parse error
-* results in the definition being cleared.
-* eg *KEY 1 HELLO, *KEY 1 X gives Bad string and key 1=""
+* Soft key definition layout:
+* FKEYLENS+n - length of key n
+* FKEYBUF+n  - start of key n where x=SUM(len(0)...len(n-1))
 *
-* BBC uses (simplified):
-* SOFTBUF+key+0  -> start of definition
-* SOFTBUF+key+1  -> after last byte of definition
-* SOFTBUF+16     -> free space after end of last definition
-*  definitions stored in order of creation
+* SCANDEC stores number in OSDECNUM, so we can keep it there
+* We also have OSKBDx variables available for shuffling code
 *
-* Master uses:
-* SOFTBUF+key    -> lo.start of definition
-* SOFTBUF+key+17 -> hi.start of definition
-* SOFTBUF+key+1  -> lo.after last byte definition
-* SOFTBUF+key+18 -> hi.after last byte definition
-* SOFTBUF+16/33  -> free space after last byte last definition
-*  definitions stored in key order
-*
-* Initial development layout:
-* 00..0F -> length of string 0..15
-* 10...  -> strings in key order
-* (len0+len1+...len15) => start of free space
-*
-STARKEY1     STA   FKEYNUM            ; Key number being defined
+STARKEY1
+*            STA   FKEYNUM            ; Key number being defined
              JSR   KEYOPENGAP
              JSR   SKIPCOMMA
              SEC
@@ -339,7 +329,8 @@ STARKEYLP1   JSR   GSREAD
              INX
              CPX   MOVEDST            ; See if we are out of space
              BNE   STARKEYLP1
-             LDX   FKEYNUM
+*             LDX   FKEYNUM
+             LDX   OSDECNUM
              >>>   WRTMAIN            ; Write main memory
              STZ   FKEYLENS,X         ; Out of space. Set len=0
              >>>   WRTAUX             ; Back to writing aux again
@@ -347,13 +338,14 @@ STARKEYLP1   JSR   GSREAD
 STARKEYEND   TXA                      ; Last idx+1
              SEC                      ; Compute length
              SBC   KEYINS
-             LDX   FKEYNUM
+*             LDX   FKEYNUM
+             LDX   OSDECNUM
              >>>   WRTMAIN            ; Write main memory
              STA   FKEYLENS,X         ; Store length of new def
              >>>   WRTAUX             ; Back to writing aux again
 STARKEYCLS   JSR   KEYCLSGAP
              RTS
-FKEYNUM      DB    $00
+* FKEYNUM      DB    $00
 KEYINS       DB    $00
 
 
@@ -363,10 +355,12 @@ KEYINS       DB    $00
 KEYOPENGAP   PHA
              PHX
              PHY
-             LDX   FKEYNUM            ; Key being defined
+*             LDX   FKEYNUM            ; Key being defined
+             LDX   OSDECNUM
              JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
              STA   KEYINS             ; Offset for insert
-             LDX   FKEYNUM            ; Key being defined
+*             LDX   FKEYNUM            ; Key being defined
+             LDX   OSDECNUM
              INX
              JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
              STA   MOVESRC            ; Source offset for move
@@ -398,7 +392,8 @@ KEYCLSGAP    PHA
              STA   MOVELEN            ; Length for move
              LDA   MOVEDST            ; Old dest ...
              STA   MOVESRC            ; ... is new source
-             LDX   FKEYNUM            ; Key being defined
+*             LDX   FKEYNUM            ; Key being defined
+             LDX   OSDECNUM
              INX
              JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
              STA   MOVEDST            ; New dest
@@ -501,7 +496,8 @@ KEYREAD2     JSR   KBDREAD            ; Fetch character from KBD "buffer"
              BPL   KEYREADOK          ; Not top-bit key
              AND   #$CF               ; Drop Shift/Ctrl bits
              CMP   #$C9
-             BCC   KEYSOFTY           ; Not cursor key
+             BCC   KEYSOFTHI          ; Not cursor key
+*             BCC   KEYSOFTY           ; Not cursor key
              LDX   FX4VAR
              BEQ   KEYCURSOR          ; *FX4,0 - editing keys
              CPY   #$C9
@@ -518,7 +514,8 @@ KEYSOFTHI    LDX   FX254VAR
              CPX   #$C0
              BCC   KEYSOFTY
              TYA
-             AND   #$BF
+             EOR   #$40               ; Toggle keyboard map
+*             AND   #$BF
              TAY
 KEYSOFTY     TYA                      ; Get key including Shift/Ctrl
              LSR   A
@@ -564,7 +561,7 @@ KEYCURSOR    CMP   #$C9
              JSR   GETCHRC            ; Save char under cursor
              STA   OLDCHAR
 KEYNONE      SEC
-             RTS
+KBDDONE2     RTS
 
 KEYCOPY      BIT   VDUSTATUS
 KEYCOPYTAB   LDA   FXTABCHAR          ; Prepare TAB if no copy cursor
@@ -589,10 +586,10 @@ KEYCOPYTAB   LDA   FXTABCHAR          ; Prepare TAB if no copy cursor
 *          CC=keypress
 *          A =keycode, X=corrupted
 * Apple+Letter  -> Ctrl+Letter
-* AppleL+digit  -> 80+x
-* AppleR+digit  -> 90+x
-* AppleLR+digit -> A0+x
-* TAB           -> $C9
+* AppleL+digit  -> 80+x                  fkey -> 80+x
+* AppleR+digit  -> 90+x            Shift+fkey -> 90+x
+* AppleLR+digit -> A0+x             Ctrl+fkey -> A0+x
+* TAB           -> $C9        Shift+Ctrl+fkey -> B0+x
 * Cursors       -> $CC-$CF
 * Keypad        -> PADBASE+key
 *
@@ -600,8 +597,8 @@ KBDREAD      CLV                      ; VC=return keypress
 KBDTEST      LDA   KBDDATA            ; VS here to test for keypress
              EOR   #$80               ; Toggle bit 7
              CMP   #$80
-             BCS   KBDDONE            ; No key pressed
-             BVS   KBDDONE            ; VS=test for keypress
+             BCS   KBDDONE2           ; No key pressed
+             BVS   KBDDONE2           ; VS=test for keypress
              STA   KBDACK             ; Ack. keypress
 KBDREAD2     TAX                      ; X=raw keypress
 *
@@ -636,7 +633,13 @@ KBDREAD2B    AND   #$10
              BEQ   KBDREAD5           ; Not keypad
              PLP                      ; Drop NoALT
              TXA                      ; A=raw keypress
-             LDX   FXKEYPADBASE
+             BMI   KBDREADPAD         ; Translate keypad
+             CMP   #$60
+             BCC   KBDREADPAD
+             LDA   KBDADBKEYS-$60,X   ; Translate $60-$7E keys
+             BRA   KBDREAD6
+
+KBDREADPAD   LDX   FXKEYPADBASE
              BEQ   KBDCHKESC          ; $00=use unchanged
              BPL   KBDREAD4           ; Keypad not function keys
              CMP   #$20
@@ -699,6 +702,10 @@ KBDCURSR     CLC
              ADC   #$C4               ; Cursor keys $C0+x
              BRA   KBDFUNC
 
+KBDADBKEYS   DB    $85,$86,$87,$83,$88,$89,$80,$8B
+             DB    $80,$8D,$80,$8E,$80,$8A,$80,$8C
+             DB    $80,$8F,$C6,$C8,$CB,$C7,$84,$87
+             DB    $82,$CA,$81,$CC,$CD,$CE,$C4,$7F
 
 * Poll the keyboard to update Escape state
 * On exit, MI=Escape state pending
