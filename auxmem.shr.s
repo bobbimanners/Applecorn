@@ -560,7 +560,10 @@ SHRRSCR1LINE
 
 
 * Clear from current location to EOL
-SHRCLREOL     JSR   SHRCHARADDR
+SHRCLREOL     BIT   VDUBANK                ; Check it is a GS ..
+              BMI   :GS                    ; .. easier to check here
+              RTS
+:GS           JSR   SHRCHARADDR
               STZ   VDUADDR+0              ; Addr of start of line
               LDA   #$08                   ; Eight rows of pixels
               STA   :CTR
