@@ -621,7 +621,10 @@ SHRCLEAR      PHP                          ; Disable interrupts
 
 * Set text colour
 * A=txt colour
-SHRSETTCOL    PHA
+SHRSETTCOL    BIT   VDUBANK                ; Check it is a GS ..
+              BMI   :GS                    ; .. easier to check here
+              RTS
+:GS           PHA
               LDX   VDUPIXELS              ; Pixels per byte
               CPX   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
