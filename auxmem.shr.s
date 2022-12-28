@@ -478,7 +478,6 @@ SHRNEXTROW    LDA   VDUADDR+0              ; Add 160 to VDUADDR
 * Forwards scroll one line
 * Copy text line A+1 to line A
 * Note: Code for this courtesy Kent Dickey
-* TODO: Not quite right in 320 mode
 SHRSCR1LINE   PHY
               PHX
               STA   VDUADDR+1              ; Screen line -> MSB
