@@ -254,10 +254,10 @@ SHRCHAR640    PHY                          ; Preserve Y
 
 * Write character to SHR screen
 * On entry: A - character to write
-SHRPRCHAR     CMP   #128                   ; Check char in range
-              BCC   :INRANGE
-              LDA   #127                   ; If not, use block char
-:INRANGE      LDX   VDUPIXELS              ; Pixels per byte
+SHRPRCHAR     CMP   CURSORED               ; Edit cursor?
+              BNE   :NOTEDIT
+              LDA   #127                   ; If so, use block char
+:NOTEDIT      LDX   VDUPIXELS              ; Pixels per byte
               CPX   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :S1
               JMP   SHRPRCH320
@@ -832,11 +832,54 @@ SHRPALCUSTOM  PHA                          ; Preserve GB components
 
 * Convert high-resolution screen coordinates
 * from 1280x1024 to 620x200 or 320x200
-SHRCOORD
-* X-coordinate in VDUQ+5,+6   1280/2=640, 1280/4=320
+* TODO: Move to mainmem
+SHRCOORD      PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+
+* X-coordinate in VDUQ+5,+6   MODE0:1280/2=640 or MODE1:1280/4=320
+              LDA   VDUPIXELS              ; Pixels per byte
+              AND   #$00FF
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :MODE0
+              LDA   VDUQ+5
+              LSR                          ; /2
+              LSR                          ; /4
+              STA   ZP1                    ; TODO: Store somewhere sensible
+              BRA   :Y
+:MODE0        LDA   VDUQ+5
+              LSR                          ; /2
+              STA   ZP1                    ; TODO: Store somewhere sensible
 
 * Y-coordinate in VDUQ+7,+8   1024*3/16=192, 1024/128=8, 192+8=200
+:Y            LDA   VDUQ+7
+              ASL                          ; *2
+              CLC
+              ADC   VDUQ+7                 ; *3
+              LSR                          ; *3/2
+              LSR                          ; *3/4
+              LSR                          ; *3/8
+              LSR                          ; *3/16
+              STA   ZP1                    ; (ZP1 and ZP2)
+              LDA   VDUQ+7
+              LSR                          ; /2
+              LSR                          ; /4
+              LSR                          ; /8
+              LSR                          ; /16
+              LSR                          ; /32
+              LSR                          ; /64
+              LSR                          ; /128
+              CLC
+              ADC   ZP1                    ; Result
+              STA   ZP1                    ; TODO: Store somewhere sensible
 
+              SEC                          ; Back to emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP                          ; Normal service resumed
               RTS
 
 
