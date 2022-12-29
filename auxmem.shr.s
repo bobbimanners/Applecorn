@@ -194,7 +194,7 @@ SHRXPLDCHAR   PHA
               RTS
 
 
-* Draw one pixel row of font in 320 mode
+* Explode one pixel row of font in 320 mode
 * 4 bytes per char, 4 bits per pixel
 * On entry: A contains row of font data
 SHRCHAR320    PHY                          ; Preserve Y
@@ -226,7 +226,7 @@ SHRCHAR320    PHY                          ; Preserve Y
               RTS
 
 
-* Draw one pixel row of font in 640 mode
+* Explode one pixel row of font in 640 mode
 * 2 bytes per char, 2 bits per pixel
 * On entry: A contains row of font data
 SHRCHAR640    PHY                          ; Preserve Y
@@ -761,5 +761,14 @@ SHRPALCUSTOM  PHA                          ; Preserve GB components
               STAL  $E19E00+1,X            ; Store in logical slot
               RTS
 
+
+* Convert high-resolution screen coordinates
+* from 1280x1024 to 620x200 or 320x200
+SHRCOORD
+* X-coordinate in VDUQ+5,+6   1280/2=640, 1280/4=320
+
+* Y-coordinate in VDUQ+7,+8   1024*3/16=192, 1024/128=8, 192+8=200
+
+              RTS
 
 
