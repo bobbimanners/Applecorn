@@ -1196,12 +1196,7 @@ RELCOORD      CLC
 * VDU 23,charnum,row1,row2,row3,row4,row5,row6,row7,row8
 VDU23         BIT   VDUSCREEN               ; Check we are in SHR mode
               BVC   :NOTSHR
-              LDY   #$00
-:L1           LDA   VDUQ+5,Y                ; Row of pixels
               JSR   SHRUSERCHAR
-              INY
-              CPY   #$08
-              BNE   :L1
 :NOTSHR       RTS
 
 

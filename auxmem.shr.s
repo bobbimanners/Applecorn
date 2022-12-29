@@ -171,11 +171,48 @@ SHRXPLDCHAR   PHA
               RTS
 
 
-* Explode one pixel row of user define graphics char
+* Explode one pixel row of user defined graphics char
 * On entry: A contains row of font data
-SHRUSERCHAR   LDA   VDUQ+4                 ; Character number
-              
+SHRUSERCHAR   LDA   #<SHRFONTXPLD          ; Use VDUADDR to point to ..
+              STA   VDUADDR+0              ; .. start of table to write
+              LDA   #>SHRFONTXPLD
+              STA   VDUADDR+1
+              LDA   #$E1
+              STA   VDUBANK
+
+              LDA   VDUQ+0                 ; Character number
+              SEC
+              SBC   #32                    ; Font starts at 32
+              TAY
+
+              LDA   #16                    ; Bytes/char in 640 mode              
+              LDX   VDUPIXELS              ; Pixels per byte
+              CPX   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :S0
+              LDA   #32                    ; Bytes/char in 320 mode
+:S0           STA   :INCREMENT
+
+:L0           CPY   #$00
+              BEQ   :S1
+              CLC
+              LDA   VDUADDR+0
+              ADC   :INCREMENT
+              STA   VDUADDR+0
+              LDA   VDUADDR+1
+              ADC   #$00
+              STA   VDUADDR+1
+              DEY
+              BRA   :L0
+
+
+:S1           LDY   #$00
+:L1           LDA   VDUQ+1,Y               ; Row of pixels
+              JSR   SHRXPLDROW
+              INY
+              CPY   #$08                   ; Last row?
+              BNE   :L1
               RTS
+:INCREMENT    DB    $00
 
 
 * Explode one row of pixels. Used by SHRXPLDCHAR & SHRUSERCHAR
