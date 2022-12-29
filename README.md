@@ -705,12 +705,10 @@ hardware capabilities of the BBC Micro and the Apple II.
   Forth ROM uses this system call for loading and saving screens of
   code.
 - Many `OSBYTE` and `OSWORD` calls are implemented.
-- The VDU driver is has most of the important functions for working in text
-  modes.  Since the Apple II can not display colour text, VDU codes
-  related to colour are not implemented.  The VDU driver is sufficient to
-  run full screen editors such as the ISO Pascal editor and the View
-  word processor.
+- The VDU driver is fairly complete, although some functions have not yet
+  been implemented.  It is sufficient to run full screen editors such as
+  the ISO Pascal editor and the View word processor.
 - Special BBC Micro functions which have no counterpart on the Apple II,
-  such as the A/D interface, are currently not supported.
+  such as the A/D interface, are not supported.
 
 
