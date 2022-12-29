@@ -561,19 +561,38 @@ VDUINIT       STA   VDUQ+8
 
 * VDU 22 - MODE n
 *****************
-* At the moment only MODEs available:
-*  MODE 0 - 640x200 SHR graphics, 80 cols bitmap text (GS only)
-*  MODE 1 - 320x200 SHR graphics, 40 cols bitmap text (GS only)
-*  MODE 2 - 280x192 HGR graphics, 40 cols bitmap text
+* MODEs available:
+*  MODE 0 - 640x200 SHR graphics, 80x24 bitmap text (GS only)
+*  MODE 1 - 320x200 SHR graphics, 40x24 bitmap text (GS only)
+*  MODE 2 - 280x192 HGR graphics, 40x24 bitmap text
 *  MODE 3 - 80x24 text
+*  MODE 4 --> MODE 6
+*  MODE 5 --> MODE 6
 *  MODE 6 - 40x24 text
 *  MODE 7 - 40x24 with $80-$9F converted to spaces
-*  All others default to MODE 6
 *
-* Wait for VSync?
-VDU22         LDA   VDUQ+8
+* On //e, MODE 0 -> MODE 3
+*         MODE 1 -> MODE 6
+*
+VDU22         JSR   NEGCALL                ; Find machine type
+              AND   #$0F
+              BEQ   :NOTGS                 ; MCHID=$x0 -> Not AppleGS, bank=0
+              LDA   #$E0                   ;  Not $x0  -> AppleGS, point to screen bank
+:NOTGS        STA   VDUBANK
+              LDA   VDUQ+8
               AND   #$07
-              TAX                          ; Set up MODE
+
+              BIT   VDUBANK
+              BMI   :INIT                  ; Skip if GS
+              CMP   #$00                   ; Mode 0?
+              BNE   :S1
+              LDA   #$03                   ; --> Mode 3 instead
+              BRA   :INIT
+:S1           CMP   #$01                   ; Mode 1?
+              BNE   :INIT
+              LDA   #$06                   ; --> Mode 6 instead
+ 
+:INIT         TAX                          ; Set up MODE
               STX   VDUMODE                ; Screen MODE
               LDA   SCNCOLOURS,X
               STA   VDUCOLOURS             ; Colours-1
@@ -583,11 +602,6 @@ VDU22         LDA   VDUQ+8
               STA   VDUPIXELS              ; Pixels per byte
               LDA   SCNTYPE,X
               STA   VDUSCREEN              ; Screen type
-              JSR   NEGCALL                ; Find machine type
-              AND   #$0F
-              BEQ   :MODEGS                ; MCHID=$x0 -> Not AppleGS, bank=0
-              LDA   #$E0                   ;  Not $x0  -> AppleGS, point to screen bank
-:MODEGS       STA   VDUBANK
               LDA   #$01
               JSR   CLRSTATUS              ; Clear everything except PrinterEcho
               LDA   #'_'                   ; Set up default cursors
