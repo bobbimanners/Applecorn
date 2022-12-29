@@ -181,8 +181,10 @@ SHRUSERCHAR   LDA   #<SHRFONTXPLD          ; Use VDUADDR to point to ..
               STA   VDUBANK
 
               LDA   VDUQ+0                 ; Character number
-              SEC
-              SBC   #32                    ; Font starts at 32
+              CMP   #32                    ; < 32? Then bail out
+              BCC   :DONE
+              SEC                          ; Otherwise, subtract 32
+              SBC   #32
               TAY
 
               LDA   #16                    ; Bytes/char in 640 mode              
@@ -211,7 +213,7 @@ SHRUSERCHAR   LDA   #<SHRFONTXPLD          ; Use VDUADDR to point to ..
               INY
               CPY   #$08                   ; Last row?
               BNE   :L1
-              RTS
+:DONE         RTS
 :INCREMENT    DB    $00
 
 
