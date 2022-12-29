@@ -163,7 +163,24 @@ SHRXPLDCHAR   PHA
 :L1           >>>   RDMAIN
               LDA   (ZP1),Y                ; Load row of font
               >>>   RDAUX
-              LDX   VDUPIXELS              ; Pixels per byte
+              JSR   SHRXPLDROW
+              INY                          ; Next row of font
+              CPY   #$08                   ; Last row?
+              BNE   :L1
+              PLA
+              RTS
+
+
+* Explode one pixel row of user define graphics char
+* On entry: A contains row of font data
+SHRUSERCHAR   LDA   VDUQ+4                 ; Character number
+              
+              RTS
+
+
+* Explode one row of pixels. Used by SHRXPLDCHAR & SHRUSERCHAR
+* On entry: A contains row of font data
+SHRXPLDROW    LDX   VDUPIXELS              ; Pixels per byte
               CPX   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :S1
               JSR   SHRCHAR320
@@ -187,11 +204,7 @@ SHRXPLDCHAR   PHA
               LDA   VDUADDR+1
               ADC   #$00
               STA   VDUADDR+1
-:S4           INY                          ; Next row of font
-              CPY   #$08                   ; Last row?
-              BNE   :L1
-              PLA
-              RTS
+:S4           RTS
 
 
 * Explode one pixel row of font in 320 mode

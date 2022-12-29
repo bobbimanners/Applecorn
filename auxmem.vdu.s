@@ -1,7 +1,7 @@
 * AUXMEM.VDU.S
-* (c) Bobbi 2021 GPLv3
+* (c) Bobbi 2021-2022 GPLv3
 *
-* Apple //e VDU Driver for 40/80 column mode (PAGE2)
+* Apple //e, //c & IIGS VDU Driver for 40/80 column mode (PAGE2)
 *
 * 15-Aug-2021 Optimised address calculations and PRCHRC.
 *             Entry point to move copy cursor.
@@ -1159,42 +1159,50 @@ VDU25BACKUP2  LDA   GFXPOSNX,X             ; POSN becomes LAST
 VDU25EXIT     RTS
 
 * Adjust graphics origin
-ADJORIG      CLC
-             LDA   GFXORIGX+0
-             ADC   VDUQ+5
-             STA   VDUQ+5
-             LDA   GFXORIGX+1
-             ADC   VDUQ+6
-             STA   VDUQ+6
-             CLC
-             LDA   GFXORIGY+0
-             ADC   VDUQ+7
-             STA   VDUQ+7
-             LDA   GFXORIGY+1
-             ADC   VDUQ+8
-             STA   VDUQ+8
-             RTS
+ADJORIG       CLC
+              LDA   GFXORIGX+0
+              ADC   VDUQ+5
+              STA   VDUQ+5
+              LDA   GFXORIGX+1
+              ADC   VDUQ+6
+              STA   VDUQ+6
+               CLC
+              LDA   GFXORIGY+0
+              ADC   VDUQ+7
+              STA   VDUQ+7
+              LDA   GFXORIGY+1
+              ADC   VDUQ+8
+              STA   VDUQ+8
+              RTS
 
 * Add coordinates to GFXPOSNX, GFXPOSNY
-RELCOORD     CLC
-             LDA   GFXPOSNX+0
-             ADC   VDUQ+5
-             STA   VDUQ+5
-             LDA   GFXPOSNX+1
-             ADC   VDUQ+6
-             STA   VDUQ+6
-             CLC
-             LDA   GFXPOSNY+0
-             ADC   VDUQ+7
-             STA   VDUQ+7
-             LDA   GFXPOSNY+1
-             ADC   VDUQ+8
-             STA   VDUQ+8
-             RTS
+RELCOORD      CLC
+              LDA   GFXPOSNX+0
+              ADC   VDUQ+5
+              STA   VDUQ+5
+              LDA   GFXPOSNX+1
+              ADC   VDUQ+6
+              STA   VDUQ+6
+              CLC
+              LDA   GFXPOSNY+0
+              ADC   VDUQ+7
+              STA   VDUQ+7
+              LDA   GFXPOSNY+1
+              ADC   VDUQ+8
+              STA   VDUQ+8
+              RTS
 
 * Program video system and define characters
-********************************************
-VDU23         RTS
+* VDU 23,charnum,row1,row2,row3,row4,row5,row6,row7,row8
+VDU23         BIT   VDUSCREEN               ; Check we are in SHR mode
+              BVC   :NOTSHR
+              LDY   #$00
+:L1           LDA   VDUQ+5,Y                ; Row of pixels
+              JSR   SHRUSERCHAR
+              INY
+              CPY   #$08
+              BNE   :L1
+:NOTSHR       RTS
 
 
 * Read from VDU system
@@ -1215,7 +1223,7 @@ WORD0C        RTS
 WORD0D        RTS
 
 * OSBYTE &A0 - Read VDU variable
-BYTEA0        CPX   #$40                   ; Index into VDU variables
+BYTEA0        CPX   #$40                    ; Index into VDU variables
               BCC   BYTEA02
               TXA
               SBC   #$20
