@@ -144,6 +144,16 @@ program in memory.
   - If you happen to have an Apple IIgs with and ADB Extended Keyboard, or
     a BMOW Wombat USB keyboard adapter, the function keys F1-F10 should
     work (F10 is mapped to the BBC Micro f0).
+- In `MODE 0` and `MODE 1` the BBC BASIC `VDU 19` statement may be used
+  to assign colours to the palette.  This means that you can use any four
+  colours chosen from the GS's 4096 colours for `MODE 0` and any sixteen
+  colours in `MODE 1`.  There are two ways to use `VDU 19`:
+  - `VDU 19,L,P,0,0,0` - Sets logical colour L to physical colour P chosen
+    from Applecorn's 16 colour palette.  This corresponds to the way the
+    palette may be controlled on the BBC Micro (except Applecorn has 16
+    solid colours, rather than 8 solid and eight flashing.)
+  - `VDU 19,L,16,R,G,B` - Sets logical colour L to the R,G,B values given.
+    This gives access to the entire 4096 colour gamut of the GS.
 
 ### 'Sideways ROM' Support
 
