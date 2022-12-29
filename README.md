@@ -144,7 +144,7 @@ program in memory.
   - If you happen to have an Apple IIgs with and ADB Extended Keyboard, or
     a BMOW Wombat USB keyboard adapter, the function keys F1-F10 should
     work (F10 is mapped to the BBC Micro f0).
-- In `MODE 0` and `MODE 1` the BBC BASIC `VDU 19` statement may be used
+- In `MODE 0` and `MODE 1`, the BBC BASIC `VDU 19` statement may be used
   to assign colours to the palette.  This means that you can use any four
   colours chosen from the GS's 4096 colours for `MODE 0` and any sixteen
   colours in `MODE 1`.  There are two ways to use `VDU 19`:
@@ -154,6 +154,12 @@ program in memory.
     solid colours, rather than 8 solid and eight flashing.)
   - `VDU 19,L,16,R,G,B` - Sets logical colour L to the R,G,B values given.
     This gives access to the entire 4096 colour gamut of the GS.
+- In `MODE 0` and `MODE 1`, the BBC BASIC `VDU 23` statement may be used
+  to define user-defined graphics characters.  Characters from 32 to 255
+  may be redefined.
+  - For example, `VDU 23,240,28,28,8,127,8,20,34,65` makes character 240
+    into a little stick figure.
+   
 
 ### 'Sideways ROM' Support
 
