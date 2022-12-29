@@ -431,7 +431,7 @@ SHRPRCH640    SEC
 
 
 * Apply colour masks to 16 bit word of character data
-* Called in 6816 native mode, 16 bit
+* Called in 65816 native mode, 16 bit
               MX    %00                    ; Tell Merlin 16 bit M & X
 SHRCOLWORD
               PHA                          ; Keep A
@@ -553,8 +553,76 @@ SHRSCR1LINE   PHY
 
 * Reverse scroll one line
 * Copy text line A to line A+1
-* TODO: Implement this
-SHRRSCR1LINE
+SHRRSCR1LINE  PHY
+              PHX
+              STA   VDUADDR+1              ; Screen line -> MSB
+              STZ   VDUADDR+0              ; Zero LSB
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; Enter native mode
+              XCE
+              PHB                          ; Preserve data bank
+              REP   #$31                   ; M,X 16 bit, carry clear
+              MX    %00                    ; Tell Merlin
+              LDA   VDUADDR                ; Screen line to scroll
+              ASL                          ; Mult 4
+              ASL
+              ADC   VDUADDR                ; Mult 5
+              STA   VDUADDR                ; VDUADDR = line * $500
+              LDA   TXTWINLFT              ; Left margin
+              LDY   VDUPIXELS              ; Pixels per byte
+              CPY   #$02                   ; 2 pixels per byte in 320 mode
+              BNE   :S1
+              ASL                          ; Double TXTWINLFT
+:S1           ASL                          ; 2 bytes / char
+              AND   #$00ff                 ; Mask to get 8 bit result
+              ADC   VDUADDR                ; Add to beginning of line addr
+              STA   VDUADDR                ; VDUADDR = start position
+              SEP   #$21                   ; M 8 bit, X 16 bit, carry set
+              MX    %10                    ; Tell Merlin
+              LDA   TXTWINRGT              ; Compute width ..
+              SBC   TXTWINLFT              ; .. right minus left
+              LDY   VDUPIXELS              ; Pixels per byte
+              CPY   #$02                   ; 2 pixels per byte in 320 mode
+              BNE   :S2
+              ASL                          ; Double the width for 320
+              INC   A                      ; Plus one
+:S2           REP   #$31                   ; M,X 16 bit, carry clear
+              MX    %00                    ; Tell Merlin
+              ASL                          ; 2 bytes / char
+              AND   #$00ff                 ; Mask to get 8 bit result
+              ADC   VDUADDR                ; Add to start position
+              TAX                          ; Will use as index
+              PEA   #$E1E1                 ; Set databank to $E1
+              PLB
+              PLB
+:LOOP1        LDA   $2000,X                ; 2 bytes, row 0
+              STA   $2500,X
+              LDA   $20A0,X                ; row 1
+              STA   $25A0,X
+              LDA   $2140,X                ; row 2
+              STA   $2640,X
+              LDA   $21E0,X                ; row 3
+              STA   $26E0,X
+              LDA   $2280,X                ; row 4
+              STA   $2780,X
+              LDA   $2320,X                ; row 5
+              STA   $2820,X
+              LDA   $23C0,X                ; row 6
+              STA   $28C0,X
+              LDA   $2460,X                ; row 7
+              STA   $2960,X
+              DEX                          ; Update index
+              DEX
+              BMI   :DONE                  ; Jump out if odd->-ve
+              CPX   VDUADDR                ; Compare with start addr
+              BCS   :LOOP1                 ; Bytes left? Go again
+:DONE         PLB                          ; Recover data bank
+              SEC                          ; Back to emulation mode
+              XCE
+              PLP                          ; Recover flags + regs
+              PLX
+              PLY
               RTS
 
 
