@@ -80,19 +80,31 @@ BCPL ROM, is also included on the Applecorn diskette.
 
 ### Video Modes
 
-Two text video modes and one graphics mode are currently supported:
-- `MODE 6` and `MODE 7` - 40x24 text (in mode 7, chars $80 to $9F are converted
-  to spaces)
-- `MODE 3` - 80x24 text.
-- `MODE 1` - Apple II high resolution mode.  The physical resolution is 280x192
-  pixels.  This is mapped onto the normal BBC Micro 1280x1024 virtual resolution,
-  with the origin at the bottom left of the screen.
+The following video modes are supported:
+- `MODE 0` (Apple IIGS only) - 4 colour 640x200 bitmapped mode, with
+   80x24 text.
+- `MODE 1` (Apple IIGS only) - 16 colour 320x200 bitmapped mode, with
+   40x24 text.
+- `MODE 2` - 6 colour 280x192 bitmapped mode, with 40x24 text.
+- `MODE 3` - monochrome text-only mode, 80x24.
+- `MODE 6` - monochrome text-only mode, 40x24.
+- `MODE 7` - monochrome text-only mode, 40x24. Chars $80 to $9F are converted
+   to spaces in this mode.
+
+On Apple //e and //c, `MODE 0` will redirect to `MODE 3` and `MODE 1` will
+redirect to `MODE 6`.
+
+Graphics are supported in `MODE 2` only at present (`MODE 0` and `MODE 1`
+graphics to come shortly.)
+
+Following BBC Micro conventions, all graphics are drawn using a 1280x1024
+coordinate system, with the origin at the bottom left of the screen.
 
 _NOTE:_ You can set the startup video mode by holding down the appropriate number
 key while Applecorn starting (while it is loading the ROM file.)
 
 Andy McFadden's [FDraw library](https://github.com/fadden/fdraw) is used for 
-efficient high resolution line and point plotting.
+efficient high resolution line and point plotting in `MODE 2`.
 
 ### Escape Key
 
