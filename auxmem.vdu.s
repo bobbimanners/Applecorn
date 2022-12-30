@@ -921,8 +921,7 @@ VDU20LP       STA   TXTFGD,X               ; Clear all colours
               DEX                          ; and gcol actions
               BPL   VDU20LP
               LDA   #$80
-              JSR   HGRSETTCOL             ; Set txt background
-              JSR   SHRSETTCOL             ; Set txt background
+              JSR   SETTCOL                ; Set txt background
               LDX   #$00
               LDA   #$80
               JSR   HGRSETGCOL             ; Set gfx background
@@ -930,8 +929,7 @@ VDU20LP       STA   TXTFGD,X               ; Clear all colours
               AND   #$07
               PHA
               STA   TXTFGD                 ; Note txt foreground
-              JSR   HGRSETTCOL             ; Set txt foreground
-              JSR   SHRSETTCOL             ; Set txt background
+              JSR   SETTCOL                ; Set txt foreground
               LDX   #$00
               PLA
               STA   GFXFGD                 ; Note gfx foreground
@@ -941,14 +939,21 @@ VDU20LP       STA   TXTFGD,X               ; Clear all colours
 VDU17         LDA   VDUQ+8
               CMP   #$C0
               BCS   VDU17BORDER
-              JSR   HGRSETTCOL 
-              JMP   SHRSETTCOL
+              JMP   SETTCOL 
 VDU17BORDER   AND   #$0F
               STA   VDUBORDER
               TAX
               LDA   CLRTRANS16,X
               STA   CLOCKCTL
               RTS
+
+* Helper function
+SETTCOL       JSR   HGRSETTCOL             ; Set txt foreground
+              BIT   VDUBANK
+              BPL   :NOTGS
+              JSR   SHRSETTCOL             ; Set txt background
+:NOTGS        RTS
+
 
 * VDU 18 - GCOL k,a - select graphics colour and plot action
 VDU18         LDY   #$02                   ; Y=>gfd settings
