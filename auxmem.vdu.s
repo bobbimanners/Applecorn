@@ -924,8 +924,11 @@ VDU20LP       STA   TXTFGD,X               ; Clear all colours
               JSR   SETTCOL                ; Set txt background
               LDX   #$00
               LDA   #$80
-              JSR   HGRSETGCOL             ; Set gfx background
-              LDA   VDUCOLOURS
+              JSR   HGRSETGCOL             ; Set HGR background
+              BIT   VDUBANK
+              BPL   :S1                    ; Skip if not GS
+              JSR   SHRSETGCOL             ; Set SHR background
+:S1           LDA   VDUCOLOURS
               AND   #$07
               PHA
               STA   TXTFGD                 ; Note txt foreground
@@ -933,7 +936,11 @@ VDU20LP       STA   TXTFGD,X               ; Clear all colours
               LDX   #$00
               PLA
               STA   GFXFGD                 ; Note gfx foreground
-              JMP   HGRSETGCOL             ; Set gfx foreground
+              JSR   HGRSETGCOL             ; Set gfx foreground
+              BIT   VDUBANK
+              BPL   :S2                    ; Skip if not GS
+              JSR   SHRSETGCOL             ; Set SHR background
+:S2           RTS
 
 * VDU 17 - COLOUR n - select text or border colour
 VDU17         LDA   VDUQ+8
@@ -947,7 +954,7 @@ VDU17BORDER   AND   #$0F
               STA   CLOCKCTL
               RTS
 
-* Helper function
+* Helper function to set text FG/BG colour in HGR & SHR modes
 SETTCOL       JSR   HGRSETTCOL             ; Set txt foreground
               BIT   VDUBANK
               BPL   :NOTGS
@@ -968,7 +975,10 @@ VDU18A        LDA   VDUQ+7                 ; GCOL action
               PLA
               AND   VDUCOLOURS
               STA   GFXFGD-2,Y             ; Store GCOL colour
-              TAY
+              BIT   VDUBANK
+              BPL   :S1                    ; Skip if not GS
+              JSR   SHRSETGCOL             ; Set SHR background
+:S1           TAY
               LDA   CLRTRANS8,Y            ; Trans. to physical
               PHP
               ROL   A
