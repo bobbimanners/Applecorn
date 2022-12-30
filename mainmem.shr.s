@@ -17,6 +17,8 @@ SHRFONTXPLD   EQU   $A000                  ; Explode SHR font to $E1:A000
 
 SHRPIXELS     DB    $00                    ; Main memory copy of VDUPIXELS
 SHRVDUQ       DS    16                     ; Main memory copy of VDUQ
+SHRGFXMASK    DB    $00                    ; Colour mask for point plotting
+SHRGFXACTION  DB    $00                    ; GCOL action for point plotting
 
 
 * Explode font to generate SHRFONTXPLD table
@@ -238,8 +240,15 @@ SHRPLOT       >>>   ENTMAIN
               AND   #$03                   ; Keep LSB two bits only
               TAX                          ; Index into :BITS640
 
-              LDA   [A3L],Y                ; Write to screen
-              ORA   :BITS640,X             ; OR with bit pattern for pixels
+              LDA   :BITS640,X             ; Get bit pattern for pixel to set
+              EOR   #$FF                   ; Invert bits
+              AND   [A3L],Y                ; Load existing byte, clearing pixel
+              STA   A1L
+              LDA   :BITS640,X             ; Get bit pattern for pixel to set
+              AND   SHRGFXMASK             ; Mask to set colour
+              ORA   A1L                    ; OR into existing byte
+              
+* TODO: Apple SHRGFXACTION GCOL action
 
               STA   [A3L],Y                ; Write to screen
               >>>   XF2AUX,GFXPLOTRET

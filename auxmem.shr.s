@@ -50,6 +50,30 @@ PALETTE640    DB    $00, $00               ; BLACK
               DB    $F0, $0F               ; YELLOW
               DB    $FF, $0F               ; WHITE
 
+* Pixel masks for colours in 640 mode
+SHRCMASK640   DB    %00000000
+              DB    %01010101
+              DB    %10101010
+              DB    %11111111
+
+* Pixel masks for colours in 320 mode
+SHRCMASK320   DB    $00
+              DB    $11
+              DB    $22
+              DB    $33
+              DB    $44
+              DB    $55
+              DB    $66
+              DB    $77
+              DB    $88
+              DB    $99
+              DB    $AA
+              DB    $BB
+              DB    $CC
+              DB    $DD
+              DB    $EE
+              DB    $FF
+
 
 * Addresses of start of text rows in SHR
 * LS byte is always zero
@@ -565,7 +589,7 @@ SHRSETTCOL    PHA
               PLA
               AND   #$0F
               TAX
-              LDA   :MASKS320,X            ; Lookup mask in table
+              LDA   SHRCMASK320,X          ; Lookup mask in table
               STAL  SHRBGMASKL             ; Set colour mask (BG)
               STAL  SHRBGMASKL+1
               STA   SHRBGMASKA
@@ -573,7 +597,7 @@ SHRSETTCOL    PHA
 :FORE320      PLA
               AND   #$0F
               TAX
-              LDA   :MASKS320,X            ; Lookup mask in table
+              LDA   SHRCMASK320,X          ; Lookup mask in table
               STAL  SHRCOLMASKL            ; Set colour mask (FG)
               STAL  SHRCOLMASKL+1
               RTS
@@ -582,7 +606,7 @@ SHRSETTCOL    PHA
               PLA
               AND   #$03
               TAX
-              LDA   :MASKS640,X            ; Lookup mask in table
+              LDA   SHRCMASK640,X          ; Lookup mask in table
               STAL  SHRBGMASKL             ; Set colour mask (BG)
               STAL  SHRBGMASKL+1
               STA   SHRBGMASKA
@@ -590,30 +614,10 @@ SHRSETTCOL    PHA
 :FORE640      PLA
               AND   #$03
               TAX
-              LDA   :MASKS640,X            ; Lookup mask in table
+              LDA   SHRCMASK640,X          ; Lookup mask in table
               STAL  SHRCOLMASKL            ; Set colour mask (FG)
               STAL  SHRCOLMASKL+1
               RTS
-:MASKS640     DB    %00000000
-              DB    %01010101
-              DB    %10101010
-              DB    %11111111
-:MASKS320     DB    $00
-              DB    $11
-              DB    $22
-              DB    $33
-              DB    $44
-              DB    $55
-              DB    $66
-              DB    $77
-              DB    $88
-              DB    $99
-              DB    $AA
-              DB    $BB
-              DB    $CC
-              DB    $DD
-              DB    $EE
-              DB    $FF
 
 
 * Set graphics colour
@@ -627,7 +631,18 @@ SHRSETTCOL    PHA
 *  5 = NUL no change to pixel
 *  6 = CLR clear pixel to background
 *  7 = UND undefined
-SHRSETGCOL    
+SHRSETGCOL    LDX   VDUPIXELS              ; Pixels per byte
+              CPX   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :MODE0
+              TAY
+              LDA   SHRCMASK320,Y
+              BRA   :S1
+:MODE0        TAY
+              LDA   SHRCMASK640,Y
+:S1           >>>   WRTMAIN
+              STA   SHRGFXMASK
+              STX   SHRGFXACTION
+              >>>   WRTAUX
               RTS
 
 
