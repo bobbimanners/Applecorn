@@ -555,16 +555,7 @@ SHRCLEAR      PHP                          ; Disable interrupts
 
 
 * Set text colour
-* A=gfx colour, X=gcol action
-* GCOL actions:
-*  0 = SET pixel
-*  1 = ORA with pixel
-*  2 = AND with pixel
-*  3 = XOR with pixel
-*  4 = NOT pixel
-*  5 = NUL no change to pixel
-*  6 = CLR clear pixel to background
-*  7 = UND undefined
+* A=text colour
 SHRSETTCOL    PHA
               LDX   VDUPIXELS              ; Pixels per byte
               CPX   #$02                   ; 2 is 320-mode (MODE 1)
