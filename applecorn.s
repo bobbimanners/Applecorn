@@ -281,6 +281,7 @@ MAINZP      MAC
             PUT   MAINMEM.INIT
             PUT   MAINMEM.SVC
             PUT   MAINMEM.HGR
+            PUT   MAINMEM.SHR
             PUT   MAINMEM.PATH
             PUT   MAINMEM.WILD
             PUT   MAINMEM.LISTS

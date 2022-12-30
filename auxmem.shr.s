@@ -99,15 +99,14 @@ SHRVDU22      LDA   #$18                   ; Inhibit SHR & aux HGR shadowing
               CPX   #200                   ; 200 lines so 200 SCBs
               BNE   :L1
               JSR   SHRDEFPAL              ; Default palette
-              JSR   SHRXPLDFONT            ; Explode font -> SHRFONTXPLD table
+              >>>   XF2MAIN,SHRXPLDFONT    ; Explode font -> SHRFONTXPLD table
+SHRV22RET     >>>   ENTAUX
               JSR   VDU12                  ; Clear text and SHR screen
               RTS
 
 ******************************************************************************
 * Data in bank $E1
 ******************************************************************************
-
-SHRFONTXPLD   EQU   $A000                  ; Explode SHR font to $E1:A000
 
 * Used for long writes
 SHRCOLMASKL   EQU   $E1B000                ; Colour mask foreground (word)
@@ -120,188 +119,6 @@ SHRBGMASK     EQU   $B002                  ; Colour mask background (word)
 ******************************************************************************
 
 SHRBGMASKA    DW    $0000                  ; Keep a copy in aux mem too
-
-
-* Explode font to generate SHRFONTXPLD table
-* This is 2 bytes x 8 rows for each character in 640 mode
-* or      4 bytes x 8 rows for each character in 320 mode
-SHRXPLDFONT   LDA   #<SHRFONTXPLD          ; Use VDUADDR to point to ..
-              STA   VDUADDR+0              ; .. start of table to write
-              LDA   #>SHRFONTXPLD
-              STA   VDUADDR+1
-              LDA   #$E1
-              STA   VDUBANK
-              LDA   #32                    ; First char number
-:L1           JSR   SHRXPLDCHAR            ; Explode char A
-              INC   A
-              CMP   #128                   ; 96 chars in FONT8
-              BNE   :L1
-              RTS
-
-
-* Explode one character to location pointed to by VDUADDR
-* On entry: A - character to explode
-SHRXPLDCHAR   PHA
-              SEC
-              SBC   #32
-              STA   ZP1+0                  ; A*8 -> ZP1
-              STZ   ZP1+1
-              ASL   ZP1+0
-              ROL   ZP1+1
-              ASL   ZP1+0
-              ROL   ZP1+1
-              ASL   ZP1+0
-              ROL   ZP1+1
-              CLC                          ; FONT8+A*8 -> ZP1
-              LDA   ZP1+0
-              ADC   #<FONT8
-              STA   ZP1+0
-              LDA   ZP1+1
-              ADC   #>FONT8
-              STA   ZP1+1
-              LDY   #$00                   ; First row of char
-:L1           >>>   RDMAIN
-              LDA   (ZP1),Y                ; Load row of font
-              >>>   RDAUX
-              JSR   SHRXPLDROW
-              INY                          ; Next row of font
-              CPY   #$08                   ; Last row?
-              BNE   :L1
-              PLA
-              RTS
-
-
-* Explode one pixel row of user defined graphics char
-* On entry: A contains row of font data
-SHRUSERCHAR   LDA   #<SHRFONTXPLD          ; Use VDUADDR to point to ..
-              STA   VDUADDR+0              ; .. start of table to write
-              LDA   #>SHRFONTXPLD
-              STA   VDUADDR+1
-              LDA   #$E1
-              STA   VDUBANK
-
-              LDA   VDUQ+0                 ; Character number
-              CMP   #32                    ; < 32? Then bail out
-              BCC   :DONE
-              SEC                          ; Otherwise, subtract 32
-              SBC   #32
-              TAY
-
-              LDA   #16                    ; Bytes/char in 640 mode              
-              LDX   VDUPIXELS              ; Pixels per byte
-              CPX   #$02                   ; 2 is 320-mode (MODE 1)
-              BNE   :S0
-              LDA   #32                    ; Bytes/char in 320 mode
-:S0           STA   :INCREMENT
-
-:L0           CPY   #$00
-              BEQ   :S1
-              CLC
-              LDA   VDUADDR+0
-              ADC   :INCREMENT
-              STA   VDUADDR+0
-              LDA   VDUADDR+1
-              ADC   #$00
-              STA   VDUADDR+1
-              DEY
-              BRA   :L0
-
-
-:S1           LDY   #$00
-:L1           LDA   VDUQ+1,Y               ; Row of pixels
-              JSR   SHRXPLDROW
-              INY
-              CPY   #$08                   ; Last row?
-              BNE   :L1
-:DONE         RTS
-:INCREMENT    DB    $00
-
-
-* Explode one row of pixels. Used by SHRXPLDCHAR & SHRUSERCHAR
-* On entry: A contains row of font data
-SHRXPLDROW    LDX   VDUPIXELS              ; Pixels per byte
-              CPX   #$02                   ; 2 is 320-mode (MODE 1)
-              BNE   :S1
-              JSR   SHRCHAR320
-              BRA   :S2
-:S1           JSR   SHRCHAR640
-:S2           LDX   VDUPIXELS              ; Pixels per byte
-              CPX   #$02                   ; 2 is 320-mode (MODE 1)
-              BNE   :S3
-              CLC                          ; 320 mode: add 4 to VDUADDR
-              LDA   VDUADDR+0
-              ADC   #$04
-              STA   VDUADDR+0
-              LDA   VDUADDR+1
-              ADC   #$00
-              STA   VDUADDR+1
-              BRA   :S4
-:S3           CLC                          ; 640 mode: add 2 to VDUADDR
-              LDA   VDUADDR+0
-              ADC   #$02
-              STA   VDUADDR+0
-              LDA   VDUADDR+1
-              ADC   #$00
-              STA   VDUADDR+1
-:S4           RTS
-
-
-* Explode one pixel row of font in 320 mode
-* 4 bytes per char, 4 bits per pixel
-* On entry: A contains row of font data
-SHRCHAR320    PHY                          ; Preserve Y
-              LDY   #$00                   ; Dest byte index
-:L0           STZ   ZP2
-              LDX   #$00                   ; Source bit index
-:L1           ASL                          ; MS bit -> C
-              PHP                          ; Preserve C
-              ROL   ZP2                    ; C -> LS bit
-              PLP                          ; Recover C
-              PHP
-              ROL   ZP2                    ; C -> LS bit
-              PLP                          ; Recover C
-              PHP
-              ROL   ZP2                    ; C -> LS bit
-              PLP                          ; Recover C
-              ROL   ZP2                    ; C -> LS bit
-              INX
-              CPX   #$02                   ; Processed two bits of font?
-              BNE   :L1
-              PHA                          ; Preserve partially shifted font
-              LDA   ZP2
-              STA   [VDUADDR],Y
-              PLA                          ; Recover partially shifted font
-              INY
-              CPY   #$04                   ; Done 4 bytes?
-              BNE   :L0
-              PLY                          ; Recover Y
-              RTS
-
-
-* Explode one pixel row of font in 640 mode
-* 2 bytes per char, 2 bits per pixel
-* On entry: A contains row of font data
-SHRCHAR640    PHY                          ; Preserve Y
-              LDY   #$00                   ; Dest byte index
-:L0           STZ   ZP2
-              LDX   #$00                   ; Source bit index
-:L1           ASL                          ; MS bit -> C
-              PHP                          ; Preserve C
-              ROL   ZP2                    ; C -> LS bit
-              PLP                          ; Recover C
-              ROL   ZP2                    ; C -> LS bit
-              INX
-              CPX   #$04
-              BNE   :L1
-              PHA                          ; Preserve partially shifted font
-              LDA   ZP2
-              STA   [VDUADDR],Y
-              PLA                          ; Recover partially shifted font
-              INY
-              CPY   #$02                   ; Done 2 bytes?
-              BNE   :L0
-              PLY                          ; Recover Y
-              RTS
 
 
 * Write character to SHR screen
@@ -880,58 +697,4 @@ SHRPALCUSTOM  PHA                          ; Preserve GB components
               TYA                          ; R component
               STAL  $E19E00+1,X            ; Store in logical slot
               RTS
-
-
-* Convert high-resolution screen coordinates
-* from 1280x1024 to 620x200 or 320x200
-* TODO: Move to mainmem
-SHRCOORD      PHP                          ; Disable interrupts
-              SEI
-              CLC                          ; 65816 native mode
-              XCE
-              REP   #$30                   ; 16 bit M & X
-              MX    %00                    ; Tell Merlin
-
-* X-coordinate in VDUQ+5,+6   MODE0:1280/2=640 or MODE1:1280/4=320
-              LDA   VDUPIXELS              ; Pixels per byte
-              AND   #$00FF
-              CMP   #$02                   ; 2 is 320-mode (MODE 1)
-              BNE   :MODE0
-              LDA   VDUQ+5
-              LSR                          ; /2
-              LSR                          ; /4
-              STA   ZP1                    ; TODO: Store somewhere sensible
-              BRA   :Y
-:MODE0        LDA   VDUQ+5
-              LSR                          ; /2
-              STA   ZP1                    ; TODO: Store somewhere sensible
-
-* Y-coordinate in VDUQ+7,+8   1024*3/16=192, 1024/128=8, 192+8=200
-:Y            LDA   VDUQ+7
-              ASL                          ; *2
-              CLC
-              ADC   VDUQ+7                 ; *3
-              LSR                          ; *3/2
-              LSR                          ; *3/4
-              LSR                          ; *3/8
-              LSR                          ; *3/16
-              STA   ZP1                    ; (ZP1 and ZP2)
-              LDA   VDUQ+7
-              LSR                          ; /2
-              LSR                          ; /4
-              LSR                          ; /8
-              LSR                          ; /16
-              LSR                          ; /32
-              LSR                          ; /64
-              LSR                          ; /128
-              CLC
-              ADC   ZP1                    ; Result
-              STA   ZP1                    ; TODO: Store somewhere sensible
-
-              SEC                          ; Back to emulation mode
-              XCE
-              MX    %11                    ; Tell Merlin
-              PLP                          ; Normal service resumed
-              RTS
-
 

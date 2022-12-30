@@ -600,6 +600,9 @@ VDU22         JSR   NEGCALL                ; Find machine type
               STA   VDUBYTES               ; Bytes per char
               LDA   SCNPIXELS,X
               STA   VDUPIXELS              ; Pixels per byte
+              >>>   WRTMAIN
+              STA   SHRPIXELS
+              >>>   WRTAUX
               LDA   SCNTYPE,X
               STA   VDUSCREEN              ; Screen type
               LDA   #$01
@@ -1127,9 +1130,7 @@ VDUCOPYEXIT   RTS
 * x is in VDUQ+5,VDUQ+6
 * y is in VDUQ+7,VDUQ+8
 *
-
-* TO DO:
-* clip to viewport
+* TO DO: Clip to viewport
 
 VDU25         LDA   VDUQ+4
               AND   #$04                   ; Bit 2 set -> absolute
@@ -1166,7 +1167,7 @@ ADJORIG       CLC
               LDA   GFXORIGX+1
               ADC   VDUQ+6
               STA   VDUQ+6
-               CLC
+              CLC
               LDA   GFXORIGY+0
               ADC   VDUQ+7
               STA   VDUQ+7
@@ -1195,10 +1196,22 @@ RELCOORD      CLC
 * Program video system and define characters
 * VDU 23,charnum,row1,row2,row3,row4,row5,row6,row7,row8
 VDU23         BIT   VDUSCREEN               ; Check we are in SHR mode
-              BVC   :NOTSHR
-              JSR   SHRUSERCHAR
-:NOTSHR       RTS
+              BVS   :SHR
+              RTS
+:SHR          JSR   VDUCOPYMAIN             ; Copy VDUQ to main mem
+              >>>   XF2MAIN,SHRUSERCHAR
+VDU23RET      >>>   ENTAUX
+              RTS
 
+* Copy VDUQ to SHRVDUQ in main memory
+VDUCOPYMAIN   LDY   #$00
+:L1           LDA   VDUQ,Y                  ; Copy VDUQ to SHRVDUQ
+              >>>   WRTMAIN
+              STA   SHRVDUQ,Y
+              >>>   WRTAUX
+              INY
+              CPY   #16
+              BNE   :L1
 
 * Read from VDU system
 **********************
