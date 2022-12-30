@@ -558,6 +558,7 @@ SHRCLREOL     JSR   SHRCHARADDR
 
 
 * VDU16 (CLG) clears the whole SHR screen right now
+* TODO: Should clear to background colour
 SHRCLEAR      PHP                          ; Disable interrupts
               SEI
               CLC                          ; 816 native mode
