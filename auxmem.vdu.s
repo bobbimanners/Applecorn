@@ -1152,12 +1152,35 @@ VDU25BACKUP2  LDA   GFXPOSNX,X             ; POSN becomes LAST
               BPL   VDU25BACKUP2
               LDA   VDUPIXELS
               BEQ   :S2
-              JSR   HGRPLOTTER
+              JSR   GFXPLOTTER
 :S2           LDA   KEYBOARD               ; This and PRCHRC need to be
               EOR   #$80                   ; made more generalised
               BMI   VDU25EXIT              ; No key pressed
               JSR   KBDCHKESC              ; Ask KBD to test if Escape
 VDU25EXIT     RTS
+
+* Wrapper around call to HGR/SHR plotting routine
+GFXPLOTTER   LDX   #3
+:L1          LDA   VDUQ+5,X
+             PHA
+             DEX
+             BPL   :L1
+             BIT   VDUSCREEN
+             BPL   :S1
+             JSR   HGRPLOT
+             BRA   GFXPLOTTER2
+:S1          BVC   GFXPLOTTER2
+             >>>   XF2MAIN,SHRPLOT
+GFXPLOTRET   >>>   ENTAUX
+GFXPLOTTER2  LDX   #0
+:L1          LDA   VDUQ+5,X
+             STA   PIXELPLOTX,X
+             PLA
+             STA   VDUQ+5,X
+             INX
+             CPX   #4
+             BCC   :L1
+             RTS
 
 * Adjust graphics origin
 ADJORIG       CLC

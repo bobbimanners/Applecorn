@@ -301,8 +301,7 @@ SHRPRCH640    SEC
 
 * Apply colour masks to 16 bit word of character data
 * Called in 65816 native mode, 16 bit
-              MX    %00                    ; Tell Merlin 16 bit M & X
-SHRCOLWORD
+SHRCOLWORD    MX    %00                    ; Tell Merlin 16 bit M & X
               PHA                          ; Keep A
               AND   SHRCOLMASK             ; Mask to set foreground colour
               STA   ZP1                    ; Keep foreground

@@ -202,6 +202,26 @@ SHRCHAR640    PHY                          ; Preserve Y
               RTS
 
 
+* Plot actions: PLOT k,x,y
+* k is in SHRVDUQ+4
+* x is in SHRVDUQ+5,SHRVDUQ+6
+* y is in SHRVDUQ+7,SHRVDUQ+8
+*
+* Plot actions:
+*  $00+x - move/draw lines
+*  $40+x - plot point
+*  $50+x - fill triangle
+*  $60+x - fill rectangle
+*  $90+x - draw circle
+*  $98+x - fill circle
+*
+SHRPLOT       >>>   ENTMAIN
+              JSR   SHRCOORD               ; Convert coordinates
+*             ...
+              >>>   XF2AUX,GFXPLOTRET
+              RTS
+
+
 * Convert high-resolution screen coordinates
 * from 1280x1024 to 620x200 or 320x200
 * TODO: Totally untested ...

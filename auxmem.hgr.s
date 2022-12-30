@@ -157,24 +157,6 @@ VDU18RET1    >>>   ENTAUX
              >>>   WRTAUX
              RTS
 
-* TEMP *
-HGRPLOTTER   LDX   #3
-HGRPLOTTER1  LDA   VDUQ+5,X
-             PHA
-             DEX
-             BPL   HGRPLOTTER1
-             JSR   HGRPLOT
-             LDX   #0
-HGRPLOTTER2  LDA   VDUQ+5,X
-             STA   PIXELPLOTX,X
-             PLA
-             STA   VDUQ+5,X
-             INX
-             CPX   #4
-             BCC   HGRPLOTTER2
-             RTS
-* TEMP *
-
 * Plot actions, PLOT k,x,y
 * k is in VDUQ+4
 * x is in VDUQ+5,VDUQ+6
