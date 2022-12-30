@@ -272,28 +272,30 @@ SHRCOORD      PHP                          ; Disable interrupts
               BRA   :Y
 :MODE0        LDA   SHRVDUQ+5
               LSR                          ; /2
-              STA   A1L                    ; Resulr in A1L/H
+              STA   A1L                    ; Result in A1L/H
 
-* Y-coordinate in SHRVDUQ+7,+8   1024*3/16=192, 1024/128=8, 192+8=200
+* Y-coordinate in SHRVDUQ+7,+8   1024*25/128=200
 :Y            LDA   SHRVDUQ+7
               ASL                          ; *2
-              CLC
-              ADC   SHRVDUQ+7              ; *3
-              LSR                          ; *3/2
-              LSR                          ; *3/4
-              LSR                          ; *3/8
-              LSR                          ; *3/16
-              STA   A2L                    ; (A1L and A1H)
+              ASL                          ; *4
+              ASL                          ; *8
+              ASL                          ; *16
+              STA   A2L                    ; (A2L and A2H)
               LDA   SHRVDUQ+7
-              LSR                          ; /2
-              LSR                          ; /4
-              LSR                          ; /8
-              LSR                          ; /16
-              LSR                          ; /32
-              LSR                          ; /64
-              LSR                          ; /128
+              ASL                          ; *2
+              ASL                          ; *4
+              ASL                          ; *8
               CLC
-              ADC   A2L                    ; Result
+              ADC   A2L                    ; *16 + *8 -> *24
+            ; CLC                          ; We know it is clear
+              ADC   SHRVDUQ+7              ; *25
+              LSR                          ; *25/2
+              LSR                          ; *25/4
+              LSR                          ; *25/8
+              LSR                          ; *25/16
+              LSR                          ; *25/32
+              LSR                          ; *25/64
+              LSR                          ; *25/128
               STA   A2L                    ; Into A2L/H
 
               SEC                          ; Back to emulation mode
