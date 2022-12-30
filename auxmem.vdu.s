@@ -1170,6 +1170,7 @@ GFXPLOTTER   LDX   #3
              JSR   HGRPLOT
              BRA   GFXPLOTTER2
 :S1          BVC   GFXPLOTTER2
+             JSR   VDUCOPYMAIN             ; Copy VDUQ to main mem
              >>>   XF2MAIN,SHRPLOT
 GFXPLOTRET   >>>   ENTAUX
 GFXPLOTTER2  LDX   #0
