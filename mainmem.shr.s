@@ -236,7 +236,30 @@ SHRPLOT       >>>   ENTMAIN
               ROR   A1L
               LDY   A1L                    ; Index into row of pixels
 
+              LDA   SHRPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :MODE0
+
               TXA
+              LSR
+              AND   #$01                   ; Keep LSB bit only
+              TAX                          ; Index into :BITS320
+
+              LDA   :BITS320,X             ; Get bit pattern for pixel to set
+              EOR   #$FF                   ; Invert bits
+              AND   [A3L],Y                ; Load existing byte, clearing pixel
+              STA   A1L
+              LDA   :BITS320,X             ; Get bit pattern for pixel to set
+              AND   SHRGFXMASK             ; Mask to set colour
+              ORA   A1L                    ; OR into existing byte
+
+* TODO: Apply SHRGFXACTION GCOL action
+
+              STA   [A3L],Y                ; Write to screen
+              >>>   XF2AUX,GFXPLOTRET
+              RTS
+              
+:MODE0        TXA
               AND   #$03                   ; Keep LSB two bits only
               TAX                          ; Index into :BITS640
 
@@ -253,6 +276,8 @@ SHRPLOT       >>>   ENTMAIN
               STA   [A3L],Y                ; Write to screen
               >>>   XF2AUX,GFXPLOTRET
               RTS
+:BITS320      DB    %11110000              ; Bit patterns for pixel ..
+              DB    %00001111              ; .. within byte
 :BITS640      DB    %11000000              ; Bit patterns for pixel ..
               DB    %00110000              ; .. within byte
               DB    %00001100
@@ -269,17 +294,8 @@ SHRCOORD      PHP                          ; Disable interrupts
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
 
-* X-coordinate in SHRVDUQ+5,+6   MODE0:1280/2=640 or MODE1:1280/4=320
-              LDA   SHRPIXELS              ; Pixels per byte
-              AND   #$00FF
-              CMP   #$02                   ; 2 is 320-mode (MODE 1)
-              BNE   :MODE0
+* X-coordinate in SHRVDUQ+5,+6   1280/2=640
               LDA   SHRVDUQ+5
-              LSR                          ; /2
-              LSR                          ; /4
-              STA   A1L                    ; Result in A1L/H
-              BRA   :Y
-:MODE0        LDA   SHRVDUQ+5
               LSR                          ; /2
               STA   A1L                    ; Result in A1L/H
 
