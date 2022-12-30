@@ -215,6 +215,8 @@ SHRCHAR640    PHY                          ; Preserve Y
 *  $90+x - draw circle
 *  $98+x - fill circle
 *
+* TODO: Only does point plotting ATM
+* TODO: Only supports 640 mode right now
 SHRPLOT       >>>   ENTMAIN
               JSR   SHRCOORD               ; Convert coordinates
               LDX   A2L                    ; Screen row (Y-coord)
@@ -231,14 +233,21 @@ SHRPLOT       >>>   ENTMAIN
               LSR   A1H
               ROR   A1L
               LDY   A1L                    ; Index into row of pixels
-*             ...
-* TODO Handle the bits
-*             ...
 
-              LDA   #$FF                   ; TEMP
+              TXA
+              AND   #$03                   ; Keep LSB two bits only
+              TAX                          ; Index into :BITS640
+
+              LDA   [A3L],Y                ; Write to screen
+              ORA   :BITS640,X             ; OR with bit pattern for pixels
+
               STA   [A3L],Y                ; Write to screen
               >>>   XF2AUX,GFXPLOTRET
               RTS
+:BITS640      DB    %11000000              ; Bit patterns for pixel ..
+              DB    %00110000              ; .. within byte
+              DB    %00001100
+              DB    %00000011
 
 
 * Convert high-resolution screen coordinates
