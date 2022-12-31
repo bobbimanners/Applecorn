@@ -105,15 +105,13 @@ SHRUSERCHAR   >>>   ENTMAIN
               DEY
               BRA   :L0
 
-
 :S1           LDY   #$00
 :L1           LDA   SHRVDUQ+1,Y            ; Row of pixels
               JSR   SHRXPLDROW
               INY
               CPY   #$08                   ; Last row?
               BNE   :L1
-:DONE         RTS
-              >>>   XF2AUX,VDU23RET
+:DONE         >>>   XF2AUX,VDU23RET
 :INCREMENT    DB    $00
 
 
