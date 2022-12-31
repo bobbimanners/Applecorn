@@ -251,24 +251,109 @@ SHRPLOT       >>>   ENTMAIN
 
               LDA   :BITS640,X             ; Get bit pattern for pixel to set
 :DOPLOT       PHA
-              EOR   #$FF                   ; Invert bits
-              AND   [A3L],Y                ; Load existing byte, clearing pixel
-              STA   A1L
-              PLA                          ; Recover bit pattern
-              AND   SHRGFXMASK             ; Mask to set colour
-              ORA   A1L                    ; OR into existing byte
-              
-* TODO: Apply SHRGFXACTION GCOL action
 
-              STA   [A3L],Y                ; Write to screen
-              >>>   XF2AUX,GFXPLOTRET
-              RTS
+              LDA   SHRGFXACTION           ; GCOL action
+              AND   #$0007                 ; Avoid table overflows
+              ASL
+              TAX
+              JMP   (:PLOTTBL, X)          ; Jump using jump table
+
 :BITS320      DB    %11110000              ; Bit patterns for pixel ..
               DB    %00001111              ; .. within byte
 :BITS640      DB    %11000000              ; Bit patterns for pixel ..
               DB    %00110000              ; .. within byte
               DB    %00001100
               DB    %00000011
+:PLOTTBL      DW    SHRPLOTSET             ; Jump table for GCOL actions
+              DW    SHRPLOTOR
+              DW    SHRPLOTAND
+              DW    SHRPLOTXOR
+              DW    SHRPLOTNOT
+              DW    SHRPLOTNOP
+              DW    SHRPLOTCLR
+              DW    SHRPLOTNOP
+
+
+* Plot the specified colour (GCOL action 0)
+* Pixel bit pattern in A, and also at top of stack
+SHRPLOTSET    EOR   #$FF                   ; Invert bits
+              AND   [A3L],Y                ; Load existing byte, clearing pixel
+              STA   A1L
+              PLA                          ; Recover bit pattern
+              AND   SHRGFXMASK             ; Mask to set colour
+              ORA   A1L                    ; OR into existing byte
+              STA   [A3L],Y                ; Write to screen
+              >>>   XF2AUX,GFXPLOTRET
+              RTS
+
+
+* OR with colour on screen (GCOL action 1)
+* Pixel bit pattern in A, and also at top of stack
+SHRPLOTOR     PLA                          ; Recover bit pattern
+              AND   SHRGFXMASK             ; Mask to set colour
+              ORA   [A3L],Y                ; OR into existing byte
+              STA   [A3L],Y                ; Write to screen
+              >>>   XF2AUX,GFXPLOTRET
+              RTS
+
+
+* AND with colour on screen (GCOL action 2)
+* Pixel bit pattern in A, and also at top of stack
+SHRPLOTAND    AND   [A3L],Y                ; Mask bits to work on
+              STA   A1L
+              PLA                          ; Recover bit pattern
+              PHA
+              AND   SHRGFXMASK             ; Mask to set colour
+              AND   A1L                    ; AND with screen data
+              STA   A1L
+              PLA                          ; Recover bit pattern
+              EOR   #$FF                   ; Invert
+              AND   [A3L],Y                ; Mask remaining bits
+              ORA   A1L                    ; Combine
+              STA   [A3L],Y                ; Write to screen
+              >>>   XF2AUX,GFXPLOTRET
+              RTS
+
+
+* XOR with colour on screen (GCOL action 3)
+* Pixel bit pattern in A, and also at top of stack
+SHRPLOTXOR    PLA                          ; Recover bit pattern
+              AND   SHRGFXMASK             ; Mask to set colour
+              EOR   [A3L],Y                ; EOR into existing byte
+              STA   [A3L],Y                ; Write to screen
+              >>>   XF2AUX,GFXPLOTRET
+              RTS
+
+
+* NOT colour on screen (GCOL action 4)
+* Pixel bit pattern in A, and also at top of stack
+SHRPLOTNOT    AND   [A3L],Y                ; Mask bits to work on
+              EOR   #$FF                   ; Negate / invert
+              STA   A1L
+              PLA                          ; Recover bit pattern
+              EOR   #$FF                   ; Invert bits
+              AND   [A3L],Y                ; Mask remaining bits
+              ORA   A1L                    ; Combine
+              STA   [A3L],Y                ; Write to screen
+              >>>   XF2AUX,GFXPLOTRET
+              RTS
+
+
+* NO-OP (GCOL action 5)
+* Pixel bit pattern in A, and also at top of stack
+SHRPLOTNOP    PLA                          ; Discard bit pattern
+              >>>   XF2AUX,GFXPLOTRET
+              RTS
+
+
+* Clear (GCOL action 6)
+* Pixel bit pattern in A, and also at top of stack
+SHRPLOTCLR    PLA                          ; Recover bit pattern
+              EOR   #$FF                   ; Invert bits
+              AND   [A3L],Y                ; Load existing byte, clearing pixel
+              STA   [A3L],Y                ; Write to screen
+              >>>   XF2AUX,GFXPLOTRET
+              RTS
 
 
 * Convert high-resolution screen coordinates

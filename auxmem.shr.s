@@ -633,21 +633,21 @@ SHRSETTCOL    PHA
 *  6 = CLR clear pixel to background
 *  7 = UND undefined
 SHRSETGCOL    PHA
-              LDX   VDUPIXELS              ; Pixels per byte
-              CPX   #$02                   ; 2 is 320-mode (MODE 1)
+              LDY   VDUPIXELS              ; Pixels per byte
+              CPY   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
               AND   #$80
               BEQ   :FORE320
               PLA
               AND   #$0F
-              TAX
-              LDA   SHRCMASK320,X          ; Lookup mask in table
+              TAY
+              LDA   SHRCMASK320,Y          ; Lookup mask in table
               STA   SHRGFXBGMASKA
               RTS
 :FORE320      PLA
               AND   #$0F
-              TAX
-              LDA   SHRCMASK320,X          ; Lookup mask in table
+              TAY
+              LDA   SHRCMASK320,Y          ; Lookup mask in table
               >>>   WRTMAIN
               STA   SHRGFXMASK
               STX   SHRGFXACTION
@@ -657,14 +657,14 @@ SHRSETGCOL    PHA
               BEQ   :FORE640
               PLA
               AND   #$03
-              TAX
-              LDA   SHRCMASK640,X          ; Lookup mask in table
+              TAY
+              LDA   SHRCMASK640,Y          ; Lookup mask in table
               STA   SHRGFXBGMASKA
               RTS
 :FORE640      PLA
               AND   #$03
-              TAX
-              LDA   SHRCMASK640,X          ; Lookup mask in table
+              TAY
+              LDA   SHRCMASK640,Y          ; Lookup mask in table
               >>>   WRTMAIN
               STA   SHRGFXMASK
               STX   SHRGFXACTION
