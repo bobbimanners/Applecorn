@@ -939,7 +939,8 @@ VDU20LP       STA   TXTFGD,X               ; Clear all colours
               JSR   HGRSETGCOL             ; Set gfx foreground
               BIT   VDUBANK
               BPL   :S2                    ; Skip if not GS
-              JSR   SHRSETGCOL             ; Set SHR background
+              LDX   #$00                   ; Default GCOL action
+              JSR   SHRSETGCOL             ; Set SHR foreground
 :S2           RTS
 
 * VDU 17 - COLOUR n - select text or border colour
