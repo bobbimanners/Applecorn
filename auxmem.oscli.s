@@ -121,6 +121,9 @@ CMDMOS      ASC   'BASIC'
             ASC   'ROM'
             DB    $8D
             DW    STARBYTE-1         ; ROM    -> OSBYTE &8D,X,Y  XY=>params
+            ASC   'SHOW'
+            DB    $FF
+            DW    STARSHOW-1         ; SHOW   -> (LPTR)=>params
             ASC   'SLOW'
             DB    $FF
             DW    CMDSLOW-1          ; SLOW   -> (LPTR)=>params
@@ -154,7 +157,7 @@ HLPTABLE    ASC   'MOS'
 *           XY=>command table
 * On exit,  A=0  done, command called
 *           A<>0 no match
-*           (OSLPTR) presevred if no match
+*           (OSLPTR) preserved if no match
 *           X,Y corrupted
 *
 * Search command table

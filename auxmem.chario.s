@@ -37,7 +37,7 @@
 * 24-Dec-2022 Minor bit of tidying.
 * 26-Dec-2022 Integrated ADB extended keyboard keys.
 * 27-Dec-2022 Bobbi's keyboard uses $60+n extended keys.
-* TO DO: Need to special-case RAlt-2, RAlt-6 when RAlt also holds Ctrl.
+* 30-Dec-2022 Optimised *KEY, US KBD Alt-Ctrl-2, Alt-Ctrl-6 -> f2/f6.
 
 
 * Hardware locations
@@ -314,133 +314,254 @@ ERRKEYUSED   BRK
 * SCANDEC stores number in OSDECNUM, so we can keep it there
 * We also have OSKBDx variables available for shuffling code
 *
-STARKEY1
-*            STA   FKEYNUM            ; Key number being defined
-             JSR   KEYOPENGAP
+STARKEY1     INC   FXSOFTOK           ; Soft keys unstable
+             PHY                      ; Y=>command line
+*
+             PHP                      ; Read/write main memory
+             SEI                      ; MACRO-ise this
+             STA   WRMAINRAM
+             STA   RDMAINRAM
+*
+             JSR   KEYOFFLEN          ; X=offset, A=length, CLC
+             STX   OSKBD1             ; OSKBD1=offset to old definition
+             STA   OSKBD2             ; OSKBD2=old length
+             ADC   OSKBD1             ; A=offset to next definition
+             TAY
+* Remove old definition
+:LOOP        LDA   FKEYBUF,Y          ; Get byte from next string
+             STA   FKEYBUF,X          ; Move it down over this string
+             INX
+             INY
+             BNE   :LOOP
+             LDX   OSDECNUM
+             STZ   FKEYLENS,X         ; Length=0
+             LDA   #17
+             JSR   KEYOFFLEN          ; X=offset to free space
+*
+             STA   RDCARDRAM          ; Read/write aux memory
+             STA   WRCARDRAM          ; MACRO-ise this
+             PLP
+*
+             STX   OSKBD2
+             PLY
              JSR   SKIPCOMMA
              SEC
              JSR   GSINIT             ; Initialise '*KEY-type string'
-             LDX   KEYINS             ; Starting point to insert
 STARKEYLP1   JSR   GSREAD
              BCS   STARKEYEND
              >>>   WRTMAIN            ; Write main memory
              STA   FKEYBUF,X          ; Store char of definition
              >>>   WRTAUX             ; Back to writing aux again
              INX
-             CPX   MOVEDST            ; See if we are out of space
              BNE   STARKEYLP1
-*             LDX   FKEYNUM
-             LDX   OSDECNUM
-             >>>   WRTMAIN            ; Write main memory
-             STZ   FKEYLENS,X         ; Out of space. Set len=0
-             >>>   WRTAUX             ; Back to writing aux again
-             BRA   STARKEYCLS
-STARKEYEND   TXA                      ; Last idx+1
-             SEC                      ; Compute length
-             SBC   KEYINS
-*             LDX   FKEYNUM
-             LDX   OSDECNUM
-             >>>   WRTMAIN            ; Write main memory
-             STA   FKEYLENS,X         ; Store length of new def
-             >>>   WRTAUX             ; Back to writing aux again
-STARKEYCLS   JSR   KEYCLSGAP
-             RTS
-* FKEYNUM      DB    $00
-KEYINS       DB    $00
+STARKEYERR   JMP   ERRBADSTR          ; String too long
+* Should this be ERRBADKEY?
 
-
-* Open gap in FKEYBUF to allow new def to be inserted
-* Moved defs for keys FKEYNUM+1..15 to top of FKEYBUF
-* Preserves A,X,Y
-KEYOPENGAP   PHA
+STARKEYEND   BNE   STARKEYERR         ; Badly terminated
+* X=offset to end of new definition
+* OSDECNUM=key number
+* OSKBD1=offset to insertion point
+* OSKBD2=start of new string, holding position
+*
+             TXA                      ; SEC from above
+             SBC   OSKBD2             ; A=length of new definition
+             BEQ   STARKEYDONE        ; Zero length, all done
+             LDX   OSDECNUM
+*
+             PHP                      ; Read/write main memory
+             SEI                      ; MACRO-ise this
+             STA   WRMAINRAM
+             STA   RDMAINRAM
+*
+             STA   FKEYLENS,X         ; Set new length
+*
+* A=length of new string
+* X=key number
+* OSKBD1=offset to insertion point
+* OSKBD2=offset to free space, holding new string
+*
+             TAX
+             LDA   OSKBD2
+             SEC
+             SBC   OSKBD1
+             TAY                      ; Y=length between insertion point and free space
+             BEQ   STARKEYNONE        ; Nothing to move, all done
+             STX   OSKBD1             ; OSKBD1=length of new string
+             LDX   OSKBD2             ; X=offset to free space, holding new string
+*
+* Insert new string
+STARKEYLP2   PHY
              PHX
-             PHY
-*             LDX   FKEYNUM            ; Key being defined
-             LDX   OSDECNUM
-             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
-             STA   KEYINS             ; Offset for insert
-*             LDX   FKEYNUM            ; Key being defined
-             LDX   OSDECNUM
-             INX
-             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
-             STA   MOVESRC            ; Source offset for move
-             LDX   #16                ; Sum keys 0..15 (ie: all)
-             JSR   KEYSUMLENS         ; Sum them all
-             SEC
-             SBC   MOVESRC            ; Compute length to move
-             STA   MOVELEN
-             LDA   #$FF               ; Length of FKEYBUF
-             SEC
-             SBC   MOVELEN            ; Compute dest for move
-             STA   MOVEDST            ; Dest offset for move
-             JSR   MOVEKEYS           ; Open the gap
-             PLY
-             PLX
-             PLA
-             RTS
-* After the gap is opened, there is freespace from MOVESRC to MOVEDST-1
-
-
-* Close gap in FKEYBUF after def has been inserted
-* Preserves A,X,Y
-KEYCLSGAP    PHA
-             PHX
-             PHY
-             LDA   #$FF               ; Length of FKEYBUF
-             SEC
-             SBC   MOVEDST            ; Previous dest, to calc length
-             STA   MOVELEN            ; Length for move
-             LDA   MOVEDST            ; Old dest ...
-             STA   MOVESRC            ; ... is new source
-*             LDX   FKEYNUM            ; Key being defined
-             LDX   OSDECNUM
-             INX
-             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
-             STA   MOVEDST            ; New dest
-             JSR   MOVEKEYS           ; Close the gap
-             PLY
-             PLX
-             PLA
-             RTS
-
-
-* Add lengths of *KEY definitions together
-* On entry: X is the highest key num + 1 (sums 0..X-1)
-* On return: Sum in A (exclusive of X)
-* From *KEY0 to *KEYn where n is value in X
-KEYSUMLENS   LDA   #$00               ; Clear sum
-:LOOP        CPX   #$00
-             BEQ   :DONE
-             >>>   RDMAIN             ; Read main memory
-             CLC
-             ADC   FKEYLENS-1,X       ; Add lengths
-             >>>   RDAUX              ; Read aux memory
-             DEX
-             BRA   :LOOP
-:DONE        RTS
-             
-
-* Move key definitions within FKEYBUF
-* Copies MOVELEN bytes from MOVSRC->MOVDST within FKEYBUF
-MOVEKEYS     LDX   MOVESRC
-             LDY   MOVEDST
-:L1          LDA   MOVELEN
-             BEQ   :DONE
-             >>>   RDMAIN             ; Read main memory
+             LDA   FKEYBUF,X          ; Shuffle strings up
+             PHA
+STARKEYLP4   DEX
              LDA   FKEYBUF,X
-             >>>   RDAUX              ; Read aux memory
-             >>>   WRTMAIN            ; Write main memory
-             STA   FKEYBUF,Y
-             >>>   WRTAUX             ; Write aux memory
+             STA   FKEYBUF+1,X
+             DEY
+             BNE   STARKEYLP4
+             PLA
+             STA   FKEYBUF,X          ; Insert new string
+             PLX
              INX
-             INY
-             DEC   MOVELEN
-             BRA   :L1
-:DONE        RTS
-MOVESRC      DB    $00                ; Source offset in FKEYBUF
-MOVEDST      DB    $00                ; Dest offset in FKEYBUF
-MOVELEN      DB    $00                ; # bytes remaining to move
+             PLY
+             DEC   OSKBD1             ; Loop for length of new string
+             BNE   STARKEYLP2
+STARKEYNONE
+*
+             STA   RDCARDRAM          ; Read/write aux memory
+             STA   WRCARDRAM          ; MACRO-ise this
+             PLP
+*
+STARKEYDONE  STZ   FXSOFTOK           ; Soft keys are stable
+             RTS
 
+
+**            STA   FKEYNUM            ; Key number being defined
+*             JSR   KEYOPENGAP
+*             JSR   SKIPCOMMA
+*             SEC
+*             JSR   GSINIT             ; Initialise '*KEY-type string'
+*             LDX   KEYINS             ; Starting point to insert
+*STARKEYLP1   JSR   GSREAD
+*             BCS   STARKEYEND
+*             >>>   WRTMAIN            ; Write main memory
+*             STA   FKEYBUF,X          ; Store char of definition
+*             >>>   WRTAUX             ; Back to writing aux again
+*             INX
+*             CPX   MOVEDST            ; See if we are out of space
+*             BNE   STARKEYLP1
+**             LDX   FKEYNUM
+*             LDX   OSDECNUM
+*             >>>   WRTMAIN            ; Write main memory
+*             STZ   FKEYLENS,X         ; Out of space. Set len=0
+*             >>>   WRTAUX             ; Back to writing aux again
+*             BRA   STARKEYCLS
+*STARKEYEND   TXA                      ; Last idx+1
+*             SEC                      ; Compute length
+*             SBC   KEYINS
+**             LDX   FKEYNUM
+*             LDX   OSDECNUM
+*             >>>   WRTMAIN            ; Write main memory
+*             STA   FKEYLENS,X         ; Store length of new def
+*             >>>   WRTAUX             ; Back to writing aux again
+*STARKEYCLS   JSR   KEYCLSGAP
+*             RTS
+** FKEYNUM      DB    $00
+*KEYINS       DB    $00
+*
+*
+** Open gap in FKEYBUF to allow new def to be inserted
+** Moved defs for keys FKEYNUM+1..15 to top of FKEYBUF
+** Preserves A,X,Y
+*KEYOPENGAP   PHA
+*             PHX
+*             PHY
+**             LDX   FKEYNUM            ; Key being defined
+*             LDX   OSDECNUM
+*             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
+*             STA   KEYINS             ; Offset for insert
+**             LDX   FKEYNUM            ; Key being defined
+*             LDX   OSDECNUM
+*             INX
+*             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
+*             STA   MOVESRC            ; Source offset for move
+*             LDX   #16                ; Sum keys 0..15 (ie: all)
+*             JSR   KEYSUMLENS         ; Sum them all
+*             SEC
+*             SBC   MOVESRC            ; Compute length to move
+*             STA   MOVELEN
+*             LDA   #$FF               ; Length of FKEYBUF
+*             SEC
+*             SBC   MOVELEN            ; Compute dest for move
+*             STA   MOVEDST            ; Dest offset for move
+*             JSR   MOVEKEYS           ; Open the gap
+*             PLY
+*             PLX
+*             PLA
+*             RTS
+** After the gap is opened, there is freespace from MOVESRC to MOVEDST-1
+*
+*
+** Close gap in FKEYBUF after def has been inserted
+** Preserves A,X,Y
+*KEYCLSGAP    PHA
+*             PHX
+*             PHY
+*             LDA   #$FF               ; Length of FKEYBUF
+*             SEC
+*             SBC   MOVEDST            ; Previous dest, to calc length
+*             STA   MOVELEN            ; Length for move
+*             LDA   MOVEDST            ; Old dest ...
+*             STA   MOVESRC            ; ... is new source
+**             LDX   FKEYNUM            ; Key being defined
+*             LDX   OSDECNUM
+*             INX
+*             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
+*             STA   MOVEDST            ; New dest
+*             JSR   MOVEKEYS           ; Close the gap
+*             PLY
+*             PLX
+*             PLA
+*             RTS
+*
+*
+** Add lengths of *KEY definitions together
+** On entry: X is the highest key num + 1 (sums 0..X-1)
+** On return: Sum in A (exclusive of X)
+** From *KEY0 to *KEYn where n is value in X
+*KEYSUMLENS   LDA   #$00               ; Clear sum
+*:LOOP        CPX   #$00
+*             BEQ   :DONE
+*             >>>   RDMAIN             ; Read main memory
+*             CLC
+*             ADC   FKEYLENS-1,X       ; Add lengths
+*             >>>   RDAUX              ; Read aux memory
+*             DEX
+*             BRA   :LOOP
+*:DONE        RTS
+*             
+*
+** Move key definitions within FKEYBUF
+** Copies MOVELEN bytes from MOVSRC->MOVDST within FKEYBUF
+*MOVEKEYS     LDX   MOVESRC
+*             LDY   MOVEDST
+*:L1          LDA   MOVELEN
+*             BEQ   :DONE
+*             >>>   RDMAIN             ; Read main memory
+*             LDA   FKEYBUF,X
+*             >>>   RDAUX              ; Read aux memory
+*             >>>   WRTMAIN            ; Write main memory
+*             STA   FKEYBUF,Y
+*             >>>   WRTAUX             ; Write aux memory
+*             INX
+*             INY
+*             DEC   MOVELEN
+*             BRA   :L1
+*:DONE        RTS
+*MOVESRC      DB    $00                ; Source offset in FKEYBUF
+*MOVEDST      DB    $00                ; Dest offset in FKEYBUF
+*MOVELEN      DB    $00                ; # bytes remaining to move
+*
+
+* Get offset and length of key in X
+* Add lengths of previous definitions together
+* Assumes mainmen is paged in by caller
+* On entry: A=key number
+* On exit   X=offset to definition start
+*           A=length of definition
+*           CC always
+KEYOFFLEN   TAX
+            LDA   FKEYLENS,X          ; Get length of this key
+            PHA
+            LDA   #0
+            CLC                       ; CLC for addition
+            BCC   :ADDUP
+:KEYLOOP    ADC   FKEYLENS,X          ; Add length of previous key
+:ADDUP      DEX                       ; Step to previous key
+            BPL   :KEYLOOP            ; Do until key 0 added
+            TAX                       ; Return X=offset
+            PLA                       ; Return A=length
+            RTS
 
 * OSBYTE &12 - Clear soft keys
 * ----------------------------
@@ -490,6 +611,7 @@ KEYREAD1     LDA   FXSOFTLEN          ; Soft key active?
              DEC   FXSOFTLEN          ; Dec. counter
              CLC
              RTS
+
 KEYREAD2     JSR   KBDREAD            ; Fetch character from KBD "buffer"
              BCS   KEYREADOK          ; Nothing pending
              TAY                      ; Y=unmodified character
@@ -539,16 +661,23 @@ KEYSOFTY     TYA                      ; Get key including Shift/Ctrl
 * On entry: Y=key code ($Xn where n is soft key number)
 KEYEXPAND    TYA
              AND   #$0F               ; Obtain soft key number
-             TAX
-             PHX
-             JSR   KEYSUMLENS         ; Obtain starting offset
-             STA   FXSOFTOFF		; SOFTKEYOFF
-             PLX
              >>>   RDMAIN
-             LDA   FKEYLENS,X         ; Obtain length of *KEY string
+             JSR   KEYOFFLEN          ; Get offset and length of key
              >>>   RDAUX
+             STX   FXSOFTOFF
              STA   FXSOFTLEN
-             RTS
+             BRA   KEYREAD1           ; Go back and start fetching
+
+*             TAX
+*             PHX
+*             JSR   KEYSUMLENS         ; Obtain starting offset
+*             STA   FXSOFTOFF		; SOFTKEYOFF
+*             PLX
+*             >>>   RDMAIN
+*             LDA   FKEYLENS,X         ; Obtain length of *KEY string
+*             >>>   RDAUX
+*             STA   FXSOFTLEN
+*             RTS
 
 * Process cursor keys
 KEYCURSOR    CMP   #$C9
@@ -654,11 +783,20 @@ KBDREAD4     SEC
              ADC   FXKEYPADBASE       ; Add to keypad base
              BRA   KBDREAD6
 
+* Special-case checks
+KBDREADX2    LDA   #$1A               ; Alt-Ctrl-2 -> f2
+KBDREADX6    EOR   #$98               ; Alt-Ctrl-6 -> f6
+             BNE   KBDFUNC
+
 KBDREAD5     TXA                      ; A=raw keypress
              PLP
              BEQ   KBDNOALT           ; No ALTs pressed
 *
-KBDALT       CMP   #$40
+KBDALT       TXA
+             BEQ   KBDREADX2          ; RAlt-2
+             CMP   #$1E
+             BEQ   KBDREADX6          ; RAlt-6
+             CMP   #$40
              BCS   KBDCTRL            ; 'A'+ Alt+letter ->Control code
              CMP   #$30
              BCC   KBDCHKESC          ; <'0' Alt+nondigit -> keep

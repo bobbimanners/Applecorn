@@ -5,6 +5,7 @@
 * 08-Nov-2022 ResetType OSBYTE set
 * 09-Nov-2022 Current language re-entered, reset on Power/Hard Reset
 * 12-Dec-2022 Copy loop uses OSvars, single byte for MODBRA jump.
+* 15-Dec-2022 Added check for *FX200,2/3 force PowerOn reset.
 * BUG: If Ctrl-Break pressed during a service call, wrong ROM gets paged in
 
 
@@ -43,8 +44,7 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
             LDX   #$FF            ; Initialize Alt SP to $1FF
             TXS
 
-* Ensure memory map setup ...
-
+* Ensure memory map set up:
             STA   WRCARDRAM       ; Make sure we are writing aux
             STA   80STOREOFF      ; Make sure 80STORE is off
             STA   SET80VID        ; 80 col on
@@ -52,13 +52,13 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
             STA   PAGE2           ; PAGE2
             LDA   LCBANK1         ; LC RAM Rd/Wt, 1st 4K bank
             LDA   LCBANK1
+* (Move these later to prevent brief glimpse of screen with code in it?)
 
             LDY   #$00            ; $00=Soft Reset
 :MODBRA     SEC                   ; Changed to CLC after first run
             BCC   :NORELOC        ; Subsequent run, skip to code
 
 * Copy code to high memory, (OSCTRL)=>source, (OSLPTR)=>dest
-
 :RELOC      LDA   #<AUXMOS1       ; Source
             STA   OSCTRL+0
             LDA   #>AUXMOS1
@@ -82,6 +82,8 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
             LDA   #$18            ; CLC opcode, next time around, we're
             STA   :MODBRA         ; already in high memory
             LDY   #$02            ; $02=PowerOn
+* We only change one byte to protect against a RESET happening halfway between
+* two bytes being changed, leaving the code inconsistant.
 
 :NORELOC    JMP   MOSHIGH         ; Ensure executing in high memory from here
 
@@ -91,7 +93,11 @@ MOSINIT     SEI                   ; Ensure IRQs disabled
 MOSHIGH     SEI                   ; Ensure IRQs disabled
             LDX   #$FF
             TXS                   ; Initialise stack
-            PHY                   ; Stack ResetType
+            LDA   FX200VAR        ; Check *FX200
+            AND   #$02            ; Check if bit 1 set
+            BEQ   :SCLR0          ; No, keep existing ResetType
+            TAY                   ; Otherwise, force to PowerOn reset
+:SCLR0      PHY                   ; Stack ResetType
             LDA   FXLANG          ; A=Language
             LDY   FXSOFTOK        ; Y=Soft Keys Ok
 
@@ -218,6 +224,5 @@ BYTE00      BEQ   BYTE00A         ; OSBYTE 0,0 - generate error
             RTS                   ; %000x1xxx host type, 'A'pple
 BYTE00A     BRK
             DB    $F7
-HELLO       ASC   'Applecorn MOS 2022-12-30'
+HELLO       ASC   'Applecorn MOS 2022-12-28'
             DB    $00             ; Unify MOS messages
-
