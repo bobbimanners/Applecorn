@@ -216,7 +216,6 @@ SHRCHAR640    PHY                          ; Preserve Y
 *  $98+x - fill circle
 *
 * TODO: Only does point plotting ATM
-* TODO: Only supports 640 mode right now
 SHRPLOT       >>>   ENTMAIN
               JSR   SHRCOORD               ; Convert coordinates
               LDX   A2L                    ; Screen row (Y-coord)
@@ -244,28 +243,18 @@ SHRPLOT       >>>   ENTMAIN
               TAX                          ; Index into :BITS320
 
               LDA   :BITS320,X             ; Get bit pattern for pixel to set
-              EOR   #$FF                   ; Invert bits
-              AND   [A3L],Y                ; Load existing byte, clearing pixel
-              STA   A1L
-              LDA   :BITS320,X             ; Get bit pattern for pixel to set
-              AND   SHRGFXMASK             ; Mask to set colour
-              ORA   A1L                    ; OR into existing byte
-
-* TODO: Apply SHRGFXACTION GCOL action
-
-              STA   [A3L],Y                ; Write to screen
-              >>>   XF2AUX,GFXPLOTRET
-              RTS
+              BRA   :DOPLOT
               
 :MODE0        TXA
               AND   #$03                   ; Keep LSB two bits only
               TAX                          ; Index into :BITS640
 
               LDA   :BITS640,X             ; Get bit pattern for pixel to set
+:DOPLOT       PHA
               EOR   #$FF                   ; Invert bits
               AND   [A3L],Y                ; Load existing byte, clearing pixel
               STA   A1L
-              LDA   :BITS640,X             ; Get bit pattern for pixel to set
+              PLA                          ; Recover bit pattern
               AND   SHRGFXMASK             ; Mask to set colour
               ORA   A1L                    ; OR into existing byte
               
