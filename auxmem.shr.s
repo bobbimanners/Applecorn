@@ -143,6 +143,7 @@ SHRBGMASK     EQU   $B002                  ; Colour mask background (word)
 ******************************************************************************
 
 SHRBGMASKA    DW    $0000                  ; Keep a copy in aux mem too
+SHRGFXBGMASKA DW    $0000
 
 
 * Write character to SHR screen
@@ -558,7 +559,6 @@ SHRCLREOL     JSR   SHRCHARADDR
 
 
 * VDU16 (CLG) clears the whole SHR screen right now
-* TODO: Should clear to background colour
 SHRCLEAR      PHP                          ; Disable interrupts
               SEI
               CLC                          ; 816 native mode
@@ -566,7 +566,7 @@ SHRCLEAR      PHP                          ; Disable interrupts
               REP   #$10                   ; 16 bit index
               MX    %10                    ; Tell Merlin
               LDX   #$0000
-              LDA   #$00
+              LDA   SHRGFXBGMASKA
 :L1           STAL  $E12000,X              ; SHR screen @ E1:2000
               INX
               CPX   #$7D00
@@ -632,20 +632,44 @@ SHRSETTCOL    PHA
 *  5 = NUL no change to pixel
 *  6 = CLR clear pixel to background
 *  7 = UND undefined
-SHRSETGCOL    LDX   VDUPIXELS              ; Pixels per byte
+SHRSETGCOL    PHA
+              LDX   VDUPIXELS              ; Pixels per byte
               CPX   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
-              TAY
-              LDA   SHRCMASK320,Y
-              BRA   :S1
-:MODE0        TAY
-              LDA   SHRCMASK640,Y
-:S1           >>>   WRTMAIN
+              AND   #$80
+              BEQ   :FORE320
+              PLA
+              AND   #$0F
+              TAX
+              LDA   SHRCMASK320,X          ; Lookup mask in table
+              STA   SHRGFXBGMASKA
+              RTS
+:FORE320      PLA
+              AND   #$0F
+              TAX
+              LDA   SHRCMASK320,X          ; Lookup mask in table
+              >>>   WRTMAIN
               STA   SHRGFXMASK
               STX   SHRGFXACTION
               >>>   WRTAUX
               RTS
-
+:MODE0        AND   #$80
+              BEQ   :FORE640
+              PLA
+              AND   #$03
+              TAX
+              LDA   SHRCMASK640,X          ; Lookup mask in table
+              STA   SHRGFXBGMASKA
+              RTS
+:FORE640      PLA
+              AND   #$03
+              TAX
+              LDA   SHRCMASK640,X          ; Lookup mask in table
+              >>>   WRTMAIN
+              STA   SHRGFXMASK
+              STX   SHRGFXACTION
+              >>>   WRTAUX
+              RTS
 
 * Set up default palette
 SHRDEFPAL     LDY   #00                    ; Palette offset for 320 mode

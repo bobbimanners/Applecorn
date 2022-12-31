@@ -973,8 +973,10 @@ VDU18A        LDA   VDUQ+7                 ; GCOL action
               STA   GFXPLOTFGD-2,Y         ; Store GCOL action
               TAX                          ; X=GCOL action
               PLA
+              PHA
               AND   VDUCOLOURS
               STA   GFXFGD-2,Y             ; Store GCOL colour
+              PLA
               BIT   VDUBANK
               BPL   :S1                    ; Skip if not GS
               JSR   SHRSETGCOL             ; Set SHR background
