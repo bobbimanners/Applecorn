@@ -122,9 +122,9 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
              LDA   #$80               ; Keypad keys are function keys
              STA   FXKEYPADBASE
              JSR   SOFTKEYCHK         ; Clear soft keys
-*             LDX   #$83               ; Default KBD=Native, MODE=3
-*             STX   FX254VAR           ; b7-b4=default KBD map, b3-b0=default MODE
-             LDX   #$03               ; Default MODE=3 (map already <$C0 by startup)
+             LDX   #$C3               ; Default KBD=RISCOS, MODE=3
+             STX   FX254VAR           ; b7-b4=default KBD map, b3-b0=default MODE
+*             LDX   #$03               ; Default MODE=3 (map already <$C0 by startup)
              BIT   SETV               ; Set V
              JSR   KBDTEST            ; Test if key being pressed
              BCS   :KBDINITOK         ; Return default MODE
