@@ -877,6 +877,6 @@ BYTE7C       CLC                      ; &7C = clear escape condition
 BYTE7D       ROR   ESCFLAG            ; $7D = set escape condition
 BYTE7DOK     RTS
 
-BYTE76       LDX   #$00               ; Update LEDs and return X=SHIFT
+BYTE76       LDX   #80 ; *TEMP*              ; Update LEDs and return X=SHIFT
              RTS                      ; Not possible with Apple
 
