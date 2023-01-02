@@ -358,7 +358,7 @@ SHRPLOTCLR    EOR   #$FF                   ; Invert bits
 
 
 * Convert high-resolution screen coordinates
-* from 1280x1024 to 620x200 or 320x200
+* from 1280x1024 to 640x200 or 320x200
 * On return: X-coordinate in A1L/H, Y-coordinate in A2L (A2H=0)
 SHRCOORD      PHP                          ; Disable interrupts
               SEI
