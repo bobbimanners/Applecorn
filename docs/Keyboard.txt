@@ -137,6 +137,7 @@ shift |         |       | SOLID |                   &20                   | SOLI
 key   |  CTRL   | OPTION| APPLE |                   &20                   | APPLE | OPTION| CTRL |  | &CC | &CE | &CD |  |    &80    | &8E | &0D |
       +---------+-------+-------+-----------------------------------------+-------+-------+------+  +-----+-----+-----+  +-----------+-----+-----+
                                                                      With TAB set to &09 with *FX219,9 and keypad base set to &80 with *FX238,128.
+                                                                          s=shift, c=ctrl, a=apple, La=left apple, Ra=right apple, LRa=both apple.
 
 
                               AppleMOS Regular Keymapping
@@ -187,7 +188,7 @@ Applecorn BBC MOS keyboard API calls
 OSBYTE 4 (237) - Cursor keys:             0:editing, 1:&88-&8A, 2:topbit &xC-&xF with ctrl+shift
 OSBYTE 126     - Acknowledge Escape:      effects set by OSBYTE 230 will be actioned
 OSBYTE 200     - Break/Escape response:   b0=ignore Escape entirely, b1=clear memory on RESET
-OSBYTE 202     - Keyboard state:          b5=ctrl, b4=shift at last keypress (may change)
+OSBYTE 202     - Keyboard state:          b7=ctrl, b6=shift, b1=extend, b0=apple at last keypress
 OSBYTE 219     - TAB character:           character for TAB key to return
 OSBYTE 220     - ESC character:           character to match as Escape key
 OSBYTE 221-228 - Top-set interpretation:  0:ignore, 1:soft key, 2:key base
