@@ -218,7 +218,7 @@ SHRCHAR640    PHY                          ; Preserve Y
 * TODO: Only does point plotting ATM
 SHRPLOT       >>>   ENTMAIN
               JSR   SHRCOORD               ; Convert coordinates
-              LDX   A2L                    ; Screen row (Y-coord)
+SHRPLOT2      LDX   A2L                    ; Screen row (Y-coord)
               LDA   SHRROWSL,X             ; Look up addr (LS byte)
               STA   A3L                    ; Stash in A3L
               LDA   SHRROWSH,X             ; Look up addr (MS byte)
