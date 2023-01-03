@@ -19,6 +19,10 @@ SHRPIXELS     DB    $00                    ; Main memory copy of VDUPIXELS
 SHRVDUQ       DS    16                     ; Main memory copy of VDUQ
 SHRGFXMASK    DB    $00                    ; Colour mask for point plotting
 SHRGFXACTION  DB    $00                    ; GCOL action for point plotting
+SHRXPIXEL     DW    $0000                  ; Previous point in screen coords
+SHRYPIXEL     DW    $0000                  ; Previous point in screen coords
+SHRTMPWRD     DW    $0000                  ; Temp scratch space
+
 
 
 * Explode font to generate SHRFONTXPLD table
@@ -218,7 +222,39 @@ SHRCHAR640    PHY                          ; Preserve Y
 * TODO: Only does point plotting ATM
 SHRPLOT       >>>   ENTMAIN
               JSR   SHRCOORD               ; Convert coordinates
-SHRPLOT2      LDX   A2L                    ; Screen row (Y-coord)
+              LDA   A1L                    ; Preserve converted x
+              PHA
+              LDA   A1H
+              PHA
+              LDA   A2L                    ; Preserve converted y
+              PHA
+              LDA   SHRVDUQ+4              ; k
+              AND   #$F0                   ; Keep MS nybble
+              CMP   #$00                   ; Move or draw line
+              BNE   :S1
+              JSR   SHRLINE
+              BRA   :S2
+:S1           CMP   #$40                   ; Plot point
+              BNE   :BAIL                  ; Other? Bail out
+              JSR   SHRPOINT
+              BRA   :S2
+:S2           PLA                          ; Store prev pt in screen coords
+              STA   SHRYPIXEL+0
+              STZ   SHRYPIXEL+1
+              PLA
+              STA   SHRXPIXEL+1
+              PLA
+              STA   SHRXPIXEL+0
+:DONE         >>>   XF2AUX,GFXPLOTRET
+:BAIL         PLA
+              PLA
+              PLA
+              BRA   :DONE
+
+* Plot a point
+* Called in emulation mode or 8 bit native mode
+SHRPOINT
+              LDX   A2L                    ; Screen row (Y-coord)
               LDA   SHRROWSL,X             ; Look up addr (LS byte)
               STA   A3L                    ; Stash in A3L
               LDA   SHRROWSH,X             ; Look up addr (MS byte)
@@ -285,7 +321,6 @@ SHRPLOTSET    TAX                          ; Keep copy of bit pattern
               AND   SHRGFXMASK             ; Mask to set colour
               ORA   A1L                    ; OR into existing byte
               STA   [A3L],Y                ; Write to screen
-              >>>   XF2AUX,GFXPLOTRET
               RTS
 
 
@@ -294,7 +329,6 @@ SHRPLOTSET    TAX                          ; Keep copy of bit pattern
 SHRPLOTOR     AND   SHRGFXMASK             ; Mask to set colour
               ORA   [A3L],Y                ; OR into existing byte
               STA   [A3L],Y                ; Write to screen
-              >>>   XF2AUX,GFXPLOTRET
               RTS
 
 
@@ -312,7 +346,6 @@ SHRPLOTAND    TAX                          ; Keep copy of bit pattern
               AND   [A3L],Y                ; Mask remaining bits
               ORA   A1L                    ; Combine
               STA   [A3L],Y                ; Write to screen
-              >>>   XF2AUX,GFXPLOTRET
               RTS
 
 
@@ -321,7 +354,6 @@ SHRPLOTAND    TAX                          ; Keep copy of bit pattern
 SHRPLOTXOR    AND   SHRGFXMASK             ; Mask to set colour
               EOR   [A3L],Y                ; EOR into existing byte
               STA   [A3L],Y                ; Write to screen
-              >>>   XF2AUX,GFXPLOTRET
               RTS
 
 
@@ -338,14 +370,12 @@ SHRPLOTNOT    TAX                          ; Keep copy of bit pattern
               AND   [A3L],Y                ; Mask remaining bits
               ORA   A1L                    ; Combine
               STA   [A3L],Y                ; Write to screen
-              >>>   XF2AUX,GFXPLOTRET
               RTS
 
 
 * NO-OP (GCOL action 5)
 * Pixel bit pattern in A
-SHRPLOTNOP    >>>   XF2AUX,GFXPLOTRET
-              RTS
+SHRPLOTNOP    RTS
 
 
 * Clear (GCOL action 6)
@@ -353,7 +383,165 @@ SHRPLOTNOP    >>>   XF2AUX,GFXPLOTRET
 SHRPLOTCLR    EOR   #$FF                   ; Invert bits
               AND   [A3L],Y                ; Load existing byte, clearing pixel
               STA   [A3L],Y                ; Write to screen
-              >>>   XF2AUX,GFXPLOTRET
+              RTS
+
+
+* Bresenham line drawing algorithm, entry point
+* x0 is in SHRXPIXEL+0,SHRPIXEL+1
+* y0 is in SHRYPIXEL
+* x1 in A1L,A1H
+* y1 in A2L
+* Called in emulation mode.
+SHRLINE       LDA   A2L                    ; y1
+              SEC
+              SBC   SHRYPIXEL              ; Subtract y0
+              BPL   :S1                    ; Skip if +ve
+              EOR   #$FF                   ; Negate if -ve
+              INC   A
+:S1           STA   SHRTMPWRD+0            ; abs(y1 - y0)
+              STZ   SHRTMPWRD+1            ; Pad to 16 bit
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDA   A1L                    ; Load x1 (A1L,A1H)
+              SEC
+              SBC   SHRXPIXEL              ; Subtract x0
+              BPL   :S2                    ; Skip if +ve
+              EOR   #$FFFF                 ; Negate if -ve
+              INC   A
+:S2           CMP   SHRTMPWRD              ; Cmp abs(x1 - x0) w/ abs(y1 - y0)
+              BCC   :YDOM                  ; abs(x1 - x0) < abs(y1 - y0)
+
+:XDOM         LDA   SHRXPIXEL              ; x0
+              CMP   A1L                    ; x1
+              BCS   :X1                    ; x0 >= x1
+              JMP   SHRLINELO              ; x0 < x1
+:X1           JSR   SHRLINESWAP            ; Swap parms
+              JMP   SHRLINELO
+
+:YDOM         SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+              LDA   SHRYPIXEL              ; y0
+              CMP   A2L                    ; y1
+              BCS   :Y1                    ; y0 >= y1
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+
+              JMP   SHRLINEHI              ; y0 < y1
+:Y1           JSR   SHRLINESWAP            ; Swap parms
+              JMP   SHRLINEHI
+
+
+* Swap (x0, y0) and (x1, y1)
+* Called in 16 bit 65816 native mode
+SHRLINESWAP   LDA   SHRXPIXEL              ; x0
+              STA   SHRTMPWRD
+              LDA   A1L                    ; x1
+              STA   SHRXPIXEL
+              LDA   SHRTMPWRD
+              STA   SHRXPIXEL
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+              LDA   SHRYPIXEL              ; y0
+              STA   SHRTMPWRD
+              LDA   A2L                    ; y1
+              STA   SHRYPIXEL
+              LDA   SHRTMPWRD
+              STA   SHRYPIXEL
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              RTS
+
+
+* Plot x-dominant line (shallow gradient)
+* Called in 16 bit 65816 native mode. Returns in emulation mode.
+SHRLINELO     LDA   A1L                    ; x1
+              STA   :LIM                   ; We re-use A1L/H later
+              SEC
+              SBC   SHRXPIXEL              ; Subtract x0
+              STA   :DX
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+              LDA   A2L                    ; y1
+              SEC
+              SBC   SHRYPIXEL              ; Subtract y0
+              STA   :DY+0
+              STZ   :DY+1
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDA   #$0001
+              STA   :YI                    ; yi = 1
+              LDA   :DY
+              BPL   :S1                    ; Skip if dy = 0
+              EOR   #$FFFF                 ; Negate dy
+              INC   A
+              STA   :DY                    ; dy = -dy
+              LDA   #$FFFF
+              STA   :YI                    ; yi = -1
+:S1           LDA   :DY                    ; dy
+              ASL                          ; 2 * dy
+              SEC
+              SBC   :DX                    ; (2 * dy) - dx
+              STA   :D                     ; D = (2 * dy) - dx
+              LDA   SHRYPIXEL              ; y0
+              STA   A2L                    ; y = y0 (re-using A2L/H)
+              LDA   :DY
+              SEC
+              SBC   :DX
+              ASL
+              STA   :DX                    ; DX now (2 * (dy - dx)
+              LDA   :DY
+              ASL
+              STA   :DY                    ; DY now (2 * dy)
+              LDX   SHRXPIXEL              ; x = x0
+:L1           STX   A1L                    ; Store x-coord for SHRPOINT
+              PHX
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+              JSR   SHRPOINT               ; x in A1L/H, y in A2L
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              PLX
+              LDA   :D
+              BMI   :S2                    ; D < 0
+              CLC
+              ADC   :DX
+              STA   :D                     ; D = D + (2 * (dy - dx))
+              LDA   A2L                    ; y
+              CLC
+              ADC   :YI
+              STA   A2L                    ; y = y + yi
+              BRA   :S3
+:S2           CLC
+              ADC   :DY
+              STA   :D                     ; D = D + 2 * dy
+:S3           INX
+              CPX   :LIM                   ; Compare with x1
+              BNE   :L1
+
+              SEC                          ; 65816 emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP                          ; Resume normal service
+              RTS
+:DX           DW    $0000                  ; dx initially, then (2 * (dy - dx))
+:DY           DW    $0000                  ; dy initially, then (2 * dy)
+:YI           DW    $0000                  ; +1 or -1
+:D            DW    $0000                  ; D
+:LIM          DW    $0000                  ; x1 gets stashed here
+
+
+* Plot y-dominant line (steep gradient)
+* Called in 16 bit 65816 native mode. Returns in emulation mode.
+SHRLINEHI     
+* TODO: Write me!
+              SEC                          ; 65816 emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP                          ; Resume normal service
               RTS
 
 
