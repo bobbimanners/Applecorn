@@ -38,6 +38,8 @@
 * 26-Dec-2022 Integrated ADB extended keyboard keys.
 * 27-Dec-2022 Bobbi's keyboard uses $60+n extended keys.
 * 30-Dec-2022 Optimised *KEY, US KBD Alt-Ctrl-2, Alt-Ctrl-6 -> f2/f6.
+* 03-Jan-2033 Wrote BYTE76 to return CTRL/SHIFT state for text pausing.
+* TO DO: Update KBDREAD to use BYTE76.
 
 
 * Hardware locations
@@ -122,7 +124,7 @@ KBDINIT      LDX   #DEFBYTEEND-DEFBYTE-1
              LDA   #$80               ; Keypad keys are function keys
              STA   FXKEYPADBASE
              JSR   SOFTKEYCHK         ; Clear soft keys
-             LDX   #$C3               ; Default KBD=RISCOS, MODE=3
+             LDX   #$C3               ; Default KBD=RISC OS, MODE=3
              STX   FX254VAR           ; b7-b4=default KBD map, b3-b0=default MODE
 *             LDX   #$03               ; Default MODE=3 (map already <$C0 by startup)
              BIT   SETV               ; Set V
@@ -730,7 +732,7 @@ KBDTEST      LDA   KBDDATA            ; VS here to test for keypress
              BVS   KBDDONE2           ; VS=test for keypress
              STA   KBDACK             ; Ack. keypress
 KBDREAD2     TAX                      ; X=raw keypress
-*
+* NB: BYTE76A corrupts X
 * Set FXKBDSTATE to %x0CS0000 from Alt or Shift keys
              LDA   KBDAPPRGT          ; Right Apple/Alt pressed
              ASL   A
@@ -877,6 +879,67 @@ BYTE7C       CLC                      ; &7C = clear escape condition
 BYTE7D       ROR   ESCFLAG            ; $7D = set escape condition
 BYTE7DOK     RTS
 
-BYTE76       LDX   #80 ; *TEMP*              ; Update LEDs and return X=SHIFT
-             RTS                      ; Not possible with Apple
+* Update KBDSTATE and return state of SHIFT and CTRL keys
+* Returns A=X=      =%SxxxxEAx
+*         Flags     =C=Ctrl, M=Shift, V=Extended key
+*         OSKBD1    =%00CS0000
+*         FXKBDSTATE=%CSxxxxEA C=Ctrl, S=Shift, E=Extended, A=Apple
+BYTE76       JSR   ESCPOLL
+             CLC
+             BMI   BYTE76X            ; Escape pending, return M=Shift, C=None
+BYTE76A      LDA   KBDAPPRGT          ; Right Apple/Alt pressed
+             ASL   A
+             LDA   KBDAPPLFT          ; Left Apple/Alt pressed
+             ROR   A                  ; b7=Right, b6=Left
+             AND   #$C0
+             PHP                      ; Save EQ=no ALTs pressed
+             BEQ   BYTE76C
+             ADC   #$C1               ; Convert into fkey modifer, b0=1
+BYTE76C      STA   OSKBD1
+             BIT   VDUBANK
+             BPL   BYTE76E            ; Not IIgs
+             LDA   KBDMOD             ; Get extended KBD state
+             ROR   A
+             ROR   A
+             ROR   A                  ; b7=Ctrl, b6=Shift, b1=Extended
+             AND   #$C2
+             PLP
+             BEQ   BYTE76D
+             AND   #$02               ; ALTs pressed, just keep Extend
+BYTE76D      ORA   OSKBD1
+             STA   OSKBD1             ; Update with Ctrl/Shift/Extend
+             PHP                      ; Balance stack
+BYTE76E      PLP                      ; Drop flags, NE=either ALT pressed
+             LSR   OSKBD1             ; Adjust for soft key modifier
+             LSR   OSKBD1             ; b5=Ctrl, b4=Shift, Cy=Extend
+             CLV                      ; CLV=Not Extend
+             BCC   BYTE76F
+             BIT   SETV               ; SEV=Extend
+BYTE76F      LSR   A                  ; Test ALT bit in bit 0
+             BCC   BYTE76G
+             ORA   #$20
+BYTE76G      ROL   A                  ; Put bit 0 back
+*             STA   $028F ; FXKBDSTATE *TEMP*
+             ASL   A                  ; C=Ctrl, M=Shift
+             TAX                      ; X.b7=Shift
+BYTE76X      RTS
 
+* Call BYTE76 to get state of SHIFT/CTRL to pause/restore scrolling
+* Left and Right Apple keys simulate SHIFT/CTRL when no KBDMOD register
+* Returns: M   =SHIFT or one APPLE key pressed
+*          C   =CTRL pressed
+*          M+C =SHIFT+CTRL pressed or both APPLE keys pressed
+* Escape will abort and return MI+CC to simulate SHIFT to continue
+*
+* Scrolling can pause with:
+* LOOP:
+* JSR BYTE76
+* BPL EXIT ; SHIFT not pressed
+* BCS LOOP ; SHIFT+CTRL pressed
+* EXIT:
+* 
+* Paged mode can be released with:
+* LOOP:
+* JSR BYTE76
+* BPL LOOP ; SHIFT not pressed
+*
