@@ -251,10 +251,10 @@ SHRPLOT       >>>   ENTMAIN
               PLA
               BRA   :DONE
 
+
 * Plot a point
 * Called in emulation mode or 8 bit native mode
-SHRPOINT
-              LDX   A2L                    ; Screen row (Y-coord)
+SHRPOINT      LDX   A2L                    ; Screen row (Y-coord)
               LDA   SHRROWSL,X             ; Look up addr (LS byte)
               STA   A3L                    ; Stash in A3L
               LDA   SHRROWSH,X             ; Look up addr (MS byte)
@@ -442,17 +442,13 @@ SHRLINESWAP   LDA   SHRXPIXEL              ; x0
               LDA   A1L                    ; x1
               STA   SHRXPIXEL
               LDA   SHRTMPWRD
-              STA   SHRXPIXEL
-              SEP   #$30                   ; 8 bit M & X
-              MX    %11                    ; Tell Merlin
+              STA   A1L
               LDA   SHRYPIXEL              ; y0
               STA   SHRTMPWRD
               LDA   A2L                    ; y1
               STA   SHRYPIXEL
               LDA   SHRTMPWRD
-              STA   SHRYPIXEL
-              REP   #$30                   ; 16 bit M & X
-              MX    %00                    ; Tell Merlin
+              STA   A2L
               RTS
 
 
