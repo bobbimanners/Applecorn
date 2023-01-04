@@ -449,7 +449,8 @@ SHRLINESWAP   LDA   SHRXPIXEL              ; x0
 
 * Plot x-dominant line (shallow gradient)
 * Called in 16 bit 65816 native mode. Returns in emulation mode.
-SHRLINELO     LDA   A1L                    ; x1
+SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
+              LDA   A1L                    ; x1
               STA   :LIM                   ; We re-use A1L/H later
               SEC
               SBC   SHRXPIXEL              ; Subtract x0
@@ -522,12 +523,13 @@ SHRLINELO     LDA   A1L                    ; x1
 
 * Plot y-dominant line (steep gradient)
 * Called in 16 bit 65816 native mode. Returns in emulation mode.
-SHRLINEHI     LDA   A1L                    ; x1
+SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
+              LDA   A1L                    ; x1
               SEC
               SBC   SHRXPIXEL              ; Subtract x0
               STA   :DX
               LDA   A2L                    ; y1
-              STA   :LIM+0                 ; We re-use A1L/H later
+              STA   :LIM                   ; We re-use A1L/H later
               SEC
               SBC   SHRYPIXEL              ; Subtract y0
               STA   :DY
@@ -546,7 +548,7 @@ SHRLINEHI     LDA   A1L                    ; x1
               SBC   :DY                    ; (2 * dx) - dy
               STA   :D                     ; D = (2 * dx) - dy
               LDA   SHRXPIXEL              ; x0
-              STA   A1L                    ; x = x0 (re-using A1L/H)
+              STA   :X                     ; x = x0
               LDA   :DX
               SEC
               SBC   :DY
@@ -556,7 +558,9 @@ SHRLINEHI     LDA   A1L                    ; x1
               ASL
               STA   :DX                    ; DX now (2 * dx)
               LDX   SHRYPIXEL              ; y = y0
-:L1           STX   A2L                    ; Store y-coord for SHRPOINT
+:L1           LDA   :X
+              STA   A1L                    ; Store x-coord for SHRPOINT
+              STX   A2L                    ; Store y-coord for SHRPOINT
               PHX
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
@@ -569,10 +573,10 @@ SHRLINEHI     LDA   A1L                    ; x1
               CLC
               ADC   :DY
               STA   :D                     ; D = D + (2 * (dx - dy))
-              LDA   A1L                    ; x
+              LDA   :X                     ; x
               CLC
               ADC   :XI
-              STA   A1L                    ; x = x + xi
+              STA   :X                     ; x = x + xi
               BRA   :S3
 :S2           CLC
               ADC   :DX
@@ -586,6 +590,7 @@ SHRLINEHI     LDA   A1L                    ; x1
               MX    %11                    ; Tell Merlin
               PLP                          ; Resume normal service
               RTS
+:X            DW    $0000
 :DX           DW    $0000                  ; dx initially, then (2 * dx)
 :DY           DW    $0000                  ; dy initially, then (2 * (dy - dx)))
 :XI           DW    $0000                  ; +1 or -1
