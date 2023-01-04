@@ -422,14 +422,9 @@ SHRLINE       LDA   A2L                    ; y1
 :X1           JSR   SHRLINESWAP            ; Swap parms
               JMP   SHRLINELO
 
-:YDOM         SEP   #$30                   ; 8 bit M & X
-              MX    %11                    ; Tell Merlin
-              LDA   SHRYPIXEL              ; y0
+:YDOM         LDA   SHRYPIXEL              ; y0
               CMP   A2L                    ; y1
               BCS   :Y1                    ; y0 >= y1
-              REP   #$30                   ; 16 bit M & X
-              MX    %00                    ; Tell Merlin
-
               JMP   SHRLINEHI              ; y0 < y1
 :Y1           JSR   SHRLINESWAP            ; Swap parms
               JMP   SHRLINEHI
@@ -459,15 +454,10 @@ SHRLINELO     LDA   A1L                    ; x1
               SEC
               SBC   SHRXPIXEL              ; Subtract x0
               STA   :DX
-              SEP   #$30                   ; 8 bit M & X
-              MX    %11                    ; Tell Merlin
               LDA   A2L                    ; y1
               SEC
               SBC   SHRYPIXEL              ; Subtract y0
-              STA   :DY+0
-              STZ   :DY+1
-              REP   #$30                   ; 16 bit M & X
-              MX    %00                    ; Tell Merlin
+              STA   :DY
               LDA   #$0001
               STA   :YI                    ; yi = 1
               LDA   :DY
@@ -532,13 +522,76 @@ SHRLINELO     LDA   A1L                    ; x1
 
 * Plot y-dominant line (steep gradient)
 * Called in 16 bit 65816 native mode. Returns in emulation mode.
-SHRLINEHI     
-* TODO: Write me!
+SHRLINEHI     LDA   A1L                    ; x1
+              SEC
+              SBC   SHRXPIXEL              ; Subtract x0
+              STA   :DX
+              LDA   A2L                    ; y1
+              STA   :LIM+0                 ; We re-use A1L/H later
+              SEC
+              SBC   SHRYPIXEL              ; Subtract y0
+              STA   :DY
+              LDA   #$0001
+              STA   :XI                    ; xi = 1
+              LDA   :DX
+              BPL   :S1                    ; Skip if dx = 0
+              EOR   #$FFFF                 ; Negate dx
+              INC   A
+              STA   :DX                    ; dx = -dx
+              LDA   #$FFFF
+              STA   :XI                    ; xi = -1
+:S1           LDA   :DX                    ; dx
+              ASL                          ; 2 * dx
+              SEC
+              SBC   :DY                    ; (2 * dx) - dy
+              STA   :D                     ; D = (2 * dx) - dy
+              LDA   SHRXPIXEL              ; x0
+              STA   A1L                    ; x = x0 (re-using A1L/H)
+              LDA   :DX
+              SEC
+              SBC   :DY
+              ASL
+              STA   :DY                    ; DY now (2 * (dx - dy)
+              LDA   :DX
+              ASL
+              STA   :DX                    ; DX now (2 * dx)
+              LDX   SHRYPIXEL              ; y = y0
+:L1           STX   A2L                    ; Store y-coord for SHRPOINT
+              PHX
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+              JSR   SHRPOINT               ; x in A1L/H, y in A2L
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              PLX
+              LDA   :D
+              BMI   :S2                    ; D < 0
+              CLC
+              ADC   :DY
+              STA   :D                     ; D = D + (2 * (dx - dy))
+              LDA   A1L                    ; x
+              CLC
+              ADC   :XI
+              STA   A1L                    ; x = x + xi
+              BRA   :S3
+:S2           CLC
+              ADC   :DX
+              STA   :D                     ; D = D + 2 * dx
+:S3           INX
+              CPX   :LIM                   ; Compare with y1
+              BNE   :L1
+
               SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
               PLP                          ; Resume normal service
               RTS
+:DX           DW    $0000                  ; dx initially, then (2 * dx)
+:DY           DW    $0000                  ; dy initially, then (2 * (dy - dx)))
+:XI           DW    $0000                  ; +1 or -1
+:D            DW    $0000                  ; D
+:LIM          DW    $0000                  ; x1 gets stashed here
+
 
 
 * Convert high-resolution screen coordinates
