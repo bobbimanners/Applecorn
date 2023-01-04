@@ -491,15 +491,16 @@ SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
               STA   :DY
               LDA   #$0001
               STA   :YI                    ; yi = 1
+
               LDA   :DY
               BPL   :S1                    ; Skip if dy = 0
-              EOR   #$FFFF                 ; Negate dy
-              INC   A
-              STA   :DY                    ; dy = -dy
               LDA   #$FFFF
               STA   :YI                    ; yi = -1
-:S1           LDA   :DY                    ; dy
-              ASL                          ; 2 * dy
+              EOR   :DY                    ; Negate dy
+              INC   A
+              STA   :DY                    ; dy = -dy
+:S1           ASL                          ; 2 * dy
+
               SEC
               SBC   :DX                    ; (2 * dy) - dx
               STA   :D                     ; D = (2 * dy) - dx
@@ -565,15 +566,16 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
               STA   :DY
               LDA   #$0001
               STA   :XI                    ; xi = 1
+
               LDA   :DX
               BPL   :S1                    ; Skip if dx = 0
-              EOR   #$FFFF                 ; Negate dx
-              INC   A
-              STA   :DX                    ; dx = -dx
               LDA   #$FFFF
               STA   :XI                    ; xi = -1
-:S1           LDA   :DX                    ; dx
-              ASL                          ; 2 * dx
+              EOR   :DX                    ; Negate dx
+              INC   A
+              STA   :DX                    ; dx = -dx
+:S1           ASL                          ; 2 * dx
+
               SEC
               SBC   :DY                    ; (2 * dx) - dy
               STA   :D                     ; D = (2 * dx) - dy
