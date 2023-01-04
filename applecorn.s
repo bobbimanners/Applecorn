@@ -28,10 +28,14 @@ A1L         EQU   $3C
 A1H         EQU   $3D
 A2L         EQU   $3E
 A2H         EQU   $3F
-A3L         EQU   $40         ; Used for ISR only
-A3H         EQU   $41         ; Used for ISR only
+A3L         EQU   $40
+A3H         EQU   $41
 A4L         EQU   $42
 A4H         EQU   $43
+
+* Other ZP locations
+ISRL        EQU   $02         ; Used for ISR only
+ISRH        EQU   $03         ; Used for ISR only
 
 * Used by XFER
 STRTL       EQU   $3ED
