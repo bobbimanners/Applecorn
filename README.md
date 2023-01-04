@@ -94,8 +94,9 @@ The following video modes are supported:
 On Apple //e and //c, `MODE 0` will redirect to `MODE 3` and `MODE 1` will
 redirect to `MODE 6`.
 
-Graphics are supported in `MODE 2` only at present (`MODE 0` and `MODE 1`
-graphics to come shortly.)
+Graphics are supported in the bitmapped modes.  `MODE 0` and `MODE 1` emulate
+the respective modes of the BBC Micro reasonably faithfully; `MODE 2` is
+quite different, due to the quirks of the Apple II HGR mode.
 
 Following BBC Micro conventions, all graphics are drawn using a 1280x1024
 coordinate system, with the origin at the bottom left of the screen.
