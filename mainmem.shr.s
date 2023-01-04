@@ -499,21 +499,21 @@ SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
               EOR   :DY                    ; Negate dy
               INC   A
               STA   :DY                    ; dy = -dy
-:S1           ASL                          ; 2 * dy
 
+:S1           TAY                          ; dy
+              ASL                          ; 2 * dy
+              STA   :DY                    ; DY now (2 * dy)
               SEC
               SBC   :DX                    ; (2 * dy) - dx
               STA   :D                     ; D = (2 * dy) - dx
               LDA   SHRYPIXEL              ; y0
               STA   A2L                    ; y = y0 (re-using A2L/H)
-              LDA   :DY
+              TYA
               SEC
               SBC   :DX
               ASL
               STA   :DX                    ; DX now (2 * (dy - dx)
-              LDA   :DY
-              ASL
-              STA   :DY                    ; DY now (2 * dy)
+
               LDX   SHRXPIXEL              ; x = x0
 :L1           STX   A1L                    ; Store x-coord for SHRPOINT
               PHX
@@ -574,21 +574,21 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
               EOR   :DX                    ; Negate dx
               INC   A
               STA   :DX                    ; dx = -dx
-:S1           ASL                          ; 2 * dx
 
+:S1           TAX                          ; dx
+              ASL                          ; 2 * dx
+              STA   :DX                    ; DX now (2 * dx)
               SEC
               SBC   :DY                    ; (2 * dx) - dy
               STA   :D                     ; D = (2 * dx) - dy
               LDA   SHRXPIXEL              ; x0
               STA   :X                     ; x = x0
-              LDA   :DX
+              TXA
               SEC
               SBC   :DY
               ASL
               STA   :DY                    ; DY now (2 * (dx - dy)
-              LDA   :DX
-              ASL
-              STA   :DX                    ; DX now (2 * dx)
+
               LDX   SHRYPIXEL              ; y = y0
 :L1           LDA   :X
               STA   A1L                    ; Store x-coord for SHRPOINT
