@@ -532,7 +532,7 @@ SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
               ADC   :YI
               STA   A2L                    ; y = y + yi
               BRA   :S3
-:S2           CLC
+:S2         ; CLC                          ; Already CC
               ADC   :DY
               STA   :D                     ; D = D + 2 * dy
 :S3           INX
@@ -608,7 +608,7 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
               ADC   :XI
               STA   :X                     ; x = x + xi
               BRA   :S3
-:S2           CLC
+:S2         ; CLC                          ; Already CC
               ADC   :DX
               STA   :D                     ; D = D + 2 * dx
 :S3           INX
