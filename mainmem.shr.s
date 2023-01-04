@@ -520,16 +520,15 @@ SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
               JSR   SHRPOINT               ; x in A1L/H, y in A2L
-              REP   #$30                   ; 16 bit M & X
+              REP   #$31                   ; 16 bit M & X, CLC
               MX    %00                    ; Tell Merlin
               PLX
               LDA   :D
               BMI   :S2                    ; D < 0
-              CLC
               ADC   :DX
               STA   :D                     ; D = D + (2 * (dy - dx))
               LDA   A2L                    ; y
-              CLC
+              CLC                          ; (Required)
               ADC   :YI
               STA   A2L                    ; y = y + yi
               BRA   :S3
@@ -597,16 +596,15 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
               JSR   SHRPOINT               ; x in A1L/H, y in A2L
-              REP   #$30                   ; 16 bit M & X
+              REP   #$31                   ; 16 bit M & X, CLC
               MX    %00                    ; Tell Merlin
               PLX
               LDA   :D
               BMI   :S2                    ; D < 0
-              CLC
               ADC   :DY
               STA   :D                     ; D = D + (2 * (dx - dy))
               LDA   :X                     ; x
-              CLC
+              CLC                          ; (Required)
               ADC   :XI
               STA   :X                     ; x = x + xi
               BRA   :S3
