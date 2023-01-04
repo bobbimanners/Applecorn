@@ -219,7 +219,7 @@ SHRCHAR640    PHY                          ; Preserve Y
 *  $90+x - draw circle
 *  $98+x - fill circle
 *
-* TODO: Only does point plotting ATM
+* TODO: Need to properly handle k
 SHRPLOT       >>>   ENTMAIN
               JSR   SHRCOORD               ; Convert coordinates
               LDA   A1L                    ; Preserve converted x
@@ -228,6 +228,10 @@ SHRPLOT       >>>   ENTMAIN
               PHA
               LDA   A2L                    ; Preserve converted y
               PHA
+              LDA   SHRVDUQ+4              ; k
+              AND   #$03
+              CMP   #$00                   ; Buts 0,1 clear -> just move
+              BEQ   :S2
               LDA   SHRVDUQ+4              ; k
               AND   #$F0                   ; Keep MS nybble
               CMP   #$00                   ; Move or draw line
@@ -596,7 +600,6 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
 :XI           DW    $0000                  ; +1 or -1
 :D            DW    $0000                  ; D
 :LIM          DW    $0000                  ; x1 gets stashed here
-
 
 
 * Convert high-resolution screen coordinates
