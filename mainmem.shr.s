@@ -17,7 +17,9 @@ SHRFONTXPLD   EQU   $A000                  ; Explode SHR font to $E1:A000
 
 SHRPIXELS     DB    $00                    ; Main memory copy of VDUPIXELS
 SHRVDUQ       DS    16                     ; Main memory copy of VDUQ
-SHRGFXMASK    DB    $00                    ; Colour mask for point plotting
+SHRGFXFGMASK  DB    $00                    ; Foreground colour mask
+SHRGFXFGMSK2  DB    $00                    ; Copy of foreground colour mask
+SHRGFXBGMASK  DB    $00                    ; Background colour mask
 SHRGFXACTION  DB    $00                    ; GCOL action for point plotting
 SHRXPIXEL     DW    $0000                  ; Previous point in screen coords
 SHRYPIXEL     DW    $0000                  ; Previous point in screen coords
@@ -212,14 +214,16 @@ SHRCHAR640    PHY                          ; Preserve Y
 * y is in SHRVDUQ+7,SHRVDUQ+8
 *
 * Plot actions:
-*  $00+x - move/draw lines
-*  $40+x - plot point
-*  $50+x - fill triangle
-*  $60+x - fill rectangle
-*  $90+x - draw circle
-*  $98+x - fill circle
-*
-* TODO: Need to properly handle k
+*  $00+x - move/draw lines     Where x: 0 - Move relative
+*  $40+x - plot point                   1 - Draw relative FG
+* [$50+x - fill triangle]               2 - Draw relative Inv FG
+* [$60+x - fill rectangle]              3 - Draw relative BG
+* [$90+x - draw circle]                 4 - Move absolute
+* [$98+x - fill circle]                 5 - Draw abs FG
+*                                       6 - Draw abs Inv FG
+*                                       7 - Draw abs BG
+* Note: abs/rel handled in auxmem.vdu.s
+* TODO: No triangle filling or other fancy ops yet
 SHRPLOT       >>>   ENTMAIN
               JSR   SHRCOORD               ; Convert coordinates
               LDA   A1L                    ; Preserve converted x
@@ -230,8 +234,9 @@ SHRPLOT       >>>   ENTMAIN
               PHA
               LDA   SHRVDUQ+4              ; k
               AND   #$03
-              CMP   #$00                   ; Buts 0,1 clear -> just move
+              CMP   #$00                   ; Bits 0,1 clear -> just move
               BEQ   :S2
+              JSR   SHRPLOTCOL             ; Handle colour selection
               LDA   SHRVDUQ+4              ; k
               AND   #$F0                   ; Keep MS nybble
               CMP   #$00                   ; Move or draw line
@@ -253,7 +258,28 @@ SHRPLOT       >>>   ENTMAIN
 :BAIL         PLA
               PLA
               PLA
+              LDA   SHRGFXFGMSK2           ; Restore original FG colour
+              STA   SHRGFXFGMASK
               BRA   :DONE
+
+
+* Handle colour selection for PLOT
+SHRPLOTCOL    LDA   SHRGFXFGMASK           ; Preserve FG colour
+              STA   SHRGFXFGMSK2
+              LDA   SHRVDUQ+4              ; k
+              AND   #$03
+              CMP   #$02                   ; Inverse fFG
+              BNE   :S1
+              LDA   SHRGFXFGMASK           ; Load FG mask
+              EOR   #$FF                   ; Negate / invert
+              INC   A
+              STA   SHRGFXFGMASK           ; Overwrite GF mask
+              BRA   :DONE
+:S1           CMP   #$03                   ; BG
+              BNE   :DONE
+              LDA   SHRGFXBGMASK           ; Load BG mask
+              STA   SHRGFXFGMASK           ; Overwrite FG mask
+:DONE         RTS
 
 
 * Plot a point
@@ -322,7 +348,7 @@ SHRPLOTSET    TAX                          ; Keep copy of bit pattern
               AND   [A3L],Y                ; Load existing byte, clearing pixel
               STA   A1L
               TXA                          ; Get bit pattern back
-              AND   SHRGFXMASK             ; Mask to set colour
+              AND   SHRGFXFGMASK           ; Mask to set colour
               ORA   A1L                    ; OR into existing byte
               STA   [A3L],Y                ; Write to screen
               RTS
@@ -330,7 +356,7 @@ SHRPLOTSET    TAX                          ; Keep copy of bit pattern
 
 * OR with colour on screen (GCOL action 1)
 * Pixel bit pattern in A
-SHRPLOTOR     AND   SHRGFXMASK             ; Mask to set colour
+SHRPLOTOR     AND   SHRGFXFGMASK           ; Mask to set colour
               ORA   [A3L],Y                ; OR into existing byte
               STA   [A3L],Y                ; Write to screen
               RTS
@@ -342,7 +368,7 @@ SHRPLOTAND    TAX                          ; Keep copy of bit pattern
               AND   [A3L],Y                ; Mask bits to work on
               STA   A1L
               TXA                          ; Get bit pattern back
-              AND   SHRGFXMASK             ; Mask to set colour
+              AND   SHRGFXFGMASK           ; Mask to set colour
               AND   A1L                    ; AND with screen data
               STA   A1L
               TXA                          ; Get bit pattern back
@@ -355,7 +381,7 @@ SHRPLOTAND    TAX                          ; Keep copy of bit pattern
 
 * XOR with colour on screen (GCOL action 3)
 * Pixel bit pattern in A
-SHRPLOTXOR    AND   SHRGFXMASK             ; Mask to set colour
+SHRPLOTXOR    AND   SHRGFXFGMASK           ; Mask to set colour
               EOR   [A3L],Y                ; EOR into existing byte
               STA   [A3L],Y                ; Write to screen
               RTS

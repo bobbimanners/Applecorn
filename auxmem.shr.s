@@ -643,13 +643,16 @@ SHRSETGCOL    PHA
               TAY
               LDA   SHRCMASK320,Y          ; Lookup mask in table
               STA   SHRGFXBGMASKA
+              >>>   WRTMAIN
+              STA   SHRGFXBGMASK
+              >>>   WRTAUX
               RTS
 :FORE320      PLA
               AND   #$0F
               TAY
               LDA   SHRCMASK320,Y          ; Lookup mask in table
               >>>   WRTMAIN
-              STA   SHRGFXMASK
+              STA   SHRGFXFGMASK
               STX   SHRGFXACTION
               >>>   WRTAUX
               RTS
@@ -660,13 +663,16 @@ SHRSETGCOL    PHA
               TAY
               LDA   SHRCMASK640,Y          ; Lookup mask in table
               STA   SHRGFXBGMASKA
+              >>>   WRTMAIN
+              STA   SHRGFXBGMASK
+              >>>   WRTAUX
               RTS
 :FORE640      PLA
               AND   #$03
               TAY
               LDA   SHRCMASK640,Y          ; Lookup mask in table
               >>>   WRTMAIN
-              STA   SHRGFXMASK
+              STA   SHRGFXFGMASK
               STX   SHRGFXACTION
               >>>   WRTAUX
               RTS
