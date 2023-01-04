@@ -227,7 +227,7 @@ is a colon followed by two digits - one for the slot number and the other
 for the drive number.  So, for example, `:61` would refer to slot 6,
 drive 1.  Applecorn uses the ProDOS `ON_LINE` MLI call to find the 
 volume associated with the physical device.  If slot 6, drive 1, contains
-the volume 'FLOPPY', then a path `:S61/TESTFILE` will be converted to
+the volume 'FLOPPY', then a path `:61/TESTFILE` will be converted to
 `/FLOPPY/TESTFILE`.
 - It is possible to refer to the current working directory (current prefix
 in ProDOS terms) using `.` (like Linux or Windows) or `@` (like BBC ADFS.)
