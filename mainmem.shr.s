@@ -232,6 +232,8 @@ SHRPLOT       >>>   ENTMAIN
               PHA
               LDA   A2L                    ; Preserve converted y
               PHA
+              LDA   A2H
+              PHA
               LDA   SHRVDUQ+4              ; k
               AND   #$03
               CMP   #$00                   ; Bits 0,1 clear -> just move
@@ -260,14 +262,16 @@ SHRPLOT       >>>   ENTMAIN
 
               BRA   :S2
 :S2           PLA                          ; Store prev pt in screen coords
+              STA   SHRYPIXEL+1
+              PLA
               STA   SHRYPIXEL+0
-              STZ   SHRYPIXEL+1
               PLA
               STA   SHRXPIXEL+1
               PLA
               STA   SHRXPIXEL+0
 :DONE         >>>   XF2AUX,GFXPLOTRET
 :BAIL         PLA
+              PLA
               PLA
               PLA
               LDA   SHRGFXFGMSK2           ; Restore original FG colour
@@ -700,6 +704,7 @@ SHRCOORD      PHP                          ; Disable interrupts
 
               ASL                          ;
               AND   #$FF00                 ; Mask bits
+              ADC   #0                     ; Add in carry (9th bit)
               XBA                          ; Clever trick: fewer shifts
               STA   A2L                    ; Into A2L/H
         
