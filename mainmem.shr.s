@@ -118,7 +118,8 @@ SHRUSERCHAR   >>>   ENTMAIN
               CPY   #$08                   ; Last row?
               BNE   :L1
 :DONE         >>>   XF2AUX,VDU23RET
-:INCREMENT    DB    $00
+* Zero page
+:INCREMENT    EQU   TMPZP+0
 
 
 * Explode one row of pixels. Used by SHRXPLDCHAR & SHRUSERCHAR
