@@ -219,8 +219,7 @@ INSMF       PHA                ; Preserve char
             STA   MOSFILE,Y    ; Insert it
             INC   MOSFILE      ; One char longer
             RTS
-* Zero page
-:INSIDX     EQU   TMPZP+0
+:INSIDX     DB    $00
 
 * Copy Pascal-style string
 * Source in A1L/A1H, dest in A4L/A4H

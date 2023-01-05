@@ -139,9 +139,8 @@ COPYFILE      >>>   ENTMAIN
               JSR   CLSDIR
               PLA
               BRA   :EXIT
-* Zero page
-:DESTTYPE     EQU   TMPZP+0
-:OLDLEN       EQU   TMPZP+1
+:DESTTYPE     DB    $00
+:OLDLEN       DB    $00
 
 * Copy a single file
 * Source is in MOSFILE, DEST in MOSFILE2
@@ -254,9 +253,8 @@ COPY1FILE     LDA   #<MOSFILE
               PHP
               PHA
               BRA   :CLOSE2
-* Zero page
-:BUFIDX1      EQU   TMPZP+0
-:BUFIDX2      EQU   TMPZP+1
+:BUFIDX1      DB    $00
+:BUFIDX2      DB    $00
 
 
 * ProDOS file handling for MOS OSFIND OPEN call
