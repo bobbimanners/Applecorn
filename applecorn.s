@@ -36,6 +36,8 @@ A4H         EQU   $43
 * Other ZP locations
 ISRL        EQU   $02         ; Used for ISR only
 ISRH        EQU   $03         ; Used for ISR only
+SHRZP       EQU   $56         ; 25 bytes, persistent, SHR code only
+TMPZP       EQU   $56+25      ; Temp scratch space for routines
 
 * Used by XFER
 STRTL       EQU   $3ED

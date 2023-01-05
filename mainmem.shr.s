@@ -15,6 +15,8 @@ SHRFONTXPLD   EQU   $A000                  ; Explode SHR font to $E1:A000
 
 ******************************************************************************
 
+* 25 bytes of persistent storage
+* TODO: Move to SHRZP
 SHRPIXELS     DB    $00                    ; Main memory copy of VDUPIXELS
 SHRVDUQ       DS    16                     ; Main memory copy of VDUQ
 SHRGFXFGMASK  DB    $00                    ; Foreground colour mask
@@ -23,8 +25,6 @@ SHRGFXBGMASK  DB    $00                    ; Background colour mask
 SHRGFXACTION  DB    $00                    ; GCOL action for point plotting
 SHRXPIXEL     DW    $0000                  ; Previous point in screen coords
 SHRYPIXEL     DW    $0000                  ; Previous point in screen coords
-SHRTMPWRD     DW    $0000                  ; Temp scratch space
-
 
 
 * Explode font to generate SHRFONTXPLD table
@@ -422,14 +422,15 @@ SHRPLOTCLR    EOR   #$FF                   ; Invert bits
 * x1 in A1L,A1H
 * y1 in A2L
 * Called in emulation mode.
+* Uses TMPZP+0,+1
 SHRLINE       LDA   A2L                    ; y1
               SEC
               SBC   SHRYPIXEL              ; Subtract y0
               BPL   :S1                    ; Skip if +ve
               EOR   #$FF                   ; Negate if -ve
               INC   A
-:S1           STA   SHRTMPWRD+0            ; abs(y1 - y0)
-              STZ   SHRTMPWRD+1            ; Pad to 16 bit
+:S1           STA   TMPZP+0                ; abs(y1 - y0)
+              STZ   TMPZP+1                ; Pad to 16 bit
               PHP                          ; Disable interrupts
               SEI
               CLC                          ; 65816 native mode
@@ -442,7 +443,7 @@ SHRLINE       LDA   A2L                    ; y1
               BPL   :S2                    ; Skip if +ve
               EOR   #$FFFF                 ; Negate if -ve
               INC   A
-:S2           CMP   SHRTMPWRD              ; Cmp abs(x1 - x0) w/ abs(y1 - y0)
+:S2           CMP   TMPZP                  ; Cmp abs(x1 - x0) w/ abs(y1 - y0)
               BCC   :YDOM                  ; abs(x1 - x0) < abs(y1 - y0)
 
 :XDOM         LDA   SHRXPIXEL              ; x0
@@ -462,17 +463,18 @@ SHRLINE       LDA   A2L                    ; y1
 
 * Swap (x0, y0) and (x1, y1)
 * Called in 16 bit 65816 native mode
+* Uses TMPZP+0,+1
 SHRLINESWAP   LDA   SHRXPIXEL              ; x0
-              STA   SHRTMPWRD
+              STA   TMPZP
               LDA   A1L                    ; x1
               STA   SHRXPIXEL
-              LDA   SHRTMPWRD
+              LDA   TMPZP
               STA   A1L
               LDA   SHRYPIXEL              ; y0
-              STA   SHRTMPWRD
+              STA   TMPZP
               LDA   A2L                    ; y1
               STA   SHRYPIXEL
-              LDA   SHRTMPWRD
+              LDA   TMPZP
               STA   A2L
               RTS
 
@@ -544,11 +546,12 @@ SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
               MX    %11                    ; Tell Merlin
               PLP                          ; Resume normal service
               RTS
-:DX           DW    $0000                  ; dx initially, then (2 * (dy - dx))
-:DY           DW    $0000                  ; dy initially, then (2 * dy)
-:YI           DW    $0000                  ; +1 or -1
-:D            DW    $0000                  ; D
-:LIM          DW    $0000                  ; x1 gets stashed here
+* Zero page
+:DX           EQU   TMPZP+0                ; dx initially, then (2 * (dy - dx))
+:DY           EQU   TMPZP+2                ; dy initially, then (2 * dy)
+:YI           EQU   TMPZP+4                ; +1 or -1
+:D            EQU   TMPZP+6                ; D
+:LIM          EQU   TMPZP+8                ; x1 gets stashed here
 
 
 * Plot y-dominant line (steep gradient)
@@ -620,12 +623,13 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
               MX    %11                    ; Tell Merlin
               PLP                          ; Resume normal service
               RTS
-:X            DW    $0000
-:DX           DW    $0000                  ; dx initially, then (2 * dx)
-:DY           DW    $0000                  ; dy initially, then (2 * (dy - dx)))
-:XI           DW    $0000                  ; +1 or -1
-:D            DW    $0000                  ; D
-:LIM          DW    $0000                  ; x1 gets stashed here
+* Zero page
+:X            EQU   TMPZP+0
+:DX           EQU   TMPZP+2                ; dx initially, then (2 * dx)
+:DY           EQU   TMPZP+4                ; dy initially, then (2 * (dy - dx)))
+:XI           EQU   TMPZP+6                ; +1 or -1
+:D            EQU   TMPZP+8                ; D
+:LIM          EQU   TMPZP+10               ; x1 gets stashed here
 
 
 * Convert high-resolution screen coordinates
