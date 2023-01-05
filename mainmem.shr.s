@@ -480,14 +480,14 @@ SHRLINE       LDA   A2L                    ; y1
 
 :XDOM         LDA   SHRXPIXEL              ; x0
               CMP   A1L                    ; x1
-              BCS   :X1                    ; x0 >= x1
+              BPL   :X1                    ; x0 >= x1
               JMP   SHRLINELO              ; x0 < x1
 :X1           JSR   SHRLINESWAP            ; Swap parms
               JMP   SHRLINELO
 
 :YDOM         LDA   SHRYPIXEL              ; y0
               CMP   A2L                    ; y1
-              BCS   :Y1                    ; y0 >= y1
+              BPL   :Y1                    ; y0 >= y1
               JMP   SHRLINEHI              ; y0 < y1
 :Y1           JSR   SHRLINESWAP            ; Swap parms
               JMP   SHRLINEHI
@@ -676,7 +676,9 @@ SHRCOORD      PHP                          ; Disable interrupts
 
 * X-coordinate in SHRVDUQ+5,+6   1280/2=640
               LDA   SHRVDUQ+5
-              LSR                          ; /2
+              ASL                          ; Sign bit -> C
+              ROR   SHRVDUQ+5              ; Signed divide /2
+              LDA   SHRVDUQ+5
               STA   A1L                    ; Result in A1L/H
 
 * Y-coordinate in SHRVDUQ+7,+8   1024*25/128=200
