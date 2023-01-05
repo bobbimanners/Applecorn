@@ -16,7 +16,7 @@ SHRFONTXPLD   EQU   $A000                  ; Explode SHR font to $E1:A000
 ******************************************************************************
 
 * 25 bytes of persistent storage
-* TODO: Move to SHRZP
+* TODO: Move to SHRZP maybe
 SHRPIXELS     DB    $00                    ; Main memory copy of VDUPIXELS
 SHRVDUQ       DS    16                     ; Main memory copy of VDUQ
 SHRGFXFGMASK  DB    $00                    ; Foreground colour mask
@@ -626,7 +626,7 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
 * Zero page
 :X            EQU   TMPZP+0
 :DX           EQU   TMPZP+2                ; dx initially, then (2 * dx)
-:DY           EQU   TMPZP+4                ; dy initially, then (2 * (dy - dx)))
+:DY           EQU   TMPZP+4                ; dy initially, then (2 * (dx - dy)))
 :XI           EQU   TMPZP+6                ; +1 or -1
 :D            EQU   TMPZP+8                ; D
 :LIM          EQU   TMPZP+10               ; x1 gets stashed here
