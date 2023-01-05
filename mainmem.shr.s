@@ -686,7 +686,8 @@ SHRCOORD      PHP                          ; Disable interrupts
               STA   A1L                    ; Result in A1L/H
 
 * Y-coordinate in SHRVDUQ+7,+8   1024*25/128=200
-:Y            LDA   SHRVDUQ+7
+              LDA   SHRVDUQ+7
+              BMI   :MINUS
               ASL                          ; *2
               ADC   SHRVDUQ+7              ; *3
               ASL                          ; *6
@@ -706,6 +707,38 @@ SHRCOORD      PHP                          ; Disable interrupts
               AND   #$FF00                 ; Mask bits
               ADC   #0                     ; Add in carry (9th bit)
               XBA                          ; Clever trick: fewer shifts
+              STA   A2L                    ; Into A2L/H
+        
+              SEC                          ; Back to emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP                          ; Normal service resumed
+              RTS
+
+:MINUS        MX    %00                    ; Tell Merlin we are 16 bit
+              EOR   #$FFFF                 ; Negate
+              INC   A
+              ASL                          ; *2
+              ADC   SHRVDUQ+7              ; *3
+              ASL                          ; *6
+              ASL                          ; *12
+              ASL                          ; *24
+              ADC   SHRVDUQ+7              ; *25
+
+* Clever speedup trick thanks to Kent Dickey @ A2Infinitum
+* now we have valid data in acc[15:7], and we want to shift right 7 bits to
+* get acc[8:0] as the valid bits.  If we left shift one bit and xba,
+* we get acc[7:0] in the proper bits, so we just have to bring the bit we
+* just shifted out back
+* See: https://apple2infinitum.slack.com/archives/CA8AT5886/p1628877444215300
+* for code on how to shift left 7 bits
+
+              ASL                          ;
+              AND   #$FF00                 ; Mask bits
+              ADC   #0                     ; Add in carry (9th bit)
+              XBA                          ; Clever trick: fewer shifts
+              EOR   #$FFFF                 ; Negate
+              INC   A
               STA   A2L                    ; Into A2L/H
         
               SEC                          ; Back to emulation mode
