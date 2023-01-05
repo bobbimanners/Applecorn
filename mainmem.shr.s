@@ -245,7 +245,19 @@ SHRPLOT       >>>   ENTMAIN
               BRA   :S2
 :S1           CMP   #$40                   ; Plot point
               BNE   :BAIL                  ; Other? Bail out
+
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
               JSR   SHRPOINT
+              SEC                          ; 65816 emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP                          ; Resume normal service
+
               BRA   :S2
 :S2           PLA                          ; Store prev pt in screen coords
               STA   SHRYPIXEL+0
@@ -283,8 +295,28 @@ SHRPLOTCOL    LDA   SHRGFXFGMASK           ; Preserve FG colour
 
 
 * Plot a point
-* Called in emulation mode or 8 bit native mode
-SHRPOINT      LDX   A2L                    ; Screen row (Y-coord)
+* Called in 65816 native mode, 8 bit M & X
+SHRPOINT      REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDA   A2L
+              CMP   #000                   ; TODO: Top of window
+              BMI   :OUT
+              CMP   #200                   ; TODO: Bottom of window
+              BPL   :OUT
+              LDA   A1L
+              CMP   #000                   ; TODO: Left of window
+              BMI   :OUT
+              CMP   #640                   ; TODO: Right of window
+              BPL   :OUT
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+              BRA   :INWINDOW
+:OUT          RTS
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+              SEC
+
+:INWINDOW     LDX   A2L                    ; Screen row (Y-coord)
               LDA   SHRROWSL,X             ; Look up addr (LS byte)
               STA   A3L                    ; Stash in A3L
               LDA   SHRROWSH,X             ; Look up addr (MS byte)
@@ -462,7 +494,7 @@ SHRLINE       LDA   A2L                    ; y1
 
 
 * Swap (x0, y0) and (x1, y1)
-* Called in 16 bit 65816 native mode
+* Called in 65816 native mode, 16 bit M &X
 * Uses TMPZP+0,+1
 SHRLINESWAP   LDA   SHRXPIXEL              ; x0
               STA   TMPZP
@@ -480,7 +512,7 @@ SHRLINESWAP   LDA   SHRXPIXEL              ; x0
 
 
 * Plot x-dominant line (shallow gradient)
-* Called in 16 bit 65816 native mode. Returns in emulation mode.
+* Called in 65816 native mode, 16 bit M & X. Returns in emulation mode.
 SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
               LDA   A1L                    ; x1
               STA   :LIM                   ; We re-use A1L/H later
@@ -555,7 +587,7 @@ SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
 
 
 * Plot y-dominant line (steep gradient)
-* Called in 16 bit 65816 native mode. Returns in emulation mode.
+* Called in 65816 native mode, 16 bit M & X. Returns in emulation mode.
 SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
               LDA   A1L                    ; x1
               SEC
