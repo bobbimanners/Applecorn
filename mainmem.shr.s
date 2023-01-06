@@ -318,13 +318,14 @@ SHRPOINT      REP   #$30                   ; 16 bit M & X
               BPL   :OUT
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
-              BRA   :INWINDOW
-:OUT          RTS
-              SEP   #$30                   ; 8 bit M & X
+              BRA   SHRPOINT2
+:OUT          SEP   #$30
+              MX    %11
+              RTS
+SHRPOINT2     SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
-              SEC
 
-:INWINDOW     LDX   A2L                    ; Screen row (Y-coord)
+              LDX   A2L                    ; Screen row (Y-coord)
               LDA   SHRROWSL,X             ; Look up addr (LS byte)
               STA   A3L                    ; Stash in A3L
               LDA   SHRROWSH,X             ; Look up addr (MS byte)
@@ -789,23 +790,47 @@ SHRCOORD2     MX    $00                    ; Tell Merlin it's 16 bit
 
 * Clear the graphics window
 SHRVDU16      >>>   ENTMAIN
+              LDA   SHRGFXFGMASK
+              STA   SHRGFXFGMSK2
+              LDA   SHRGFXBGMASK
+              STA   SHRGFXFGMASK
               PHP                          ; Disable interrupts
               SEI
               CLC                          ; 816 native mode
               XCE
-              REP   #$10                   ; 16 bit index
-              MX    %10                    ; Tell Merlin
-              LDX   #$0000
-              LDA   SHRGFXBGMASK
-:L1           STAL  $E12000,X              ; SHR screen @ E1:2000
-              INX
-              CPX   #$7D00
-              BNE   :L1
-              SEP   #$10                   ; Back to 8 bit index
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              INC   SHRWINRGT
+              INC   SHRWINTOP
+              LDY   SHRWINBTM
+              STY   A2L
+:L1           LDX   SHRWINLFT
+:L2           STX   A1L
+              PHX
+
+              SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
+              JSR   SHRPOINT2              ; No bounds check
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+
+              PLX
+              INX
+              CPX   SHRWINRGT
+              BNE   :L2
+              LDA   A2L
+              INC   A
+              STA   A2L
+              CMP   SHRWINTOP
+              BNE   :L1
+              DEC   SHRWINRGT
+              DEC   SHRWINTOP
               SEC                          ; Back to 6502 emu mode
               XCE
+              MX    %11                    ; Tell Merlin
               PLP                          ; Normal service resumed
+              LDA   SHRGFXFGMSK2
+              STA   SHRGFXFGMASK
               >>>   XF2AUX,SHRCLRRET
 
 
