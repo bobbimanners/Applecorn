@@ -1073,34 +1073,35 @@ VDU26QUIT     RTS
 VDU28         LDX   VDUMODE
               LDA   VDUQCOORD+2            ; right
               CMP   VDUQCOORD+0            ; left
-              BCC   VDUCOPYEXIT            ; right<left
+              BCC   VDU28EXIT              ; right<left
               CMP   SCNTXTMAXX,X
               BEQ   VDU28B
-              BCS   VDUCOPYEXIT            ; right>width
+              BCS   VDU28EXIT              ; right>width
 VDU28B        LDA   VDUQCOORD+1            ; bottom
               CMP   VDUQCOORD+3            ; top
-              BCC   VDUCOPYEXIT            ; bottom<top
+              BCC   VDU28EXIT              ; bottom<top
               CMP   SCNTXTMAXY,X
               BEQ   VDU28C
-              BCS   VDUCOPYEXIT            ; top>height
+              BCS   VDU28EXIT              ; top>height
 VDU28C        LDY   #TXTWINLFT+3-VDUVARS   ; Copy to txt window params
-              BEQ   VDU28D
+              BEQ   VDU28EXIT
               JSR   VDUCOPY4
               LDA   TXTWINLFT              ; Cursor to top-left of window
               STA   VDUTEXTX
               LDA   TXTWINTOP
               STA   VDUTEXTY
-VDU28D        RTS
+VDU28EXIT     RTS
 
 * VDU 24,left;bottom;right;top; - define graphics window
 VDU24         BIT   VDUBANK                ; Check if this is a GS
               BMI   :GS
               RTS                          ; If not, hasta la vista
-:GS           LDX   #$08
+:GS           LDX   #$00
               >>>   WRTMAIN
 :L1           LDA   VDUQGFXWIND,X          ; Copy to main mem for SHR
               STA   SHRVDUQ,X
-              DEX
+              INX
+              CPX   #$08
               BNE   :L1
               >>>   WRTAUX
               >>>   XF2MAIN,SHRVDU24

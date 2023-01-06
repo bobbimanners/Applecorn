@@ -307,9 +307,9 @@ SHRPLOTCOL    LDA   SHRGFXFGMASK           ; Preserve FG colour
 SHRPOINT      REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
               LDA   A2L                    ; y coordinate
-              CMP   SHRWINTOP
-              BMI   :OUT
               CMP   SHRWINBTM
+              BMI   :OUT
+              CMP   SHRWINTOP
               BPL   :OUT
               LDA   A1L                    ; x coordinate
               CMP   SHRWINLFT
@@ -840,7 +840,7 @@ SHRVDU24      >>>   ENTMAIN
               LDA   A1L                    ; right converted
               STA   SHRWINRGT
               LDA   A2L                    ; top converted
-              STA   SHRWINBTM
+              STA   SHRWINTOP
 
               SEC                          ; 65816 emulation mode
               XCE
@@ -856,16 +856,16 @@ SHRVDU24      >>>   ENTMAIN
 SHRVDU26      >>>   ENTMAIN
               STZ   SHRWINLFT+0
               STZ   SHRWINLFT+1
-              STZ   SHRWINTOP+0
-              STZ   SHRWINTOP+1
+              STZ   SHRWINBTM+0
+              STZ   SHRWINBTM+1
               LDA   #<639
               STA   SHRWINRGT+0
               LDA   #>639
               STA   SHRWINRGT+1
               LDA   #<199
-              STA   SHRWINBTM+0
+              STA   SHRWINTOP+0
               LDA   #>199
-              STA   SHRWINBTM+1
+              STA   SHRWINTOP+1
               >>>   XF2AUX,VDU26RET
 
 
