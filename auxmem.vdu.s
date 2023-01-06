@@ -1089,12 +1089,20 @@ VDU28C        LDY   #TXTWINLFT+3-VDUVARS   ; Copy to txt window params
 VDU28D        RTS
 
 * VDU 24,left;bottom;right;top; - define graphics window
-VDU24         RTS
-* If right<left, exit
-* If right>width, exit
-* If top<bottom, exit
-* If top>height, exit
-* scale parameters
+VDU24         BIT   VDUBANK                ; Check if this is a GS
+              BMI   :GS
+              RTS                          ; If not, hasta la vista
+:GS           LDX   #$08
+              >>>   WRTMAIN
+:L1           LDA   VDUQGFXWIND,X          ; Copy to main mem for SHR
+              STA   SHRVDUQ,X
+              DEX
+              BNE   :L1
+              >>>   WRTAUX
+              >>>   XF2MAIN,SHRVDU24
+VDU24RETBAD   >>>   ENTAUX
+              RTS                          ; Validation failure
+VDU24RET      >>>   ENTAUX
               LDY   #GFXWINLFT+7-VDUVARS   ; Copy to gfx window params
               LDA   #$08
               BNE   COPYVDUQ

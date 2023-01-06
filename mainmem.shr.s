@@ -15,7 +15,7 @@ SHRFONTXPLD   EQU   $A000                  ; Explode SHR font to $E1:A000
 
 ******************************************************************************
 
-* 25 bytes of persistent storage
+* 33 bytes of persistent storage
 * TODO: Move to SHRZP maybe
 SHRPIXELS     DB    $00                    ; Main memory copy of VDUPIXELS
 SHRVDUQ       DS    16                     ; Main memory copy of VDUQ
@@ -25,6 +25,10 @@ SHRGFXBGMASK  DB    $00                    ; Background colour mask
 SHRGFXACTION  DB    $00                    ; GCOL action for point plotting
 SHRXPIXEL     DW    $0000                  ; Previous point in screen coords
 SHRYPIXEL     DW    $0000                  ; Previous point in screen coords
+SHRWINLFT     DW    0                      ; Graphics window - left
+SHRWINRGT     DW    639                    ; Graphics window - right
+SHRWINTOP     DW    0                      ; Graphics window - top
+SHRWINBTM     DW    199                    ; Graphics window - bottom
 
 
 * Explode font to generate SHRFONTXPLD table
@@ -302,15 +306,15 @@ SHRPLOTCOL    LDA   SHRGFXFGMASK           ; Preserve FG colour
 * Called in 65816 native mode, 8 bit M & X
 SHRPOINT      REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
-              LDA   A2L
-              CMP   #000                   ; TODO: Top of window
+              LDA   A2L                    ; y coordinate
+              CMP   SHRWINTOP
               BMI   :OUT
-              CMP   #200                   ; TODO: Bottom of window
+              CMP   SHRWINBTM
               BPL   :OUT
-              LDA   A1L
-              CMP   #000                   ; TODO: Left of window
+              LDA   A1L                    ; x coordinate
+              CMP   SHRWINLFT
               BMI   :OUT
-              CMP   #640                   ; TODO: Right of window
+              CMP   SHRWINRGT
               BPL   :OUT
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
@@ -746,6 +750,84 @@ SHRCOORD      PHP                          ; Disable interrupts
               MX    %11                    ; Tell Merlin
               PLP                          ; Normal service resumed
               RTS
+
+
+* Another coordinate transform, used by VDU25
+* Same as SHRCOORD above, except it is entered in native, 16 bit M & X mode
+* Assumes positive coordinates.
+* On entry: X is offset into SHRVDUQ to find coordinate
+* On return: Coverted coordinats in A1L/H, A2L/H
+SHRCOORD2     MX    $00                    ; Tell Merlin it's 16 bit
+
+* X-coordinate in SHRVDUQ+5,+6   1280/2=640
+              LDA   SHRVDUQ,X
+              ASL                          ; Sign bit -> C
+              ROR   SHRVDUQ,X              ; Signed divide /2
+              LDA   SHRVDUQ,X
+              STA   A1L                    ; Result in A1L/H
+
+* Y-coordinate in SHRVDUQ+7,+8   1024*25/128=200
+              LDA   SHRVDUQ+2,X
+              BMI   :MINUS
+              ASL                          ; *2
+              ADC   SHRVDUQ+2,X            ; *3
+              ASL                          ; *6
+              ASL                          ; *12
+              ASL                          ; *24
+              ADC   SHRVDUQ+2,X            ; *25
+
+              ASL                          ;
+              AND   #$FF00                 ; Mask bits
+              ADC   #0                     ; Add in carry (9th bit)
+              XBA                          ; Clever trick: fewer shifts
+              STA   A2L                    ; Into A2L/H
+              RTS
+
+
+              MX    %11                    ; Following code is 8 bit again
+
+
+* Validate graphics window parms & store if okay
+* First 8 bytes of SHRVDUQ: left, bottom, right, top
+SHRVDU24      >>>   ENTMAIN
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDA   SHRVDUQ+4              ; Right
+              CMP   SHRVDUQ+0              ; Left
+              BCC   :BAD                   ; right<left
+              CMP   #1280                  ; width
+              BCS   :BAD                   ; right>=width
+              LDA   SHRVDUQ+6              ; Top
+              CMP   SHRVDUQ+2              ; Bottom
+              BCC   :BAD                   ; top<bottom
+              CMP   #1024                  ; height
+              BCS   :BAD                   ; top>=height
+             
+              LDX   #$00                   ; Start of SHRVDUQ 
+              JSR   SHRCOORD2              ; Convert left, bottom
+              LDA   A1L                    ; left converted
+              STA   SHRWINLFT
+              LDA   A2L                    ; bottom converted
+              STA   SHRWINBTM
+              LDX   #$04                   ; 4 byte offset
+              JSR   SHRCOORD2              ; Convert right, top
+              LDA   A1L                    ; right converted
+              STA   SHRWINRGT
+              LDA   A2L                    ; top converted
+              STA   SHRWINBTM
+
+              SEC                          ; 65816 emulation mode
+              XCE
+              PLP
+              >>>   XF2AUX,VDU24RET
+:BAD          SEC                          ; 65816 emulation mode
+              XCE
+              PLP
+              >>>   XF2AUX,VDU24RETBAD
 
 
 * Table of addresses of SHR rows (in reverse order)
