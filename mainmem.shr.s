@@ -787,6 +787,28 @@ SHRCOORD2     MX    $00                    ; Tell Merlin it's 16 bit
               MX    %11                    ; Following code is 8 bit again
 
 
+* Clear the graphics window
+SHRVDU16      >>>   ENTMAIN
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 816 native mode
+              XCE
+              REP   #$10                   ; 16 bit index
+              MX    %10                    ; Tell Merlin
+              LDX   #$0000
+              LDA   SHRGFXBGMASK
+:L1           STAL  $E12000,X              ; SHR screen @ E1:2000
+              INX
+              CPX   #$7D00
+              BNE   :L1
+              SEP   #$10                   ; Back to 8 bit index
+              MX    %11                    ; Tell Merlin
+              SEC                          ; Back to 6502 emu mode
+              XCE
+              PLP                          ; Normal service resumed
+              >>>   XF2AUX,SHRCLRRET
+
+
 * Validate graphics window parms & store if okay
 * First 8 bytes of SHRVDUQ: left, bottom, right, top
 SHRVDU24      >>>   ENTMAIN

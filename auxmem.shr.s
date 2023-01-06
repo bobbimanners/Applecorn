@@ -143,7 +143,6 @@ SHRBGMASK     EQU   $B002                  ; Colour mask background (word)
 ******************************************************************************
 
 SHRBGMASKA    DW    $0000                  ; Keep a copy in aux mem too
-SHRGFXBGMASKA DW    $0000
 
 
 * Write character to SHR screen
@@ -559,23 +558,8 @@ SHRCLREOL     JSR   SHRCHARADDR
 
 
 * VDU16 (CLG) clears the whole SHR screen right now
-SHRCLEAR      PHP                          ; Disable interrupts
-              SEI
-              CLC                          ; 816 native mode
-              XCE
-              REP   #$10                   ; 16 bit index
-              MX    %10                    ; Tell Merlin
-              LDX   #$0000
-              LDA   SHRGFXBGMASKA
-:L1           STAL  $E12000,X              ; SHR screen @ E1:2000
-              INX
-              CPX   #$7D00
-              BNE   :L1
-              SEP   #$10                   ; Back to 8 bit index
-              MX    %11                    ; Tell Merlin
-              SEC                          ; Back to 6502 emu mode
-              XCE
-              PLP                          ; Normal service resumed
+SHRCLEAR      >>>   XF2MAIN,SHRVDU16
+SHRCLRRET     >>>   ENTAUX
               RTS
 
 
@@ -642,7 +626,6 @@ SHRSETGCOL    PHA
               AND   #$0F
               TAY
               LDA   SHRCMASK320,Y          ; Lookup mask in table
-              STA   SHRGFXBGMASKA
               >>>   WRTMAIN
               STA   SHRGFXBGMASK
               >>>   WRTAUX
@@ -662,7 +645,6 @@ SHRSETGCOL    PHA
               AND   #$03
               TAY
               LDA   SHRCMASK640,Y          ; Lookup mask in table
-              STA   SHRGFXBGMASKA
               >>>   WRTMAIN
               STA   SHRGFXBGMASK
               >>>   WRTAUX
