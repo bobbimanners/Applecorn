@@ -1044,7 +1044,11 @@ VDU26LP       STA   VDUVARS,X              ; Clear all windows
               STA   TXTWINRGT              ; Text window width
               LDY   VDUPIXELS
               BEQ   VDU26QUIT              ; No graphics
-              LDX   #GFXWINRGT-VDUVARS
+              BIT   VDUBANK                ; Is this a GS?
+              BPL   VDU26PT2               ; Nope
+              >>>   XF2MAIN,SHRVDU26
+VDU26RET      >>>   ENTAUX
+VDU26PT2      LDX   #GFXWINRGT-VDUVARS
               JSR   VDU26SCALE             ; GFXWID=TXTWID*PIXELS-1
               LDA   TXTWINBOT
               LDY   #8                     ; GFXHGT=TXTHGT*8-1

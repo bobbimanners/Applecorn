@@ -25,10 +25,10 @@ SHRGFXBGMASK  DB    $00                    ; Background colour mask
 SHRGFXACTION  DB    $00                    ; GCOL action for point plotting
 SHRXPIXEL     DW    $0000                  ; Previous point in screen coords
 SHRYPIXEL     DW    $0000                  ; Previous point in screen coords
-SHRWINLFT     DW    0                      ; Graphics window - left
-SHRWINRGT     DW    639                    ; Graphics window - right
-SHRWINTOP     DW    0                      ; Graphics window - top
-SHRWINBTM     DW    199                    ; Graphics window - bottom
+SHRWINLFT     DW    $0000                  ; Graphics window - left (0-639)
+SHRWINRGT     DW    $0000                  ; Graphics window - right (0-639)
+SHRWINTOP     DW    $0000                  ; Graphics window - top (0-199)
+SHRWINBTM     DW    $0000                  ; Graphics window - bottom (0-199)
 
 
 * Explode font to generate SHRFONTXPLD table
@@ -828,6 +828,23 @@ SHRVDU24      >>>   ENTMAIN
               XCE
               PLP
               >>>   XF2AUX,VDU24RETBAD
+
+
+* Reset graphics window
+SHRVDU26      >>>   ENTMAIN
+              STZ   SHRWINLFT+0
+              STZ   SHRWINLFT+1
+              STZ   SHRWINTOP+0
+              STZ   SHRWINTOP+1
+              LDA   #<639
+              STA   SHRWINRGT+0
+              LDA   #>639
+              STA   SHRWINRGT+1
+              LDA   #<199
+              STA   SHRWINBTM+0
+              LDA   #>199
+              STA   SHRWINBTM+1
+              >>>   XF2AUX,VDU26RET
 
 
 * Table of addresses of SHR rows (in reverse order)
