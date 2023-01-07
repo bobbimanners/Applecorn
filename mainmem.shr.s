@@ -319,8 +319,8 @@ SHRPOINT      REP   #$30                   ; 16 bit M & X
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
               BRA   SHRPOINT2
-:OUT          SEP   #$30
-              MX    %11
+:OUT          SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
               RTS
 SHRPOINT2     SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
@@ -790,48 +790,136 @@ SHRCOORD2     MX    $00                    ; Tell Merlin it's 16 bit
 
 * Clear the graphics window
 SHRVDU16      >>>   ENTMAIN
-              LDA   SHRGFXFGMASK
-              STA   SHRGFXFGMSK2
-              LDA   SHRGFXBGMASK
-              STA   SHRGFXFGMASK
               PHP                          ; Disable interrupts
               SEI
               CLC                          ; 816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
-              INC   SHRWINRGT
               INC   SHRWINTOP
-              LDY   SHRWINBTM
-              STY   A2L
-:L1           LDX   SHRWINLFT
-:L2           STX   A1L
-              PHX
+              LDX   SHRWINBTM
+              LDA   SHRWINLFT
+              LSR   A                      ; Divide left by 4
+              LSR   A
+              INC   A                      ; Treat left column specially
+              STA   :LEFTLIM
+              LDA   SHRWINRGT
+              LSR   A                      ; Divide right by 4
+              LSR   A
+              STA   :RIGHTLIM
 
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
-              JSR   SHRPOINT2              ; No bounds check
-              REP   #$30                   ; 16 bit M & X
-              MX    %00                    ; Tell Merlin
+:L1           LDY   :LEFTLIM
+              LDA   SHRROWSL,X             ; Look up addr (LS byte)
+              STA   A3L                    ; Stash in A3L
+              LDA   SHRROWSH,X             ; Look up addr (MS byte)
+              STA   A3H                    ; Stash in A3H
+              LDA   #$E1                   ; Bank $E1
+              STA   A4L
 
-              PLX
-              INX
-              CPX   SHRWINRGT
-              BNE   :L2
-              LDA   A2L
-              INC   A
-              STA   A2L
-              CMP   SHRWINTOP
+              LDA   SHRGFXBGMASK
+:L2           CPY   :RIGHTLIM
+              BCS   :S1
+              STA   [A3L],Y
+              INY
+              CPY   :RIGHTLIM
+              BRA   :L2
+
+:S1           INX
+              CPX   SHRWINTOP
               BNE   :L1
-              DEC   SHRWINRGT
+
+              LDA   SHRPIXELS
+              CMP   #$02
+              BNE   :MODE0
+
+              LDA   SHRWINRGT
+              LSR
+              AND   #$01
+              TAX
+              LDA   :RIGHT320,X            ; Bits to set
+              JSR   SHRVDU16V              ; Handle right edge
+
+              LDY   :LEFTLIM
+              DEY                          ; Handle leftmost byte
+              LDA   SHRWINLFT
+              LSR
+              AND   #$01
+              TAX
+              LDA   :LEFT320,X             ; Bits to set
+              JSR   SHRVDU16V              ; Handle left edge
+              BRA   :DONE
+
+:MODE0        LDA   SHRWINRGT
+              AND   #$03
+              TAX
+              LDA   :RIGHT640,X            ; Bits to set
+              JSR   SHRVDU16V              ; Handle right edge
+
+              LDY   :LEFTLIM
+              DEY                          ; Handle leftmost byte
+              LDA   SHRWINLFT
+              AND   #$03
+              TAX
+              LDA   :LEFT640,X             ; Bits to set
+              JSR   SHRVDU16V              ; Handle left edge
+
+:DONE         REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
               DEC   SHRWINTOP
+
               SEC                          ; Back to 6502 emu mode
               XCE
               MX    %11                    ; Tell Merlin
               PLP                          ; Normal service resumed
-              LDA   SHRGFXFGMSK2
-              STA   SHRGFXFGMASK
               >>>   XF2AUX,SHRCLRRET
+:LEFT320      DB    %11111111
+              DB    %00001111
+:LEFT640      DB    %11111111
+              DB    %00111111
+              DB    %00001111
+              DB    %00000011
+:RIGHT320     DB    %00000000
+              DB    %11110000
+:RIGHT640     DB    %00000000
+              DB    %11000000
+              DB    %11110000
+              DB    %11111100
+* Zero page
+:LEFTLIM      EQU   TMPZP+0                ; 2 bytes of ZP
+:RIGHTLIM     EQU   TMPZP+2                ; 2 bytes of ZP
+
+
+* Helper routine to draw vertical lines
+* Draw line from A1L,SHRWINBTM to A1L,SHRWINBTM in BG colour
+* Called in 65816 native mode, 8 bit M & X
+* On entry: Y - byte offset into row, A - bit pattern to set
+SHRVDU16V     PHA
+              LDX   SHRWINBTM
+:L1           LDA   SHRROWSL,X             ; Look up addr (LS byte)
+              STA   A3L                    ; Stash in A3L
+              LDA   SHRROWSH,X             ; Look up addr (MS byte)
+              STA   A3H                    ; Stash in A3H
+              LDA   #$E1                   ; Bank $E1
+              STA   A4L
+
+              PLA
+              PHA
+              EOR   #$FF                   ; Invert bits
+              AND   [A3L],Y                ; Load existing byte, clearing pixel
+              STA   A1L
+              PLA
+              PHA
+              AND   SHRGFXBGMASK           ; Mask to set colour
+              ORA   A1L                    ; OR into existing byte
+              STA   [A3L],Y                ; Write to screen
+
+              INX
+              CPX   SHRWINTOP
+              BNE   :L1
+              PLA
+              RTS
 
 
 * Validate graphics window parms & store if okay
