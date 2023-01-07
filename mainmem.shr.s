@@ -310,8 +310,9 @@ SHRPOINT      REP   #$30                   ; 16 bit M & X
               CMP   SHRWINBTM
               BMI   :OUT
               CMP   SHRWINTOP
+              BEQ   :S1
               BPL   :OUT
-              LDA   A1L                    ; x coordinate
+:S1           LDA   A1L                    ; x coordinate
               CMP   SHRWINLFT
               BMI   :OUT
               CMP   SHRWINRGT
