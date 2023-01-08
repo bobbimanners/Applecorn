@@ -24,13 +24,15 @@ SHRGFXFGMSK2  DB    $00                    ; Copy of foreground colour mask
 SHRGFXBGMASK  DB    $00                    ; Background colour mask
 SHRGFXACTION  DB    $00                    ; GCOL action for point plotting
 
-* These are all persistent locals
+* These are all persistent locals (14 bytes of ZP)
 SHRXPIXEL     EQU   SHRZP+0                ; Prev point in screen coords (word)
 SHRYPIXEL     EQU   SHRZP+2                ; Prev point in screen coords (word)
-SHRWINLFT     EQU   SHRZP+4                ; Gfx window - left (0-639) (word)
-SHRWINRGT     EQU   SHRZP+6                ; Gfx window - right (0-639) (word)
-SHRWINTOP     EQU   SHRZP+8                ; Gfx window - top (0-199) (word)
-SHRWINBTM     EQU   SHRZP+10               ; Gfx window - bottom (0-199) (word)
+SHRWINLFT     EQU   SHRZP+4                ; Gfx win - left (0-639) (word)
+SHRWINRGT     EQU   SHRZP+6                ; Gfx win - right (0-639) (word)
+SHRWINTOP     EQU   SHRZP+8                ; Gfx win - top (0-199) (word)
+SHRWINBTM     EQU   SHRZP+10               ; Gfx win - bottom (0-199) (word)
+SHRCURROUT    EQU   SHRZP+12               ; Curr pt in/out gfx win (byte)
+SHRPREVOUT    EQU   SHRZP+13               ; Prev pt in/out gfx win (byte)
 
 
 * Explode font to generate SHRFONTXPLD table
@@ -231,7 +233,7 @@ SHRCHAR640    PHY                          ; Preserve Y
 * Note: abs/rel handled in auxmem.vdu.s
 * TODO: No triangle filling or other fancy ops yet
 SHRPLOT       >>>   ENTMAIN
-              JSR   SHRCOORD               ; Convert coordinates
+              >>>   SHRCOORD               ; Convert coordinates
               LDA   A1L                    ; Preserve converted x
               PHA
               LDA   A1H
@@ -676,10 +678,11 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
 :LIM          EQU   TMPZP+10               ; x1 gets stashed here
 
 
-* Convert high-resolution screen coordinates
+* Macro to convert high-resolution screen coordinates
 * from 1280x1024 to 640x200 or 320x200
 * On return: X-coordinate in A1L/H, Y-coordinate in A2L (A2H=0)
-SHRCOORD      PHP                          ; Disable interrupts
+SHRCOORD      MAC
+              PHP                          ; Disable interrupts
               SEI
               CLC                          ; 65816 native mode
               XCE
@@ -695,7 +698,7 @@ SHRCOORD      PHP                          ; Disable interrupts
 
 * Y-coordinate in SHRVDUQ+7,+8   1024*25/128=200
               LDA   SHRVDUQ+7
-              BMI   :MINUS
+              BMI   SHRCOORDNEG
               ASL                          ; *2
               ADC   SHRVDUQ+7              ; *3
               ASL                          ; *6
@@ -721,9 +724,9 @@ SHRCOORD      PHP                          ; Disable interrupts
               XCE
               MX    %11                    ; Tell Merlin
               PLP                          ; Normal service resumed
-              RTS
+              BRA   SHRCOORDEND
 
-:MINUS        MX    %00                    ; Tell Merlin we are 16 bit
+SHRCOORDNEG   MX    %00                    ; Tell Merlin we are 16 bit
               EOR   #$FFFF                 ; Negate
               INC   A
               ASL                          ; *2
@@ -753,7 +756,7 @@ SHRCOORD      PHP                          ; Disable interrupts
               XCE
               MX    %11                    ; Tell Merlin
               PLP                          ; Normal service resumed
-              RTS
+SHRCOORDEND   EOM
 
 
 * Another coordinate transform, used by VDU25
@@ -772,7 +775,6 @@ SHRCOORD2     MX    $00                    ; Tell Merlin it's 16 bit
 
 * Y-coordinate in SHRVDUQ+7,+8   1024*25/128=200
               LDA   SHRVDUQ+2,X
-              BMI   :MINUS
               ASL                          ; *2
               ADC   SHRVDUQ+2,X            ; *3
               ASL                          ; *6
