@@ -31,8 +31,6 @@ SHRWINLFT     EQU   SHRZP+4                ; Gfx win - left (0-639) (word)
 SHRWINRGT     EQU   SHRZP+6                ; Gfx win - right (0-639) (word)
 SHRWINTOP     EQU   SHRZP+8                ; Gfx win - top (0-199) (word)
 SHRWINBTM     EQU   SHRZP+10               ; Gfx win - bottom (0-199) (word)
-SHRCURROUT    EQU   SHRZP+12               ; Curr pt in/out gfx win (byte)
-SHRPREVOUT    EQU   SHRZP+13               ; Prev pt in/out gfx win (byte)
 
 
 * Explode font to generate SHRFONTXPLD table
@@ -256,20 +254,19 @@ SHRPLOT       >>>   ENTMAIN
 :S1           CMP   #$40                   ; Plot point
               BNE   :BAIL                  ; Other? Bail out
 
-              BIT   SHRCURROUT             ; Point in window?
-              BMI   :S2                    ; No - skip drawing
               PHP                          ; Disable interrupts
               SEI
               CLC                          ; 65816 native mode
               XCE
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
-              JSR   SHRPOINT2
+              JSR   SHRPOINT
               SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
               PLP                          ; Resume normal service
 
+              BRA   :S2
 :S2           PLA                          ; Store prev pt in screen coords
               STA   SHRYPIXEL+1
               PLA
@@ -278,8 +275,6 @@ SHRPLOT       >>>   ENTMAIN
               STA   SHRXPIXEL+1
               PLA
               STA   SHRXPIXEL+0
-              LDA   SHRCURROUT             ; Current 'outside window' flag
-              STA   SHRPREVOUT             ; Previous 'outside window' flag
 :DONE         >>>   XF2AUX,GFXPLOTRET
 :BAIL         PLA
               PLA
@@ -311,13 +306,7 @@ SHRPLOTCOL    LDA   SHRGFXFGMASK           ; Preserve FG colour
 
 * Plot a point
 * Called in 65816 native mode, 8 bit M & X
-SHRPOINT      BIT   SHRCURROUT             ; First point outside?
-              BMI   :CHECK                 ; If so, check coords
-              BIT   SHRPREVOUT             ; Second point outside?
-              BMI   :CHECK                 ; If so, check coords
-              BRA   SHRPOINT2              ; Neither outside
-
-:CHECK        REP   #$30                   ; 16 bit M & X
+SHRPOINT      REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
               LDA   A2L                    ; y coordinate
               CMP   SHRWINBTM
@@ -336,7 +325,6 @@ SHRPOINT      BIT   SHRCURROUT             ; First point outside?
 :OUT          SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
               RTS
-
 SHRPOINT2     SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
 
@@ -729,9 +717,15 @@ SHRCOORD      MAC
               ADC   #0                     ; Add in carry (9th bit)
               XBA                          ; Clever trick: fewer shifts
               STA   A2L                    ; Into A2L/H
-              BRA   SHRCOORDCHK
+        
+              SEC                          ; Back to emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP                          ; Normal service resumed
+              BRA   SHRCOORDEND
 
-SHRCOORDNEG   EOR   #$FFFF                 ; Negate
+SHRCOORDNEG   MX    %00                    ; Tell Merlin we are 16 bit
+              EOR   #$FFFF                 ; Negate
               INC   A
               ASL                          ; *2
               ADC   SHRVDUQ+7              ; *3
@@ -755,31 +749,12 @@ SHRCOORDNEG   EOR   #$FFFF                 ; Negate
               EOR   #$FFFF                 ; Negate
               INC   A
               STA   A2L                    ; Into A2L/H
-
-SHRCOORDCHK   CMP   SHRWINBTM              ; y coordinate
-              BMI   SHRCOORDOUT
-              CMP   SHRWINTOP
-              BEQ   SHRCOORDCHK2
-              BPL   SHRCOORDOUT
-SHRCOORDCHK2  LDA   A1L                    ; x coordinate
-              CMP   SHRWINLFT
-              BMI   SHRCOORDOUT
-              CMP   SHRWINRGT
-              BPL   SHRCOORDOUT
-              BRA   SHRCOORDIN
-SHRCOORDOUT   SEP   #$30                   ; 8 bit M & X
-              MX    %11                    ; Tell Merlin
-              SEC
-              ROR   SHRCURROUT             ; Set SHRCURROUT to $80
-              BRA   SHRCOORDEND
-SHRCOORDIN    SEP   #$30                   ; 8 bit M & X
-              MX    %11                    ; Tell Merlin
-              STZ   SHRCURROUT             ; Reset SHRCURROUT
-
-SHRCOORDEND   SEC                          ; Back to emulation mode
+        
+              SEC                          ; Back to emulation mode
               XCE
+              MX    %11                    ; Tell Merlin
               PLP                          ; Normal service resumed
-              EOM
+SHRCOORDEND   EOM
 
 
 * Another coordinate transform, used by VDU25
@@ -1016,8 +991,6 @@ SHRVDU26      >>>   ENTMAIN
               STZ   SHRXPIXEL+1
               STZ   SHRYPIXEL+0
               STZ   SHRYPIXEL+1
-              STZ   SHRCURROUT
-              STZ   SHRPREVOUT
 
               >>>   XF2AUX,VDU26RET
 
