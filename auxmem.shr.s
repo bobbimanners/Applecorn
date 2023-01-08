@@ -160,39 +160,36 @@ SHRPRCHAR     CMP   CURSORED               ; Edit cursor?
 * Write character to SHR screen in 320 pixel mode
 SHRPRCH320    SEC
               SBC   #32
-              STA   VDUADDR2+0             ; A*32 -> VDUADDR2
-              STZ   VDUADDR2+1
-              ASL   VDUADDR2+0
-              ROL   VDUADDR2+1
-              ASL   VDUADDR2+0
-              ROL   VDUADDR2+1
-              ASL   VDUADDR2+0
-              ROL   VDUADDR2+1
-              ASL   VDUADDR2+0
-              ROL   VDUADDR2+1
-              ASL   VDUADDR2+0
-              ROL   VDUADDR2+1
+
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              AND   #$00FF
+              STA   VDUADDR2               ; A*32 -> VDUADDR2
+              ASL   VDUADDR2
+              ASL   VDUADDR2
+              ASL   VDUADDR2
+              ASL   VDUADDR2
+              ASL   VDUADDR2
               CLC                          ; SHRFONTXPLD+A*32 -> VDUADDR2
-              LDA   VDUADDR2+0
-              ADC   #<SHRFONTXPLD
-              STA   VDUADDR2+0
-              LDA   VDUADDR2+1
-              ADC   #>SHRFONTXPLD
-              STA   VDUADDR2+1
+              LDA   VDUADDR2
+              ADC   #SHRFONTXPLD
+              STA   VDUADDR2
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
               LDA   #$E1
               STA   VDUBANK2
               JSR   SHRCHARADDR            ; Screen addr in VDUADDR
 
 * 65816 code contributed by John Brooks follows ...
 
-              PHP                          ; Disable interrupts
-              SEI
               PHB                          ; Save data bank
               LDA   VDUBANK2               ; Push font Bank onto stack
               PHA
               PLB                          ; Set data bank to font bank
-              CLC                          ; 65816 native mode
-              XCE
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
               LDY   VDUADDR2               ; Font src ptr
@@ -256,37 +253,35 @@ SHRPRCH320    SEC
 * Write character to SHR screen in 640 pixel mode
 SHRPRCH640    SEC
               SBC   #32
-              STA   VDUADDR2+0             ; A*16 -> VDUADDR2
-              STZ   VDUADDR2+1
-              ASL   VDUADDR2+0
-              ROL   VDUADDR2+1
-              ASL   VDUADDR2+0
-              ROL   VDUADDR2+1
-              ASL   VDUADDR2+0
-              ROL   VDUADDR2+1
-              ASL   VDUADDR2+0
-              ROL   VDUADDR2+1
+
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              AND   #$00FF
+              STA   VDUADDR2               ; A*16 -> VDUADDR2
+              ASL   VDUADDR2
+              ASL   VDUADDR2
+              ASL   VDUADDR2
+              ASL   VDUADDR2
               CLC                          ; SHRFONTXPLD+A*16 -> VDUADDR2
-              LDA   VDUADDR2+0
-              ADC   #<SHRFONTXPLD
-              STA   VDUADDR2+0
-              LDA   VDUADDR2+1
-              ADC   #>SHRFONTXPLD
-              STA   VDUADDR2+1
+              LDA   VDUADDR2
+              ADC   #SHRFONTXPLD
+              STA   VDUADDR2
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
               LDA   #$E1
               STA   VDUBANK2
               JSR   SHRCHARADDR            ; Screen addr in VDUADDR
 
 * 65816 code contributed by John Brooks follows ...
 
-              PHP                          ; Disable interrupts
-              SEI
               PHB                          ; Save data bank
               LDA   VDUBANK2               ; Push font Bank onto stack
               PHA
               PLB                          ; Set data bank to font bank
-              CLC                          ; 65816 native mode
-              XCE
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
               LDY   VDUADDR2               ; Font src ptr
