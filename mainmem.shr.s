@@ -216,8 +216,96 @@ SHRCHAR640    PHY                          ; Preserve Y
 
 * VDU5 plot char at graphics cursor position
 SHRVDU5CH320  >>>   ENTMAIN
-* TODO
+              PHA                          ; Save char for later
+              LDX   SHRYPIXEL              ; Screen row (Y-coord)
+              LDA   SHRROWSL,X             ; Look up addr (LS byte)
+              STA   A3L                    ; Stash in A3L
+              LDA   SHRROWSH,X             ; Look up addr (MS byte)
+              STA   A3H                    ; Stash in A3H
+              LDA   #$E1                   ; Bank $E1
+              STA   A4L
+
+              PLA                          ; Get char back
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              AND   #$00FF
+              STA   A1L                    ; A*32 -> A1L/H
+              ASL   A1L
+              ASL   A1L
+              ASL   A1L
+              ASL   A1L
+              ASL   A1L
+              CLC                          ; SHRFONTXPLD+A*32 -> A1L/H
+              LDA   A1L
+              ADC   #SHRFONTXPLD
+              STA   A1L
+
+              LDX   SHRXPIXEL              ; Screen col (X-coord)
+              STX   A2L
+              LSR   A2L                    ; Divide by 4
+              LSR   A2L
+
+              LDX   A1L                    ; Index into exploded font
+              STZ   :CTR2
+:L0           LDY   A2L                    ; Index into row of pixels
+              STZ   :CTR1
+:L1           LDAL  $E10000,X              ; Read byte of exploded font
+              PHX
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+              JSR   SHRPLOTBYTE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              PLX
+              INX                          ; Next byte of font
+              INY                          ; Next byte on screen
+              INC   :CTR1
+              LDA   :CTR1
+              CMP   #$04                   ; 4 bytes per row 
+              BNE   :L1
+              LDA   A3L                    ; Increment A3L/H to next row
+              CLC
+              ADC   #$A0
+              STA   A3L
+              LDA   A3H
+              ADC   #$00
+              STA   A3H
+              INC   :CTR2
+              LDA   :CTR2
+              CMP   #$08                   ; 8 rows
+              BNE   :L0
+              
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDA   SHRXPIXEL
+              CLC
+              ADC   #$08
+              CMP   #639-16
+              BCS   :NEWLINE               ; X-pos >= limit
+              STA   SHRXPIXEL
+              BRA   :DONE
+:NEWLINE      STZ   SHRXPIXEL
+              LDA   SHRYPIXEL
+              CMP   #16
+              BCC   :NEWPAGE               ; Less than 16 rows left
+              SEC
+              SBC   #$08
+              STA   SHRYPIXEL
+              BRA   :DONE
+:NEWPAGE      LDA   #199
+              STA   SHRYPIXEL
+:DONE         SEC                          ; 65816 emulation mode
+              XCE
+              PLP
+
               >>>   XF2AUX,SHRPRCH320RET
+* Zero page
+:CTR1         EQU   TMPZP+0
+:CTR2         EQU   TMPZP+2
 
 
 * VDU5 plot char at graphics cursor position
@@ -325,7 +413,6 @@ SHRPOINT      REP   #$30                   ; 16 bit M & X
               BMI   :OUT
               CMP   SHRWINTOP
               BEQ   :S1
-              BPL   :OUT
 :S1           LDA   A1L                    ; x coordinate
               CMP   SHRWINLFT
               BMI   :OUT
@@ -363,15 +450,15 @@ SHRPOINT2     SEP   #$30                   ; 8 bit M & X
               TAX                          ; Index into :BITS320
 
               LDA   :BITS320,X             ; Get bit pattern for pixel to set
-              BRA   :DOPLOT
+              BRA   SHRPLOTBYTE
               
 :MODE0        TXA
               AND   #$03                   ; Keep LSB two bits only
               TAX                          ; Index into :BITS640
 
               LDA   :BITS640,X             ; Get bit pattern for pixel to set
-:DOPLOT       PHA
 
+SHRPLOTBYTE   PHA
               LDA   SHRGFXACTION           ; GCOL action
               AND   #$0007                 ; Avoid table overflows
               ASL
