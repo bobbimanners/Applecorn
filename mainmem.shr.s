@@ -336,6 +336,7 @@ SHRPOINT      BIT   SHRCURROUT             ; First point outside?
 :OUT          SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
               RTS
+
 SHRPOINT2     SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
 
@@ -824,6 +825,7 @@ SHRVDU16      >>>   ENTMAIN
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
               INC   SHRWINTOP
+              INC   SHRWINRGT
               LDX   SHRWINBTM
               LDA   SHRWINLFT
               LSR   A                      ; Divide left by 4
@@ -895,6 +897,7 @@ SHRVDU16      >>>   ENTMAIN
 :DONE         REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
               DEC   SHRWINTOP
+              DEC   SHRWINRGT
 
               SEC                          ; Back to 6502 emu mode
               XCE
