@@ -160,7 +160,17 @@ SHRPRCHAR     CMP   CURSORED               ; Edit cursor?
 * Write character to SHR screen in 320 pixel mode
 SHRPRCH320    SEC
               SBC   #32
+              TAX
 
+              LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 text@gfx cursor
+              BEQ   SHRPRCH320V4           ; VDU 4
+              TXA
+              >>>   XF2MAIN,SHRVDU5CH320   ; VDU5
+SHRPRCH320RET >>>   ENTAUX
+              RTS
+
+SHRPRCH320V4  TXA
               PHP                          ; Disable interrupts
               SEI
               CLC                          ; 65816 native mode
@@ -253,7 +263,17 @@ SHRPRCH320    SEC
 * Write character to SHR screen in 640 pixel mode
 SHRPRCH640    SEC
               SBC   #32
+              TAX
 
+              LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 text@gfx cursor
+              BEQ   SHRPRCH640V4           ; VDU 4
+              TXA
+              >>>   XF2MAIN,SHRVDU5CH640   ; VDU5
+SHRPRCH640RET >>>   ENTAUX
+              RTS
+
+SHRPRCH640V4  TXA
               PHP                          ; Disable interrupts
               SEI
               CLC                          ; 65816 native mode

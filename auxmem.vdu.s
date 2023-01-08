@@ -739,7 +739,11 @@ CLREOLGS      BIT   RD80VID
 * Scroll areas of the screen
 ****************************
 * Scroll text window up one line
-SCROLLER      LDA   TXTWINTOP
+SCROLLER      LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 VDU5 mode
+              BEQ   :VDU4
+              RTS                          ; No scroll in VDU5
+:VDU4         LDA   TXTWINTOP
 :L1           PHA
               JSR   SCR1LINE
               BIT   VDUSCREEN

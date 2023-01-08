@@ -214,6 +214,18 @@ SHRCHAR640    PHY                          ; Preserve Y
               RTS
 
 
+* VDU5 plot char at graphics cursor position
+SHRVDU5CH320  >>>   ENTMAIN
+* TODO
+              >>>   XF2AUX,SHRPRCH320RET
+
+
+* VDU5 plot char at graphics cursor position
+SHRVDU5CH640  >>>   ENTMAIN
+* TODO
+              >>>   XF2AUX,SHRPRCH640RET
+
+
 * Plot actions: PLOT k,x,y
 * k is in SHRVDUQ+4
 * x is in SHRVDUQ+5,SHRVDUQ+6
