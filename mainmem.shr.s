@@ -319,8 +319,6 @@ SHRPOINT      REP   #$30                   ; 16 bit M & X
               BMI   :OUT
               CMP   SHRWINRGT
               BPL   :OUT
-              SEP   #$30                   ; 8 bit M & X
-              MX    %11                    ; Tell Merlin
               BRA   SHRPOINT2
 :OUT          SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
