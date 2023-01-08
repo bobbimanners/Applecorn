@@ -256,19 +256,20 @@ SHRPLOT       >>>   ENTMAIN
 :S1           CMP   #$40                   ; Plot point
               BNE   :BAIL                  ; Other? Bail out
 
+              BIT   SHRCURROUT             ; Point in window?
+              BMI   :S2                    ; No - skip drawing
               PHP                          ; Disable interrupts
               SEI
               CLC                          ; 65816 native mode
               XCE
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
-              JSR   SHRPOINT
+              JSR   SHRPOINT2
               SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
               PLP                          ; Resume normal service
 
-              BRA   :S2
 :S2           PLA                          ; Store prev pt in screen coords
               STA   SHRYPIXEL+1
               PLA
@@ -277,6 +278,8 @@ SHRPLOT       >>>   ENTMAIN
               STA   SHRXPIXEL+1
               PLA
               STA   SHRXPIXEL+0
+              LDA   SHRCURROUT             ; Current 'outside window' flag
+              STA   SHRPREVOUT             ; Previous 'outside window' flag
 :DONE         >>>   XF2AUX,GFXPLOTRET
 :BAIL         PLA
               PLA
@@ -308,7 +311,13 @@ SHRPLOTCOL    LDA   SHRGFXFGMASK           ; Preserve FG colour
 
 * Plot a point
 * Called in 65816 native mode, 8 bit M & X
-SHRPOINT      REP   #$30                   ; 16 bit M & X
+SHRPOINT      BIT   SHRCURROUT             ; First point outside?
+              BMI   :CHECK                 ; If so, check coords
+              BIT   SHRPREVOUT             ; Second point outside?
+              BMI   :CHECK                 ; If so, check coords
+              BRA   SHRPOINT2              ; Neither outside
+
+:CHECK        REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
               LDA   A2L                    ; y coordinate
               CMP   SHRWINBTM
@@ -719,15 +728,9 @@ SHRCOORD      MAC
               ADC   #0                     ; Add in carry (9th bit)
               XBA                          ; Clever trick: fewer shifts
               STA   A2L                    ; Into A2L/H
-        
-              SEC                          ; Back to emulation mode
-              XCE
-              MX    %11                    ; Tell Merlin
-              PLP                          ; Normal service resumed
-              BRA   SHRCOORDEND
+              BRA   SHRCOORDCHK
 
-SHRCOORDNEG   MX    %00                    ; Tell Merlin we are 16 bit
-              EOR   #$FFFF                 ; Negate
+SHRCOORDNEG   EOR   #$FFFF                 ; Negate
               INC   A
               ASL                          ; *2
               ADC   SHRVDUQ+7              ; *3
@@ -751,12 +754,31 @@ SHRCOORDNEG   MX    %00                    ; Tell Merlin we are 16 bit
               EOR   #$FFFF                 ; Negate
               INC   A
               STA   A2L                    ; Into A2L/H
-        
-              SEC                          ; Back to emulation mode
-              XCE
+
+SHRCOORDCHK   CMP   SHRWINBTM              ; y coordinate
+              BMI   SHRCOORDOUT
+              CMP   SHRWINTOP
+              BEQ   SHRCOORDCHK2
+              BPL   SHRCOORDOUT
+SHRCOORDCHK2  LDA   A1L                    ; x coordinate
+              CMP   SHRWINLFT
+              BMI   SHRCOORDOUT
+              CMP   SHRWINRGT
+              BPL   SHRCOORDOUT
+              BRA   SHRCOORDIN
+SHRCOORDOUT   SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
+              SEC
+              ROR   SHRCURROUT             ; Set SHRCURROUT to $80
+              BRA   SHRCOORDEND
+SHRCOORDIN    SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+              STZ   SHRCURROUT             ; Reset SHRCURROUT
+
+SHRCOORDEND   SEC                          ; Back to emulation mode
+              XCE
               PLP                          ; Normal service resumed
-SHRCOORDEND   EOM
+              EOM
 
 
 * Another coordinate transform, used by VDU25
