@@ -15,7 +15,7 @@ SHRFONTXPLD   EQU   $A000                  ; Explode SHR font to $E1:A000
 
 ******************************************************************************
 
-* 33 bytes of persistent storage
+* 21 bytes of persistent storage, also accessed by mainmem code
 * TODO: Move to SHRZP maybe
 SHRPIXELS     DB    $00                    ; Main memory copy of VDUPIXELS
 SHRVDUQ       DS    16                     ; Main memory copy of VDUQ
@@ -23,12 +23,14 @@ SHRGFXFGMASK  DB    $00                    ; Foreground colour mask
 SHRGFXFGMSK2  DB    $00                    ; Copy of foreground colour mask
 SHRGFXBGMASK  DB    $00                    ; Background colour mask
 SHRGFXACTION  DB    $00                    ; GCOL action for point plotting
-SHRXPIXEL     DW    $0000                  ; Previous point in screen coords
-SHRYPIXEL     DW    $0000                  ; Previous point in screen coords
-SHRWINLFT     DW    $0000                  ; Graphics window - left (0-639)
-SHRWINRGT     DW    $0000                  ; Graphics window - right (0-639)
-SHRWINTOP     DW    $0000                  ; Graphics window - top (0-199)
-SHRWINBTM     DW    $0000                  ; Graphics window - bottom (0-199)
+
+* These are all persistent locals
+SHRXPIXEL     EQU   SHRZP+0                ; Prev point in screen coords (word)
+SHRYPIXEL     EQU   SHRZP+2                ; Prev point in screen coords (word)
+SHRWINLFT     EQU   SHRZP+4                ; Gfx window - left (0-639) (word)
+SHRWINRGT     EQU   SHRZP+6                ; Gfx window - right (0-639) (word)
+SHRWINTOP     EQU   SHRZP+8                ; Gfx window - top (0-199) (word)
+SHRWINBTM     EQU   SHRZP+10               ; Gfx window - bottom (0-199) (word)
 
 
 * Explode font to generate SHRFONTXPLD table
