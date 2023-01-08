@@ -971,8 +971,10 @@ SHRVDU24      >>>   ENTMAIN
 
 
 * Reset graphics window
+* Initialize other locals (called on MODE)
 SHRVDU26      >>>   ENTMAIN
-              STZ   SHRWINLFT+0
+
+              STZ   SHRWINLFT+0            ; Graphics window
               STZ   SHRWINLFT+1
               STZ   SHRWINBTM+0
               STZ   SHRWINBTM+1
@@ -984,6 +986,14 @@ SHRVDU26      >>>   ENTMAIN
               STA   SHRWINTOP+0
               LDA   #>199
               STA   SHRWINTOP+1
+
+              STZ   SHRXPIXEL+0            ; Other locals
+              STZ   SHRXPIXEL+1
+              STZ   SHRYPIXEL+0
+              STZ   SHRYPIXEL+1
+              STZ   SHRCURROUT
+              STZ   SHRPREVOUT
+
               >>>   XF2AUX,VDU26RET
 
 
