@@ -283,7 +283,7 @@ SHRVDU5CH320  >>>   ENTMAIN
               MX    %00                    ; Tell Merlin
               LDA   SHRXPIXEL
               CLC
-              ADC   #$08
+              ADC   #16                    ; Advance to next column
               CMP   #639-16
               BCS   :NEWLINE               ; X-pos >= limit
               STA   SHRXPIXEL

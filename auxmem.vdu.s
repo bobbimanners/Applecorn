@@ -388,7 +388,7 @@ PRCHR7        PLA
               JMP   HGRPRCHAR              ; Write character to HGR
 :NOTHGR       BVC   :NOTSHR
               JMP   SHRPRCHAR              ; Write character to SHR
-:NOTSHR       BRA   GETCHROK               ; Text mode
+:NOTSHR       RTS
  
 
 * OSBYTE &87 - Read character at cursor
