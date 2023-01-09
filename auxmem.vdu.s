@@ -409,8 +409,8 @@ PUTCOPYCURS   TAX                          ; Preserve character
               TXA
               JMP   OUTCHARCP
 :SHR          TXA                          ; Recover character
+              JSR   SHRCURSOR
               JMP   OUTCHARCP2
-              JMP   SHRCURSOR
               RTS
 
 

@@ -171,27 +171,25 @@ SHRCURSOR     PHA                          ; Preserve character
               STA   VDUADDR+1
               LDY   #$00
               PLA                          ; Recover character
-              CMP   #'_'
+              CMP   CURSOR
               BEQ   :CURSORON
               CMP   CURSORED
               BEQ   :CURSORON
+              CMP   CURSORCP
+              BEQ   :CURSORON
               BRA   :CURSOROFF
-:CURSORON     LDA   :CURSTATE
-              ROR   A
-              BCS   :DONE                  ; Already on
+:CURSORON     LDA   [VDUADDR],Y
+              BNE   :DONE                  ; Already on
               BRA   :L1
-:CURSOROFF    LDA   :CURSTATE
-              ROR   A
-              BCC   :DONE                  ; Already off
+:CURSOROFF    LDA   [VDUADDR],Y
+              BEQ   :DONE                  ; Already off
 :L1           LDAL  [VDUADDR],Y            ; XOR last row
               EOR   #$FF
               STAL  [VDUADDR],Y
               INY
               CPY   #$04
               BNE   :L1
-              INC   :CURSTATE
 :DONE         RTS
-:CURSTATE     DB    $00                    ; Cursor state
 
 
 * Write character to SHR screen in 320 pixel mode
