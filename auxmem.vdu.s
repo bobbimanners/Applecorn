@@ -391,6 +391,16 @@ PRCHR7        PLA
 :NOTSHR       RTS
  
 
+* Wrapper around PUTCHRC used when drawing cursor
+PUTCURSOR     TAX                          ; Preserve character
+              BIT   VDUSCREEN
+              BVS   :SHR
+              TXA
+              JMP   PUTCHRC
+:SHR          TXA                          ; Recover character
+              RTS
+
+
 * OSBYTE &87 - Read character at cursor
 ***************************************
 * Fetch character from screen at (TEXTX,TEXTY) and return MODE in Y
