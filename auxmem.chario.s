@@ -38,8 +38,8 @@
 * 26-Dec-2022 Integrated ADB extended keyboard keys.
 * 27-Dec-2022 Bobbi's keyboard uses $60+n extended keys.
 * 30-Dec-2022 Optimised *KEY, US KBD Alt-Ctrl-2, Alt-Ctrl-6 -> f2/f6.
-* 03-Jan-2033 Wrote BYTE76 to return CTRL/SHIFT state for text pausing.
-* TO DO: Update KBDREAD to use BYTE76.
+* 03-Jan-2023 Wrote BYTE76 to return CTRL/SHIFT state for text pausing.
+* 07-Jan-2023 Updated KBDREAD to use BYTE76.
 
 
 * Hardware locations
@@ -315,6 +315,7 @@ ERRKEYUSED   BRK
 *
 * SCANDEC stores number in OSDECNUM, so we can keep it there
 * We also have OSKBDx variables available for shuffling code
+* NB: OSKBD1, OSKBD2 also hold copy cursor state
 *
 STARKEY1     INC   FXSOFTOK           ; Soft keys unstable
              PHY                      ; Y=>command line
@@ -417,134 +418,6 @@ STARKEYNONE
 STARKEYDONE  STZ   FXSOFTOK           ; Soft keys are stable
              RTS
 
-
-**            STA   FKEYNUM            ; Key number being defined
-*             JSR   KEYOPENGAP
-*             JSR   SKIPCOMMA
-*             SEC
-*             JSR   GSINIT             ; Initialise '*KEY-type string'
-*             LDX   KEYINS             ; Starting point to insert
-*STARKEYLP1   JSR   GSREAD
-*             BCS   STARKEYEND
-*             >>>   WRTMAIN            ; Write main memory
-*             STA   FKEYBUF,X          ; Store char of definition
-*             >>>   WRTAUX             ; Back to writing aux again
-*             INX
-*             CPX   MOVEDST            ; See if we are out of space
-*             BNE   STARKEYLP1
-**             LDX   FKEYNUM
-*             LDX   OSDECNUM
-*             >>>   WRTMAIN            ; Write main memory
-*             STZ   FKEYLENS,X         ; Out of space. Set len=0
-*             >>>   WRTAUX             ; Back to writing aux again
-*             BRA   STARKEYCLS
-*STARKEYEND   TXA                      ; Last idx+1
-*             SEC                      ; Compute length
-*             SBC   KEYINS
-**             LDX   FKEYNUM
-*             LDX   OSDECNUM
-*             >>>   WRTMAIN            ; Write main memory
-*             STA   FKEYLENS,X         ; Store length of new def
-*             >>>   WRTAUX             ; Back to writing aux again
-*STARKEYCLS   JSR   KEYCLSGAP
-*             RTS
-** FKEYNUM      DB    $00
-*KEYINS       DB    $00
-*
-*
-** Open gap in FKEYBUF to allow new def to be inserted
-** Moved defs for keys FKEYNUM+1..15 to top of FKEYBUF
-** Preserves A,X,Y
-*KEYOPENGAP   PHA
-*             PHX
-*             PHY
-**             LDX   FKEYNUM            ; Key being defined
-*             LDX   OSDECNUM
-*             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
-*             STA   KEYINS             ; Offset for insert
-**             LDX   FKEYNUM            ; Key being defined
-*             LDX   OSDECNUM
-*             INX
-*             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
-*             STA   MOVESRC            ; Source offset for move
-*             LDX   #16                ; Sum keys 0..15 (ie: all)
-*             JSR   KEYSUMLENS         ; Sum them all
-*             SEC
-*             SBC   MOVESRC            ; Compute length to move
-*             STA   MOVELEN
-*             LDA   #$FF               ; Length of FKEYBUF
-*             SEC
-*             SBC   MOVELEN            ; Compute dest for move
-*             STA   MOVEDST            ; Dest offset for move
-*             JSR   MOVEKEYS           ; Open the gap
-*             PLY
-*             PLX
-*             PLA
-*             RTS
-** After the gap is opened, there is freespace from MOVESRC to MOVEDST-1
-*
-*
-** Close gap in FKEYBUF after def has been inserted
-** Preserves A,X,Y
-*KEYCLSGAP    PHA
-*             PHX
-*             PHY
-*             LDA   #$FF               ; Length of FKEYBUF
-*             SEC
-*             SBC   MOVEDST            ; Previous dest, to calc length
-*             STA   MOVELEN            ; Length for move
-*             LDA   MOVEDST            ; Old dest ...
-*             STA   MOVESRC            ; ... is new source
-**             LDX   FKEYNUM            ; Key being defined
-*             LDX   OSDECNUM
-*             INX
-*             JSR   KEYSUMLENS         ; Len of defs 0..X exclusive
-*             STA   MOVEDST            ; New dest
-*             JSR   MOVEKEYS           ; Close the gap
-*             PLY
-*             PLX
-*             PLA
-*             RTS
-*
-*
-** Add lengths of *KEY definitions together
-** On entry: X is the highest key num + 1 (sums 0..X-1)
-** On return: Sum in A (exclusive of X)
-** From *KEY0 to *KEYn where n is value in X
-*KEYSUMLENS   LDA   #$00               ; Clear sum
-*:LOOP        CPX   #$00
-*             BEQ   :DONE
-*             >>>   RDMAIN             ; Read main memory
-*             CLC
-*             ADC   FKEYLENS-1,X       ; Add lengths
-*             >>>   RDAUX              ; Read aux memory
-*             DEX
-*             BRA   :LOOP
-*:DONE        RTS
-*             
-*
-** Move key definitions within FKEYBUF
-** Copies MOVELEN bytes from MOVSRC->MOVDST within FKEYBUF
-*MOVEKEYS     LDX   MOVESRC
-*             LDY   MOVEDST
-*:L1          LDA   MOVELEN
-*             BEQ   :DONE
-*             >>>   RDMAIN             ; Read main memory
-*             LDA   FKEYBUF,X
-*             >>>   RDAUX              ; Read aux memory
-*             >>>   WRTMAIN            ; Write main memory
-*             STA   FKEYBUF,Y
-*             >>>   WRTAUX             ; Write aux memory
-*             INX
-*             INY
-*             DEC   MOVELEN
-*             BRA   :L1
-*:DONE        RTS
-*MOVESRC      DB    $00                ; Source offset in FKEYBUF
-*MOVEDST      DB    $00                ; Dest offset in FKEYBUF
-*MOVELEN      DB    $00                ; # bytes remaining to move
-*
-
 * Get offset and length of key in X
 * Add lengths of previous definitions together
 * Assumes mainmen is paged in by caller
@@ -569,22 +442,14 @@ KEYOFFLEN   TAX
 * ----------------------------
 SOFTKEYCHK   LDA   FXSOFTOK
              BEQ   BYTE12OK           ; Soft keys ok, exit
-BYTE12
-*             LDX   #$FF
-*             STX   FXSOFTOK           ; Soft keys being updated
-*:L1          >>>   WRTMAIN            ; Zero the buffer (nice when debugging)
-*             STZ   FKEYBUF,X
-*             >>>   WRTAUX
-*             DEX
-*             BNE   :L1
-             LDX   #15
+BYTE12       LDX   #15
              STX   FXSOFTOK           ; Soft keys being updated
              >>>   WRTMAIN            ; Short enough to page for whole loop
 :L2          STZ   FKEYLENS,X         ; Zero the lengths
              DEX
              BNE   :L2
              >>>   WRTAUX
-             STZ   FXSOFTOK           ; Soft keys updated
+             STZ   FXSOFTOK           ; Soft keys stable
 BYTE12OK     RTS
 
 
@@ -670,17 +535,6 @@ KEYEXPAND    TYA
              STA   FXSOFTLEN
              BRA   KEYREAD1           ; Go back and start fetching
 
-*             TAX
-*             PHX
-*             JSR   KEYSUMLENS         ; Obtain starting offset
-*             STA   FXSOFTOFF		; SOFTKEYOFF
-*             PLX
-*             >>>   RDMAIN
-*             LDA   FKEYLENS,X         ; Obtain length of *KEY string
-*             >>>   RDAUX
-*             STA   FXSOFTLEN
-*             RTS
-
 * Process cursor keys
 KEYCURSOR    CMP   #$C9
              BEQ   KEYCOPY
@@ -731,42 +585,50 @@ KBDTEST      LDA   KBDDATA            ; VS here to test for keypress
              BCS   KBDDONE2           ; No key pressed
              BVS   KBDDONE2           ; VS=test for keypress
              STA   KBDACK             ; Ack. keypress
-KBDREAD2     TAX                      ; X=raw keypress
-* NB: BYTE76A corrupts X
-* Set FXKBDSTATE to %x0CS0000 from Alt or Shift keys
-             LDA   KBDAPPRGT          ; Right Apple/Alt pressed
-             ASL   A
-             LDA   KBDAPPLFT          ; Left Apple/Alt pressed
-             ROR   A                  ; b7=Right, b6=Left
-             AND   #$C0
-             LSR   A
-             LSR   A
-             PHP                      ; Save EQ=no ALTs pressed
-             BEQ   KBDREAD2A
-             ADC   #$F0               ; Convert into fkey modifer
-KBDREAD2A    STA   FXKBDSTATE
-             BIT   VDUBANK
-             BPL   KBDREAD5           ; Not IIgs
-             LDA   KBDMOD             ; Get extended KBD state
-             PLP
-             PHP
-             BNE   KBDREAD2B          ; ALTs pressed, skip
-             PHA                      ; Save b4=Keypad
-             ASL   A
-             ASL   A
-             ASL   A
-             ASL   A                  ; b5=Ctrl, b4=Shift
-             AND   #$30
-             STA   FXKBDSTATE
-             PLA
-*
-KBDREAD2B    AND   #$10
-             BEQ   KBDREAD5           ; Not keypad
-             PLP                      ; Drop NoALT
-             TXA                      ; A=raw keypress
+KBDREAD2
+             PHA
+             JSR   BYTE76A            ; Check keyboard modifiers
+             BVC   KBDREAD5           ; Not keypad
+             PLA                      ; Get raw keycode back
+
+*             TAX                      ; X=raw keypress
+** NB: BYTE76A corrupts X
+** Set FXKBDSTATE to %x0CS0000 from Alt or Shift keys
+*             LDA   KBDAPPRGT          ; Right Apple/Alt pressed
+*             ASL   A
+*             LDA   KBDAPPLFT          ; Left Apple/Alt pressed
+*             ROR   A                  ; b7=Right, b6=Left
+*             AND   #$C0
+*             LSR   A
+*             LSR   A
+*             PHP                      ; Save EQ=no ALTs pressed
+*             BEQ   KBDREAD2A
+*             ADC   #$F0               ; Convert into fkey modifer
+*KBDREAD2A    STA   FXKBDSTATE
+*             BIT   VDUBANK
+*             BPL   KBDREAD5           ; Not IIgs
+*             LDA   KBDMOD             ; Get extended KBD state
+*             PLP
+*             PHP
+*             BNE   KBDREAD2B          ; ALTs pressed, skip
+*             PHA                      ; Save b4=Keypad
+*             ASL   A
+*             ASL   A
+*             ASL   A
+*             ASL   A                  ; b5=Ctrl, b4=Shift
+*             AND   #$30
+*             STA   FXKBDSTATE
+*             PLA
+**
+*KBDREAD2B    AND   #$10
+*             BEQ   KBDREAD5           ; Not keypad
+*             PLP                      ; Drop NoALT
+*             TXA                      ; A=raw keypress
+
              BMI   KBDREADPAD         ; Translate keypad
              CMP   #$60
              BCC   KBDREADPAD
+             TAX
              LDA   KBDADBKEYS-$60,X   ; Translate $60-$7E keys
              BRA   KBDREAD6
 
@@ -790,11 +652,19 @@ KBDREADX2    LDA   #$1A               ; Alt-Ctrl-2 -> f2
 KBDREADX6    EOR   #$98               ; Alt-Ctrl-6 -> f6
              BNE   KBDFUNC
 
-KBDREAD5     TXA                      ; A=raw keypress
-             PLP
-             BEQ   KBDNOALT           ; No ALTs pressed
+KBDREAD5
+             LSR   A
+             LSR   A                  ; Cy=ALTs pressed
+             PLA                      ; A=raw keypress
+             BCC   KBDNOALT           ; No ALTs pressed
+
+*             TXA                      ; A=raw keypress
+*             PLP
+*             BEQ   KBDNOALT           ; No ALTs pressed
+
 *
-KBDALT       TXA
+KBDALT
+*             TXA
              BEQ   KBDREADX2          ; RAlt-2
              CMP   #$1E
              BEQ   KBDREADX6          ; RAlt-6
@@ -808,7 +678,8 @@ KBDALT       TXA
 *
 KBDREAD6     BPL   KBDCHKESC          ; Not a top-bit key
 KBDFUNC      AND   #$CF               ; Clear Ctrl+Shift bits
-             ORA   FXKBDSTATE         ; Add in Ctrl+Shift
+*             ORA   FXKBDSTATE         ; Add in Ctrl+Shift
+             ORA   OSKBD3             ; Add in Ctrl+Shift
 *
 * Test for Escape character
 KBDCHKESC    TAX                      ; X=processed keycode
@@ -882,7 +753,7 @@ BYTE7DOK     RTS
 * Update KBDSTATE and return state of SHIFT and CTRL keys
 * Returns A=X=      =%SxxxxEAx
 *         Flags     =C=Ctrl, M=Shift, V=Extended key
-*         OSKBD1    =%00CS0000
+*         OSKBD3    =%00CS0000
 *         FXKBDSTATE=%CSxxxxEA C=Ctrl, S=Shift, E=Extended, A=Apple
 BYTE76       JSR   ESCPOLL
              CLC
@@ -895,7 +766,7 @@ BYTE76A      LDA   KBDAPPRGT          ; Right Apple/Alt pressed
              PHP                      ; Save EQ=no ALTs pressed
              BEQ   BYTE76C
              ADC   #$C1               ; Convert into fkey modifer, b0=1
-BYTE76C      STA   OSKBD1
+BYTE76C      STA   OSKBD3
              BIT   VDUBANK
              BPL   BYTE76E            ; Not IIgs
              LDA   KBDMOD             ; Get extended KBD state
@@ -906,12 +777,12 @@ BYTE76C      STA   OSKBD1
              PLP
              BEQ   BYTE76D
              AND   #$02               ; ALTs pressed, just keep Extend
-BYTE76D      ORA   OSKBD1
-             STA   OSKBD1             ; Update with Ctrl/Shift/Extend
+BYTE76D      ORA   OSKBD3
+             STA   OSKBD3             ; Update with Ctrl/Shift/Extend
              PHP                      ; Balance stack
 BYTE76E      PLP                      ; Drop flags, NE=either ALT pressed
-             LSR   OSKBD1             ; Adjust for soft key modifier
-             LSR   OSKBD1             ; b5=Ctrl, b4=Shift, Cy=Extend
+             LSR   OSKBD3             ; Adjust for soft key modifier
+             LSR   OSKBD3             ; b5=Ctrl, b4=Shift, Cy=Extend
              CLV                      ; CLV=Not Extend
              BCC   BYTE76F
              BIT   SETV               ; SEV=Extend
@@ -919,7 +790,7 @@ BYTE76F      LSR   A                  ; Test ALT bit in bit 0
              BCC   BYTE76G
              ORA   #$20
 BYTE76G      ROL   A                  ; Put bit 0 back
-*             STA   $028F ; FXKBDSTATE *TEMP*
+             STA   FXKBDSTATE
              ASL   A                  ; C=Ctrl, M=Shift
              TAX                      ; X.b7=Shift
 BYTE76X      RTS
