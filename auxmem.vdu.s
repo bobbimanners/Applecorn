@@ -154,7 +154,7 @@ OUTCHAR       LDX   FXVDUQLEN
               BIT   VDUSTATUS
               BMI   OUTCHEXIT              ; VDU disabled
 OUTCHARCP     JSR   PRCHRC                 ; Store char, checking keypress
-              JSR   VDU09                  ; Move cursor right
+OUTCHARCP2    JSR   VDU09                  ; Move cursor right
 
 * OSBYTE &75 - Read VDUSTATUS
 *****************************
@@ -281,7 +281,7 @@ COPYMOVE      PHA
               JSR   GETCHRC
               STA   COPYCHAR
               LDA   CURSORED
-              JSR   PUTCHRC                ; Edit cursor
+              JSR   PUTCURSOR              ; Edit cursor
               SEC
               JSR   COPYSWAP2              ; Initialise copy cursor
               ROR   FLASHER
@@ -398,6 +398,17 @@ PUTCURSOR     TAX                          ; Preserve character
               TXA
               JMP   PUTCHRC
 :SHR          TXA                          ; Recover character
+              RTS
+
+
+* Wrapper around OUTCHARCP used when drawing copy cursor
+PUTCOPYCURS   TAX                          ; Preserve character
+              BIT   VDUSCREEN
+              BVS   :SHR
+              TXA
+              JMP   OUTCHARCP
+:SHR          TXA                          ; Recover character
+              JMP   OUTCHARCP2
               RTS
 
 

@@ -553,7 +553,7 @@ KEYCOPYTAB   LDA   FXTABCHAR          ; Prepare TAB if no copy cursor
              BVC   KEYREADOK1         ; No copy cursor, return TAB
              LDA   OLDCHAR            ; Get the char under cursor
              PHA
-             JSR   OUTCHARCP          ; Output it to restore and move cursor
+             JSR   PUTCOPYCURS        ; Output it to restore and move cursor
              JSR   GETCHRC            ; Save char under cursor
              STA   OLDCHAR
              PLA
