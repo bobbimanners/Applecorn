@@ -398,6 +398,7 @@ PUTCURSOR     TAX                          ; Preserve character
               TXA
               JMP   PUTCHRC
 :SHR          TXA                          ; Recover character
+* TODO: Add code for XOR cursor in SHR mode
               RTS
 
 
@@ -409,6 +410,7 @@ PUTCOPYCURS   TAX                          ; Preserve character
               JMP   OUTCHARCP
 :SHR          TXA                          ; Recover character
               JMP   OUTCHARCP2
+* TODO: Add code for XOR copy cursor in SHR mode
               RTS
 
 
@@ -523,10 +525,17 @@ SCROLL        JSR   SCROLLER
 * Move cursor down
 VDU10         LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
-              BEQ   :TOSCRL                ; JGH
+              BEQ   VDU10SCRL
               INC   VDUTEXTY               ; ROW
-              RTS
-:TOSCRL       JMP   SCROLL                 ; JGH
+              LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 -> VDU5 mode
+              BEQ   VDU10DONE
+              BIT   VDUSCREEN
+              BVC   VDU10DONE              ; Not SHR, skip
+              >>>   XF2MAIN,SHRVDU10
+VDU10RET      >>>   ENTAUX
+VDU10DONE     RTS
+VDU10SCRL     JMP   SCROLL
 
 * Move cursor up
 VDU11         LDA   VDUTEXTY               ; ROW
@@ -548,7 +557,14 @@ VDU13         LDA   #$BF
               JSR   CLRSTATUS              ; Turn copy cursor off
               LDA   TXTWINLFT
               STA   VDUTEXTX               ; COL
-              RTS
+              LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 -> VDU5 mode
+              BEQ   VDU13DONE
+              BIT   VDUSCREEN
+              BVC   VDU13DONE              ; Not SHR, skip
+              >>>   XF2MAIN,SHRVDU13
+VDU13RET      >>>   ENTAUX
+VDU13DONE     RTS
 
 * Move to (0,0)
 VDU30         LDA   TXTWINTOP

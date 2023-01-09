@@ -234,13 +234,26 @@ SHRVDU5CH320  >>>   ENTMAIN
               ADC   #SHRFONTXPLD
               STA   A1L
 
-              LDA   SHRYPIXEL              ; See if we are too close to bttm
-              CMP   #16
-              BCC   :NEWPAGE1              ; Less than 16 rows left
+              LDA   SHRYPIXEL              ; y coordinate
+              SEC
+              SBC   #8                     ; Height of this row
+              CMP   SHRWINBTM
+              BMI   :NEWPAGE
+              LDA   SHRYPIXEL
+              CMP   SHRWINTOP
+              BEQ   :S1
+              BPL   :NEWPAGE
+:S1           LDA   SHRXPIXEL              ; x coordinate
+              CMP   SHRWINLFT
+              BMI   :NEWPAGE
+              CMP   SHRWINRGT
+              BEQ   :S0
+              BPL   :NEWPAGE
               BRA   :S0
-:NEWPAGE1     LDA   #199
+:NEWPAGE      LDA   SHRWINTOP
               STA   SHRYPIXEL
-              STZ   SHRXPIXEL
+              LDA   SHRWINLFT
+              STA   SHRXPIXEL
 
 :S0           SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
@@ -294,24 +307,15 @@ SHRVDU5CH320  >>>   ENTMAIN
               LDA   SHRXPIXEL
               CLC
               ADC   #16                    ; Advance to next column
-              CMP   #639-16
+              CMP   SHRWINRGT
               BCS   :NEWLINE               ; X-pos >= limit
               STA   SHRXPIXEL
               BRA   :DONE
-:NEWLINE      STZ   SHRXPIXEL
-              LDA   SHRYPIXEL
-              CMP   #16
-              BCC   :NEWPAGE2              ; Less than 16 rows left
-              SEC
-              SBC   #$08
-              STA   SHRYPIXEL
-              BRA   :DONE
-:NEWPAGE2     LDA   #199
-              STA   SHRYPIXEL
-:DONE         SEC                          ; 65816 emulation mode
+:NEWLINE      JSR   SHRVDU5LF
+:DONE         SEC                           ; 65816 emulation mode
               XCE
+              MX    %11                     ; Tell Merlin
               PLP
-
               >>>   XF2AUX,SHRPRCH320RET
 * Zero page
 :CTR1         EQU   TMPZP+0
@@ -322,6 +326,59 @@ SHRVDU5CH320  >>>   ENTMAIN
 SHRVDU5CH640  >>>   ENTMAIN
 * TODO
               >>>   XF2AUX,SHRPRCH640RET
+
+
+* Handle linefeed in VDU5 mode
+SHRVDU10      >>>   ENTMAIN
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              JSR   SHRVDU5LF
+:DONE         SEC                          ; 65816 emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP
+              >>>   XF2AUX,VDU10RET
+
+
+* Handle linefeed in VDU5 mode
+* Called in 65816 native mode, 16 bit M & X
+SHRVDU5LF     MX    %00                    ; Tell Merlin
+              LDA   SHRWINLFT
+              STA   SHRXPIXEL
+              LDA   SHRYPIXEL
+              SEC
+              SBC   #16                    ; Height of this+next row
+              CMP   SHRWINBTM
+              BMI   :NEWPAGE               ; Less than 16 rows left
+              LDA   SHRYPIXEL
+              SEC
+              SBC   #$08
+              STA   SHRYPIXEL
+              BRA   :DONE
+:NEWPAGE      LDA   SHRWINTOP
+              STA   SHRYPIXEL
+:DONE         RTS
+              MX    %11                    ; 8 bit again
+
+
+* Handle carriage return in VDU5 mode
+SHRVDU13      >>>   ENTMAIN
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              JSR   SHRVDU5LF
+:DONE         SEC                          ; 65816 emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP
+              >>>   XF2AUX,VDU13RET
 
 
 * Plot actions: PLOT k,x,y
@@ -423,10 +480,12 @@ SHRPOINT      REP   #$30                   ; 16 bit M & X
               BMI   :OUT
               CMP   SHRWINTOP
               BEQ   :S1
+              BPL   :OUT
 :S1           LDA   A1L                    ; x coordinate
               CMP   SHRWINLFT
               BMI   :OUT
               CMP   SHRWINRGT
+              BEQ   SHRPOINT2
               BPL   :OUT
               BRA   SHRPOINT2
 :OUT          SEP   #$30                   ; 8 bit M & X
