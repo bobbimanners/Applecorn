@@ -216,16 +216,6 @@ SHRCHAR640    PHY                          ; Preserve Y
 
 * VDU5 plot char at graphics cursor position
 SHRVDU5CH320  >>>   ENTMAIN
-              PHA                          ; Save char for later
-              LDX   SHRYPIXEL              ; Screen row (Y-coord)
-              LDA   SHRROWSL,X             ; Look up addr (LS byte)
-              STA   A3L                    ; Stash in A3L
-              LDA   SHRROWSH,X             ; Look up addr (MS byte)
-              STA   A3H                    ; Stash in A3H
-              LDA   #$E1                   ; Bank $E1
-              STA   A4L
-
-              PLA                          ; Get char back
               PHP                          ; Disable interrupts
               SEI
               CLC                          ; 65816 native mode
@@ -243,6 +233,26 @@ SHRVDU5CH320  >>>   ENTMAIN
               LDA   A1L
               ADC   #SHRFONTXPLD
               STA   A1L
+
+              LDA   SHRYPIXEL              ; See if we are too close to bttm
+              CMP   #16
+              BCC   :NEWPAGE1              ; Less than 16 rows left
+              BRA   :S0
+:NEWPAGE1     LDA   #199
+              STA   SHRYPIXEL
+              STZ   SHRXPIXEL
+
+:S0           SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+              LDX   SHRYPIXEL              ; Screen row (Y-coord)
+              LDA   SHRROWSL,X             ; Look up addr (LS byte)
+              STA   A3L                    ; Stash in A3L
+              LDA   SHRROWSH,X             ; Look up addr (MS byte)
+              STA   A3H                    ; Stash in A3H
+              LDA   #$E1                   ; Bank $E1
+              STA   A4L
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
 
               LDX   SHRXPIXEL              ; Screen col (X-coord)
               STX   A2L
@@ -291,12 +301,12 @@ SHRVDU5CH320  >>>   ENTMAIN
 :NEWLINE      STZ   SHRXPIXEL
               LDA   SHRYPIXEL
               CMP   #16
-              BCC   :NEWPAGE               ; Less than 16 rows left
+              BCC   :NEWPAGE2              ; Less than 16 rows left
               SEC
               SBC   #$08
               STA   SHRYPIXEL
               BRA   :DONE
-:NEWPAGE      LDA   #199
+:NEWPAGE2     LDA   #199
               STA   SHRYPIXEL
 :DONE         SEC                          ; 65816 emulation mode
               XCE
