@@ -215,6 +215,7 @@ SHRCHAR640    PHY                          ; Preserve Y
 
 
 * VDU5 plot char at graphics cursor position
+* TODO: Need to do bitshifting for x-position
 SHRVDU5CH320  >>>   ENTMAIN
               PHP                          ; Disable interrupts
               SEI
@@ -324,7 +325,7 @@ SHRVDU5CH320  >>>   ENTMAIN
 
 * VDU5 plot char at graphics cursor position
 SHRVDU5CH640  >>>   ENTMAIN
-* TODO
+* TODO: Write me!
               >>>   XF2AUX,SHRPRCH640RET
 
 
@@ -344,7 +345,7 @@ SHRVDU10      >>>   ENTMAIN
               >>>   XF2AUX,VDU10RET
 
 
-* Handle linefeed in VDU5 mode
+* Handle linefeed in VDU5 mode - does the actual work
 * Called in 65816 native mode, 16 bit M & X
 SHRVDU5LF     MX    %00                    ; Tell Merlin
               LDA   SHRWINLFT

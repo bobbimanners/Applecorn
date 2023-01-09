@@ -398,7 +398,7 @@ PUTCURSOR     TAX                          ; Preserve character
               TXA
               JMP   PUTCHRC
 :SHR          TXA                          ; Recover character
-* TODO: Add code for XOR cursor in SHR mode
+              JMP   SHRCURSOR
               RTS
 
 
@@ -410,7 +410,7 @@ PUTCOPYCURS   TAX                          ; Preserve character
               JMP   OUTCHARCP
 :SHR          TXA                          ; Recover character
               JMP   OUTCHARCP2
-* TODO: Add code for XOR copy cursor in SHR mode
+              JMP   SHRCURSOR
               RTS
 
 

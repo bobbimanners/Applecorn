@@ -157,6 +157,43 @@ SHRPRCHAR     CMP   CURSORED               ; Edit cursor?
 :S1           JMP   SHRPRCH640
 
 
+* Plot or unplot a cursor on SHR screen
+SHRCURSOR     PHA                          ; Preserve character
+              LDA   #$E1
+              STA   VDUBANK2
+              JSR   SHRCHARADDR            ; Screen addr in VDUADDR
+              LDA   VDUADDR+0              ; LSB
+              CLC
+              ADC   #<$460                 ; $460 is seven rows
+              STA   VDUADDR+0
+              LDA   VDUADDR+1              ; MSB
+              ADC   #>$460                 ; $460 is seven rows
+              STA   VDUADDR+1
+              LDY   #$00
+              PLA                          ; Recover character
+              CMP   #'_'
+              BEQ   :CURSORON
+              CMP   CURSORED
+              BEQ   :CURSORON
+              BRA   :CURSOROFF
+:CURSORON     LDA   :CURSTATE
+              ROR   A
+              BCS   :DONE                  ; Already on
+              BRA   :L1
+:CURSOROFF    LDA   :CURSTATE
+              ROR   A
+              BCC   :DONE                  ; Already off
+:L1           LDAL  [VDUADDR],Y            ; XOR last row
+              EOR   #$FF
+              STAL  [VDUADDR],Y
+              INY
+              CPY   #$04
+              BNE   :L1
+              INC   :CURSTATE
+:DONE         RTS
+:CURSTATE     DB    $00                    ; Cursor state
+
+
 * Write character to SHR screen in 320 pixel mode
 SHRPRCH320    SEC
               SBC   #32
