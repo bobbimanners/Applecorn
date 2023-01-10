@@ -399,7 +399,6 @@ PUTCURSOR     TAX                          ; Preserve character
               JMP   PUTCHRC
 :SHR          TXA                          ; Recover character
               JMP   SHRCURSOR
-              RTS
 
 
 * Wrapper around OUTCHARCP used when drawing copy cursor
@@ -411,7 +410,6 @@ PUTCOPYCURS   TAX                          ; Preserve character
 :SHR          TXA                          ; Recover character
               JSR   SHRCURSOR
               JMP   OUTCHARCP2
-              RTS
 
 
 * OSBYTE &87 - Read character at cursor
