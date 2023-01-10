@@ -189,9 +189,11 @@ SHRCURSOR     PHP                          ; Preserve flags
               LDA   [VDUADDR],Y            ; See if cursor shown
               CMP   :CURSBYTE
               BEQ   :DONE
-              STA   :SAVEBYTE              ; Preserve byte under cursor
-              LDA   :CURSBYTE
-:L1           STAL  [VDUADDR],Y
+              LDX   :CURSBYTE
+:L1           LDAL  [VDUADDR],Y
+              STA   :SAVEBYTES,Y           ; Preserve bytes under cursor
+              TXA                          ; Byte of cursor data
+              STAL  [VDUADDR],Y
               INY
               CPY   :BYTES
               BNE   :L1
@@ -200,8 +202,8 @@ SHRCURSOR     PHP                          ; Preserve flags
               LDA   [VDUADDR],Y            ; See if cursor shown
               CMP   :CURSBYTE
               BNE   :DONE
-              LDA   :SAVEBYTE              ; Restore byte under cursor
-:L2           STAL  [VDUADDR],Y
+:L2           LDA   :SAVEBYTES,Y           ; Restore bytes under cursor
+              STAL  [VDUADDR],Y
               INY
               CPY   :BYTES
               BNE   :L2
@@ -210,7 +212,7 @@ SHRCURSOR     PHP                          ; Preserve flags
               RTS
 :BYTES        DB    $00                    ; 2 for 640-mode, 4 for 320-mode
 :CURSBYTE     DB    $00                    ; Cursor byte for mode
-:SAVEBYTE     DB    $00                    ; Byte under cursor
+:SAVEBYTES    DS    4                      ; Bytes under cursor
 
 
 * Write character to SHR screen in 320 pixel mode
