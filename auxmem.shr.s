@@ -155,7 +155,9 @@ SHRPRCHAR     LDX   VDUPIXELS              ; Pixels per byte
 
 
 * Plot or unplot a cursor on SHR screen
-* On entry: A - character to plot, CS show cursor/CC remove cursor
+* On entry: A - character to plot,
+*           CS show cursor / CC remove cursor
+*           VS read cursor / VC write cursor
 SHRCURSOR     PHP                          ; Preserve flags
               PHA                          ; Preserve character
               LDA   VDUSTATUS              ; If VDU5 mode, bail
@@ -182,18 +184,24 @@ SHRCURSOR     PHP                          ; Preserve flags
               ADC   #>$460                 ; $460 is seven rows
               STA   VDUADDR+1
               LDY   #$00
+              LDX   #$00
               PLA                          ; Recover character
               PLP                          ; Recover flags
-              BCC   :CURSOROFF
+              BVC   :S2                    ; VC: Write cursor
+              INX                          ; Advance to 2nd half of :SAVEBYTES
+              INX
+              INX
+              INX
+:S2           BCC   :CURSOROFF             ; CC: Remove cursor
 :CURSORON
               LDA   [VDUADDR],Y            ; See if cursor shown
               CMP   :CURSBYTE
-              BEQ   :DONE
-              LDX   :CURSBYTE
+              BEQ   :DONE                  ; Cursor shown already, skip
 :L1           LDAL  [VDUADDR],Y
-              STA   :SAVEBYTES,Y           ; Preserve bytes under cursor
-              TXA                          ; Byte of cursor data
+              STA   :SAVEBYTES,X           ; Preserve bytes under cursor
+              LDA   :CURSBYTE              ; Byte of cursor data
               STAL  [VDUADDR],Y
+              INX
               INY
               CPY   :BYTES
               BNE   :L1
@@ -201,9 +209,10 @@ SHRCURSOR     PHP                          ; Preserve flags
 :CURSOROFF
               LDA   [VDUADDR],Y            ; See if cursor shown
               CMP   :CURSBYTE
-              BNE   :DONE
-:L2           LDA   :SAVEBYTES,Y           ; Restore bytes under cursor
+              BNE   :DONE                  ; Cursor not shown, skip
+:L2           LDA   :SAVEBYTES,X           ; Restore bytes under cursor
               STAL  [VDUADDR],Y
+              INX
               INY
               CPY   :BYTES
               BNE   :L2
@@ -213,7 +222,7 @@ SHRCURSOR     PHP                          ; Preserve flags
               RTS
 :BYTES        DB    $00                    ; 2 for 640-mode, 4 for 320-mode
 :CURSBYTE     DB    $00                    ; Cursor byte for mode
-:SAVEBYTES    DS    4                      ; Bytes under cursor
+:SAVEBYTES    DS    8                      ; Bytes under cursors
 
 
 * Write character to SHR screen in 320 pixel mode

@@ -280,7 +280,7 @@ COPYMOVE      PHA
               JSR   GETCHRC
               STA   COPYCHAR
               LDA   CURSORED
-              JSR   SHOWCURSOR             ; Edit cursor [ON]
+              JSR   SHOWWTCURSOR           ; Show write cursor
               SEC
               JSR   COPYSWAP2              ; Initialise copy cursor
               ROR   FLASHER
@@ -390,36 +390,68 @@ PRCHR7        PLA
 :NOTSHR       RTS
  
 
-* Wrapper around PUTCHRC used when showing cursor
-SHOWCURSOR     TAX                          ; Preserve character
+* Wrapper around PUTCHRC used when showing the read cursor
+* On entry: A - character used for cursor
+SHOWRDCURSOR  TAX                          ; Preserve character
               BIT   VDUSCREEN
               BVS   :SHR
               TXA
               JMP   PUTCHRC
 :SHR          TXA                          ; Recover character
-              SEC                          ; Show cursor
+              SEC                          ; CS: Show cursor
+              CLV                          ; VC: Read cursor
               JMP   SHRCURSOR
 
 
-* Wrapper around PUTCHRC used when removing cursor
-REMCURSOR     TAX                          ; Preserve character
+* Wrapper around PUTCHRC used when showing the write cursor
+* On entry: A - character used for cursor
+SHOWWTCURSOR  TAX                          ; Preserve character
               BIT   VDUSCREEN
               BVS   :SHR
               TXA
               JMP   PUTCHRC
 :SHR          TXA                          ; Recover character
-              CLC                          ; Remove cursor
+              SEC                          ; CS: Show cursor
+              BIT   SETV                   ; VS: Write cursor
               JMP   SHRCURSOR
 
 
-* Wrapper around OUTCHARCP used when drawing copy cursor
+* Wrapper around PUTCHRC used when removing the read cursor
+* On entry: A - character which was obscured by cursor
+REMRDCURSOR   TAX                          ; Preserve character
+              BIT   VDUSCREEN
+              BVS   :SHR
+              TXA
+              JMP   PUTCHRC
+:SHR          TXA                          ; Recover character
+              CLC                          ; CC: Remove cursor
+              CLV                          ; VC: Read cursor
+              JMP   SHRCURSOR
+
+
+* Wrapper around PUTCHRC used when removing the write cursor
+* On entry: A - character which was obscured by cursor
+REMWTCURSOR   TAX                          ; Preserve character
+              BIT   VDUSCREEN
+              BVS   :SHR
+              TXA
+              JMP   PUTCHRC
+:SHR          TXA                          ; Recover character
+              CLC                          ; CC: Remove cursor
+              BIT   SETV                   ; VS: Write cursor
+              JMP   SHRCURSOR
+
+
+* Wrapper around OUTCHARCP used when drawing the read cursor
+* On entry: A - character which was obscured by cursor
 PUTCOPYCURS   TAX                          ; Preserve character
               BIT   VDUSCREEN
               BVS   :SHR
               TXA
               JMP   OUTCHARCP
 :SHR          TXA                          ; Recover character
-              CLC                          ; Remove cursor
+              CLC                          ; CC: Remove cursor
+              CLV                          ; VC: Read cursor
               JSR   SHRCURSOR
               JMP   OUTCHARCP2
 
