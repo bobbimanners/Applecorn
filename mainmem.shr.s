@@ -232,6 +232,7 @@ SHRVDU5CH     >>>   ENTMAIN
               ASL   A1L
 
               LDA   SHRPIXELS              ; Pixels per byte
+              AND   #$00FF
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
               LDA   #$04                   ; 4 bytes per row in MODE 1
@@ -385,7 +386,6 @@ SHRVDU13      >>>   ENTMAIN
               MX    %00                    ; Tell Merlin
               LDA   SHRWINLFT
               STA   SHRXPIXEL
-*              JSR   SHRVDU5LF
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
