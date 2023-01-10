@@ -614,7 +614,7 @@ SHRCLREOL     JSR   SHRCHARADDR
 :CTR          DB    $00
 
 
-* VDU16 (CLG) clears the whole SHR screen right now
+* VDU16 (CLG) clears the graphics window
 SHRCLEAR      >>>   XF2MAIN,SHRVDU16
 SHRCLRRET     >>>   ENTAUX
               RTS
