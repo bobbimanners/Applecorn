@@ -231,7 +231,8 @@ VDU02
 * VDU 5 - Text at graphics cursor
 VDU05         LDX   VDUPIXELS
               BEQ   SETEXIT                ; 0 pixels per char, text only
-* Turn cursor off and other stuff
+              CPX   #$07                   ; 7 pixels per char, HGR
+              BEQ   SETEXIT
               LDA   #$20                   ; Set VDU 5 mode
               BNE   SETSTATUS
 
@@ -254,9 +255,7 @@ VDU03
               BNE   CLRSTATUS
 
 * VDU 4 - Text at text cursor
-VDU04
-* Turn cursor on and other stuff
-              LDA   #$DF                   ; Clear VDU 5 mode
+VDU04         LDA   #$DF                   ; Clear VDU 5 mode
               BNE   CLRSTATUS
 
 * VDU 15 - Disable paged scrolling
