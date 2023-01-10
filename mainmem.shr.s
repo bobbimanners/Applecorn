@@ -384,8 +384,7 @@ SHRVDU13      >>>   ENTMAIN
               XCE
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
-              LDA   SHRWINLFT
-              STA   SHRXPIXEL
+              JSR   SHRVDU5LF
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin

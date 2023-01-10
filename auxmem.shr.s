@@ -158,6 +158,7 @@ SHRPRCHAR     LDX   VDUPIXELS              ; Pixels per byte
 * On entry: A - character to plot,
 *           CS show cursor / CC remove cursor
 *           VS read cursor / VC write cursor
+* The read and write cursors have separate save-unders in :SAVEBYTES
 SHRCURSOR     PHP                          ; Preserve flags
               PHA                          ; Preserve character
               LDA   VDUSTATUS              ; If VDU5 mode, bail
