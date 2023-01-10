@@ -181,17 +181,19 @@ SHRCURSOR     PHA                          ; Preserve character
               CMP   CURSORCP
               BEQ   :CURSORON
               BRA   :CURSOROFF
-:CURSORON     LDA   [VDUADDR],Y
-              BNE   :DONE                  ; Already on
-              BRA   :L1
-:CURSOROFF    LDA   [VDUADDR],Y
-              BEQ   :DONE                  ; Already off
-:L1           LDAL  [VDUADDR],Y            ; XOR last row
-              EOR   #$77
+:CURSORON
+:L1           LDA   #$77
               STAL  [VDUADDR],Y
               INY
               CPY   #$04                   ; TODO: Two bytes for 640 mode
               BNE   :L1
+              RTS
+:CURSOROFF
+:L2           LDA   SHRBGMASKA
+              STAL  [VDUADDR],Y
+              INY
+              CPY   #$04                   ; TODO: Two bytes for 640 mode
+              BNE   :L2
 :DONE         RTS
 :BAIL         PLA
               RTS
