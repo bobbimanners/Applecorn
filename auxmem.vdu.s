@@ -546,10 +546,17 @@ VDU08         LDA   VDUTEXTX               ; COL
 :S3           RTS
 
 * Move cursor right
-VDU09         LDA   VDUTEXTX               ; COL
+VDU09         LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 VDU 5 mode
+              BEQ   VDU09SKIP
+              BIT   VDUSCREEN
+              BVC   VDU09SKIP              ; Not SHR, skip
+              >>>   XF2MAIN,SHRVDU09
+VDU09RET      >>>   ENTAUX
+VDU09SKIP     LDA   VDUTEXTX               ; COL
               CMP   TXTWINRGT
               BCC   :S2
-:T11          LDA   TXTWINLFT
+              LDA   TXTWINLFT
               STA   VDUTEXTX               ; COL
               LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
@@ -560,9 +567,9 @@ VDU09         LDA   VDUTEXTX               ; COL
               BRA   :DONE
 SCROLL        LDA   VDUSTATUS
               AND   #$20                   ; Bit 5 VDU5 mode
-              BEQ   :VDU4
+              BEQ   :S3
               RTS                          ; No scroll in VDU5
-:VDU4         JSR   SCROLLER
+:S3           JSR   SCROLLER
               LDA   TXTWINLFT
               STA   VDUTEXTX
               JSR   CLREOL

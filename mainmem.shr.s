@@ -242,7 +242,7 @@ SHRVDU5CH     >>>   ENTMAIN
 :MODE0        LDA   #$02                   ; 2 bytes per row in MODE 0
               LDX   #8                     ; 8 pixels per char in MODE 0
 :S0           STA   :BYTES
-              STX   :PIXELS
+*              STX   :PIXELS
 
               CLC                          ; Add SHRFONTXPLD to A1L/H
               LDA   A1L
@@ -317,16 +317,16 @@ SHRVDU5CH     >>>   ENTMAIN
               CMP   #$08                   ; 8 rows
               BNE   :L0
               
-              REP   #$30                   ; 16 bit M & X
-              MX    %00                    ; Tell Merlin
-              LDA   SHRXPIXEL
-              CLC
-              ADC   :PIXELS                ; Advance to next column
-              CMP   SHRWINRGT
-              BCS   :NEWLINE               ; X-pos >= limit
-              STA   SHRXPIXEL
-              BRA   :DONE
-:NEWLINE      JSR   SHRVDU5LF
+*              REP   #$30                   ; 16 bit M & X
+*              MX    %00                    ; Tell Merlin
+*              LDA   SHRXPIXEL
+*              CLC
+*              ADC   :PIXELS                ; Advance to next column
+*              CMP   SHRWINRGT
+*              BCS   :NEWLINE               ; X-pos >= limit
+*              STA   SHRXPIXEL
+*              BRA   :DONE
+*:NEWLINE      JSR   SHRVDU5LF
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
@@ -336,10 +336,44 @@ SHRVDU5CH     >>>   ENTMAIN
 :COLCTR       EQU   TMPZP+0
 :ROWCTR       EQU   TMPZP+2
 :BYTES        EQU   TMPZP+4                ; Bytes per char row
-:PIXELS       EQU   TMPZP+6                ; Pixels per char row
+*:PIXELS       EQU   TMPZP+6                ; Pixels per char row
 
 
-* Handle linefeed in VDU5 mode
+* Handle cursor right in VDU5 mode
+SHRVDU09      >>>   ENTMAIN
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDA   SHRPIXELS              ; Pixels per byte
+              AND   #$00FF
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :MODE0
+              LDX   #16                    ; 16 pixels per char in MODE 1
+              BRA   :S0
+:MODE0        LDX   #8                     ; 8 pixels per char in MODE 0
+:S0           STX   :PIXELS
+              LDA   SHRXPIXEL
+              CLC
+              ADC   :PIXELS                ; Advance to next column
+              CMP   SHRWINRGT
+              BCS   :NEWLINE               ; X-pos >= limit
+              STA   SHRXPIXEL
+              BRA   :DONE
+:NEWLINE      LDA   SHRWINLFT
+              STA   SHRXPIXEL
+              JSR   SHRVDU5LF
+:DONE         SEC                          ; 65816 emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP
+              >>>   XF2AUX,VDU09RET
+:PIXELS       DW    $00                    ; Pixels per char
+
+
+* Handle cursor down / linefeed in VDU5 mode
 SHRVDU10      >>>   ENTMAIN
               PHP                          ; Disable interrupts
               SEI
@@ -358,8 +392,6 @@ SHRVDU10      >>>   ENTMAIN
 * Handle linefeed in VDU5 mode - does the actual work
 * Called in 65816 native mode, 16 bit M & X
 SHRVDU5LF     MX    %00                    ; Tell Merlin
-              LDA   SHRWINLFT
-              STA   SHRXPIXEL
               LDA   SHRYPIXEL
               SEC
               SBC   #16                    ; Height of this+next row
@@ -384,6 +416,8 @@ SHRVDU13      >>>   ENTMAIN
               XCE
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
+              LDA   SHRWINLFT
+              STA   SHRXPIXEL
               JSR   SHRVDU5LF
 :DONE         SEC                          ; 65816 emulation mode
               XCE
