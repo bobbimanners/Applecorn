@@ -216,21 +216,34 @@ SHRCHAR640    PHY                          ; Preserve Y
 
 * VDU5 plot char at graphics cursor position
 * TODO: Need to do bitshifting for x-position
-SHRVDU5CH320  >>>   ENTMAIN
+SHRVDU5CH     >>>   ENTMAIN
               PHP                          ; Disable interrupts
               SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
+
               AND   #$00FF
-              STA   A1L                    ; A*32 -> A1L/H
+              STA   A1L                    ; A*16 -> A1L/H
               ASL   A1L
               ASL   A1L
               ASL   A1L
               ASL   A1L
-              ASL   A1L
-              CLC                          ; SHRFONTXPLD+A*32 -> A1L/H
+
+              LDA   SHRPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :MODE0
+              LDA   #$04                   ; 4 bytes per row in MODE 1
+              LDX   #16                    ; 16 pixels per char in MODE 1
+              ASL   A1L                    ; A*32 -> A1L/H in MODE 1
+              BRA   :S0
+:MODE0        LDA   #$02                   ; 2 bytes per row in MODE 0
+              LDX   #8                     ; 8 pixels per char in MODE 0
+:S0           STA   :BYTES
+              STX   :PIXELS
+
+              CLC                          ; Add SHRFONTXPLD to A1L/H
               LDA   A1L
               ADC   #SHRFONTXPLD
               STA   A1L
@@ -248,15 +261,15 @@ SHRVDU5CH320  >>>   ENTMAIN
               CMP   SHRWINLFT
               BMI   :NEWPAGE
               CMP   SHRWINRGT
-              BEQ   :S0
+              BEQ   :S2
               BPL   :NEWPAGE
-              BRA   :S0
+              BRA   :S2
 :NEWPAGE      LDA   SHRWINTOP
               STA   SHRYPIXEL
               LDA   SHRWINLFT
               STA   SHRXPIXEL
 
-:S0           SEP   #$30                   ; 8 bit M & X
+:S2           SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
               LDX   SHRYPIXEL              ; Screen row (Y-coord)
               LDA   SHRROWSL,X             ; Look up addr (LS byte)
@@ -274,9 +287,9 @@ SHRVDU5CH320  >>>   ENTMAIN
               LSR   A2L
 
               LDX   A1L                    ; Index into exploded font
-              STZ   :CTR2
+              STZ   :ROWCTR
 :L0           LDY   A2L                    ; Index into row of pixels
-              STZ   :CTR1
+              STZ   :COLCTR
 :L1           LDAL  $E10000,X              ; Read byte of exploded font
               PHX
               SEP   #$30                   ; 8 bit M & X
@@ -287,9 +300,9 @@ SHRVDU5CH320  >>>   ENTMAIN
               PLX
               INX                          ; Next byte of font
               INY                          ; Next byte on screen
-              INC   :CTR1
-              LDA   :CTR1
-              CMP   #$04                   ; 4 bytes per row 
+              INC   :COLCTR
+              LDA   :COLCTR
+              CMP   :BYTES                 ; Bytes per row 
               BNE   :L1
               LDA   A3L                    ; Increment A3L/H to next row
               CLC
@@ -298,8 +311,8 @@ SHRVDU5CH320  >>>   ENTMAIN
               LDA   A3H
               ADC   #$00
               STA   A3H
-              INC   :CTR2
-              LDA   :CTR2
+              INC   :ROWCTR
+              LDA   :ROWCTR
               CMP   #$08                   ; 8 rows
               BNE   :L0
               
@@ -307,26 +320,22 @@ SHRVDU5CH320  >>>   ENTMAIN
               MX    %00                    ; Tell Merlin
               LDA   SHRXPIXEL
               CLC
-              ADC   #16                    ; Advance to next column
+              ADC   :PIXELS                ; Advance to next column
               CMP   SHRWINRGT
               BCS   :NEWLINE               ; X-pos >= limit
               STA   SHRXPIXEL
               BRA   :DONE
 :NEWLINE      JSR   SHRVDU5LF
-:DONE         SEC                           ; 65816 emulation mode
+:DONE         SEC                          ; 65816 emulation mode
               XCE
-              MX    %11                     ; Tell Merlin
+              MX    %11                    ; Tell Merlin
               PLP
               >>>   XF2AUX,SHRPRCH320RET
 * Zero page
-:CTR1         EQU   TMPZP+0
-:CTR2         EQU   TMPZP+2
-
-
-* VDU5 plot char at graphics cursor position
-SHRVDU5CH640  >>>   ENTMAIN
-* TODO: Write me!
-              >>>   XF2AUX,SHRPRCH640RET
+:COLCTR       EQU   TMPZP+0
+:ROWCTR       EQU   TMPZP+2
+:BYTES        EQU   TMPZP+4                ; Bytes per char row
+:PIXELS       EQU   TMPZP+6                ; Pixels per char row
 
 
 * Handle linefeed in VDU5 mode

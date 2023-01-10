@@ -220,7 +220,7 @@ SHRPRCH320    SEC
               AND   #$20                   ; Bit 5 text@gfx cursor
               BEQ   SHRPRCH320V4           ; VDU 4
               TXA
-              >>>   XF2MAIN,SHRVDU5CH320   ; VDU5
+              >>>   XF2MAIN,SHRVDU5CH      ; VDU5
 SHRPRCH320RET >>>   ENTAUX
               RTS
 
@@ -323,9 +323,8 @@ SHRPRCH640    SEC
               AND   #$20                   ; Bit 5 text@gfx cursor
               BEQ   SHRPRCH640V4           ; VDU 4
               TXA
-              >>>   XF2MAIN,SHRVDU5CH640   ; VDU5
-SHRPRCH640RET >>>   ENTAUX
-              RTS
+              >>>   XF2MAIN,SHRVDU5CH      ; VDU5
+* (Returns via SHRPRCH320RET)
 
 SHRPRCH640V4  TXA
               PHP                          ; Disable interrupts
