@@ -158,6 +158,9 @@ SHRPRCHAR     LDX   VDUPIXELS              ; Pixels per byte
 * On entry: A - character to plot, CS show cursor/CC remove cursor
 SHRCURSOR     PHP                          ; Preserve flags
               PHA                          ; Preserve character
+              LDA   VDUSTATUS              ; If VDU5 mode, bail
+              AND   #$20
+              BNE   :BAIL
               LDA   VDUPIXELS              ; Pixels per byte
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
@@ -168,9 +171,6 @@ SHRCURSOR     PHP                          ; Preserve flags
               LDX   #%11011101             ; White/red/white/red
 :S1           STA   :BYTES                 ; Bytes per char
               STX   :CURSBYTE
-              LDA   VDUSTATUS              ; If VDU5 mode, bail
-              AND   #$20
-              BNE   :BAIL
               LDA   #$E1
               STA   VDUBANK2
               JSR   SHRCHARADDR            ; Screen addr in VDUADDR
@@ -208,7 +208,8 @@ SHRCURSOR     PHP                          ; Preserve flags
               CPY   :BYTES
               BNE   :L2
 :DONE         RTS
-:BAIL         PLA
+:BAIL         PLA                          ; Fix stack
+              PLA
               RTS
 :BYTES        DB    $00                    ; 2 for 640-mode, 4 for 320-mode
 :CURSBYTE     DB    $00                    ; Cursor byte for mode
