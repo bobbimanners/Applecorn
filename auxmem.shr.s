@@ -159,6 +159,9 @@ SHRPRCHAR     CMP   CURSORED               ; Edit cursor?
 
 * Plot or unplot a cursor on SHR screen
 SHRCURSOR     PHA                          ; Preserve character
+              LDA   VDUSTATUS              ; If VDU5 mode, bail
+              AND   #$20
+              BNE   :BAIL
               LDA   #$E1
               STA   VDUBANK2
               JSR   SHRCHARADDR            ; Screen addr in VDUADDR
@@ -184,12 +187,14 @@ SHRCURSOR     PHA                          ; Preserve character
 :CURSOROFF    LDA   [VDUADDR],Y
               BEQ   :DONE                  ; Already off
 :L1           LDAL  [VDUADDR],Y            ; XOR last row
-              EOR   #$FF
+              EOR   #$77
               STAL  [VDUADDR],Y
               INY
-              CPY   #$04
+              CPY   #$04                   ; TODO: Two bytes for 640 mode
               BNE   :L1
 :DONE         RTS
+:BAIL         PLA
+              RTS
 
 
 * Write character to SHR screen in 320 pixel mode
