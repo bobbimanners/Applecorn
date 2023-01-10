@@ -280,7 +280,7 @@ COPYMOVE      PHA
               JSR   GETCHRC
               STA   COPYCHAR
               LDA   CURSORED
-              JSR   PUTCURSOR              ; Edit cursor
+              JSR   SHOWCURSOR             ; Edit cursor [ON]
               SEC
               JSR   COPYSWAP2              ; Initialise copy cursor
               ROR   FLASHER
@@ -390,13 +390,25 @@ PRCHR7        PLA
 :NOTSHR       RTS
  
 
-* Wrapper around PUTCHRC used when drawing cursor
-PUTCURSOR     TAX                          ; Preserve character
+* Wrapper around PUTCHRC used when showing cursor
+SHOWCURSOR     TAX                          ; Preserve character
               BIT   VDUSCREEN
               BVS   :SHR
               TXA
               JMP   PUTCHRC
 :SHR          TXA                          ; Recover character
+              SEC                          ; Show cursor
+              JMP   SHRCURSOR
+
+
+* Wrapper around PUTCHRC used when removing cursor
+REMCURSOR     TAX                          ; Preserve character
+              BIT   VDUSCREEN
+              BVS   :SHR
+              TXA
+              JMP   PUTCHRC
+:SHR          TXA                          ; Recover character
+              CLC                          ; Remove cursor
               JMP   SHRCURSOR
 
 
@@ -407,6 +419,7 @@ PUTCOPYCURS   TAX                          ; Preserve character
               TXA
               JMP   OUTCHARCP
 :SHR          TXA                          ; Recover character
+              CLC                          ; Remove cursor
               JSR   SHRCURSOR
               JMP   OUTCHARCP2
 

@@ -147,10 +147,7 @@ SHRBGMASKA    DW    $0000                  ; Keep a copy in aux mem too
 
 * Write character to SHR screen
 * On entry: A - character to write
-SHRPRCHAR     CMP   CURSORED               ; Edit cursor?
-              BNE   :NOTEDIT
-              LDA   #127                   ; If so, use block char
-:NOTEDIT      LDX   VDUPIXELS              ; Pixels per byte
+SHRPRCHAR     LDX   VDUPIXELS              ; Pixels per byte
               CPX   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :S1
               JMP   SHRPRCH320
@@ -158,17 +155,19 @@ SHRPRCHAR     CMP   CURSORED               ; Edit cursor?
 
 
 * Plot or unplot a cursor on SHR screen
-SHRCURSOR     PHA                          ; Preserve character
+* On entry: A - character to plot, CS show cursor/CC remove cursor
+SHRCURSOR     PHP                          ; Preserve flags
+              PHA                          ; Preserve character
               LDA   VDUPIXELS              ; Pixels per byte
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
               LDA   #$04                   ; 4 bytes in 320 mode
-              LDX   #$77                   ; Two white pixels
+              LDX   #$71                   ; White/red
               BRA   :S1
 :MODE0        LDA   #$02                   ; 2 bytes in 640 mode
-              LDX   #$FF                   ; Two white pixels
+              LDX   #%11011101             ; White/red/white/red
 :S1           STA   :BYTES                 ; Bytes per char
-              STX   :WHITE
+              STX   :CURSBYTE
               LDA   VDUSTATUS              ; If VDU5 mode, bail
               AND   #$20
               BNE   :BAIL
@@ -184,23 +183,25 @@ SHRCURSOR     PHA                          ; Preserve character
               STA   VDUADDR+1
               LDY   #$00
               PLA                          ; Recover character
-              CMP   CURSOR
-              BEQ   :CURSORON
-              CMP   CURSORED
-              BEQ   :CURSORON
-              CMP   CURSORCP
-              BEQ   :CURSORON
-              BRA   :CURSOROFF
+              PLP                          ; Recover flags
+              BCC   :CURSOROFF
 :CURSORON
-:L1           LDA   :WHITE
-              STAL  [VDUADDR],Y
+              LDA   [VDUADDR],Y            ; See if cursor shown
+              CMP   :CURSBYTE
+              BEQ   :DONE
+              STA   :SAVEBYTE              ; Preserve byte under cursor
+              LDA   :CURSBYTE
+:L1           STAL  [VDUADDR],Y
               INY
               CPY   :BYTES
               BNE   :L1
               RTS
 :CURSOROFF
-:L2           LDA   SHRBGMASKA
-              STAL  [VDUADDR],Y
+              LDA   [VDUADDR],Y            ; See if cursor shown
+              CMP   :CURSBYTE
+              BNE   :DONE
+              LDA   :SAVEBYTE              ; Restore byte under cursor
+:L2           STAL  [VDUADDR],Y
               INY
               CPY   :BYTES
               BNE   :L2
@@ -208,7 +209,8 @@ SHRCURSOR     PHA                          ; Preserve character
 :BAIL         PLA
               RTS
 :BYTES        DB    $00                    ; 2 for 640-mode, 4 for 320-mode
-:WHITE        DB    $00                    ; White pixels for mode
+:CURSBYTE     DB    $00                    ; Cursor byte for mode
+:SAVEBYTE     DB    $00                    ; Byte under cursor
 
 
 * Write character to SHR screen in 320 pixel mode
