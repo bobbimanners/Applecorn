@@ -1017,26 +1017,29 @@ VDU20
 VDU20LP       STA   TXTFGD,X               ; Clear all colours
               DEX                          ; and gcol actions
               BPL   VDU20LP
-              LDA   #$80
+              LDA   #$80                   ; Black background
               JSR   SETTCOL                ; Set txt background
-              LDX   #$00
-              LDA   #$80
+              LDX   #$00                   ; GCOL 'set' mode
+              LDA   #$80                   ; Black background
               JSR   HGRSETGCOL             ; Set HGR background
               BIT   VDUBANK
               BPL   :S1                    ; Skip if not GS
+              LDX   #$00                   ; GCOL 'set' mode
+              LDA   #$80                   ; Black background
               JSR   SHRSETGCOL             ; Set SHR background
 :S1           LDA   VDUCOLOURS
               AND   #$07
               PHA
               STA   TXTFGD                 ; Note txt foreground
               JSR   SETTCOL                ; Set txt foreground
-              LDX   #$00
+              LDX   #$00                   ; GCOL 'set' mode
               PLA
               STA   GFXFGD                 ; Note gfx foreground
               JSR   HGRSETGCOL             ; Set gfx foreground
               BIT   VDUBANK
               BPL   :S2                    ; Skip if not GS
               LDX   #$00                   ; Default GCOL action
+              LDA   #$07                   ; White
               JSR   SHRSETGCOL             ; Set SHR foreground
 :S2           RTS
 
