@@ -576,17 +576,17 @@ SCROLL        LDA   VDUSTATUS
               RTS
 
 * Move cursor down
-VDU10         LDA   VDUTEXTY               ; ROW
+VDU10         LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 -> VDU5 mode
+              BEQ   VDU10SKIP
+              BIT   VDUSCREEN
+              BVC   VDU10SKIP              ; Not SHR, skip
+              >>>   XF2MAIN,SHRVDU10
+VDU10RET      >>>   ENTAUX
+VDU10SKIP     LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
               BEQ   VDU10SCRL
               INC   VDUTEXTY               ; ROW
-              LDA   VDUSTATUS
-              AND   #$20                   ; Bit 5 -> VDU5 mode
-              BEQ   VDU10DONE
-              BIT   VDUSCREEN
-              BVC   VDU10DONE              ; Not SHR, skip
-              >>>   XF2MAIN,SHRVDU10
-VDU10RET      >>>   ENTAUX
 VDU10DONE     RTS
 VDU10SCRL     JMP   SCROLL
 

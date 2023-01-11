@@ -418,7 +418,6 @@ SHRVDU13      >>>   ENTMAIN
               MX    %00                    ; Tell Merlin
               LDA   SHRWINLFT
               STA   SHRXPIXEL
-              JSR   SHRVDU5LF
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
