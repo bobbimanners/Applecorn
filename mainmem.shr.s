@@ -593,25 +593,25 @@ SHRPOINT2     SEP   #$30                   ; 8 bit M & X
               STA   A4L
 
               LDX   A1L                    ; Store X-coord for later
-              LSR   A1H                    ; Divide by 4
+              LSR   A1H                    ; Divide by 2
               ROR   A1L
-              LSR   A1H
-              ROR   A1L
-              LDY   A1L                    ; Index into row of pixels
 
               LDA   SHRPIXELS              ; Pixels per byte
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
 
+              LDY   A1L                    ; Index into row of pixels
               TXA
-              LSR
               AND   #$01                   ; Keep LSB bit only
               TAX                          ; Index into :BITS320
 
               LDA   :BITS320,X             ; Get bit pattern for pixel to set
               BRA   SHRPLOTBYTE
               
-:MODE0        TXA
+:MODE0        LSR   A1H                    ; Divide X-coord by 2 again
+              ROR   A1L
+              LDY   A1L                    ; Index into row of pixels
+              TXA
               AND   #$03                   ; Keep LSB two bits only
               TAX                          ; Index into :BITS640
 
@@ -943,11 +943,18 @@ SHRCOORD      MAC
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
 
-* X-coordinate in SHRVDUQ+5,+6   1280/2=640
+* X-coordinate in SHRVDUQ+5,+6   1280/2=640 or 1280/4=320
               LDA   SHRVDUQ+5
               ASL                          ; Sign bit -> C
               ROR   SHRVDUQ+5              ; Signed divide /2
+
+              LDX   SHRPIXELS              ; Pixels per byte
+              CPX   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   SHRCOORDM0
               LDA   SHRVDUQ+5
+              ASL                          ; Sign bit -> C
+              ROR   SHRVDUQ+5              ; Signed divide /2
+SHRCOORDM0    LDA   SHRVDUQ+5
               STA   A1L                    ; Result in A1L/H
 
 * Y-coordinate in SHRVDUQ+7,+8   1024*25/128=200
