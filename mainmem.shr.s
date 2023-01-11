@@ -236,13 +236,10 @@ SHRVDU5CH     >>>   ENTMAIN
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
               LDA   #$04                   ; 4 bytes per row in MODE 1
-              LDX   #08                    ; 8 pixels per char in MODE 1
               ASL   A1L                    ; A*32 -> A1L/H in MODE 1
               BRA   :S0
 :MODE0        LDA   #$02                   ; 2 bytes per row in MODE 0
-              LDX   #8                     ; 8 pixels per char in MODE 0
 :S0           STA   :BYTES
-*              STX   :PIXELS
 
               CLC                          ; Add SHRFONTXPLD to A1L/H
               LDA   A1L
@@ -286,8 +283,9 @@ SHRVDU5CH     >>>   ENTMAIN
               STX   A2L
               LSR   A2L                    ; Divide by 2
 
-              LDX   SHRPIXELS
-              CPX   #$02
+              LDA   SHRPIXELS
+              AND   #$00FF
+              CMP   #$02
               BEQ   :M1                    ; MODE 1
               LSR   A2L                    ; Divide by 2 again
 :M1           LDX   A1L                    ; Index into exploded font
@@ -319,17 +317,6 @@ SHRVDU5CH     >>>   ENTMAIN
               LDA   :ROWCTR
               CMP   #$08                   ; 8 rows
               BNE   :L0
-              
-*              REP   #$30                   ; 16 bit M & X
-*              MX    %00                    ; Tell Merlin
-*              LDA   SHRXPIXEL
-*              CLC
-*              ADC   :PIXELS                ; Advance to next column
-*              CMP   SHRWINRGT
-*              BCS   :NEWLINE               ; X-pos >= limit
-*              STA   SHRXPIXEL
-*              BRA   :DONE
-*:NEWLINE      JSR   SHRVDU5LF
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
@@ -339,7 +326,6 @@ SHRVDU5CH     >>>   ENTMAIN
 :COLCTR       EQU   TMPZP+0
 :ROWCTR       EQU   TMPZP+2
 :BYTES        EQU   TMPZP+4                ; Bytes per char row
-*:PIXELS       EQU   TMPZP+6                ; Pixels per char row
 
 
 * Handle cursor left in VDU5 mode
@@ -350,24 +336,16 @@ SHRVDU08      >>>   ENTMAIN
               XCE
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
-              LDA   SHRPIXELS              ; Pixels per byte
-              AND   #$00FF
-              CMP   #$02                   ; 2 is 320-mode (MODE 1)
-              BNE   :MODE0
-              LDX   #8                     ; 8 pixels per char in MODE 1
-              BRA   :S0
-:MODE0        LDX   #8                     ; 8 pixels per char in MODE 0
-:S0           STX   :PIXELS
               LDA   SHRXPIXEL
               SEC
-              SBC   :PIXELS                ; Move to previous column
+              SBC   #$08                   ; Move to previous column
               CMP   SHRWINLFT
               BMI   :PREVLINE
               STA   SHRXPIXEL
               BRA   :DONE
 :PREVLINE     LDA   SHRWINRGT
               SEC
-              SBC   :PIXELS
+              SBC   #$08
               STA   SHRXPIXEL
               LDA   SHRYPIXEL
               CLC                          ; Add 8 rows (go up)
@@ -385,7 +363,6 @@ SHRVDU08      >>>   ENTMAIN
               MX    %11                    ; Tell Merlin
               PLP
               >>>   XF2AUX,VDU08RET
-:PIXELS       DW    :PIXELS
 
 
 * Handle cursor right in VDU5 mode
@@ -396,17 +373,9 @@ SHRVDU09      >>>   ENTMAIN
               XCE
               REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
-              LDA   SHRPIXELS              ; Pixels per byte
-              AND   #$00FF
-              CMP   #$02                   ; 2 is 320-mode (MODE 1)
-              BNE   :MODE0
-              LDX   #8                     ; 8 pixels per char in MODE 1
-              BRA   :S0
-:MODE0        LDX   #8                     ; 8 pixels per char in MODE 0
-:S0           STX   :PIXELS
               LDA   SHRXPIXEL
               CLC
-              ADC   :PIXELS                ; Advance to next column
+              ADC   #$08                   ; Advance to next column
               CMP   SHRWINRGT
               BCS   :NEWLINE               ; X-pos >= limit
               STA   SHRXPIXEL
@@ -419,7 +388,6 @@ SHRVDU09      >>>   ENTMAIN
               MX    %11                    ; Tell Merlin
               PLP
               >>>   XF2AUX,VDU09RET
-:PIXELS       DW    $00                    ; Pixels per char
 
 
 * Handle cursor down / linefeed in VDU5 mode
@@ -1262,11 +1230,19 @@ SHRVDU26      >>>   ENTMAIN
               STZ   SHRWINLFT+1
               STZ   SHRWINBTM+0
               STZ   SHRWINBTM+1
-              LDA   #<639
+              LDY   SHRPIXELS
+              CPY   #$02
+              BNE   :MODE0
+              LDA   #<319
+              STA   SHRWINRGT+0
+              LDA   #>319
+              STA   SHRWINRGT+1
+              BRA   :S1
+:MODE0        LDA   #<639
               STA   SHRWINRGT+0
               LDA   #>639
               STA   SHRWINRGT+1
-              LDA   #<199
+:S1           LDA   #<199
               STA   SHRWINTOP+0
               LDA   #>199
               STA   SHRWINTOP+1
