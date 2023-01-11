@@ -948,8 +948,9 @@ SHRCOORD      MAC
               ASL                          ; Sign bit -> C
               ROR   SHRVDUQ+5              ; Signed divide /2
 
-              LDX   SHRPIXELS              ; Pixels per byte
-              CPX   #$02                   ; 2 is 320-mode (MODE 1)
+              LDA   SHRPIXELS              ; Pixels per byte
+              AND   #$00FF                 ; Mask
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   SHRCOORDM0
               LDA   SHRVDUQ+5
               ASL                          ; Sign bit -> C
@@ -1028,10 +1029,13 @@ SHRCOORDEND   EOM
 SHRCOORD2     MX    $00                    ; Tell Merlin it's 16 bit
 
 * X-coordinate in SHRVDUQ+5,+6   1280/2=640
-              LDA   SHRVDUQ,X
-              ASL                          ; Sign bit -> C
-              ROR   SHRVDUQ,X              ; Signed divide /2
-              LDA   SHRVDUQ,X
+              LSR   SHRVDUQ,X              ; Unsigned divide /2
+              LDA   SHRPIXELS              ; Pixels per byte
+              AND   #$00FF                 ; Mask
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   SHRCOORD2M0
+              LSR   SHRVDUQ,X              ; Unsigned divide /2 again
+SHRCOORD2M0   LDA   SHRVDUQ,X
               STA   A1L                    ; Result in A1L/H
 
 * Y-coordinate in SHRVDUQ+7,+8   1024*25/128=200
