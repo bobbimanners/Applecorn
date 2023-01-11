@@ -339,6 +339,52 @@ SHRVDU5CH     >>>   ENTMAIN
 *:PIXELS       EQU   TMPZP+6                ; Pixels per char row
 
 
+* Handle cursor left in VDU5 mode
+SHRVDU08      >>>   ENTMAIN
+              PHP                          ; Disable interrupts
+              SEI
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDA   SHRPIXELS              ; Pixels per byte
+              AND   #$00FF
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :MODE0
+              LDX   #16                    ; 16 pixels per char in MODE 1
+              BRA   :S0
+:MODE0        LDX   #8                     ; 8 pixels per char in MODE 0
+:S0           STX   :PIXELS
+              LDA   SHRXPIXEL
+              SEC
+              SBC   :PIXELS                ; Move to previous column
+              CMP   SHRWINLFT
+              BMI   :PREVLINE
+              STA   SHRXPIXEL
+              BRA   :DONE
+:PREVLINE     LDA   SHRWINRGT
+              SEC
+              SBC   :PIXELS
+              STA   SHRXPIXEL
+              LDA   SHRYPIXEL
+              CLC                          ; Add 8 rows (go up)
+              ADC   #$08
+              CMP   SHRWINTOP
+              BMI   :BOTTOMROW
+              STA   SHRYPIXEL
+              BRA   :DONE
+:BOTTOMROW    LDA   SHRWINBTM
+              CLC
+              ADC   #$08                   ; Go up one row from bottom
+              STA   SHRYPIXEL
+:DONE         SEC                          ; 65816 emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              PLP
+              >>>   XF2AUX,VDU08RET
+:PIXELS       DW    :PIXELS
+
+
 * Handle cursor right in VDU5 mode
 SHRVDU09      >>>   ENTMAIN
               PHP                          ; Disable interrupts

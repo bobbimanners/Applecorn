@@ -543,7 +543,14 @@ VDU08         LDA   VDUTEXTX               ; COL
               DEC   VDUTEXTY               ; ROW
               LDA   TXTWINRGT
               STA   VDUTEXTX               ; COL
-:S3           RTS
+:S3           LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 -> VDU5 mode
+              BEQ   VDU08DONE
+              BIT   VDUSCREEN
+              BVC   VDU08DONE              ; Not SHR, skip
+              >>>   XF2MAIN,SHRVDU08
+VDU08RET      >>>   ENTAUX
+VDU08DONE     RTS
 
 * Move cursor right
 VDU09         LDA   VDUSTATUS
