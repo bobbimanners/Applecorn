@@ -236,7 +236,7 @@ SHRVDU5CH     >>>   ENTMAIN
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
               LDA   #$04                   ; 4 bytes per row in MODE 1
-              LDX   #16                    ; 16 pixels per char in MODE 1
+              LDX   #08                    ; 8 pixels per char in MODE 1
               ASL   A1L                    ; A*32 -> A1L/H in MODE 1
               BRA   :S0
 :MODE0        LDA   #$02                   ; 2 bytes per row in MODE 0
@@ -284,10 +284,13 @@ SHRVDU5CH     >>>   ENTMAIN
 
               LDX   SHRXPIXEL              ; Screen col (X-coord)
               STX   A2L
-              LSR   A2L                    ; Divide by 4
-              LSR   A2L
+              LSR   A2L                    ; Divide by 2
 
-              LDX   A1L                    ; Index into exploded font
+              LDX   SHRPIXELS
+              CPX   #$02
+              BEQ   :M1                    ; MODE 1
+              LSR   A2L                    ; Divide by 2 again
+:M1           LDX   A1L                    ; Index into exploded font
               STZ   :ROWCTR
 :L0           LDY   A2L                    ; Index into row of pixels
               STZ   :COLCTR
@@ -351,7 +354,7 @@ SHRVDU08      >>>   ENTMAIN
               AND   #$00FF
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
-              LDX   #16                    ; 16 pixels per char in MODE 1
+              LDX   #8                     ; 8 pixels per char in MODE 1
               BRA   :S0
 :MODE0        LDX   #8                     ; 8 pixels per char in MODE 0
 :S0           STX   :PIXELS
@@ -397,7 +400,7 @@ SHRVDU09      >>>   ENTMAIN
               AND   #$00FF
               CMP   #$02                   ; 2 is 320-mode (MODE 1)
               BNE   :MODE0
-              LDX   #16                    ; 16 pixels per char in MODE 1
+              LDX   #8                     ; 8 pixels per char in MODE 1
               BRA   :S0
 :MODE0        LDX   #8                     ; 8 pixels per char in MODE 0
 :S0           STX   :PIXELS
