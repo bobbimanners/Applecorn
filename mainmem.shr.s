@@ -1069,7 +1069,22 @@ SHRVDU16      >>>   ENTMAIN
               INC   SHRWINTOP
               INC   SHRWINRGT
               LDX   SHRWINBTM
+
+              LDA   SHRPIXELS
+              AND   #$00FF
+              CMP   #$02
+              BNE   :M0                    ; MODE0
+
               LDA   SHRWINLFT
+              LSR   A                      ; Divide left by 2
+              INC   A                      ; Treat left column specially
+              STA   :LEFTLIM
+              LDA   SHRWINRGT
+              LSR   A                      ; Divide right by 2
+              STA   :RIGHTLIM
+              BRA   :S0
+
+:M0           LDA   SHRWINLFT
               LSR   A                      ; Divide left by 4
               LSR   A
               INC   A                      ; Treat left column specially
@@ -1078,8 +1093,9 @@ SHRVDU16      >>>   ENTMAIN
               LSR   A                      ; Divide right by 4
               LSR   A
               STA   :RIGHTLIM
+              BRA   :S0
 
-              SEP   #$30                   ; 8 bit M & X
+:S0           SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
 :L1           LDY   :LEFTLIM
               LDA   SHRROWSL,X             ; Look up addr (LS byte)
@@ -1106,7 +1122,6 @@ SHRVDU16      >>>   ENTMAIN
               BNE   :MODE0
 
               LDA   SHRWINRGT
-              LSR
               AND   #$01
               TAX
               LDA   :RIGHT320,X            ; Bits to set
@@ -1115,7 +1130,6 @@ SHRVDU16      >>>   ENTMAIN
               LDY   :LEFTLIM
               DEY                          ; Handle leftmost byte
               LDA   SHRWINLFT
-              LSR
               AND   #$01
               TAX
               LDA   :LEFT320,X             ; Bits to set
