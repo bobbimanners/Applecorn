@@ -215,7 +215,6 @@ SHRCHAR640    PHY                          ; Preserve Y
 
 
 * VDU5 plot char at graphics cursor position
-* TODO: Need to do bitshifting for x-position
 SHRVDU5CH     >>>   ENTMAIN
               PHP                          ; Disable interrupts
               SEI
@@ -290,9 +289,23 @@ SHRVDU5CH     >>>   ENTMAIN
               LSR   A2L                    ; Divide by 2 again
 :M1           LDX   A1L                    ; Index into exploded font
               STZ   :ROWCTR
-:L0           LDY   A2L                    ; Index into row of pixels
+:L0           
+              PHX
+              LDY   #$00
+:LOOP         LDAL  $E10000,X              ; Read a word of exploded font
+              STA   :PIXBUF,Y              ; Store word to shift buffer
+              INX
+              INX
+              INY
+              INY
+              CPY   :BYTES
+              BNE   :LOOP
+              LDA   SHRXPIXEL
+              JSR   SHRSHIFT               ; Shift :PIXBUF to the right
+              LDY   A2L                    ; Index into row of pixels
               STZ   :COLCTR
-:L1           LDAL  $E10000,X              ; Read byte of exploded font
+              LDX   #$00
+:L1           LDA   :PIXBUF,X              ; Read word of exploded font
               PHX
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
@@ -306,6 +319,12 @@ SHRVDU5CH     >>>   ENTMAIN
               LDA   :COLCTR
               CMP   :BYTES                 ; Bytes per row 
               BNE   :L1
+
+              PLA                          ; Restore saved X -> A
+              CLC                          ; Add bytes per row
+              ADC   :BYTES
+              TAX                          ; Back to X
+
               LDA   A3L                    ; Increment A3L/H to next row
               CLC
               ADC   #$A0
@@ -326,7 +345,59 @@ SHRVDU5CH     >>>   ENTMAIN
 :COLCTR       EQU   TMPZP+0
 :ROWCTR       EQU   TMPZP+2
 :BYTES        EQU   TMPZP+4                ; Bytes per char row
+:PIXBUF       EQU   TMPZP+6                ; Shift buffer (6 bytes)
 
+
+* Shifts one character row of pixels to the right
+* Called in 65816 native mode, 16 bit M & X
+* On entry: A - x-coordinate of char
+SHRSHIFT      MX    %00                    ; Tell merlin we are 16 bit M&X
+              PHA
+              LDA   SHRPIXELS              ; Pixels per byte
+              AND   #$00FF
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :MODE0
+              PLA
+              AND   #$0001                 ; Bits to shift in MODE 1
+              ASL
+              PHA
+:MODE0        PLA
+              AND   #$0003                 ; Bits to shift in MODE 0
+              PHA
+
+              LDA   :PIXBUF                ; Put bytes in big-endian order
+              XBA
+              STA   :PIXBUF
+              LDA   :PIXBUF+2
+              XBA
+              STA   :PIXBUF+2
+              LDA   :PIXBUF+4
+              XBA
+              STA   :PIXBUF+4
+
+              PLA
+:L1           CMP   #$0000
+              BEQ   :S1
+              LSR   :PIXBUF                ; Shift :PIXBUF to the right 1 bit
+              ROR   :PIXBUF+2
+              ROR   :PIXBUF+4
+              LSR   :PIXBUF                ; Shift right again
+              ROR   :PIXBUF+2
+              ROR   :PIXBUF+4
+              DEC   A
+              BRA   :L1
+
+:S1           LDA   :PIXBUF                ; Put bytes back in little-endian
+              XBA
+              STA   :PIXBUF
+              LDA   :PIXBUF+2
+              XBA
+              STA   :PIXBUF+2
+              LDA   :PIXBUF+4
+              XBA
+              STA   :PIXBUF+4
+              RTS
+              MX    %11
 
 * Handle cursor left in VDU5 mode
 SHRVDU08      >>>   ENTMAIN
