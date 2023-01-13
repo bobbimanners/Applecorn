@@ -240,8 +240,8 @@ SHRPRCH320RET >>>   ENTAUX
               RTS
 
 SHRPRCH320V4  TXA
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -325,7 +325,7 @@ SHRPRCH320V4  TXA
               SEC                          ; Back to emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP                          ; Normal service resumed
+*              PLP                          ; Normal service resumed
               RTS
 
 
@@ -342,8 +342,8 @@ SHRPRCH640    SEC
 * (Returns via SHRPRCH320RET)
 
 SHRPRCH640V4  TXA
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -402,7 +402,7 @@ SHRPRCH640V4  TXA
               SEC                          ; Back to emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP                          ; Normal service resumed
+*              PLP                          ; Normal service resumed
               RTS
 
 
@@ -457,8 +457,8 @@ SHRSCR1LINE   PHY
               PHX
               STA   VDUADDR+1              ; Screen line -> MSB
               STZ   VDUADDR+0              ; Zero LSB
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; Enter native mode
               XCE
               PHB                          ; Preserve data bank
@@ -520,7 +520,7 @@ SHRSCR1LINE   PHY
 :DONE         PLB                          ; Recover data bank
               SEC                          ; Back to emulation mode
               XCE
-              PLP                          ; Recover flags + regs
+*              PLP                          ; Recover flags + regs
               PLX
               PLY
               RTS
@@ -532,8 +532,8 @@ SHRRSCR1LINE  PHY
               PHX
               STA   VDUADDR+1              ; Screen line -> MSB
               STZ   VDUADDR+0              ; Zero LSB
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; Enter native mode
               XCE
               PHB                          ; Preserve data bank
@@ -595,7 +595,7 @@ SHRRSCR1LINE  PHY
 :DONE         PLB                          ; Recover data bank
               SEC                          ; Back to emulation mode
               XCE
-              PLP                          ; Recover flags + regs
+*              PLP                          ; Recover flags + regs
               PLX
               PLY
               RTS
