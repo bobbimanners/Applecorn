@@ -33,6 +33,48 @@ SHRWINTOP     EQU   SHRZP+8                ; Gfx win - top (0-199) (word)
 SHRWINBTM     EQU   SHRZP+10               ; Gfx win - bottom (0-199) (word)
 
 
+* Colours in the following order.
+* For 16 colour modes ...
+* BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, ...
+* For 4 colour modes ...
+* BLACK, RED, YELLOW, WHITE
+
+*                    GB   0R
+PALETTE320    DB    $00, $00               ; BLACK
+              DB    $00, $0F               ; RED
+              DB    $F0, $00               ; GREEN
+              DB    $F0, $0F               ; YELLOW
+              DB    $0F, $00               ; BLUE
+              DB    $0F, $0F               ; MAGENTA
+              DB    $FF, $00               ; CYAN
+              DB    $FF, $0F               ; WHITE
+              DB    $44, $04               ; Dark grey
+              DB    $88, $0F               ; RED (light)
+              DB    $F8, $08               ; GREEN (light)
+              DB    $F8, $0F               ; YELLOW (light)
+              DB    $8F, $08               ; BLUE (light)
+              DB    $8F, $0F               ; MAGENTA (light)
+              DB    $FF, $08               ; CYAN (light)
+              DB    $AA, $0A               ; Light grey
+
+PALETTE640    DB    $00, $00               ; BLACK
+              DB    $00, $0F               ; RED
+              DB    $F0, $0F               ; YELLOW
+              DB    $FF, $0F               ; WHITE
+              DB    $00, $00               ; BLACK
+              DB    $00, $0F               ; RED
+              DB    $F0, $0F               ; YELLOW
+              DB    $F8, $0F               ; WHITE
+              DB    $00, $00               ; BLACK
+              DB    $00, $0F               ; RED
+              DB    $F0, $0F               ; YELLOW
+              DB    $FF, $0F               ; WHITE
+              DB    $00, $00               ; BLACK
+              DB    $00, $0F               ; RED
+              DB    $F0, $0F               ; YELLOW
+              DB    $FF, $0F               ; WHITE
+
+
 * Explode font to generate SHRFONTXPLD table
 * This is 2 bytes x 8 rows for each character in 640 mode
 * or      4 bytes x 8 rows for each character in 320 mode
@@ -1329,6 +1371,90 @@ SHRVDU26      >>>   ENTMAIN
 
               >>>   XF2AUX,VDU26RET
 
+
+* Set up default palette
+SHRDEFPALM    >>>   ENTMAIN
+              LDY   #00                    ; Palette offset for 320 mode
+              LDA   SHRPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BEQ   :S1
+              LDY   #32                    ; Palette offset for 640 mode
+:S1           LDX   #$00
+:L1           LDA   PALETTE320,Y           ; Offset in Y computed above
+              STAL  $E19E00,X              ; Palettes begin at $9E00 in $E1
+              INX
+              INY
+              CPX   #32                    ; 32 bytes in palette
+              BNE   :L1
+              >>>   XF2AUX,SHRDEFPALRET
+
+
+* Assign a 'physical' colour from the 16 colour palette to a
+* 'logical' colour for the current mode
+* On entry: A=logical colour, Y=physical colour
+SHRPALCHANGE  >>>   ENTMAIN
+              TAX
+              TYA
+              AND   #%00011110             ; Has already been shifted
+              TAY
+              LDA   SHRPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BEQ   :MODE320
+              TXA
+              AND   #%00000110             ; Has already been shifted
+              TAX
+              LDA   PALETTE320,Y           ; Byte 1 of physical colour
+              STAL  $E19E00,X              ; Store in logical slot (4 copies)
+              STAL  $E19E00+8,X
+              STAL  $E19E00+16,X
+              STAL  $E19E00+24,X
+              LDA   PALETTE320+1,Y         ; Byte 2 of physical colour
+              STAL  $E19E00+1,X            ; Store in logical slot (4 copies)
+              STAL  $E19E00+9,X
+              STAL  $E19E00+17,X
+              STAL  $E19E00+25,X
+              RTS
+:MODE320      TXA
+              AND   #%00011110             ; Has already been shifted
+              TAX
+              LDA   PALETTE320,Y           ; Byte 1 of physical colour
+              STAL  $E19E00,X              ; Store in logical slot
+              LDA   PALETTE320+1,Y         ; Byte 2 of physical colour
+              STAL  $E19E00+1,X            ; Store in logical slot
+              >>>   XF2AUX,VDU19RET 
+
+
+* Assign a custom RGB colour to a 'logical' colour
+* On entry: A=GB components, Y=R component, SHRVDUQ=logical colour
+SHRPALCUSTOM  >>>   ENTMAIN
+              LDX   SHRVDUQ
+              PHA                          ; Preserve GB components
+              LDA   SHRPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BEQ   :MODE320
+              TXA
+              AND   #%00000110             ; Has already been shifted
+              TAX
+              PLA                          ; Recover GB components
+              STAL  $E19E00,X              ; Store in logical slot (4 copies)
+              STAL  $E19E00+8,X
+              STAL  $E19E00+16,X
+              STAL  $E19E00+24,X
+              TYA                          ; R component
+              STAL  $E19E00+1,X            ; Store in logical slot (4 copies)
+              STAL  $E19E00+9,X
+              STAL  $E19E00+17,X
+              STAL  $E19E00+25,X
+              RTS
+:MODE320      TXA
+              AND   #%00011110             ; Has already been shifted
+              TAX
+              PLA                          ; Recover GB components
+              STAL  $E19E00,X              ; Store in logical slot
+              TYA                          ; R component
+              STAL  $E19E00+1,X            ; Store in logical slot
+              >>>   XF2AUX,VDU19RET 
+              
 
 * Table of addresses of SHR rows (in reverse order)
 SHRROWSL      DB    <$9c60

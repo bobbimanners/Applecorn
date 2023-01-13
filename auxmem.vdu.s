@@ -1102,7 +1102,8 @@ VDU19         LDA   VDUQ+5                 ; Second parm
               TAY                          ; Phys colour in X
               BIT   VDUBANK                ; Check if GS
               BPL   :S1                    ; If not, skip SHR call
-              JSR   SHRPALCHANGE
+              TXA                          ; Copy log colour to A for call
+              >>>   XF2MAIN,SHRPALCHANGE
 :S1           RTS
 :RGB          LDA   VDUQ+6                 ; 3rd parm (red)
               AND   #$0F
@@ -1121,9 +1122,13 @@ VDU19         LDA   VDUQ+5                 ; Second parm
               AND   #$0F
               ORA   :TMP                   ; Green+Blue in A
               BIT   VDUBANK                ; Check if GS
-              BPL   :S2                    ; If not, skip SHR call
-              JSR   SHRPALCUSTOM
-:S2           RTS
+              BPL   :S1                    ; If not, just return 
+              >>>   WRTMAIN
+              STX   SHRVDUQ                ; Stash X for call to main
+              >>>   WRTAUX
+              >>>   XF2MAIN,SHRPALCUSTOM
+VDU19RET      >>>   ENTAUX
+              RTS
 :TMP          DB    $00
 
 

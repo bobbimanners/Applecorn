@@ -9,47 +9,6 @@ SCB320        EQU   $00                    ; SCB for 320 mode
 SCB640        EQU   $80                    ; SCB for 640 mode
 
 
-* Colours in the following order.
-* For 16 colour modes ...
-* BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, ...
-* For 4 colour modes ...
-* BLACK, RED, YELLOW, WHITE
-
-*                    GB   0R
-PALETTE320    DB    $00, $00               ; BLACK
-              DB    $00, $0F               ; RED
-              DB    $F0, $00               ; GREEN
-              DB    $F0, $0F               ; YELLOW
-              DB    $0F, $00               ; BLUE
-              DB    $0F, $0F               ; MAGENTA
-              DB    $FF, $00               ; CYAN
-              DB    $FF, $0F               ; WHITE
-              DB    $44, $04               ; Dark grey
-              DB    $88, $0F               ; RED (light)
-              DB    $F8, $08               ; GREEN (light)
-              DB    $F8, $0F               ; YELLOW (light)
-              DB    $8F, $08               ; BLUE (light)
-              DB    $8F, $0F               ; MAGENTA (light)
-              DB    $FF, $08               ; CYAN (light)
-              DB    $AA, $0A               ; Light grey
-
-PALETTE640    DB    $00, $00               ; BLACK
-              DB    $00, $0F               ; RED
-              DB    $F0, $0F               ; YELLOW
-              DB    $FF, $0F               ; WHITE
-              DB    $00, $00               ; BLACK
-              DB    $00, $0F               ; RED
-              DB    $F0, $0F               ; YELLOW
-              DB    $F8, $0F               ; WHITE
-              DB    $00, $00               ; BLACK
-              DB    $00, $0F               ; RED
-              DB    $F0, $0F               ; YELLOW
-              DB    $FF, $0F               ; WHITE
-              DB    $00, $00               ; BLACK
-              DB    $00, $0F               ; RED
-              DB    $F0, $0F               ; YELLOW
-              DB    $FF, $0F               ; WHITE
-
 * Pixel masks for colours in 640 mode
 SHRCMASK640   DB    %00000000
               DB    %01010101
@@ -742,81 +701,9 @@ SHRSETGCOL    PHA
               >>>   WRTAUX
               RTS
 
-* Set up default palette
-SHRDEFPAL     LDY   #00                    ; Palette offset for 320 mode
-              LDA   VDUPIXELS              ; Pixels per byte
-              CMP   #$02                   ; 2 is 320-mode (MODE 1)
-              BEQ   :S1
-              LDY   #32                    ; Palette offset for 640 mode
-:S1           LDX   #$00
-:L1           LDA   PALETTE320,Y           ; Offset in Y computed above
-              STAL  $E19E00,X              ; Palettes begin at $9E00 in $E1
-              INX
-              INY
-              CPX   #32                    ; 32 bytes in palette
-              BNE   :L1
+* Wrapper to call SHRDEFPALM (which sets up default palette)
+SHRDEFPAL     >>>   XF2MAIN,SHRDEFPALM
+SHRDEFPALRET  >>>   ENTAUX
               RTS
 
-
-* Assign a 'physical' colour from the 16 colour palette to a
-* 'logical' colour for the current mode
-* On entry: X=logical colour, Y=physical colour
-SHRPALCHANGE  TYA
-              AND   #%00011110             ; Has already been shifted
-              TAY
-              LDA   VDUPIXELS              ; Pixels per byte
-              CMP   #$02                   ; 2 is 320-mode (MODE 1)
-              BEQ   :MODE320
-              TXA
-              AND   #%00000110             ; Has already been shifted
-              TAX
-              LDA   PALETTE320,Y           ; Byte 1 of physical colour
-              STAL  $E19E00,X              ; Store in logical slot (4 copies)
-              STAL  $E19E00+8,X
-              STAL  $E19E00+16,X
-              STAL  $E19E00+24,X
-              LDA   PALETTE320+1,Y         ; Byte 2 of physical colour
-              STAL  $E19E00+1,X            ; Store in logical slot (4 copies)
-              STAL  $E19E00+9,X
-              STAL  $E19E00+17,X
-              STAL  $E19E00+25,X
-              RTS
-:MODE320      TXA
-              AND   #%00011110             ; Has already been shifted
-              TAX
-              LDA   PALETTE320,Y           ; Byte 1 of physical colour
-              STAL  $E19E00,X              ; Store in logical slot
-              LDA   PALETTE320+1,Y         ; Byte 2 of physical colour
-              STAL  $E19E00+1,X            ; Store in logical slot
-              RTS
-
-
-* Assign a custom RGB colour to a 'logical' colour
-* On entry: X=logical colour, A=GB components, Y=R component
-SHRPALCUSTOM  PHA                          ; Preserve GB components
-              LDA   VDUPIXELS              ; Pixels per byte
-              CMP   #$02                   ; 2 is 320-mode (MODE 1)
-              BEQ   :MODE320
-              TXA
-              AND   #%00000110             ; Has already been shifted
-              TAX
-              PLA                          ; Recover GB components
-              STAL  $E19E00,X              ; Store in logical slot (4 copies)
-              STAL  $E19E00+8,X
-              STAL  $E19E00+16,X
-              STAL  $E19E00+24,X
-              TYA                          ; R component
-              STAL  $E19E00+1,X            ; Store in logical slot (4 copies)
-              STAL  $E19E00+9,X
-              STAL  $E19E00+17,X
-              STAL  $E19E00+25,X
-              RTS
-:MODE320      TXA
-              AND   #%00011110             ; Has already been shifted
-              TAX
-              PLA                          ; Recover GB components
-              STAL  $E19E00,X              ; Store in logical slot
-              TYA                          ; R component
-              STAL  $E19E00+1,X            ; Store in logical slot
-              RTS
 
