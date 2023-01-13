@@ -216,8 +216,8 @@ SHRCHAR640    PHY                          ; Preserve Y
 
 * VDU5 plot char at graphics cursor position
 SHRVDU5CH     >>>   ENTMAIN
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -343,7 +343,7 @@ SHRVDU5CH     >>>   ENTMAIN
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP
+*              PLP
               >>>   XF2AUX,SHRPRCH320RET
 * Zero page
 :COLCTR       EQU   TMPZP+0
@@ -405,8 +405,8 @@ SHRSHIFT      MX    %00                    ; Tell merlin we are 16 bit M&X
 
 * Handle cursor left in VDU5 mode
 SHRVDU08      >>>   ENTMAIN
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -436,14 +436,14 @@ SHRVDU08      >>>   ENTMAIN
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP
+*              PLP
               >>>   XF2AUX,VDU08RET
 
 
 * Handle cursor right in VDU5 mode
 SHRVDU09      >>>   ENTMAIN
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -461,14 +461,14 @@ SHRVDU09      >>>   ENTMAIN
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP
+*              PLP
               >>>   XF2AUX,VDU09RET
 
 
 * Handle cursor down / linefeed in VDU5 mode
 SHRVDU10      >>>   ENTMAIN
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -477,7 +477,7 @@ SHRVDU10      >>>   ENTMAIN
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP
+*              PLP
               >>>   XF2AUX,VDU10RET
 
 
@@ -502,8 +502,8 @@ SHRVDU5LF     MX    %00                    ; Tell Merlin
 
 * Handle carriage return in VDU5 mode
 SHRVDU13      >>>   ENTMAIN
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -513,7 +513,7 @@ SHRVDU13      >>>   ENTMAIN
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP
+*              PLP
               >>>   XF2AUX,VDU13RET
 
 
@@ -557,8 +557,8 @@ SHRPLOT       >>>   ENTMAIN
 :S1           CMP   #$40                   ; Plot point
               BNE   :BAIL                  ; Other? Bail out
 
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               SEP   #$30                   ; 8 bit M & X
@@ -567,7 +567,7 @@ SHRPLOT       >>>   ENTMAIN
               SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP                          ; Resume normal service
+*              PLP                          ; Resume normal service
 
               BRA   :S2
 :S2           PLA                          ; Store prev pt in screen coords
@@ -777,8 +777,8 @@ SHRLINE       LDA   A2L                    ; y1
               INC   A
 :S1           STA   TMPZP+0                ; abs(y1 - y0)
               STZ   TMPZP+1                ; Pad to 16 bit
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -890,7 +890,7 @@ SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
               SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP                          ; Resume normal service
+*              PLP                          ; Resume normal service
               RTS
 * Zero page
 :DX           EQU   TMPZP+0                ; dx initially, then (2 * (dy - dx))
@@ -967,7 +967,7 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
               SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP                          ; Resume normal service
+*              PLP                          ; Resume normal service
               RTS
 * Zero page
 :X            EQU   TMPZP+0
@@ -982,8 +982,8 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
 * from 1280x1024 to 640x200 or 320x200
 * On return: X-coordinate in A1L/H, Y-coordinate in A2L (A2H=0)
 SHRCOORD      MAC
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -1031,7 +1031,7 @@ SHRCOORDM0    LDA   SHRVDUQ+5
               SEC                          ; Back to emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP                          ; Normal service resumed
+*              PLP                          ; Normal service resumed
               BRA   SHRCOORDEND
 
 SHRCOORDNEG   MX    %00                    ; Tell Merlin we are 16 bit
@@ -1063,7 +1063,7 @@ SHRCOORDNEG   MX    %00                    ; Tell Merlin we are 16 bit
               SEC                          ; Back to emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP                          ; Normal service resumed
+*              PLP                          ; Normal service resumed
 SHRCOORDEND   EOM
 
 
@@ -1106,8 +1106,8 @@ SHRCOORD2M0   LDA   SHRVDUQ,X
 
 * Clear the graphics window
 SHRVDU16      >>>   ENTMAIN
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -1204,7 +1204,7 @@ SHRVDU16      >>>   ENTMAIN
               SEC                          ; Back to 6502 emu mode
               XCE
               MX    %11                    ; Tell Merlin
-              PLP                          ; Normal service resumed
+*              PLP                          ; Normal service resumed
               >>>   XF2AUX,SHRCLRRET
 :LEFT320      DB    %11111111
               DB    %00001111
@@ -1257,8 +1257,8 @@ SHRVDU16V     PHA
 * Validate graphics window parms & store if okay
 * First 8 bytes of SHRVDUQ: left, bottom, right, top
 SHRVDU24      >>>   ENTMAIN
-              PHP                          ; Disable interrupts
-              SEI
+*              PHP                          ; Disable interrupts
+*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -1289,11 +1289,11 @@ SHRVDU24      >>>   ENTMAIN
 
               SEC                          ; 65816 emulation mode
               XCE
-              PLP
+*              PLP
               >>>   XF2AUX,VDU24RET
 :BAD          SEC                          ; 65816 emulation mode
               XCE
-              PLP
+*              PLP
               >>>   XF2AUX,VDU24RETBAD
 
 
