@@ -292,6 +292,8 @@ SHRVDU5CH     >>>   ENTMAIN
 :L0           
               PHX
               LDY   #$00
+              STZ   :PIXBUF+2              ; Clear bytes 3,4 of shift buf
+              STZ   :PIXBUF+4              ; Clear bytes 5,6 of shift buf
 :LOOP         LDAL  $E10000,X              ; Read a word of exploded font
               STA   :PIXBUF,Y              ; Store word to shift buffer
               INX
@@ -305,6 +307,7 @@ SHRVDU5CH     >>>   ENTMAIN
               LDY   A2L                    ; Index into row of pixels
               STZ   :COLCTR
               LDX   #$00
+              INC   :BYTES
 :L1           LDA   :PIXBUF,X              ; Read word of exploded font
               PHX
               SEP   #$30                   ; 8 bit M & X
@@ -319,6 +322,7 @@ SHRVDU5CH     >>>   ENTMAIN
               LDA   :COLCTR
               CMP   :BYTES                 ; Bytes per row 
               BNE   :L1
+              DEC   :BYTES
 
               PLA                          ; Restore saved X -> A
               CLC                          ; Add bytes per row
