@@ -1201,7 +1201,11 @@ VDU28EXIT     RTS
 VDU24         BIT   VDUBANK                ; Check if this is a GS
               BMI   :GS
               RTS                          ; If not, hasta la vista
-:GS           LDX   #$00
+:GS           LDX   #$05
+              JSR   ADJORIG                ; Adjust x2,y2
+              LDX   #$01
+              JSR   ADJORIG                ; Adjust x1,y1
+              LDX   #$00
               >>>   WRTMAIN
 :L1           LDA   VDUQGFXWIND,X          ; Copy to main mem for SHR
               STA   SHRVDUQ,X
@@ -1273,7 +1277,8 @@ VDU25         LDA   VDUQ+4
               BNE   :S0
               JSR   RELCOORD               ; Relative->Absolute coords
               BRA   :S1
-:S0           JSR   ADJORIG                ; Adjust graphics origin
+:S0           LDX   #$05                   ; Coords at VDUQ+5
+              JSR   ADJORIG                ; Adjust graphics origin
 :S1           LDX   #7
 VDU25BACKUP1  LDA   PIXELPLOTX+0,X         ; Copy pixel coords
               STA   PIXELPLOTX+4,X         ; POSN becomes LAST
@@ -1320,20 +1325,21 @@ GFXPLOTTER2  LDX   #0
              RTS
 
 * Adjust graphics origin
+* On entry: X - offset into VDUQ
 ADJORIG       CLC
               LDA   GFXORIGX+0
-              ADC   VDUQ+5
-              STA   VDUQ+5
+              ADC   VDUQ+0,X
+              STA   VDUQ+0,X
               LDA   GFXORIGX+1
-              ADC   VDUQ+6
-              STA   VDUQ+6
+              ADC   VDUQ+1,X
+              STA   VDUQ+1,X
               CLC
               LDA   GFXORIGY+0
-              ADC   VDUQ+7
-              STA   VDUQ+7
+              ADC   VDUQ+2,X
+              STA   VDUQ+2,X
               LDA   GFXORIGY+1
-              ADC   VDUQ+8
-              STA   VDUQ+8
+              ADC   VDUQ+3,X
+              STA   VDUQ+3,X
               RTS
 
 * Add coordinates to GFXPOSNX, GFXPOSNY
