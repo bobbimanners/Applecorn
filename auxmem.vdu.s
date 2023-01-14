@@ -598,7 +598,14 @@ VDU10DONE     RTS
 VDU10SCRL     JMP   SCROLL
 
 * Move cursor up
-VDU11         LDA   VDUTEXTY               ; ROW
+VDU11         LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 -> VDU5 mode
+              BEQ   VDU11SKIP
+              BIT   VDUSCREEN
+              BVC   VDU11SKIP              ; Not SHR, skip
+              >>>   XF2MAIN,SHRVDU11
+VDU11RET      >>>   ENTAUX
+VDU11SKIP     LDA   VDUTEXTY               ; ROW
               CMP   TXTWINTOP
               BNE   :S1
               LDA   VDUTEXTX               ; COL

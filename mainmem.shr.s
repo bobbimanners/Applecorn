@@ -523,6 +523,27 @@ SHRVDU10      >>>   ENTMAIN
               >>>   XF2AUX,VDU10RET
 
 
+* Handle cursor up in VDU5 mode
+SHRVDU11      >>>   ENTMAIN
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDA   SHRYPIXEL
+              CLC
+              ADC   #$08                   ; Height of row of text
+              CMP   SHRWINTOP
+              BPL   :TOPPAGE
+              STA   SHRYPIXEL
+              BRA   :DONE
+:TOPPAGE      LDA   SHRWINTOP
+              STA   SHRYPIXEL
+:DONE         SEC                          ; 65816 emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              >>>   XF2AUX,VDU11RET
+
+
 * Handle linefeed in VDU5 mode - does the actual work
 * Called in 65816 native mode, 16 bit M & X
 SHRVDU5LF     MX    %00                    ; Tell Merlin
