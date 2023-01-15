@@ -487,8 +487,8 @@ KEYREAD2     JSR   KBDREAD            ; Fetch character from KBD "buffer"
              BPL   KEYREADOK          ; Not top-bit key
              AND   #$CF               ; Drop Shift/Ctrl bits
              CMP   #$C9
-             BCC   KEYSOFTHI          ; Not cursor key
-*             BCC   KEYSOFTY           ; Not cursor key
+*             BCC   KEYSOFTHI          ; Not cursor key
+             BCC   KEYSOFTY           ; Not cursor key
              LDX   FX4VAR
              BEQ   KEYCURSOR          ; *FX4,0 - editing keys
              CPY   #$C9
