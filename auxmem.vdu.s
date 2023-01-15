@@ -535,6 +535,10 @@ CHARADDROK    STA   VDUBANK
 * CC=auxmem, CS=mainmem, X=preserved
 
 
+* Generic return for all SHRVDUxx returns to aux mem
+VDUXXRET      >>>   ENTAUX                 ; SHRVDU08 returns here
+              RTS
+
 * Move text cursor position
 ***************************
 * Move cursor left
@@ -556,8 +560,6 @@ VDU08VDU4     LDA   VDUTEXTX               ; COL
               LDA   TXTWINRGT
               STA   VDUTEXTX               ; COL
 VDU08DONE     RTS
-VDU08RET      >>>   ENTAUX                 ; SHRVDU08 returns here
-              RTS
 
 * Move cursor right
 VDU09         LDA   VDUSTATUS
@@ -583,8 +585,6 @@ SCROLL        JSR   SCROLLER
               STA   VDUTEXTX
               JSR   CLREOL
               RTS
-VDU09RET      >>>   ENTAUX                 ; SHRVDU09 returns here
-              RTS
 
 * Move cursor down
 VDU10         LDA   VDUSTATUS
@@ -599,8 +599,6 @@ VDU10VDU4     LDA   VDUTEXTY               ; ROW
               INC   VDUTEXTY               ; ROW
 VDU10DONE     RTS
 VDU10SCRL     JMP   SCROLL
-VDU10RET      >>>   ENTAUX                 ; SHRVDU10 returns here
-              RTS
 
 * Move cursor up
 VDU11         LDA   VDUSTATUS
@@ -622,8 +620,6 @@ VDU11VDU4     LDA   VDUTEXTY               ; ROW
               RTS
 VDU11UP       DEC   VDUTEXTY               ; ROW
 VDU11DONE     RTS
-VDU11RET      >>>   ENTAUX                 ; SHRVDU11 returns here
-              RTS
 
 * Move to start of line
 VDU13         LDA   VDUSTATUS
@@ -637,8 +633,6 @@ VDU13VDU4     LDA   #$BF
               LDA   TXTWINLFT
               STA   VDUTEXTX               ; COL
 VDU13DONE     RTS
-VDU13RET      >>>   ENTAUX                 ; SHRVDU13 returns here
-              RTS
 
 * Move to (0,0)
 VDU30         LDA   TXTWINTOP
@@ -1141,8 +1135,6 @@ VDU19         LDA   VDUQ+5                 ; Second parm
               STX   SHRVDUQ                ; Stash X for call to main
               >>>   WRTAUX
               >>>   XF2MAIN,SHRPALCUSTOM
-VDU19RET      >>>   ENTAUX
-              RTS
 :TMP          DB    $00
 
 
@@ -1228,8 +1220,6 @@ VDU24         BIT   VDUBANK                ; Check if this is a GS
               BNE   :L1
               >>>   WRTAUX
               >>>   XF2MAIN,SHRVDU24
-VDU24RETBAD   >>>   ENTAUX
-              RTS                          ; Validation failure
 VDU24RET      >>>   ENTAUX
               LDY   #GFXWINLFT+7-VDUVARS   ; Copy to gfx window params
               LDA   #$08
@@ -1380,8 +1370,6 @@ VDU23         BIT   VDUSCREEN               ; Check we are in SHR mode
               RTS
 :SHR          JSR   VDUCOPYMAIN             ; Copy VDUQ to main mem
               >>>   XF2MAIN,SHRUSERCHAR
-VDU23RET      >>>   ENTAUX
-              RTS
 
 * Copy VDUQ to SHRVDUQ in main memory
 VDUCOPYMAIN   LDY   #$00

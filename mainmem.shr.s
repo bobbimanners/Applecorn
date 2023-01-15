@@ -165,7 +165,7 @@ SHRUSERCHAR   >>>   ENTMAIN
               INY
               CPY   #$08                   ; Last row?
               BNE   :L1
-:DONE         >>>   XF2AUX,VDU23RET
+:DONE         >>>   XF2AUX,VDUXXRET
 :INCREMENT    DB    $00
 
 
@@ -479,7 +479,7 @@ SHRVDU08      >>>   ENTMAIN
               XCE
               MX    %11                    ; Tell Merlin
 *              PLP
-              >>>   XF2AUX,VDU08RET
+              >>>   XF2AUX,VDUXXRET
 
 
 * Handle cursor right in VDU5 mode
@@ -504,7 +504,7 @@ SHRVDU09      >>>   ENTMAIN
               XCE
               MX    %11                    ; Tell Merlin
 *              PLP
-              >>>   XF2AUX,VDU09RET
+              >>>   XF2AUX,VDUXXRET
 
 
 * Handle cursor down / linefeed in VDU5 mode
@@ -520,7 +520,7 @@ SHRVDU10      >>>   ENTMAIN
               XCE
               MX    %11                    ; Tell Merlin
 *              PLP
-              >>>   XF2AUX,VDU10RET
+              >>>   XF2AUX,VDUXXRET
 
 
 * Handle cursor up in VDU5 mode
@@ -541,7 +541,7 @@ SHRVDU11      >>>   ENTMAIN
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              >>>   XF2AUX,VDU11RET
+              >>>   XF2AUX,VDUXXRET
 
 
 * Handle linefeed in VDU5 mode - does the actual work
@@ -577,7 +577,7 @@ SHRVDU13      >>>   ENTMAIN
               XCE
               MX    %11                    ; Tell Merlin
 *              PLP
-              >>>   XF2AUX,VDU13RET
+              >>>   XF2AUX,VDUXXRET
 
 
 * Plot actions: PLOT k,x,y
@@ -1357,7 +1357,7 @@ SHRVDU24      >>>   ENTMAIN
 :BAD          SEC                          ; 65816 emulation mode
               XCE
 *              PLP
-              >>>   XF2AUX,VDU24RETBAD
+              >>>   XF2AUX,VDUXXRET
 
 
 * Reset graphics window
@@ -1442,7 +1442,7 @@ SHRPALCHANGE  >>>   ENTMAIN
               STAL  $E19E00,X              ; Store in logical slot
               LDA   PALETTE320+1,Y         ; Byte 2 of physical colour
               STAL  $E19E00+1,X            ; Store in logical slot
-              >>>   XF2AUX,VDU19RET 
+              >>>   XF2AUX,VDUXXRET 
 
 
 * Assign a custom RGB colour to a 'logical' colour
@@ -1474,7 +1474,7 @@ SHRPALCUSTOM  >>>   ENTMAIN
               STAL  $E19E00,X              ; Store in logical slot
               TYA                          ; R component
               STAL  $E19E00+1,X            ; Store in logical slot
-              >>>   XF2AUX,VDU19RET 
+              >>>   XF2AUX,VDUXXRET 
               
 
 * Table of addresses of SHR rows (in reverse order)
