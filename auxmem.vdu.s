@@ -316,7 +316,13 @@ VDU127        JSR   VDU08                  ; Move cursor back
 
 * Display character at current (TEXTX,TEXTY)
 PRCHRC        PHA                          ; Save character
-              BIT ESCFLAG
+
+              LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 VDU5 mode
+              BEQ   :S1
+              JMP   PRCHR7                 ; Jump over text mode stuff
+
+:S1           BIT ESCFLAG
               BMI :RESUME
               JSR ESCPOLL
               BCS :RESUME
@@ -532,106 +538,107 @@ CHARADDROK    STA   VDUBANK
 * Move text cursor position
 ***************************
 * Move cursor left
-VDU08         LDA   VDUTEXTX               ; COL
+VDU08         LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 -> VDU5 mode
+              BEQ   VDU08VDU4              ; VDU5 not in effect
+              BIT   VDUSCREEN
+              BVC   VDU08DONE              ; VDU5 but not SHR
+              >>>   XF2MAIN,SHRVDU08
+VDU08VDU4     LDA   VDUTEXTX               ; COL
               CMP   TXTWINLFT
               BEQ   :S1
               DEC   VDUTEXTX               ; COL
-              BRA   :S3
+              BRA   VDU08DONE
 :S1           LDA   VDUTEXTY               ; ROW
               CMP   TXTWINTOP
-              BEQ   :S3
+              BEQ   VDU08DONE
               DEC   VDUTEXTY               ; ROW
               LDA   TXTWINRGT
               STA   VDUTEXTX               ; COL
-:S3           LDA   VDUSTATUS
-              AND   #$20                   ; Bit 5 -> VDU5 mode
-              BEQ   VDU08DONE
-              BIT   VDUSCREEN
-              BVC   VDU08DONE              ; Not SHR, skip
-              >>>   XF2MAIN,SHRVDU08
-VDU08RET      >>>   ENTAUX
 VDU08DONE     RTS
+VDU08RET      >>>   ENTAUX                 ; SHRVDU08 returns here
+              RTS
 
 * Move cursor right
 VDU09         LDA   VDUSTATUS
               AND   #$20                   ; Bit 5 VDU 5 mode
-              BEQ   VDU09SKIP
+              BEQ   VDU09VDU4              ; VDU5 not in effect
               BIT   VDUSCREEN
-              BVC   VDU09SKIP              ; Not SHR, skip
+              BVC   VDU09DONE              ; VDU5 but not SHR
               >>>   XF2MAIN,SHRVDU09
-VDU09RET      >>>   ENTAUX
-VDU09SKIP     LDA   VDUTEXTX               ; COL
+VDU09VDU4     LDA   VDUTEXTX               ; COL
               CMP   TXTWINRGT
-              BCC   :S2
+              BCC   VDU09RGHT
               LDA   TXTWINLFT
               STA   VDUTEXTX               ; COL
               LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
               BEQ   SCROLL
               INC   VDUTEXTY               ; ROW
-:DONE         RTS
-:S2           INC   VDUTEXTX               ; COL
-              BRA   :DONE
-SCROLL        LDA   VDUSTATUS
-              AND   #$20                   ; Bit 5 VDU5 mode
-              BEQ   :S3
-              RTS                          ; No scroll in VDU5
-:S3           JSR   SCROLLER
+VDU09DONE     RTS
+VDU09RGHT     INC   VDUTEXTX               ; COL
+              BRA   VDU09DONE
+SCROLL        JSR   SCROLLER
               LDA   TXTWINLFT
               STA   VDUTEXTX
               JSR   CLREOL
+              RTS
+VDU09RET      >>>   ENTAUX                 ; SHRVDU09 returns here
               RTS
 
 * Move cursor down
 VDU10         LDA   VDUSTATUS
               AND   #$20                   ; Bit 5 -> VDU5 mode
-              BEQ   VDU10SKIP
+              BEQ   VDU10VDU4              ; VDU5 not in effect
               BIT   VDUSCREEN
-              BVC   VDU10SKIP              ; Not SHR, skip
+              BVC   VDU10DONE              ; VDU5 but not SHR
               >>>   XF2MAIN,SHRVDU10
-VDU10RET      >>>   ENTAUX
-VDU10SKIP     LDA   VDUTEXTY               ; ROW
+VDU10VDU4     LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
               BEQ   VDU10SCRL
               INC   VDUTEXTY               ; ROW
 VDU10DONE     RTS
 VDU10SCRL     JMP   SCROLL
+VDU10RET      >>>   ENTAUX                 ; SHRVDU10 returns here
+              RTS
 
 * Move cursor up
 VDU11         LDA   VDUSTATUS
               AND   #$20                   ; Bit 5 -> VDU5 mode
-              BEQ   VDU11SKIP
+              BEQ   VDU11VDU4              ; VDU5 not in effect
               BIT   VDUSCREEN
-              BVC   VDU11SKIP              ; Not SHR, skip
+              BVC   VDU11DONE              ; VDU5 but not SHR
               >>>   XF2MAIN,SHRVDU11
-VDU11RET      >>>   ENTAUX
-VDU11SKIP     LDA   VDUTEXTY               ; ROW
+VDU11VDU4     LDA   VDUTEXTY               ; ROW
               CMP   TXTWINTOP
-              BNE   :S1
+              BNE   VDU11UP
               LDA   VDUTEXTX               ; COL
               CMP   TXTWINLFT
-              BNE   :DONE
+              BNE   VDU11DONE
               JSR   RSCROLLER
               LDA   TXTWINLFT
               STA   VDUTEXTX
               JSR   CLREOL
               RTS
-:S1           DEC   VDUTEXTY               ; ROW
-:DONE         RTS
+VDU11UP       DEC   VDUTEXTY               ; ROW
+VDU11DONE     RTS
+VDU11RET      >>>   ENTAUX                 ; SHRVDU11 returns here
+              RTS
 
 * Move to start of line
-VDU13         LDA   #$BF
+VDU13         LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 -> VDU5 mode
+              BEQ   VDU13VDU4              ; VDU5 not in effect
+              BIT   VDUSCREEN
+              BVC   VDU13DONE              ; VDU5 but not SHR
+              >>>   XF2MAIN,SHRVDU13
+VDU13VDU4     LDA   #$BF
               JSR   CLRSTATUS              ; Turn copy cursor off
               LDA   TXTWINLFT
               STA   VDUTEXTX               ; COL
-              LDA   VDUSTATUS
-              AND   #$20                   ; Bit 5 -> VDU5 mode
-              BEQ   VDU13DONE
-              BIT   VDUSCREEN
-              BVC   VDU13DONE              ; Not SHR, skip
-              >>>   XF2MAIN,SHRVDU13
-VDU13RET      >>>   ENTAUX
 VDU13DONE     RTS
+VDU13RET      >>>   ENTAUX                 ; SHRVDU13 returns here
+              RTS
 
 * Move to (0,0)
 VDU30         LDA   TXTWINTOP
