@@ -311,8 +311,13 @@ COPYSWAP4     RTS
 ***************************
 * Perform backspace & delete operation
 VDU127        JSR   VDU08                  ; Move cursor back
-              LDA   #' '                   ; Overwrite with a space
-              BNE   PUTCHRC
+              LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 VDU5 mode
+              BEQ   :NOTVDU5
+              >>>   XF2MAIN,SHRVDU127
+              RTS
+:NOTVDU5      LDA   #' '                   ; Overwrite with a space
+              BRA   PUTCHRC
 
 * Display character at current (TEXTX,TEXTY)
 PRCHRC        PHA                          ; Save character
