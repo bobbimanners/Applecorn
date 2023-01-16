@@ -535,6 +535,32 @@ CHARADDROK    STA   VDUBANK
 * CC=auxmem, CS=mainmem, X=preserved
 
 
+* Handle paged mode when moving up the screen
+VDUUP         DEC   FXLINES
+              BPL   :DONE
+              STZ   FXLINES
+:DONE         RTS
+
+* Handle paged mode when moving down the screen
+VDUDOWN       LDA   VDUSTATUS
+              AND   #$04                   ; Bit 2 -> paged mode
+              BEQ   :DONE
+              LDA   TXTWINBOT
+              SEC
+              SBC   TXTWINTOP
+              STA   :HEIGHT
+              INC   FXLINES
+              LDA   FXLINES
+              CMP   :HEIGHT
+              BCC   :DONE                  ; FXLINES <= limit
+:L1           JSR   BYTE76                 ; Check keyboard
+              LDA   FXKBDSTATE
+              AND   #$01                   ; See if Open Apple depressed
+              BEQ   :L1                    ; If not, spin
+              STZ   FXLINES
+:DONE         RTS
+:HEIGHT       DB    $00
+
 * Generic return for all SHRVDUxx returns to aux mem
 VDUXXRET      >>>   ENTAUX                 ; SHRVDU08 returns here
               RTS
@@ -559,6 +585,7 @@ VDU08VDU4     LDA   VDUTEXTX               ; COL
               DEC   VDUTEXTY               ; ROW
               LDA   TXTWINRGT
               STA   VDUTEXTX               ; COL
+              JSR   VDUUP                  ; Handle paged mode
 VDU08DONE     RTS
 
 * Move cursor right
@@ -573,6 +600,7 @@ VDU09VDU4     LDA   VDUTEXTX               ; COL
               BCC   VDU09RGHT
               LDA   TXTWINLFT
               STA   VDUTEXTX               ; COL
+              JSR   VDUDOWN                ; Handle paged mode
               LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
               BEQ   SCROLL
@@ -593,7 +621,8 @@ VDU10         LDA   VDUSTATUS
               BIT   VDUSCREEN
               BVC   VDU10DONE              ; VDU5 but not SHR
               >>>   XF2MAIN,SHRVDU10
-VDU10VDU4     LDA   VDUTEXTY               ; ROW
+VDU10VDU4     JSR   VDUDOWN                ; Handle paged mode
+              LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
               BEQ   VDU10SCRL
               INC   VDUTEXTY               ; ROW
@@ -619,6 +648,7 @@ VDU11VDU4     LDA   VDUTEXTY               ; ROW
               JSR   CLREOL
               RTS
 VDU11UP       DEC   VDUTEXTY               ; ROW
+              JSR   VDUUP                  ; Handle paged mode
 VDU11DONE     RTS
 
 * Move to start of line
