@@ -3,7 +3,13 @@
 # Uses cadius for manipulating ProDOS disk images
 #
 
-merlin32 -v applecorn.s
+if ! merlin32 -v applecorn.s; then
+  echo +++++++++++++++++++++++
+  echo +++++ BUILD ERROR +++++
+  echo +++++++++++++++++++++++
+  exit 1
+fi
+
 cp APLCORN.SYSTEM APLCORN.SYSTEM#FF2000
 cadius deletefile applecorn.po /APPLECORN/APLCORN.SYSTEM
 cadius addfile applecorn.po /APPLECORN APLCORN.SYSTEM#FF2000

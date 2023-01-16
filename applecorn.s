@@ -273,6 +273,7 @@ MAINZP      MAC
             PUT   MAINMEM.LDR
             PUT   AUXMEM.MOSEQU
             PUT   AUXMEM.INIT
+            PUT   AUXMEM.VERS
             PUT   AUXMEM.VDU
             PUT   AUXMEM.HGR
             PUT   AUXMEM.SHR
