@@ -588,7 +588,7 @@ SHRVDU127     >>>   ENTMAIN
               MX    %00                    ; Tell Merlin
               LDA   SHRXPIXEL              ; Screen col (X-coord)
               LSR   A                      ; Divide by 2
-              BRA   :S1
+              BRA   :MODE1
 :MODE0        CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -596,7 +596,7 @@ SHRVDU127     >>>   ENTMAIN
               LDA   SHRXPIXEL              ; Screen col (X-coord)
               LSR   A                      ; Divide by 2
               LSR   A                      ; Divide by 4
-:S1           TAY
+              TAY
               LDX   #$00
               SEP   #$30                   ; 8 bit M & X
               MX    %11                    ; Tell Merlin
@@ -604,6 +604,21 @@ SHRVDU127     >>>   ENTMAIN
               STAL  [A3L],Y
               INY
               STAL  [A3L],Y
+              DEY
+              JSR   NEXTROW                ; Advance A3L/H to next pixel row
+              INX
+              CPX   #$08                   ; Erased all 8 rows?
+              BNE   :L1
+              BRA   :DONE
+:MODE1        MX    %00                    ; Tell Merlin it's 16 bit M&X
+              TAY
+              LDX   #$00
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+:L2           LDA   SHRGFXBGMASK
+              STAL  [A3L],Y
+              INY
+              STAL  [A3L],Y
               INY
               STAL  [A3L],Y
               INY
@@ -611,20 +626,23 @@ SHRVDU127     >>>   ENTMAIN
               DEY
               DEY
               DEY
-              LDA   A3L                    ; Advance A3L/H to next row
+              JSR   NEXTROW                ; Advance A3L/H to next pixel row
+              INX
+              CPX   #$08                   ; Erased all 8 rows?
+              BNE   :L2
+:DONE         SEC                          ; 65816 emulation mode
+              XCE
+              >>>   XF2AUX,VDUXXRET
+
+* Advance A3L/H to next pixel row on screen
+NEXTROW       LDA   A3L                    ; Advance A3L/H to next row
               CLC
               ADC   #160
               STA   A3L
               LDA   A3H
               ADC   #$00
               STA   A3H
-              INX
-              CPX   #$08                   ; Erased all 8 rows?
-              BNE   :L1
-              SEC                          ; 65816 emulation mode
-              XCE
-              >>>   XF2AUX,VDUXXRET
-
+              RTS
 
 * Plot actions: PLOT k,x,y
 * k is in SHRVDUQ+4
