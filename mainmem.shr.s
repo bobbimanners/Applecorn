@@ -200,8 +200,19 @@ SHRXPLDROW    LDX   SHRPIXELS              ; Pixels per byte
 
 
 * Clear text row 24 (0-based index)
-SHRCLR24      
-* $9800
+SHRCLR24      CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDX   #$00
+              LDA   #$00
+:L1           STAL  $E19800,X
+              INX
+              CPX   #$0500
+              BNE   :L1
+              SEC                          ; 65816 emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
               RTS
 
 
