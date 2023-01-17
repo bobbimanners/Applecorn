@@ -275,6 +275,74 @@ SHRCHAR640    PHY                          ; Preserve Y
               RTS
 
 
+* Handle plotting & unplotting cursors
+* On entry: character in A, flags in Y
+*           pointer to screen address in SHRVDUQ+0..1
+SHRCURSM      >>>   ENTMAIN
+              PHY                          ; Preserve flags
+              PHA                          ; Preserve character
+              LDA   SHRVDUQ+0              ; Copy pointer to A3L/H
+              STA   A3L
+              LDA   SHRVDUQ+1
+              STA   A3H
+              LDA   #$E1                   ; Bank $E1
+              STA   A4L
+              LDA   SHRPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :MODE0
+              LDA   #$04                   ; 4 bytes in 320 mode
+              LDX   #$71                   ; White/red
+              BRA   :S1
+:MODE0        LDA   #$02                   ; 2 bytes in 640 mode
+              LDX   #%11011101             ; White/red/white/red
+:S1           STA   :BYTES                 ; Bytes per char
+              STX   :CURSBYTE
+              LDA   A3L                    ; LSB
+              CLC
+              ADC   #<$460                 ; $460 is seven rows
+              STA   A3L
+              LDA   A3H                    ; MSB
+              ADC   #>$460                 ; $460 is seven rows
+              STA   A3H
+              LDY   #$00
+              LDX   #$00
+              PLA                          ; Recover character
+              PLP                          ; Recover flags
+              BVC   :S2                    ; VC: Write cursor
+              INX                          ; Advance to 2nd half of :SAVEBYTES
+              INX
+              INX
+              INX
+:S2           BCC   :CURSOROFF             ; CC: Remove cursor
+:CURSORON
+              LDAL  [A3L],Y                ; See if cursor shown
+              CMP   :CURSBYTE
+              BEQ   :DONE                  ; Cursor shown already, skip
+:L1           LDAL  [A3L],Y
+              STA   :SAVEBYTES,X           ; Preserve bytes under cursor
+              LDA   :CURSBYTE              ; Byte of cursor data
+              STAL  [A3L],Y
+              INX
+              INY
+              CPY   :BYTES
+              BNE   :L1
+              >>>   XF2AUX,SHRCURSRET
+:CURSOROFF
+              LDAL  [A3L],Y                ; See if cursor shown
+              CMP   :CURSBYTE
+              BNE   :DONE                  ; Cursor not shown, skip
+:L2           LDA   :SAVEBYTES,X           ; Restore bytes under cursor
+              STAL  [A3L],Y
+              INX
+              INY
+              CPY   :BYTES
+              BNE   :L2
+:DONE         >>>   XF2AUX,SHRCURSRET
+:BYTES        DB    $00                    ; 2 for 640-mode, 4 for 320-mode
+:CURSBYTE     DB    $00                    ; Cursor byte for mode
+:SAVEBYTES    DS    8                      ; Bytes under cursors
+
+
 * VDU5 plot char at graphics cursor position
 SHRVDU5CH     >>>   ENTMAIN
               CLC                          ; 65816 native mode
