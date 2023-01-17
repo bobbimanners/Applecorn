@@ -605,7 +605,7 @@ SHRVDU127     >>>   ENTMAIN
               INY
               STAL  [A3L],Y
               DEY
-              JSR   NEXTROW                ; Advance A3L/H to next pixel row
+              JSR   SHRNXTROWM             ; Advance A3L/H to next pixel row
               INX
               CPX   #$08                   ; Erased all 8 rows?
               BNE   :L1
@@ -626,7 +626,7 @@ SHRVDU127     >>>   ENTMAIN
               DEY
               DEY
               DEY
-              JSR   NEXTROW                ; Advance A3L/H to next pixel row
+              JSR   SHRNXTROWM             ; Advance A3L/H to next pixel row
               INX
               CPX   #$08                   ; Erased all 8 rows?
               BNE   :L2
@@ -635,7 +635,7 @@ SHRVDU127     >>>   ENTMAIN
               >>>   XF2AUX,VDUXXRET
 
 * Advance A3L/H to next pixel row on screen
-NEXTROW       LDA   A3L                    ; Advance A3L/H to next row
+SHRNXTROWM    LDA   A3L                    ; Advance A3L/H to next row
               CLC
               ADC   #160
               STA   A3L
@@ -643,6 +643,7 @@ NEXTROW       LDA   A3L                    ; Advance A3L/H to next row
               ADC   #$00
               STA   A3H
               RTS
+
 
 * Plot actions: PLOT k,x,y
 * k is in SHRVDUQ+4
