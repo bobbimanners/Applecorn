@@ -208,6 +208,7 @@ SHRCLR24      CLC                          ; 65816 native mode
               LDA   #$00
 :L1           STAL  $E19800,X
               INX
+              INX
               CPX   #$0500
               BNE   :L1
               SEC                          ; 65816 emulation mode
