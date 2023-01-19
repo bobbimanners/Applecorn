@@ -1093,7 +1093,7 @@ SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
               STA   :D                     ; D = D + 2 * dy
 :S3           INX
               CPX   :LIM                   ; Compare with x1
-              BNE   :L1
+              BCC   :L1
 
               SEC                          ; 65816 emulation mode
               XCE
@@ -1169,7 +1169,7 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
               STA   :D                     ; D = D + 2 * dx
 :S3           INX
               CPX   :LIM                   ; Compare with y1
-              BNE   :L1
+              BCC   :L1
 
               SEC                          ; 65816 emulation mode
               XCE
