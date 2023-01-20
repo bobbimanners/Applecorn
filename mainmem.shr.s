@@ -90,8 +90,8 @@ SHRXPLDFONT   >>>   ENTMAIN
               INC   A
               CMP   #128                   ; 96 chars in FONT8
               BNE   :L1
+              JSR   SHRCLR24               ; Clear row 24
               >>>   XF2AUX,SHRV22RET
-              RTS
 
 
 * Explode one character to location pointed to by A3L
@@ -165,7 +165,7 @@ SHRUSERCHAR   >>>   ENTMAIN
               INY
               CPY   #$08                   ; Last row?
               BNE   :L1
-:DONE         >>>   XF2AUX,VDU23RET
+:DONE         >>>   XF2AUX,VDUXXRET
 :INCREMENT    DB    $00
 
 
@@ -196,6 +196,24 @@ SHRXPLDROW    LDX   SHRPIXELS              ; Pixels per byte
               ADC   #$00
               STA   A3H
 :S4           RTS
+
+
+* Clear text row 24 (0-based index)
+SHRCLR24      CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDX   #$00
+              LDA   #$00
+:L1           STAL  $E19800,X
+              INX
+              INX
+              CPX   #$0500
+              BNE   :L1
+              SEC                          ; 65816 emulation mode
+              XCE
+              MX    %11                    ; Tell Merlin
+              RTS
 
 
 * Explode one pixel row of font in 320 mode
@@ -256,10 +274,76 @@ SHRCHAR640    PHY                          ; Preserve Y
               RTS
 
 
+* Handle plotting & unplotting cursors
+* On entry: character in A, flags in Y
+*           pointer to screen address in SHRVDUQ+0..1
+SHRCURSM      >>>   ENTMAIN
+              PHY                          ; Preserve flags
+              PHA                          ; Preserve character
+              LDA   SHRVDUQ+0              ; Copy pointer to A3L/H
+              STA   A3L
+              LDA   SHRVDUQ+1
+              STA   A3H
+              LDA   #$E1                   ; Bank $E1
+              STA   A4L
+              LDA   SHRPIXELS              ; Pixels per byte
+              CMP   #$02                   ; 2 is 320-mode (MODE 1)
+              BNE   :MODE0
+              LDA   #$04                   ; 4 bytes in 320 mode
+              LDX   #$71                   ; White/red
+              BRA   :S1
+:MODE0        LDA   #$02                   ; 2 bytes in 640 mode
+              LDX   #%11011101             ; White/red/white/red
+:S1           STA   :BYTES                 ; Bytes per char
+              STX   :CURSBYTE
+              LDA   A3L                    ; LSB
+              CLC
+              ADC   #<$460                 ; $460 is seven rows
+              STA   A3L
+              LDA   A3H                    ; MSB
+              ADC   #>$460                 ; $460 is seven rows
+              STA   A3H
+              LDY   #$00
+              LDX   #$00
+              PLA                          ; Recover character
+              PLP                          ; Recover flags
+              BVC   :S2                    ; VC: Write cursor
+              INX                          ; Advance to 2nd half of :SAVEBYTES
+              INX
+              INX
+              INX
+:S2           BCC   :CURSOROFF             ; CC: Remove cursor
+:CURSORON
+              LDAL  [A3L],Y                ; See if cursor shown
+              CMP   :CURSBYTE
+              BEQ   :DONE                  ; Cursor shown already, skip
+:L1           LDAL  [A3L],Y
+              STA   :SAVEBYTES,X           ; Preserve bytes under cursor
+              LDA   :CURSBYTE              ; Byte of cursor data
+              STAL  [A3L],Y
+              INX
+              INY
+              CPY   :BYTES
+              BNE   :L1
+              >>>   XF2AUX,SHRCURSRET
+:CURSOROFF
+              LDAL  [A3L],Y                ; See if cursor shown
+              CMP   :CURSBYTE
+              BNE   :DONE                  ; Cursor not shown, skip
+:L2           LDA   :SAVEBYTES,X           ; Restore bytes under cursor
+              STAL  [A3L],Y
+              INX
+              INY
+              CPY   :BYTES
+              BNE   :L2
+:DONE         >>>   XF2AUX,SHRCURSRET
+:BYTES        DB    $00                    ; 2 for 640-mode, 4 for 320-mode
+:CURSBYTE     DB    $00                    ; Cursor byte for mode
+:SAVEBYTES    DS    8                      ; Bytes under cursors
+
+
 * VDU5 plot char at graphics cursor position
 SHRVDU5CH     >>>   ENTMAIN
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -385,7 +469,6 @@ SHRVDU5CH     >>>   ENTMAIN
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP
               >>>   XF2AUX,SHRPRCH320RET
 * Zero page
 :COLCTR       EQU   TMPZP+0
@@ -445,10 +528,9 @@ SHRSHIFT      MX    %00                    ; Tell merlin we are 16 bit M&X
               RTS
               MX    %11
 
+
 * Handle cursor left in VDU5 mode
 SHRVDU08      >>>   ENTMAIN
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -457,35 +539,32 @@ SHRVDU08      >>>   ENTMAIN
               SEC
               SBC   #$08                   ; Move to previous column
               CMP   SHRWINLFT
-              BMI   :PREVLINE
+              BMI   :PREVLINE              ; x-pos < SHRWINLFT
               STA   SHRXPIXEL
               BRA   :DONE
-:PREVLINE     LDA   SHRWINRGT
-              SEC
-              SBC   #$08
-              STA   SHRXPIXEL
-              LDA   SHRYPIXEL
+:PREVLINE     LDA   SHRYPIXEL
               CLC                          ; Add 8 rows (go up)
               ADC   #$08
               CMP   SHRWINTOP
-              BMI   :BOTTOMROW
+              BCS   :HOME                  ; y-pos >= SHRWINTOP
               STA   SHRYPIXEL
+              LDA   SHRWINRGT
+              SEC
+              SBC   #$07
+              STA   SHRXPIXEL
               BRA   :DONE
-:BOTTOMROW    LDA   SHRWINBTM
-              CLC
-              ADC   #$08                   ; Go up one row from bottom
+:HOME         LDA   SHRWINTOP
               STA   SHRYPIXEL
+              LDA   SHRWINLFT
+              STA   SHRXPIXEL
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP
-              >>>   XF2AUX,VDU08RET
+              >>>   XF2AUX,VDUXXRET
 
 
 * Handle cursor right in VDU5 mode
 SHRVDU09      >>>   ENTMAIN
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -494,7 +573,7 @@ SHRVDU09      >>>   ENTMAIN
               CLC
               ADC   #$08                   ; Advance to next column
               CMP   SHRWINRGT
-              BCS   :NEWLINE               ; X-pos >= limit
+              BCS   :NEWLINE               ; x-pos >= SHRWINRGT
               STA   SHRXPIXEL
               BRA   :DONE
 :NEWLINE      LDA   SHRWINLFT
@@ -503,14 +582,11 @@ SHRVDU09      >>>   ENTMAIN
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP
-              >>>   XF2AUX,VDU09RET
+              >>>   XF2AUX,VDUXXRET
 
 
 * Handle cursor down / linefeed in VDU5 mode
 SHRVDU10      >>>   ENTMAIN
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -519,8 +595,7 @@ SHRVDU10      >>>   ENTMAIN
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP
-              >>>   XF2AUX,VDU10RET
+              >>>   XF2AUX,VDUXXRET
 
 
 * Handle cursor up in VDU5 mode
@@ -533,15 +608,15 @@ SHRVDU11      >>>   ENTMAIN
               CLC
               ADC   #$08                   ; Height of row of text
               CMP   SHRWINTOP
-              BPL   :TOPPAGE
+              BCS   :TOP                   ; y-pos >= SHRWINTOP
               STA   SHRYPIXEL
               BRA   :DONE
-:TOPPAGE      LDA   SHRWINTOP
+:TOP          LDA   SHRWINTOP
               STA   SHRYPIXEL
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-              >>>   XF2AUX,VDU11RET
+              >>>   XF2AUX,VDUXXRET
 
 
 * Handle linefeed in VDU5 mode - does the actual work
@@ -551,7 +626,7 @@ SHRVDU5LF     MX    %00                    ; Tell Merlin
               SEC
               SBC   #16                    ; Height of this+next row
               CMP   SHRWINBTM
-              BMI   :NEWPAGE               ; Less than 16 rows left
+              BCC   :NEWPAGE               ; Less than 16 rows left
               LDA   SHRYPIXEL
               SEC
               SBC   #$08
@@ -565,8 +640,6 @@ SHRVDU5LF     MX    %00                    ; Tell Merlin
 
 * Handle carriage return in VDU5 mode
 SHRVDU13      >>>   ENTMAIN
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -576,8 +649,83 @@ SHRVDU13      >>>   ENTMAIN
 :DONE         SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP
-              >>>   XF2AUX,VDU13RET
+              >>>   XF2AUX,VDUXXRET
+
+
+* Handle erasing char for VDU127 in VDU5 mode
+* Called after SHRVDU08 has already backspaced cursor
+SHRVDU127     >>>   ENTMAIN
+              LDX   SHRYPIXEL              ; Screen row (Y-coord)
+              LDA   SHRROWSL,X             ; Look up addr (LS byte)
+              STA   A3L                    ; Stash in A3L
+              LDA   SHRROWSH,X             ; Look up addr (MS byte)
+              STA   A3H                    ; Stash in A3H
+              LDA   #$E1                   ; Bank $E1
+              STA   A4L
+              LDX   SHRPIXELS
+              CPX   #$02
+              BNE   :MODE0
+              CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDA   SHRXPIXEL              ; Screen col (X-coord)
+              LSR   A                      ; Divide by 2
+              BRA   :MODE1
+:MODE0        CLC                          ; 65816 native mode
+              XCE
+              REP   #$30                   ; 16 bit M & X
+              MX    %00                    ; Tell Merlin
+              LDA   SHRXPIXEL              ; Screen col (X-coord)
+              LSR   A                      ; Divide by 2
+              LSR   A                      ; Divide by 4
+              TAY
+              LDX   #$00
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+:L1           LDA   SHRGFXBGMASK
+              STAL  [A3L],Y
+              INY
+              STAL  [A3L],Y
+              DEY
+              JSR   SHRNXTROWM             ; Advance A3L/H to next pixel row
+              INX
+              CPX   #$08                   ; Erased all 8 rows?
+              BNE   :L1
+              BRA   :DONE
+:MODE1        MX    %00                    ; Tell Merlin it's 16 bit M&X
+              TAY
+              LDX   #$00
+              SEP   #$30                   ; 8 bit M & X
+              MX    %11                    ; Tell Merlin
+:L2           LDA   SHRGFXBGMASK
+              STAL  [A3L],Y
+              INY
+              STAL  [A3L],Y
+              INY
+              STAL  [A3L],Y
+              INY
+              STAL  [A3L],Y
+              DEY
+              DEY
+              DEY
+              JSR   SHRNXTROWM             ; Advance A3L/H to next pixel row
+              INX
+              CPX   #$08                   ; Erased all 8 rows?
+              BNE   :L2
+:DONE         SEC                          ; 65816 emulation mode
+              XCE
+              >>>   XF2AUX,VDUXXRET
+
+* Advance A3L/H to next pixel row on screen
+SHRNXTROWM    LDA   A3L                    ; Advance A3L/H to next row
+              CLC
+              ADC   #160
+              STA   A3L
+              LDA   A3H
+              ADC   #$00
+              STA   A3H
+              RTS
 
 
 * Plot actions: PLOT k,x,y
@@ -620,8 +768,6 @@ SHRPLOT       >>>   ENTMAIN
 :S1           CMP   #$40                   ; Plot point
               BNE   :BAIL                  ; Other? Bail out
 
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               SEP   #$30                   ; 8 bit M & X
@@ -630,7 +776,6 @@ SHRPLOT       >>>   ENTMAIN
               SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP                          ; Resume normal service
 
               BRA   :S2
 :S2           PLA                          ; Store prev pt in screen coords
@@ -672,6 +817,7 @@ SHRPLOTCOL    LDA   SHRGFXFGMASK           ; Preserve FG colour
 
 * Plot a point
 * Called in 65816 native mode, 8 bit M & X
+* On entry: A1L/H x-coordinate, A2L/H y-coordinate
 SHRPOINT      REP   #$30                   ; 16 bit M & X
               MX    %00                    ; Tell Merlin
               LDA   A2L                    ; y coordinate
@@ -840,8 +986,6 @@ SHRLINE       LDA   A2L                    ; y1
               INC   A
 :S1           STA   TMPZP+0                ; abs(y1 - y0)
               STZ   TMPZP+1                ; Pad to 16 bit
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -948,12 +1092,11 @@ SHRLINELO     MX    %00                    ; Tell merlin 16 bit M & X
               STA   :D                     ; D = D + 2 * dy
 :S3           INX
               CPX   :LIM                   ; Compare with x1
-              BNE   :L1
+              BCC   :L1
 
               SEC                          ; 65816 emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP                          ; Resume normal service
               RTS
 * Zero page
 :DX           EQU   TMPZP+0                ; dx initially, then (2 * (dy - dx))
@@ -1025,7 +1168,7 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
               STA   :D                     ; D = D + 2 * dx
 :S3           INX
               CPX   :LIM                   ; Compare with y1
-              BNE   :L1
+              BCC   :L1
 
               SEC                          ; 65816 emulation mode
               XCE
@@ -1045,8 +1188,6 @@ SHRLINEHI     MX    %00                    ; Tell Merlin 16 bit M & X
 * from 1280x1024 to 640x200 or 320x200
 * On return: X-coordinate in A1L/H, Y-coordinate in A2L (A2H=0)
 SHRCOORD      MAC
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -1094,7 +1235,6 @@ SHRCOORDM0    LDA   SHRVDUQ+5
               SEC                          ; Back to emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP                          ; Normal service resumed
               BRA   SHRCOORDEND
 
 SHRCOORDNEG   MX    %00                    ; Tell Merlin we are 16 bit
@@ -1169,8 +1309,6 @@ SHRCOORD2M0   LDA   SHRVDUQ,X
 
 * Clear the graphics window
 SHRVDU16      >>>   ENTMAIN
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -1267,7 +1405,6 @@ SHRVDU16      >>>   ENTMAIN
               SEC                          ; Back to 6502 emu mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP                          ; Normal service resumed
               >>>   XF2AUX,SHRCLRRET
 :LEFT320      DB    %11111111
               DB    %00001111
@@ -1320,8 +1457,6 @@ SHRVDU16V     PHA
 * Validate graphics window parms & store if okay
 * First 8 bytes of SHRVDUQ: left, bottom, right, top
 SHRVDU24      >>>   ENTMAIN
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -1352,12 +1487,10 @@ SHRVDU24      >>>   ENTMAIN
 
               SEC                          ; 65816 emulation mode
               XCE
-*              PLP
               >>>   XF2AUX,VDU24RET
 :BAD          SEC                          ; 65816 emulation mode
               XCE
-*              PLP
-              >>>   XF2AUX,VDU24RETBAD
+              >>>   XF2AUX,VDUXXRET
 
 
 * Reset graphics window
@@ -1434,7 +1567,7 @@ SHRPALCHANGE  >>>   ENTMAIN
               STAL  $E19E00+9,X
               STAL  $E19E00+17,X
               STAL  $E19E00+25,X
-              RTS
+              BRA   :DONE
 :MODE320      TXA
               AND   #%00011110             ; Has already been shifted
               TAX
@@ -1442,7 +1575,7 @@ SHRPALCHANGE  >>>   ENTMAIN
               STAL  $E19E00,X              ; Store in logical slot
               LDA   PALETTE320+1,Y         ; Byte 2 of physical colour
               STAL  $E19E00+1,X            ; Store in logical slot
-              >>>   XF2AUX,VDU19RET 
+:DONE         >>>   XF2AUX,VDUXXRET 
 
 
 * Assign a custom RGB colour to a 'logical' colour
@@ -1466,7 +1599,7 @@ SHRPALCUSTOM  >>>   ENTMAIN
               STAL  $E19E00+9,X
               STAL  $E19E00+17,X
               STAL  $E19E00+25,X
-              RTS
+              BRA   :DONE
 :MODE320      TXA
               AND   #%00011110             ; Has already been shifted
               TAX
@@ -1474,7 +1607,7 @@ SHRPALCUSTOM  >>>   ENTMAIN
               STAL  $E19E00,X              ; Store in logical slot
               TYA                          ; R component
               STAL  $E19E00+1,X            ; Store in logical slot
-              >>>   XF2AUX,VDU19RET 
+:DONE         >>>   XF2AUX,VDUXXRET 
               
 
 * Table of addresses of SHR rows (in reverse order)

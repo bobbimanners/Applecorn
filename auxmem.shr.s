@@ -119,70 +119,25 @@ SHRPRCHAR     LDX   VDUPIXELS              ; Pixels per byte
 *           VS read cursor / VC write cursor
 * The read and write cursors have separate save-unders in :SAVEBYTES
 SHRCURSOR     PHP                          ; Preserve flags
-              PHA                          ; Preserve character
+              PHA                          ; Preserve A
               LDA   VDUSTATUS              ; If VDU5 mode, bail
               AND   #$20
-              BNE   :BAIL
-              LDA   VDUPIXELS              ; Pixels per byte
-              CMP   #$02                   ; 2 is 320-mode (MODE 1)
-              BNE   :MODE0
-              LDA   #$04                   ; 4 bytes in 320 mode
-              LDX   #$71                   ; White/red
-              BRA   :S1
-:MODE0        LDA   #$02                   ; 2 bytes in 640 mode
-              LDX   #%11011101             ; White/red/white/red
-:S1           STA   :BYTES                 ; Bytes per char
-              STX   :CURSBYTE
-              LDA   #$E1
-              STA   VDUBANK2
+              BNE   SHRCURSBAIL
               JSR   SHRCHARADDR            ; Screen addr in VDUADDR
-              LDA   VDUADDR+0              ; LSB
-              CLC
-              ADC   #<$460                 ; $460 is seven rows
-              STA   VDUADDR+0
-              LDA   VDUADDR+1              ; MSB
-              ADC   #>$460                 ; $460 is seven rows
-              STA   VDUADDR+1
-              LDY   #$00
-              LDX   #$00
-              PLA                          ; Recover character
-              PLP                          ; Recover flags
-              BVC   :S2                    ; VC: Write cursor
-              INX                          ; Advance to 2nd half of :SAVEBYTES
-              INX
-              INX
-              INX
-:S2           BCC   :CURSOROFF             ; CC: Remove cursor
-:CURSORON
-              LDA   [VDUADDR],Y            ; See if cursor shown
-              CMP   :CURSBYTE
-              BEQ   :DONE                  ; Cursor shown already, skip
-:L1           LDAL  [VDUADDR],Y
-              STA   :SAVEBYTES,X           ; Preserve bytes under cursor
-              LDA   :CURSBYTE              ; Byte of cursor data
-              STAL  [VDUADDR],Y
-              INX
-              INY
-              CPY   :BYTES
-              BNE   :L1
+              >>>   WRTMAIN
+              LDA   VDUADDR+0              ; Copy addr to SHRVDUQ
+              STA   SHRVDUQ+0
+              LDA   VDUADDR+1
+              STA   SHRVDUQ+1
+              >>>   WRTAUX
+              PLA                          ; Recover A
+              PLY                          ; Flags -> Y
+              >>>   XF2MAIN,SHRCURSM
+SHRCURSRET    >>>   ENTAUX
               RTS
-:CURSOROFF
-              LDA   [VDUADDR],Y            ; See if cursor shown
-              CMP   :CURSBYTE
-              BNE   :DONE                  ; Cursor not shown, skip
-:L2           LDA   :SAVEBYTES,X           ; Restore bytes under cursor
-              STAL  [VDUADDR],Y
-              INX
-              INY
-              CPY   :BYTES
-              BNE   :L2
-:DONE         RTS
-:BAIL         PLA                          ; Fix stack
-              PLA
+SHRCURSBAIL   PLA
+              PLP
               RTS
-:BYTES        DB    $00                    ; 2 for 640-mode, 4 for 320-mode
-:CURSBYTE     DB    $00                    ; Cursor byte for mode
-:SAVEBYTES    DS    8                      ; Bytes under cursors
 
 
 * Write character to SHR screen in 320 pixel mode
@@ -199,8 +154,6 @@ SHRPRCH320RET >>>   ENTAUX
               RTS
 
 SHRPRCH320V4  TXA
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -284,7 +237,6 @@ SHRPRCH320V4  TXA
               SEC                          ; Back to emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP                          ; Normal service resumed
               RTS
 
 
@@ -301,8 +253,6 @@ SHRPRCH640    SEC
 * (Returns via SHRPRCH320RET)
 
 SHRPRCH640V4  TXA
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; 65816 native mode
               XCE
               REP   #$30                   ; 16 bit M & X
@@ -361,7 +311,6 @@ SHRPRCH640V4  TXA
               SEC                          ; Back to emulation mode
               XCE
               MX    %11                    ; Tell Merlin
-*              PLP                          ; Normal service resumed
               RTS
 
 
@@ -416,8 +365,6 @@ SHRSCR1LINE   PHY
               PHX
               STA   VDUADDR+1              ; Screen line -> MSB
               STZ   VDUADDR+0              ; Zero LSB
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; Enter native mode
               XCE
               PHB                          ; Preserve data bank
@@ -479,7 +426,6 @@ SHRSCR1LINE   PHY
 :DONE         PLB                          ; Recover data bank
               SEC                          ; Back to emulation mode
               XCE
-*              PLP                          ; Recover flags + regs
               PLX
               PLY
               RTS
@@ -491,8 +437,6 @@ SHRRSCR1LINE  PHY
               PHX
               STA   VDUADDR+1              ; Screen line -> MSB
               STZ   VDUADDR+0              ; Zero LSB
-*              PHP                          ; Disable interrupts
-*              SEI
               CLC                          ; Enter native mode
               XCE
               PHB                          ; Preserve data bank
@@ -554,7 +498,6 @@ SHRRSCR1LINE  PHY
 :DONE         PLB                          ; Recover data bank
               SEC                          ; Back to emulation mode
               XCE
-*              PLP                          ; Recover flags + regs
               PLX
               PLY
               RTS
@@ -700,6 +643,7 @@ SHRSETGCOL    PHA
               STX   SHRGFXACTION
               >>>   WRTAUX
               RTS
+
 
 * Wrapper to call SHRDEFPALM (which sets up default palette)
 SHRDEFPAL     >>>   XF2MAIN,SHRDEFPALM

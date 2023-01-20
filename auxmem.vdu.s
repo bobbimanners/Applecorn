@@ -311,12 +311,23 @@ COPYSWAP4     RTS
 ***************************
 * Perform backspace & delete operation
 VDU127        JSR   VDU08                  ; Move cursor back
-              LDA   #' '                   ; Overwrite with a space
-              BNE   PUTCHRC
+              LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 VDU5 mode
+              BEQ   :NOTVDU5
+              >>>   XF2MAIN,SHRVDU127
+              RTS
+:NOTVDU5      LDA   #' '                   ; Overwrite with a space
+              BRA   PUTCHRC
 
 * Display character at current (TEXTX,TEXTY)
 PRCHRC        PHA                          ; Save character
-              BIT ESCFLAG
+
+              LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 VDU5 mode
+              BEQ   :S1
+              JMP   PRCHR7                 ; Jump over text mode stuff
+
+:S1           BIT ESCFLAG
               BMI :RESUME
               JSR ESCPOLL
               BCS :RESUME
@@ -529,54 +540,80 @@ CHARADDROK    STA   VDUBANK
 * CC=auxmem, CS=mainmem, X=preserved
 
 
+* Handle paged mode when moving up the screen
+VDUUP         DEC   FXLINES
+              BPL   :DONE
+              STZ   FXLINES
+:DONE         RTS
+
+* Handle paged mode when moving down the screen
+VDUDOWN       LDA   VDUSTATUS
+              AND   #$04                   ; Bit 2 -> paged mode
+              BEQ   :DONE
+              LDA   TXTWINBOT
+              SEC
+              SBC   TXTWINTOP
+              STA   :HEIGHT
+              INC   FXLINES
+              LDA   FXLINES
+              CMP   :HEIGHT
+              BCC   :DONE                  ; FXLINES <= limit
+:L1           JSR   BYTE76                 ; Check keyboard
+              LDA   FXKBDSTATE
+              AND   #$01                   ; See if Open Apple depressed
+              BEQ   :L1                    ; If not, spin
+              STZ   FXLINES
+:DONE         RTS
+:HEIGHT       DB    $00
+
+* Generic return for all SHRVDUxx returns to aux mem
+VDUXXRET      >>>   ENTAUX                 ; SHRVDU08 returns here
+              RTS
+
 * Move text cursor position
 ***************************
 * Move cursor left
-VDU08         LDA   VDUTEXTX               ; COL
+VDU08         LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 -> VDU5 mode
+              BEQ   VDU08VDU4              ; VDU5 not in effect
+              BIT   VDUSCREEN
+              BVC   VDU08DONE              ; VDU5 but not SHR
+              >>>   XF2MAIN,SHRVDU08
+VDU08VDU4     LDA   VDUTEXTX               ; COL
               CMP   TXTWINLFT
               BEQ   :S1
               DEC   VDUTEXTX               ; COL
-              BRA   :S3
+              BRA   VDU08DONE
 :S1           LDA   VDUTEXTY               ; ROW
               CMP   TXTWINTOP
-              BEQ   :S3
+              BEQ   VDU08DONE
               DEC   VDUTEXTY               ; ROW
               LDA   TXTWINRGT
               STA   VDUTEXTX               ; COL
-:S3           LDA   VDUSTATUS
-              AND   #$20                   ; Bit 5 -> VDU5 mode
-              BEQ   VDU08DONE
-              BIT   VDUSCREEN
-              BVC   VDU08DONE              ; Not SHR, skip
-              >>>   XF2MAIN,SHRVDU08
-VDU08RET      >>>   ENTAUX
+              JSR   VDUUP                  ; Handle paged mode
 VDU08DONE     RTS
 
 * Move cursor right
 VDU09         LDA   VDUSTATUS
               AND   #$20                   ; Bit 5 VDU 5 mode
-              BEQ   VDU09SKIP
+              BEQ   VDU09VDU4              ; VDU5 not in effect
               BIT   VDUSCREEN
-              BVC   VDU09SKIP              ; Not SHR, skip
+              BVC   VDU09DONE              ; VDU5 but not SHR
               >>>   XF2MAIN,SHRVDU09
-VDU09RET      >>>   ENTAUX
-VDU09SKIP     LDA   VDUTEXTX               ; COL
+VDU09VDU4     LDA   VDUTEXTX               ; COL
               CMP   TXTWINRGT
-              BCC   :S2
+              BCC   VDU09RGHT
               LDA   TXTWINLFT
               STA   VDUTEXTX               ; COL
+              JSR   VDUDOWN                ; Handle paged mode
               LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
               BEQ   SCROLL
               INC   VDUTEXTY               ; ROW
-:DONE         RTS
-:S2           INC   VDUTEXTX               ; COL
-              BRA   :DONE
-SCROLL        LDA   VDUSTATUS
-              AND   #$20                   ; Bit 5 VDU5 mode
-              BEQ   :S3
-              RTS                          ; No scroll in VDU5
-:S3           JSR   SCROLLER
+VDU09DONE     RTS
+VDU09RGHT     INC   VDUTEXTX               ; COL
+              BRA   VDU09DONE
+SCROLL        JSR   SCROLLER
               LDA   TXTWINLFT
               STA   VDUTEXTX
               JSR   CLREOL
@@ -585,12 +622,12 @@ SCROLL        LDA   VDUSTATUS
 * Move cursor down
 VDU10         LDA   VDUSTATUS
               AND   #$20                   ; Bit 5 -> VDU5 mode
-              BEQ   VDU10SKIP
+              BEQ   VDU10VDU4              ; VDU5 not in effect
               BIT   VDUSCREEN
-              BVC   VDU10SKIP              ; Not SHR, skip
+              BVC   VDU10DONE              ; VDU5 but not SHR
               >>>   XF2MAIN,SHRVDU10
-VDU10RET      >>>   ENTAUX
-VDU10SKIP     LDA   VDUTEXTY               ; ROW
+VDU10VDU4     JSR   VDUDOWN                ; Handle paged mode
+              LDA   VDUTEXTY               ; ROW
               CMP   TXTWINBOT
               BEQ   VDU10SCRL
               INC   VDUTEXTY               ; ROW
@@ -600,37 +637,36 @@ VDU10SCRL     JMP   SCROLL
 * Move cursor up
 VDU11         LDA   VDUSTATUS
               AND   #$20                   ; Bit 5 -> VDU5 mode
-              BEQ   VDU11SKIP
+              BEQ   VDU11VDU4              ; VDU5 not in effect
               BIT   VDUSCREEN
-              BVC   VDU11SKIP              ; Not SHR, skip
+              BVC   VDU11DONE              ; VDU5 but not SHR
               >>>   XF2MAIN,SHRVDU11
-VDU11RET      >>>   ENTAUX
-VDU11SKIP     LDA   VDUTEXTY               ; ROW
+VDU11VDU4     LDA   VDUTEXTY               ; ROW
               CMP   TXTWINTOP
-              BNE   :S1
+              BNE   VDU11UP
               LDA   VDUTEXTX               ; COL
               CMP   TXTWINLFT
-              BNE   :DONE
+              BNE   VDU11DONE
               JSR   RSCROLLER
               LDA   TXTWINLFT
               STA   VDUTEXTX
               JSR   CLREOL
               RTS
-:S1           DEC   VDUTEXTY               ; ROW
-:DONE         RTS
+VDU11UP       DEC   VDUTEXTY               ; ROW
+              JSR   VDUUP                  ; Handle paged mode
+VDU11DONE     RTS
 
 * Move to start of line
-VDU13         LDA   #$BF
+VDU13         LDA   VDUSTATUS
+              AND   #$20                   ; Bit 5 -> VDU5 mode
+              BEQ   VDU13VDU4              ; VDU5 not in effect
+              BIT   VDUSCREEN
+              BVC   VDU13DONE              ; VDU5 but not SHR
+              >>>   XF2MAIN,SHRVDU13
+VDU13VDU4     LDA   #$BF
               JSR   CLRSTATUS              ; Turn copy cursor off
               LDA   TXTWINLFT
               STA   VDUTEXTX               ; COL
-              LDA   VDUSTATUS
-              AND   #$20                   ; Bit 5 -> VDU5 mode
-              BEQ   VDU13DONE
-              BIT   VDUSCREEN
-              BVC   VDU13DONE              ; Not SHR, skip
-              >>>   XF2MAIN,SHRVDU13
-VDU13RET      >>>   ENTAUX
 VDU13DONE     RTS
 
 * Move to (0,0)
@@ -1134,8 +1170,6 @@ VDU19         LDA   VDUQ+5                 ; Second parm
               STX   SHRVDUQ                ; Stash X for call to main
               >>>   WRTAUX
               >>>   XF2MAIN,SHRPALCUSTOM
-VDU19RET      >>>   ENTAUX
-              RTS
 :TMP          DB    $00
 
 
@@ -1221,8 +1255,6 @@ VDU24         BIT   VDUBANK                ; Check if this is a GS
               BNE   :L1
               >>>   WRTAUX
               >>>   XF2MAIN,SHRVDU24
-VDU24RETBAD   >>>   ENTAUX
-              RTS                          ; Validation failure
 VDU24RET      >>>   ENTAUX
               LDY   #GFXWINLFT+7-VDUVARS   ; Copy to gfx window params
               LDA   #$08
@@ -1373,8 +1405,6 @@ VDU23         BIT   VDUSCREEN               ; Check we are in SHR mode
               RTS
 :SHR          JSR   VDUCOPYMAIN             ; Copy VDUQ to main mem
               >>>   XF2MAIN,SHRUSERCHAR
-VDU23RET      >>>   ENTAUX
-              RTS
 
 * Copy VDUQ to SHRVDUQ in main memory
 VDUCOPYMAIN   LDY   #$00
