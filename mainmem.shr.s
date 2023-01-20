@@ -92,7 +92,6 @@ SHRXPLDFONT   >>>   ENTMAIN
               BNE   :L1
               JSR   SHRCLR24               ; Clear row 24
               >>>   XF2AUX,SHRV22RET
-              RTS
 
 
 * Explode one character to location pointed to by A3L
@@ -1600,7 +1599,7 @@ SHRPALCUSTOM  >>>   ENTMAIN
               STAL  $E19E00+9,X
               STAL  $E19E00+17,X
               STAL  $E19E00+25,X
-              RTS
+              BRA   :DONE
 :MODE320      TXA
               AND   #%00011110             ; Has already been shifted
               TAX
@@ -1608,7 +1607,7 @@ SHRPALCUSTOM  >>>   ENTMAIN
               STAL  $E19E00,X              ; Store in logical slot
               TYA                          ; R component
               STAL  $E19E00+1,X            ; Store in logical slot
-              >>>   XF2AUX,VDUXXRET 
+:DONE         >>>   XF2AUX,VDUXXRET 
               
 
 * Table of addresses of SHR rows (in reverse order)
