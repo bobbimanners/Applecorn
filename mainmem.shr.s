@@ -1568,7 +1568,7 @@ SHRPALCHANGE  >>>   ENTMAIN
               STAL  $E19E00+9,X
               STAL  $E19E00+17,X
               STAL  $E19E00+25,X
-              RTS
+              BRA   :DONE
 :MODE320      TXA
               AND   #%00011110             ; Has already been shifted
               TAX
@@ -1576,7 +1576,7 @@ SHRPALCHANGE  >>>   ENTMAIN
               STAL  $E19E00,X              ; Store in logical slot
               LDA   PALETTE320+1,Y         ; Byte 2 of physical colour
               STAL  $E19E00+1,X            ; Store in logical slot
-              >>>   XF2AUX,VDUXXRET 
+:DONE         >>>   XF2AUX,VDUXXRET 
 
 
 * Assign a custom RGB colour to a 'logical' colour
