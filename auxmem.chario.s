@@ -157,7 +157,7 @@ INKEYGO      CLI                      ; Enable IRQs
              JSR   GETCHRC            ; Get character under cursor
              STA   COPYCHAR           ; Save char under edit cursor
              LDA   CURSORED
-             JSR   PUTCHRC            ; Display edit cursor
+             JSR   SHOWWTCURSOR       ; Show write cursor
              JSR   COPYSWAP1          ; Swap to copy cursor
 INKEYGO2     JSR   GETCHRC            ; Get character under cursor
              STA   OLDCHAR
@@ -174,12 +174,14 @@ INKEY0       ADC   FLASHER
              BNE   INKEY3             ; Not time to toggle yet
              LDA   OLDCHAR            ; Prepare to remove cursor
              BIT   FLASHER
-             BMI   INKEY2             ; Remove cursor
+             BPL   INKEY1             ; Do not remove cursor
+             JSR   REMRDCURSOR        ; Remove read cursor
+             BRA   INKEY3
 INKEY1       LDA   CURSOR             ; Add cursor
              BIT   VDUSTATUS
              BVC   INKEY2
              LDA   CURSORCP
-INKEY2       JSR   PUTCHRC            ; Toggle cursor
+INKEY2       JSR   SHOWRDCURSOR       ; Show read cursor
 INKEY3       LDA   #$27               ; Prepare to return CHR$27 if Escape state
              CLC
              BIT   ESCFLAG            ; Check Escape state
@@ -213,10 +215,10 @@ INKEYOK      PHA                      ; Save key or timeout
              LDA   OLDCHAR            ; Prepare for main cursor
              BIT   VDUSTATUS
              BVC   INKEYOFF2          ; No editing cursor
-             JSR   PUTCHRC            ; Remove cursor
+             JSR   REMRDCURSOR        ; Remove read cursor
              JSR   COPYSWAP1          ; Swap cursor back
              LDA   COPYCHAR           ; Remove main cursor
-INKEYOFF2    JSR   PUTCHRC            ; Remove cursor
+INKEYOFF2    JSR   REMWTCURSOR        ; Remove write cursor
              PLP
              BCS   INKEYOK3           ; Timeout
              LDA   ESCFLAG            ; Keypress, test for Escape
@@ -540,7 +542,7 @@ KEYCURSOR    CMP   #$C9
              BEQ   KEYCOPY
              PHA
              LDA   OLDCHAR
-             JSR   PUTCHRC            ; Remove cursor
+             JSR   REMRDCURSOR        ; Remove read cursor
              PLA
              JSR   COPYMOVE           ; Move copy cursor
              JSR   GETCHRC            ; Save char under cursor
@@ -553,7 +555,7 @@ KEYCOPYTAB   LDA   FXTABCHAR          ; Prepare TAB if no copy cursor
              BVC   KEYREADOK1         ; No copy cursor, return TAB
              LDA   OLDCHAR            ; Get the char under cursor
              PHA
-             JSR   OUTCHARCP          ; Output it to restore and move cursor
+             JSR   PUTCOPYCURS        ; Restore and move read cursor [OFF]
              JSR   GETCHRC            ; Save char under cursor
              STA   OLDCHAR
              PLA
