@@ -112,16 +112,18 @@ VDUWORKSZ     EQU   VDUVAREND-VDUWORKSP+1
 *
 
 * Screen definitions
-*                     0   1   2   3           6   7  ; MODEs sort-of completed
+*                     0   1       3   4       6   7  ; MODEs sort-of completed
 SCNTXTMAXX    DB     79, 39, 39, 79, 39, 39, 39, 39  ; Max text column
 SCNTXTMAXY    DB     23, 23, 23, 23, 23, 23, 23, 23  ; Max text row
-SCNBYTES      DB     08, 08, 08, 01, 01, 01, 01, 01  ; Bytes per character
-SCNCOLOURS    DB     03, 15, 07, 01, 01, 01, 01, 01  ; Colours-1
-SCNPIXELS     DB     04, 02, 07, 00, 00, 00, 00, 00  ; Pixels per byte
-SCNTYPE       DB     65, 64,128, 01, 00, 00, 00, 32  ; Screen type
+SCNBYTES      DB     08, 08, 08, 01, 08, 01, 01, 01  ; Bytes per character
+SCNCOLOURS    DB     03, 15, 15, 01, 07, 01, 01, 01  ; Colours-1
+SCNPIXELS     DB     04, 02, 02, 00, 07, 00, 00, 00  ; Pixels per byte
+SCNFALLBACK   DB     03, 04, 05, 03, 04, 05, 06, 07  ; Fall back if unsupported
+SCNTYPE       DB     65, 64, 66, 01,128, 02, 00, 32  ; Screen type
 * b7=FastDraw -> HGR mode
 * b6=SHR mode on Apple IIgs
 * b5=Teletext
+* b1=40COL/20COL
 * b0=40COL/80COL
 
 * Colour table
@@ -704,15 +706,16 @@ VDUINIT       STA   VDUQ+8
 * MODEs available:
 *  MODE 0 - 640x200 SHR graphics, 80x24 bitmap text (GS only)
 *  MODE 1 - 320x200 SHR graphics, 40x24 bitmap text (GS only)
-*  MODE 2 - 280x192 HGR graphics, 40x24 bitmap text
+*  MODE 2 --> MODE 1
 *  MODE 3 - 80x24 text
-*  MODE 4 --> MODE 6
+*  MODE 4 - 280x192 HGR graphics, 40x24 bitmap text
 *  MODE 5 --> MODE 6
 *  MODE 6 - 40x24 text
 *  MODE 7 - 40x24 with $80-$9F converted to spaces
 *
 * On //e, MODE 0 -> MODE 3
-*         MODE 1 -> MODE 6
+*         MODE 1 -> MODE 4
+*         MODE 2 -> MODE 5
 *
 VDU22         JSR   NEGCALL                ; Find machine type
               AND   #$0F
@@ -721,16 +724,22 @@ VDU22         JSR   NEGCALL                ; Find machine type
 :NOTGS        STA   VDUBANK
               LDA   VDUQ+8
               AND   #$07
-
+; jgh
               BIT   VDUBANK
-              BMI   :INIT                  ; Skip if GS
-              CMP   #$00                   ; Mode 0?
-              BNE   :S1
-              LDA   #$03                   ; --> Mode 3 instead
-              BRA   :INIT
-:S1           CMP   #$01                   ; Mode 1?
-              BNE   :INIT
-              LDA   #$06                   ; --> Mode 6 instead
+              BMI   :INIT                  ; All MODEs supported
+              CMP   #$03
+              BCS   :INIT
+              ADC   #$03                   ; Fall back to replacement MODE
+
+;              BIT   VDUBANK
+;              BMI   :INIT                  ; Skip if GS
+;              CMP   #$00                   ; Mode 0?
+;              BNE   :S1
+;              LDA   #$03                   ; --> Mode 3 instead
+;              BRA   :INIT
+;:S1           CMP   #$01                   ; Mode 1?
+;              BNE   :INIT
+;              LDA   #$06                   ; --> Mode 6 instead
  
 :INIT         TAX                          ; Set up MODE
               STX   VDUMODE                ; Screen MODE
