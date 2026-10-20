@@ -40,11 +40,13 @@ RESET        TSX
 * Reset hardware
 RESETHW      SEC
              STZ   AUDIOCARD
+             BIT   $C061             ; See if Open Apple down
+             BMI   RTSINSTR          ; If so skip init
              JSR   IDROUTINE         ; See if this is a GS
              BCS   :NOTGS
              JSR   ENSQINIT          ; Initialize Ensoniq
              INC   AUDIOCARD
-             RTS                     ; AUDIOCARD=1
+             RTS
 :NOTGS
              JSR   MOCKINIT          ; Initialize Mockingboard (sl4)
 RTSINSTR     RTS                     ; AUDIOCARD=0
